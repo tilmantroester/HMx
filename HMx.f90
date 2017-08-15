@@ -79,7 +79,7 @@ PROGRAM HMx
   INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
   REAL, PARAMETER :: Lbox=400. !Simulation box size
   INTEGER, PARAMETER :: icumulative=1 !Do cumlative distributions for breakdown
-  INTEGER, PARAMETER :: ixi=1 !Do correlation functions from C(l)
+  INTEGER, PARAMETER :: ixi=0 !Do correlation functions from C(l)
   INTEGER, PARAMETER :: ifull=0 !Do only full halo model C(l), xi(theta) calculations
   REAL*8, PARAMETER :: acc=1d-4 !Global integration-accuracy parameter
 
@@ -166,8 +166,8 @@ PROGRAM HMx
 
      !Set number of k points and k range (log spaced)
      nk=200
-     kmin=0.001
-     kmax=1.e2
+     kmin=1e-3
+     kmax=1e2
      CALL fill_table(log(kmin),log(kmax),k,nk)
      k=exp(k)
      ALLOCATE(pow(4,nk))
@@ -199,8 +199,8 @@ PROGRAM HMx
 
      !Set number of k points and k range (log spaced)
      nk=200
-     kmin=0.001
-     kmax=1.e2
+     kmin=1e-3
+     kmax=1e2
      CALL fill_table(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
@@ -243,9 +243,9 @@ PROGRAM HMx
      !Compare to cosmo-OWLS models
 
      !Set number of k points and k range (log spaced)
-     nk=100
-     kmin=1.e-2
-     kmax=1.e1
+     nk=200
+     kmin=1e-3
+     kmax=1e2
      CALL fill_table(log(kmin),log(kmax),k,nk)
      k=exp(k)
      ALLOCATE(pow(4,nk))
@@ -322,21 +322,21 @@ PROGRAM HMx
      STOP 'Error, random mode not implemented yet'
 
      !Ignore this, only useful for bug tests
-     !CALL RNG_set(0)
-     !DO
-     !CALL random_cosmology(cosi)
+     CALL RNG_set(0)
+     DO
+        CALL random_cosmology(cosi)
 
-     !Ignore this, only useful for bug tests
-     !END DO
+        !Ignore this, only useful for bug tests
+     END DO
 
   ELSE IF(imode==5) THEN
 
      !Compare to cosmo-OWLS models for pressure
 
      !Set number of k points and k range (log spaced)
-     nk=100
-     kmin=1.e-2
-     kmax=1.e1
+     nk=200
+     kmin=1.e-3
+     kmax=1.e2
      CALL fill_table(log(kmin),log(kmax),k,nk)
      k=exp(k)
      ALLOCATE(pow(4,nk))
@@ -452,9 +452,9 @@ PROGRAM HMx
      dir='data/'
 
      !Set the k range
-     kmin=0.001
-     kmax=100.
-     nk=128
+     kmin=1e-3
+     kmax=1e2
+     nk=200
      
      !Set the z range
      zmin=0.
@@ -1137,6 +1137,9 @@ CONTAINS
     !Get the maximum distance to be considered for the Limber integral
     CALL maxdist(proj,cosi)
 
+    !Write out the projection kernels to a file
+    CALL write_projection_kernels(proj,cosm)
+
   END SUBROUTINE fill_projection_kernels
 
   SUBROUTINE calculate_Cell(r1,r2,ell,Cell,nl,k,z,pow,nk,nz,proj,cosm)
@@ -1708,6 +1711,10 @@ CONTAINS
     REAL*8 :: kstar
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
+    REAL*8 :: crap
+    
+    !To prevent compile-time warnings
+    crap=cosm%A
 
     IF(imead==0 .OR. imead==-1) THEN
        !Set to zero for the standard Poisson one-halo term
@@ -1726,6 +1733,10 @@ CONTAINS
     IMPLICIT NONE
     REAL*8 :: As
     TYPE(cosmology), INTENT(IN) :: cosm
+    REAL*8 :: crap
+    
+    !To prevent compile-time warnings
+    crap=cosm%A
 
     !Halo concentration pre-factor
     IF(imead==0 .OR. imead==-1) THEN
@@ -1746,6 +1757,11 @@ CONTAINS
     REAL*8 ::fdamp
     REAL*8, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
+    REAL*8 :: crap
+    
+    !To prevent compile-time warnings
+    crap=cosm%A
+    crap=z
 
     !Linear theory damping factor
     IF(imead==0 .OR. imead==-1) THEN
@@ -1763,28 +1779,32 @@ CONTAINS
 
   END FUNCTION fdamp
 
-  FUNCTION alpha_trans(lut,cosm)
+  FUNCTION alpha_transition(lut,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: alpha_trans
+    REAL*8 :: alpha_transition
     TYPE(tables), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(IN) :: cosm
+    REAL*8 :: crap
+    
+    !To prevent compile-time warnings
+    crap=cosm%A
 
     IF(imead==0 .OR. imead==-1) THEN
        !Set to 1 for the standard halo model addition of one- and two-halo terms
-       alpha_trans=1.
+       alpha_transition=1.
     ELSE IF(imead==1) THEN
        !This uses the top-hat defined neff
-       alpha_trans=3.24*1.85**lut%neff
+       alpha_transition=3.24*1.85**lut%neff
     ELSE
        STOP 'Error, imead defined incorrectly'
     END IF
 
     !Catches values of alpha that are crazy
-    IF(alpha_trans>2.)  alpha_trans=2.
-    IF(alpha_trans<0.5) alpha_trans=0.5
+    IF(alpha_transition>2.)  alpha_transition=2.
+    IF(alpha_transition<0.5) alpha_transition=0.5
 
-  END FUNCTION alpha_trans
+  END FUNCTION alpha_transition
 
   SUBROUTINE write_parameters(z,lut,cosm)
 
@@ -1806,7 +1826,7 @@ CONTAINS
     WRITE(*,fmt='(A10,F10.5)') 'k*:', kstar(lut,cosm)
     WRITE(*,fmt='(A10,F10.5)') 'A:', As(cosm)
     WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(z,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_trans(lut,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_transition(lut,cosm)
     WRITE(*,*) '==========================='
     WRITE(*,*) 'WRITE_PARAMETERS: Done'
     WRITE(*,*)
@@ -2937,7 +2957,7 @@ CONTAINS
     IF(imead==0 .OR. imead==-1) THEN
        pfull=p2h+p1h
     ELSE IF(imead==1) THEN
-       alp=alpha_trans(lut,cosm)
+       alp=alpha_transition(lut,cosm)
        pfull=(p2h**alp+p1h**alp)**(1.d0/alp)
     END IF
 
@@ -2990,13 +3010,6 @@ CONTAINS
              integrand22(i)=gnu(nu)*b2nu(nu)*wk(2,i)/m
           END IF
 
-          IF(ip2h==2 .AND. i==1) THEN
-             !Take the values from the lowest nu point
-             m0=m
-             wk1=wk(1,i)
-             wk2=wk(2,i)
-          END IF
-
        END DO
 
        !Evaluate these integrals from the tabled values
@@ -3011,6 +3024,9 @@ CONTAINS
           sum12=sum12+lut%gbmin*halo_fraction(ih(2),m,cosm)/matter_density(cosm)
        ELSE IF(ip2h==2) THEN
           !Put the missing part of the integrand as a delta function at nu1
+          m0=lut%m(1)
+          wk1=wk(1,1)
+          wk2=wk(2,1)
           sum11=sum11+lut%gbmin*wk1/m0
           sum12=sum12+lut%gbmin*wk2/m0
        ELSE
@@ -4178,8 +4194,12 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
     REAL*8 :: rstar, r, rmax
+    REAL*8 :: crap
     INTEGER, PARAMETER :: imod=2 !Set the model
     INTEGER, PARAMETER :: idelta=0 !Decide if we treat stars as a delta function at r=0 or not
+
+    !To prevent compile-time warnings
+    crap=rs
 
     IF(imod==1) THEN
        !Fedeli (2014)
@@ -4279,10 +4299,14 @@ CONTAINS
     REAL*8, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL*8 :: rfree, rmax, r
+    REAL*8 :: crap
     INTEGER :: irho
 
     !Set the model
     INTEGER, PARAMETER :: imod=2
+
+    !To prevent compile-time warnings
+    crap=rs  
 
     IF(imod==1) THEN
        !Simple isothermal model, motivated by constant velocity and rate expulsion
@@ -4473,10 +4497,15 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     REAL*8 :: rho0, T0, rmax, rfree, fac
+    REAL*8 :: crap
     INTEGER :: irho
 
     !Set the model
     INTEGER, PARAMETER :: imod=1
+
+    !To prevent compile-time warnings
+    crap=lut%sigv
+    crap=z
 
     IF(imod==1) THEN
 
@@ -6902,136 +6931,27 @@ CONTAINS
 
   END SUBROUTINE ode_growth
 
-!!$  SUBROUTINE ode_growth(x,v,t,kk,ti,tf,xi,vi,acc,imeth,cosm)
-!!$
-!!$    !USE cosdef
-!!$    IMPLICIT NONE
-!!$    REAL*8 :: xi, ti, tf, dt, acc, vi, x4, v4, t4, kk
-!!$    REAL*8 :: kx1, kx2, kx3, kx4, kv1, kv2, kv3, kv4
-!!$    REAL*8, ALLOCATABLE :: x8(:), t8(:), v8(:), xh(:), th(:), vh(:)
-!!$    REAL*8, ALLOCATABLE :: x(:), v(:), t(:)
-!!$    INTEGER :: i, j, k, n, np, ifail, kn, imeth
-!!$    TYPE(cosmology) :: cosm
-!!$
-!!$    !Solves 2nd order ODE x''(t) from ti to tf and writes out array of x, v, t values
-!!$    !xi and vi are the initial values of x and v (i.e. x(ti), v(ti))
-!!$    !fx is what x' is equal to
-!!$    !fv is what v' is equal to
-!!$    !acc is the desired accuracy across the entire solution
-!!$    !imeth selects method
-!!$
-!!$    IF(ALLOCATED(x)) DEALLOCATE(x)
-!!$    IF(ALLOCATED(v)) DEALLOCATE(v)
-!!$    IF(ALLOCATED(t)) DEALLOCATE(t)
-!!$
-!!$    DO j=1,30
-!!$
-!!$       n=100*(2**(j-1))
-!!$       n=n+1  
-!!$
-!!$       ALLOCATE(x8(n),t8(n),v8(n))
-!!$
-!!$       x8=0.d0
-!!$       t8=0.d0
-!!$       v8=0.d0
-!!$
-!!$       dt=(tf-ti)/float(n-1)
-!!$
-!!$       x8(1)=xi
-!!$       v8(1)=vi
-!!$       t8(1)=ti
-!!$
-!!$       ifail=0
-!!$
-!!$       DO i=1,n-1
-!!$
-!!$          x4=real(x8(i))
-!!$          v4=real(v8(i))
-!!$          t4=real(t8(i))
-!!$
-!!$          IF(imeth==1) THEN
-!!$
-!!$             !Crude method!
-!!$             v8(i+1)=v8(i)+fv(x4,v4,kk,t4,cosm)*dt
-!!$             x8(i+1)=x8(i)+fd(x4,v4,kk,t4,cosm)*dt
-!!$             t8(i+1)=t8(i)+dt
-!!$
-!!$          ELSE IF(imeth==2) THEN
-!!$
-!!$             STOP 'There is a bug here with dt being multiplied twice - corrected version in HMcode.f90'
-!!$
-!!$             !Mid-point method!
-!!$             kx1=dt*fd(x4,v4,kk,t4,cosm)
-!!$             kv1=dt*fv(x4,v4,kk,t4,cosm)
-!!$             kx2=dt*fd(x4+kx1/2.,v4+kv1/2.,kk,t4+dt/2.,cosm)
-!!$             kv2=dt*fv(x4+kx1/2.,v4+kv1/2.,kk,t4+dt/2.,cosm)
-!!$
-!!$             v8(i+1)=v8(i)+kv2*dt
-!!$             x8(i+1)=x8(i)+kx2*dt
-!!$             t8(i+1)=t8(i)+dt
-!!$
-!!$          ELSE IF(imeth==3) THEN
-!!$
-!!$             !4th order Runge-Kutta method (fucking fast)!
-!!$             kx1=dt*fd(x4,v4,kk,t4,cosm)
-!!$             kv1=dt*fv(x4,v4,kk,t4,cosm)
-!!$             kx2=dt*fd(x4+kx1/2.,v4+kv1/2.,kk,t4+dt/2.,cosm)
-!!$             kv2=dt*fv(x4+kx1/2.,v4+kv1/2.,kk,t4+dt/2.,cosm)
-!!$             kx3=dt*fd(x4+kx2/2.,v4+kv2/2.,kk,t4+dt/2.,cosm)
-!!$             kv3=dt*fv(x4+kx2/2.,v4+kv2/2.,kk,t4+dt/2.,cosm)
-!!$             kx4=dt*fd(x4+kx3,v4+kv3,kk,t4+dt,cosm)
-!!$             kv4=dt*fv(x4+kx3,v4+kv3,kk,t4+dt,cosm)
-!!$
-!!$             x8(i+1)=x8(i)+(kx1+(2.*kx2)+(2.*kx3)+kx4)/6.
-!!$             v8(i+1)=v8(i)+(kv1+(2.*kv2)+(2.*kv3)+kv4)/6.
-!!$             t8(i+1)=t8(i)+dt
-!!$
-!!$          END IF
-!!$
-!!$       END DO
-!!$
-!!$       IF(j==1) ifail=1
-!!$
-!!$       IF(j .NE. 1) THEN
-!!$
-!!$          np=1+(n-1)/2
-!!$
-!!$          DO k=1,1+(n-1)/2
-!!$
-!!$             kn=2*k-1
-!!$
-!!$             IF(ifail==0) THEN
-!!$
-!!$                IF(xh(k)>acc .AND. x8(kn)>acc .AND. (ABS(xh(k)/x8(kn))-1.)>acc) ifail=1
-!!$                IF(vh(k)>acc .AND. v8(kn)>acc .AND. (ABS(vh(k)/v8(kn))-1.)>acc) ifail=1
-!!$
-!!$                IF(ifail==1) THEN
-!!$                   DEALLOCATE(xh,th,vh)
-!!$                   EXIT
-!!$                END IF
-!!$
-!!$             END IF
-!!$          END DO
-!!$
-!!$       END IF
-!!$
-!!$       IF(ifail==0) THEN
-!!$          ALLOCATE(x(n),t(n),v(n))
-!!$          x=real(x8)
-!!$          v=real(v8)
-!!$          t=real(t8)
-!!$          EXIT
-!!$       END IF
-!!$
-!!$       ALLOCATE(xh(n),th(n),vh(n))
-!!$       xh=x8
-!!$       vh=v8
-!!$       th=t8
-!!$       DEALLOCATE(x8,t8,v8)
-!!$
-!!$    END DO
-!!$
-!!$  END SUBROUTINE ode_growth
+  FUNCTION fd(d,v,k,a,cosm)
+
+    !USE cosdef
+    IMPLICIT NONE
+    REAL*8 :: fd
+    REAL*8, INTENT(IN) :: d, v, k, a
+    REAL*8 :: crap
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    !To prevent compile-time warnings
+    crap=d
+    crap=k
+    crap=cosm%A
+    crap=a
+
+    !Needed for growth function solution
+    !This is the fd in \dot{\delta}=fd
+
+    fd=v
+
+  END FUNCTION fd
 
   FUNCTION fv(d,v,k,a,cosm)
 
@@ -7040,7 +6960,11 @@ CONTAINS
     REAL*8 :: fv
     REAL*8, INTENT(IN) :: d, v, k, a
     REAL*8 :: f1, f2, z
+    REAL*8 :: crap
     TYPE(cosmology), INTENT(IN) :: cosm
+
+    !To prevent compile-time warning
+    crap=k
 
     !Needed for growth function solution
     !This is the fv in \ddot{\delta}=fv
@@ -7053,21 +6977,6 @@ CONTAINS
     fv=f1-f2
 
   END FUNCTION fv
-
-  FUNCTION fd(d,v,k,a,cosm)
-
-    !USE cosdef
-    IMPLICIT NONE
-    REAL*8 :: fd
-    REAL*8, INTENT(IN) :: d, v, k, a
-    TYPE(cosmology), INTENT(IN) :: cosm
-
-    !Needed for growth function solution
-    !This is the fd in \dot{\delta}=fd
-
-    fd=v
-
-  END FUNCTION fd
 
   FUNCTION AH(z,cosm)
 
@@ -7176,8 +7085,12 @@ CONTAINS
     IMPLICIT NONE
     REAL*8 :: halo_CDM_fraction
     REAL*8, INTENT(IN) :: m
+    REAL*8 :: crap
     TYPE(cosmology), INTENT(IN) :: cosm
 
+    !To prevent compile-time warning
+    crap=m
+    
     !Always the universal value
     halo_CDM_fraction=cosm%om_c/cosm%om_m
 
@@ -7235,7 +7148,11 @@ CONTAINS
     REAL*8, INTENT(IN) :: m
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL*8 :: m0, sigma, A, min
+    REAL*8 :: crap
     INTEGER, PARAMETER :: imod=3 !Set the model
+
+    !To prevent compile-time warning
+    crap=cosm%A
 
     IF(imod==1 .OR. imod==3) THEN
        !Fedeli (2014)
