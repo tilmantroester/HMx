@@ -49,7 +49,7 @@ PROGRAM HMx
   IMPLICIT NONE
 
   !Standard parameters
-  REAL*8 :: p1h, p2h, pfull, plin
+  REAL*8 :: plin
   REAL*8, ALLOCATABLE :: k(:), z(:), pow(:,:), powz(:,:,:)
   REAL*8, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
   INTEGER :: i, j, nk, nz, j1, j2, n, nl, nnz, nth
@@ -63,7 +63,7 @@ PROGRAM HMx
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: output, base, mid, ext, dir
   CHARACTER(len=256) :: mode
-  INTEGER :: imode, icosmo, iproj
+  INTEGER :: imode, icosmo
   REAL*8 :: sig8min, sig8max
   INTEGER :: ncos
   REAL*8 :: m1, m2
@@ -193,7 +193,7 @@ PROGRAM HMx
 
      !Write out the answer
      output='data/power.dat'
-     CALL write_power(k,zv,pow,nk,output)
+     CALL write_power(k,pow,nk,output)
 
   ELSE IF(imode==1) THEN
 
@@ -278,7 +278,7 @@ PROGRAM HMx
      output='cosmo-OWLS/data/DMONLY.dat'
      WRITE(*,fmt='(2I5,A30)') -1, -1, TRIM(output)
      CALL calculate_halomod(-1,-1,k,nk,zv,pow,lut,cosi)
-     CALL write_power(k,zv,pow,nk,output)
+     CALL write_power(k,pow,nk,output)
 
      !Loop over matter types and do auto and cross-spectra
      DO j1=0,3
@@ -289,7 +289,7 @@ PROGRAM HMx
            WRITE(*,fmt='(2I5,A30)') j1, j2, TRIM(output)
 
            CALL calculate_halomod(j1,j2,k,nk,zv,pow,lut,cosi)
-           CALL write_power(k,zv,pow,nk,output)
+           CALL write_power(k,pow,nk,output)
 
         END DO
      END DO
@@ -397,7 +397,7 @@ PROGRAM HMx
         WRITE(*,fmt='(3I5,A30)') j, j1, j2, TRIM(output)
 
         CALL calculate_halomod(j1,j2,k,nk,zv,pow,lut,cosi)
-        CALL write_power(k,zv,pow,nk,output)
+        CALL write_power(k,pow,nk,output)
 
      END DO
 
@@ -1146,7 +1146,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: nl, nk, nz
     REAL*8, INTENT(IN) :: ell(nl)
     REAL*8, INTENT(OUT) :: Cell(nl)
-    REAL*8, INTENT(IN) :: k(nk), z(nz), pow(nk,nz)
+    REAL*8, INTENT(IN) :: k(nk), z(nz), pow(:,:)!, pow(nk,nz)
     REAL*8, INTENT(IN) :: r1, r2
     TYPE(projection), INTENT(IN) :: proj
     TYPE(cosmology), INTENT(IN) :: cosm
@@ -1268,7 +1268,7 @@ CONTAINS
     REAL*8 :: Bessel
     REAL*8 :: x
     INTEGER :: n
-    REAL, PARAMETER :: xlarge=1.d15
+    REAL*8, PARAMETER :: xlarge=1.d15
 
     IF(x>xlarge) THEN
 
@@ -1300,7 +1300,7 @@ CONTAINS
     REAL*8, INTENT(OUT) :: pow(4,nk)
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
-    INTEGER :: i, j
+    INTEGER :: i
 
     !Write to screen
     IF(ihm==1) THEN
@@ -1322,7 +1322,7 @@ CONTAINS
        pow(1,i)=plin
 
        !Do the halo model calculation
-       CALL halomod(itype1,itype2,k(i),z,pow(2,i),pow(3,i),pow(4,i),plin,lut,cosi)
+       CALL halomod(itype1,itype2,k(i),z,pow(2,i),pow(3,i),pow(4,i),plin,lut,cosm)
 
     END DO
     !!$OMP END PARALLEL DO
@@ -1334,13 +1334,12 @@ CONTAINS
 
   END SUBROUTINE calculate_halomod
 
-  SUBROUTINE write_power(k,z,pow,nk,output)
+  SUBROUTINE write_power(k,pow,nk,output)
 
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: output
     INTEGER, INTENT(IN) :: nk
-    REAL*8, INTENT(IN) :: z, k(nk), pow(4,nk)
-    REAL*8 :: plin
+    REAL*8, INTENT(IN) :: k(nk), pow(4,nk)
     INTEGER :: i
 
     IF(ihm==1) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
@@ -1368,7 +1367,6 @@ CONTAINS
     CHARACTER(len=256), INTENT(IN) :: base
     INTEGER, INTENT(IN) :: nk, nz
     REAL*8, INTENT(IN) :: z(nz), k(nk), pow(4,nk,nz)
-    REAL*8 :: plin
     INTEGER :: i, o
     CHARACTER(len=256) :: output_2halo, output_1halo, output_full, output_lin, output
 
@@ -2098,7 +2096,7 @@ CONTAINS
     REAL*8, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
     INTEGER, INTENT(OUT) :: nx_out
     REAL*8 :: zmin, zmax, rmin, rmax
-    REAL*8 :: a, q, z, r
+    REAL*8 :: q, z, r
     CHARACTER(len=256) :: output
     INTEGER :: i
 
@@ -2520,7 +2518,7 @@ CONTAINS
     REAL*8, INTENT(OUT) :: rj(n), cj(n), mj(n)
     REAL*8, INTENT(IN) :: Di, Dj, rhoi, rhoj
     REAL*8, ALLOCATABLE :: LHS(:), RHS(:)
-    REAL*8 :: rs, LH, RH
+    REAL*8 :: rs
     INTEGER :: i
 
     !Ensure these are all zero
@@ -2915,7 +2913,7 @@ CONTAINS
              EXIT
           END IF
        END DO
-       p1h=p_1h(ih,wk,k,z,lut,cosm)
+       p1h=p_1h(wk,k,z,lut,cosm)
        IF(imead==-1) THEN
           !Only if imead=-1 do we need to recalcualte the window
           !functions for the two-halo term with k=0 fixed
@@ -2956,18 +2954,17 @@ CONTAINS
     REAL*8, INTENT(IN) :: wk(2,lut%n)
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER, INTENT(IN) :: ih(2)
-    REAL*8 :: sigv, frac, bmin, bmax
+    REAL*8 :: sigv, frac
     !REAL*8, ALLOCATABLE :: integrand10(:), integrand11(:), integrand12(:)
     !REAL*8, ALLOCATABLE :: integrand20(:), integrand21(:), integrand22(:)
     REAL*8, ALLOCATABLE :: integrand11(:), integrand12(:)
     REAL*8, ALLOCATABLE :: integrand21(:), integrand22(:)
-    REAL*8 :: nu, w0(2), m, wk1, wk2, b0, g0, m0
-    REAL*8 :: rv, rs, c
+    REAL*8 :: nu, m, wk1, wk2, m0
     !REAL*8 :: sum10, sum11, sum12
     !REAL*8 :: sum20, sum21, sum22
     REAL*8 :: sum11, sum12
     REAL*8 :: sum21, sum22
-    INTEGER :: i, j
+    INTEGER :: i
     
     IF(imead==0 .OR. imead==-1) THEN
 
@@ -3051,7 +3048,7 @@ CONTAINS
 
   END FUNCTION p_2h
 
-  FUNCTION p_1h(ih,wk,k,z,lut,cosm)
+  FUNCTION p_1h(wk,k,z,lut,cosm)
 
     !Calculates the one-halo term
     IMPLICIT NONE
@@ -3060,10 +3057,9 @@ CONTAINS
     TYPE(tables), INTENT(IN) :: lut
     REAL*8, INTENT(IN) :: wk(2,lut%n)
     TYPE(cosmology), INTENT(IN) :: cosm
-    INTEGER, INTENT(IN) :: ih(2)
     REAL*8 :: m, g, fac, et, ks
     REAL*8, ALLOCATABLE :: integrand(:)
-    INTEGER :: i, j
+    INTEGER :: i
 
     ALLOCATE(integrand(lut%n))
     integrand=0.
@@ -3285,6 +3281,7 @@ CONTAINS
              f1=sigma_integrand_transformed(a,r,f0_rapid,z,cosm)
              f2=sigma_integrand_transformed(b,r,f0_rapid,z,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
 
           ELSE
 
@@ -3398,6 +3395,7 @@ CONTAINS
              f1=sigma_integrand_transformed(a,r,f1_rapid,z,cosm)
              f2=sigma_integrand_transformed(b,r,f1_rapid,z,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
 
           ELSE
 
@@ -3502,6 +3500,7 @@ CONTAINS
              f1=sigma_integrand(a,r,z,cosm)
              f2=sigma_integrand(b,r,z,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
 
           ELSE
 
@@ -4348,7 +4347,7 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     REAL*8 :: rho0, T0, r, a
-    REAL*8 :: E, alphap, r500c, m500c, rmax, fac, hsbias
+    REAL*8 :: E, alphap, r500c, m500c, rmax, hsbias
     INTEGER :: irho_pressure, irho_density, irho
 
     !Select model
@@ -4527,7 +4526,6 @@ CONTAINS
     REAL*8 :: win_norm
     REAL*8, INTENT(IN) :: k, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
-    REAL*8 :: c, r
 
     IF(k==0.) THEN
 
@@ -4554,13 +4552,13 @@ CONTAINS
 
   END FUNCTION win_norm
 
-  FUNCTION rhor2at0(rmax,rv,rs,irho)
+  FUNCTION rhor2at0(irho)
 
     !This is the value of r^2/rho(r) at r=0. For most profiles this is zero
 
     IMPLICIT NONE
     REAL*8 :: rhor2at0
-    REAL*8, INTENT(IN) :: rmax, rv, rs
+!    REAL*8, INTENT(IN) :: rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
 
     IF(irho==1 .OR. irho==9) THEN
@@ -4799,7 +4797,7 @@ CONTAINS
 
           !Now get r and do the function evaluations
           r=a+(b-a)*DBLE(i-1)/DBLE(n-1)
-          sum=sum+weight*winint_integrand(r,k,rmax,rv,rs,irho)*sinc(r*k)
+          sum=sum+weight*winint_integrand(r,rmax,rv,rs,irho)*sinc(r*k)
 
        END DO
 
@@ -4856,16 +4854,17 @@ CONTAINS
           IF(j==1) THEN
 
              !The first go is just the trapezium of the end points
-             f1=winint_integrand(a,k,rmax,rv,rs,irho)*sinc(a*k)
-             f2=winint_integrand(b,k,rmax,rv,rs,irho)*sinc(b*k)
+             f1=winint_integrand(a,rmax,rv,rs,irho)*sinc(a*k)
+             f2=winint_integrand(b,rmax,rv,rs,irho)*sinc(b*k)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
 
           ELSE
 
              !Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=a+(b-a)*DBLE(i-1)/DBLE(n-1)
-                fx=winint_integrand(x,k,rmax,rv,rs,irho)
+                fx=winint_integrand(x,rmax,rv,rs,irho)
                 sum_2n=sum_2n+fx*sinc(x*k)
              END DO
 
@@ -4903,15 +4902,15 @@ CONTAINS
 
   END FUNCTION winint_store
 
-  FUNCTION winint_integrand(r,k,rmax,rv,rs,irho)
+  FUNCTION winint_integrand(r,rmax,rv,rs,irho)
 
     IMPLICIT NONE
     REAL*8 :: winint_integrand
-    REAL*8, INTENT(IN) :: r, k, rmax, rv, rs
+    REAL*8, INTENT(IN) :: r, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
 
     IF(r==0.d0) THEN
-       winint_integrand=4.d0*pi*rhor2at0(rmax,rv,rs,irho)
+       winint_integrand=4.d0*pi*rhor2at0(irho)
     ELSE
        winint_integrand=4.d0*pi*(r**2)*rho(r,rmax,rv,rs,irho)
     END IF
@@ -4927,7 +4926,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: irho
     INTEGER, INTENT(IN) :: iorder, imeth
     REAL*8, INTENT(IN) :: acc
-    REAL*8 :: sum, w, rn, dr
+    REAL*8 :: sum, w, rn
     REAL*8 :: r1, r2
     REAL*8 :: a3, a2, a1, a0
     REAL*8 :: x1, x2, x3, x4
@@ -4973,16 +4972,16 @@ CONTAINS
           ELSE
              IF(imeth==5) THEN
                 rn=pi*(2*i+1)/(2.*k)
-                w=(2.d0/k**2)*winint_integrand(rn,k,rmax,rv,rs,irho)*((-1.d0)**i)/rn
+                w=(2.d0/k**2)*winint_integrand(rn,rmax,rv,rs,irho)*((-1.d0)**i)/rn
              ELSE IF(imeth==6 .OR. (imeth==7 .AND. n>nlim)) THEN
                 x1=r1
                 x2=r1+1.d0*(r2-r1)/3.d0
                 x3=r1+2.d0*(r2-r1)/3.d0
                 x4=r2
-                y1=winint_integrand(x1,k,rmax,rv,rs,irho)/x1
-                y2=winint_integrand(x2,k,rmax,rv,rs,irho)/x2
-                y3=winint_integrand(x3,k,rmax,rv,rs,irho)/x3
-                y4=winint_integrand(x4,k,rmax,rv,rs,irho)/x4
+                y1=winint_integrand(x1,rmax,rv,rs,irho)/x1
+                y2=winint_integrand(x2,rmax,rv,rs,irho)/x2
+                y3=winint_integrand(x3,rmax,rv,rs,irho)/x3
+                y4=winint_integrand(x4,rmax,rv,rs,irho)/x4
                 CALL fit_cubic(a3,a2,a1,a0,x1,y1,x2,y2,x3,y3,x4,y4)
                 w=-6.d0*a3*(r2+r1)-4.d0*a2
                 w=w+(k**2)*(a3*(r2**3+r1**3)+a2*(r2**2+r1**2)+a1*(r2+r1)+2.d0*a0)
@@ -5359,6 +5358,7 @@ CONTAINS
              f1=growint_integrand(a,cosm)
              f2=growint_integrand(b,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
 
           ELSE
 
@@ -5473,6 +5473,7 @@ CONTAINS
              f1=dispint_integrand(a,R,z,cosm)
              f2=dispint_integrand(b,R,z,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
 
           ELSE
 
@@ -7427,6 +7428,7 @@ CONTAINS
              f1=f(a)
              f2=f(b)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
              
           ELSE
 
@@ -7512,6 +7514,7 @@ CONTAINS
              f1=InverseHubble(a,cosm)
              f2=InverseHubble(b,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
              
           ELSE
 
@@ -7598,6 +7601,7 @@ CONTAINS
              f1=q_integrand(a,r,lens,cosm)
              f2=q_integrand(b,r,lens,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
              
           ELSE
 
@@ -7681,11 +7685,10 @@ CONTAINS
     REAL*8, INTENT(IN) :: a, b, acc
     INTEGER, INTENT(IN) :: iorder
     REAL*8, INTENT(IN) :: l
-    REAL*8, INTENT(IN) :: ktab(nk), ztab(nz), ptab(nk,nz)
+    REAL*8, INTENT(IN) :: ktab(nk), ztab(nz), ptab(:,:)!, ptab(nk,nz)
     INTEGER, INTENT(IN) :: nk, nz
     TYPE(projection), INTENT(IN) :: proj
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: r, z, k, x1, x2
     INTEGER :: i, j
     INTEGER :: n
     REAL*8 :: x, dx
@@ -7719,6 +7722,7 @@ CONTAINS
              f1=Limber_integrand(a,l,ktab,ztab,ptab,nk,nz,proj,cosm)
              f2=Limber_integrand(b,l,ktab,ztab,ptab,nk,nz,proj,cosm)
              sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
              
           ELSE
 
@@ -7767,7 +7771,7 @@ CONTAINS
     IMPLICIT NONE
     REAL*8 :: Limber_integrand
     REAL*8, INTENT(IN) :: r, l
-    REAL*8, INTENT(IN) :: ktab(nk), ztab(nz), ptab(nk,nz)
+    REAL*8, INTENT(IN) :: ktab(nk), ztab(nz), ptab(:,:)
     INTEGER, INTENT(IN) :: nk, nz
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(projection), INTENT(IN) :: proj
@@ -7800,7 +7804,7 @@ CONTAINS
     REAL*8 :: find_pkz
     INTEGER, INTENT(IN) :: nk, nz
     REAL*8, INTENT(IN) :: k, z
-    REAL*8, INTENT(IN) :: ktab(nk), ztab(nz), pnltab(nk,nz)
+    REAL*8, INTENT(IN) :: ktab(nk), ztab(nz), pnltab(:,:)!, pnltab(nk,nz)
     !k cut for kappa integral for some reason (?)
     REAL*8, PARAMETER :: kcut=1.e8
 
