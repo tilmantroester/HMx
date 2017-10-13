@@ -23,7 +23,13 @@ set format y2
 plot k1 u 1:3 axes x1y1 w l lw 5 ti 'Kernel 1',\
      k2 u 1:3 axes x1y2 w l lw 3 ti 'Kernel 2'
 
+#zmin=1e-2
+#zmax=1e2
+zmin=0.
+zmax=10.
 set xlabel 'z'
+#set log x
+set xrange [zmin:zmax]
 
 plot k1 u 2:3 axes x1y1 w l lw 5 ti 'Kernel 1',\
      k2 u 2:3 axes x1y2 w l lw 3 ti 'Kernel 2'

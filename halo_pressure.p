@@ -14,8 +14,11 @@ ilog=0
 #So that units include the Hubble parameter factors
 ih=1
 
-#Do comparison or not
-icomp=1
+#Choose comparison
+#0 - No comparison
+#1 - Look at 'saved' UPP vs. gas model
+#2 - Compare halo-model output to UPP
+icomp=2
 
 if(ih==0){
 file1='diagnostics/halo_profile_m14noh.dat'
@@ -34,8 +37,10 @@ file3b='diagnostics/pressure_comparison/halo_profile_m15_UPP.dat'
 }
 
 #Constants
-JpeV=1.602e-19 # 1 = 1.602e-19 J/eV
-mpcm=100. #1 = 100 cm/m
+#JpeV=1.602e-19 # 1 = 1.602e-19 J/eV
+#mpcm=100. #1 = 100 cm/m
+JpeV=1.
+mpcm=1.
 
 if(ilog==0) {set xrange [0:8]}
 if(ilog==1) {set log x; set xrange [1e-3:1e1]}
@@ -48,30 +53,37 @@ set ylabel '(r / Mpc)^2 P_e(r,M) / (eV cm^{-3})'
 
 set multiplot layout 1,2
 
-#print 'Wanker'
-
 do for [i=1:2] {
-
-#print 'Extreme wanker'
 
 if(ih==0 && i==1){tits='M = 10^{14} M_'.msun.''}
 if(ih==0 && i==2){tits='M = 10^{15} M_'.msun.''}
+
 if(ih==1 && i==1){tits='M = 10^{14} h^{-1} M_'.msun.'; z = 0'}
 if(ih==1 && i==2){tits='M = 10^{15} h^{-1} M_'.msun.'; z = 0'}
+
 if(i==1 && icomp==0){file=file2}
 if(i==2 && icomp==0){file=file3}
+
 if(i==1 && icomp==1){filea=file2a; fileb=file2b}
 if(i==2 && icomp==1){filea=file3a; fileb=file3b}
+
+if(i==1 && icomp==2){filea=file2b; fileb=file2}
+if(i==2 && icomp==2){filea=file3b; fileb=file3}
 
 set title tits
 
 if(icomp==0){
-plot file u ($1):(($1)*($1)*$7/(JpeV*mpcm**3)) w l lw 3 dt 1 lc rgb 'black' noti
+plot file u ($1):(($1)*($1)*$7) w l lw 3 dt 1 lc rgb 'black' noti
 }
 
 if(icomp==1){
-plot filea u ($1):(($1)*($1)*$7/(JpeV*mpcm**3)) w l lw 3 dt 1 lc rgb 'black' ti 'gas',\
-     fileb u ($1):(($1)*($1)*$7/(JpeV*mpcm**3)) w l lw 3 dt 1 lc rgb 'red'   ti 'UPP'
+plot filea u ($1):(($1)*($1)*$7) w l lw 3 dt 1 lc rgb 'black' ti 'gas',\
+     fileb u ($1):(($1)*($1)*$7) w l lw 3 dt 1 lc rgb 'red'   ti 'UPP'
+}
+
+if(icomp==2){
+plot filea u ($1):(($1)*($1)*$7) w l lw 3 dt 1 lc rgb 'black' ti 'UPP',\
+     fileb u ($1):(($1)*($1)*$7) w l lw 2 dt 1 lc rgb 'red'   ti 'Halo model'
 }
 
 }

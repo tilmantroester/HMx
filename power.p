@@ -1,6 +1,6 @@
 reset
 
-if(print==0) set term aqua dashed
+if(print==0) set term aqua dashed font ',14'
 if(print==1) set term post enh col sol; set output 'power.eps'
 
 #This gnuplot script plots the output file 'power.dat' that is spat out of HMcode.
@@ -12,8 +12,8 @@ fac=4.*pi/(2.*pi)**3
 kmin=1e-3
 kmax=1e2
 
-if(idelta==0) {pmin=1e-3; pmax=1e5; plab='P(k) / (h^{-1} Mpc)^3'}
-if(idelta==1) {pmin=1e-8; pmax=1e4; plab='{/Symbol D}^2(k)'}
+if(delta==0) {pmin=1e-3; pmax=1e5; plab='P(k) / (h^{-1} Mpc)^3'}
+if(delta==1) {pmin=1e-8; pmax=1e4; plab='{/Symbol D}^2(k)'}
 
 set log x
 set xrange [kmin:kmax]
@@ -33,11 +33,11 @@ fpower='data/power.dat'
 fvoid='data/power_1void.dat'
 
 #Key stuff
-if(idelta==0) set key top right
-if(idelta==1) set key top left
+if(delta==0) set key top right
+if(delta==1) set key top left
 
 #Now do the actual plotting
-if(idelta==0){
+if(delta==0){
 if(void==0) {
 plot fpower u 1:($2/(fac*$1**3)) w l lc -1       dt 1 lw 3 ti 'Linear',\
      fpower u 1:($3/(fac*$1**3)) w l lc rgb col  dt 2 lw 3 ti '2-halo',\
@@ -54,7 +54,7 @@ plot fpower u 1:($2/(fac*$1**3)) w l lc -1       dt 1 lw 3 ti 'Linear',\
 }
 }
 
-if(idelta==1){
+if(delta==1){
 if(void==0) {
 plot fpower u 1:2 w l lc -1       dt 1 lw 3 ti 'Linear',\
      fpower u 1:3 w l lc rgb col  dt 2 lw 3 ti '2-halo',\

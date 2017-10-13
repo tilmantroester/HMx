@@ -40,31 +40,31 @@ set multiplot
 #Function of k plot
 set tmargin at screen top
 set bmargin at screen top-dy
-xmin=1e-3
-xmax=1e2
+kmin=1e-3
+kmax=1e2
 set xlabel 'k / (h Mpc^{-1})'
 set log x
-set xrange [xmin:xmax]
+set xrange [kmin:kmax]
 plot for [i=1:n] file(i) u 1:2:(2**(i-1)) w l lw 3 lc palette noti
 
 #Function of z plot
 set tmargin at screen top-dy-gap
 set bmargin at screen top-2*dy-gap
-xmin=1e-3
-xmax=1.
+zmin=1e-3
+zmax=1e1
 set xlabel 'z'
 set log x
-set xrange [xmin:xmax]
+set xrange [zmin:zmax]
 plot for [i=1:n] file(i) u 3:4:(2**(i-1)) w l lw 3 lc palette noti
 
 #Function of R plot
 set tmargin at screen bot+dy
 set bmargin at screen bot
-xmin=1e1
-xmax=4e3
+rmin=1e1
+rmax=1e4
 set xlabel 'R / (h^{-1} Mpc)'
 set log x
-set xrange [xmin:xmax]
+set xrange [rmin:rmax]
 set colorbox user origin rig+0.02,bot size 0.03,(top-bot)
 plot for [i=1:n] file(i) u 5:6:(2**(i-1)) w l lw 3 lc palette noti
 
