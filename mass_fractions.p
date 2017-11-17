@@ -2,17 +2,15 @@ reset
 
 cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
-if(print==0) set term aqua dashed
-if(print==1) set term post enh col fontfile cmsy; set output 'mass_fractions.eps'
+if(print==0){set term aqua dashed; sun='sun'}
+if(print==1){set term post enh col fontfile cmsy; set output 'mass_fractions.eps'; sun='{/cmsy10 \014}'}
 
 file='diagnostics/mass_fractions.dat'
-
-msun='{/cmsy10 \014}'
 
 set size square
 
 set log x
-set xlabel 'M / (h^{-1} M_'.msun.')'
+set xlabel 'M / h^{-1} M_{'.sun.'}'
 set xrange [1e10:1e16]
 set format x '10^{%T}'
 set mxtics 10
@@ -30,7 +28,7 @@ om_m=0.3
 
 plot om_b/om_m  w l lw 3 dt 2 lc rgb 'black' ti 'Universal baryon',\
      file u 1:2 w l lw 3 dt 1 lc rgb 'black' ti 'CDM',\
-     file u 1:3 w l lw 3 dt 1 lc rgb 'red' ti 'Bound gas',\
+     file u 1:3 w l lw 3 dt 1 lc rgb 'red' ti 'Gas',\
      file u 1:4 w l lw 3 dt 1 lc rgb 'blue' ti 'Stars',\
      file u 1:5 w l lw 3 dt 2 lc rgb 'red' ti 'Bound gas',\
      file u 1:6 w l lw 3 dt 3 lc rgb 'red' ti 'Free gas'

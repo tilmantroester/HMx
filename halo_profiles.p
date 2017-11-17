@@ -3,56 +3,44 @@ unset multiplot
 
 cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
-if(print==0) set term aqua dashed
-if(print==1) set term post enh col fontfile cmsy; set output 'halo_profiles.eps'
+if(print==0){set term aqua dashed; msun='sun'}
+if(print==1){set term post enh col font ',10' fontfile cmsy; set output 'halo_profiles.eps'; msun='{/cmsy10 \014}'}
 
-file1='diagnostics/halo_profile_m13.dat'
-file2='diagnostics/halo_profile_m14.dat'
-
-msun='{/cmsy10 \014}'
+file(m)=sprintf('diagnostics/halo_profile_m%i.dat',m)
 
 #This is the range in the Fedeli paper
 #set xrange [1e-2:1e1]
 
 #set xrange [0:4]
+rmin=1e-2
+rmax=5
 set log x
-set xrange [1e-3:1e1]
-set xlabel 'r / (h^{-1} Mpc)'
-
-#This is the range in the Fedeli paper
-#set yrange [3.16e-7:3.16e0]
-
-#set yrange [1e-2:1e6]
-#set ylabel '{/Symbol r}(r,M)'
-#set log y
-#set format y '10^{%T}'
+set xrange [rmin:rmax]
+set xlabel 'r / h^{-1} Mpc'
 
 #set yrange [0:3]
+rhomin=1e-3
+rhomax=3e1
 set log y
-set yrange [1e-3:3e1]
-set ylabel '4{/Symbol p} (r / h^{-1} Mpc)^2 {/Symbol r}(r,M) / M'
+set yrange [rhomin:rhomax]
+set ylabel '4{/Symbol p} r^2 {/Symbol r}(r) / M' offset 2
 set mytics 10
 
-set multiplot layout 1,2
+tits(m)=sprintf('M = 10^{%i} h^{-1} M_{'.msun.'}',m)
 
-do for [i=1:2] {
+set multiplot layout 1,3
 
-if(i==1){file=file1; tits='M = 10^{13} h^{-1} M_'.msun.'; z = 0'}
-if(i==2){file=file2; tits='M = 10^{14} h^{-1} M_'.msun.'; z = 0'}
+m1=13
+m2=m1+2
+do for [m=m1:m2] {
 
-set title tits
+set title tits(m)
 
-#plot file u 1:2 w l lw 3 dt 1 lc rgb 'black' ti 'CDM',\
-     file u 1:3 w l lw 3 dt 1 lc rgb 'red' ti 'Gas',\
-     file u 1:4 w l lw 3 dt 1 lc rgb 'blue' ti 'Stars',\
-     file u 1:5 w l lw 3 dt 2 lc rgb 'red' ti 'Bound gas',\
-     file u 1:6 w l lw 3 dt 3 lc rgb 'red' ti 'Free gas'
-
-plot file u 1:(4.*pi*$1*$1*$2) w l lw 3 dt 1 lc rgb 'black' ti 'CDM',\
-     file u 1:(4.*pi*$1*$1*$3) w l lw 3 dt 1 lc rgb 'red' ti 'Gas',\
-     file u 1:(4.*pi*$1*$1*$4) w l lw 3 dt 1 lc rgb 'blue' ti 'Stars',\
-     file u 1:(4.*pi*$1*$1*$5) w l lw 3 dt 2 lc rgb 'red' ti 'Bound gas',\
-     file u 1:(4.*pi*$1*$1*$6) w l lw 3 dt 3 lc rgb 'red' ti 'Free gas'
+plot file(m) u 1:(4.*pi*$1*$1*$2) w l lw 3 dt 1 lc rgb 'black' ti 'CDM',\
+     file(m) u 1:(4.*pi*$1*$1*$3) w l lw 3 dt 1 lc rgb 'red' ti 'Gas',\
+     file(m) u 1:(4.*pi*$1*$1*$4) w l lw 3 dt 1 lc rgb 'blue' ti 'Stars',\
+     file(m) u 1:(4.*pi*$1*$1*$5) w l lw 3 dt 2 lc rgb 'red' ti 'Bound gas',\
+     file(m) u 1:(4.*pi*$1*$1*$6) w l lw 3 dt 3 lc rgb 'red' ti 'Free gas'
 
 }
 

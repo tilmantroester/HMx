@@ -36,19 +36,21 @@ col4=4
 col5=5
 
 #Cosmological parameters
-om_m=0.272
-om_b=0.0455
+Om_m=0.272
+Om_b=0.0455
 
-bf=om_m/om_b
-cf=om_m/(om_m-om_b)
+bf=Om_m/Om_b
+cf=Om_m/(Om_m-Om_b)
 
-bf2=bf**2.
-cf2=cf**2.
+bf2=bf**2
+cf2=cf**2
 
+kmin=1e-2
+kmax=1e1
 set xlabel 'k / (h Mpc^{-1})'
 set format x
 set log x
-set xrange [1e-2:1e1]
+set xrange [kmin:kmax]
 
 set log y
 set yrange [1e-3:1.e3]
@@ -68,11 +70,8 @@ L=3
 d=5
 M=5
 
-#A small number
-small=1e-22
-
-plot small w l lw 3 dt 1 lc -1 ti 'Autospectra',\
-     small w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
+plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
+     NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
      data(mod,thing0,thing0) u 1:(column(c)) w p pt 7 lc col1 noti,\
      data(mod,thing1,thing1) u 1:(cf2*column(c)) w p pt 7 lc col2 noti,\
      data(mod,thing2,thing2) u 1:(bf2*column(c)) w p pt 7 lc col3 noti,\

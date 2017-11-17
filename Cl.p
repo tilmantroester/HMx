@@ -3,6 +3,7 @@ unset multiplot
 
 cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
+if(!exists("print")){print=0}
 if(print==0){set term aqua dashed font ',14'; ell='l'}
 if(print==1){set term post enh col fontfile cmmi; set output 'Cl.eps'; ell='{/cmmi10 \140}'}
 
@@ -29,14 +30,15 @@ tits(n)=sprintf('C('.ell.') \~ l^{%1.1f}',n)
 #1 - C(l)
 #2 - l(l+1)C(l)
 #3 - lC(l)/pi - for converting to CMB-lensing potential
-icl=3
+if(!exists("icl")){icl=1; print 'Setting icl: ', icl}
 if(icl==1){c=2; A=1.; n=0.}
 if(icl==2){c=3; A=1.; n=0.}
 if(icl==3){c=2; A=1./pi; n=1.}
 
+ellmin=1e0
+ellmax=1e5
 set log x
-set xrange [1e0:1e5]
-#set xrange [1e-3:1e5]
+set xrange [ellmin:ellmax]
 set mxtics 10
 
 set lmargin 10
@@ -70,6 +72,8 @@ if(icl==3){set ylabel '2'.ell.'C_{i,j}('.ell.') / 2{/Symbol p}'}
 #3 - CMB-CMB
 #4 - kappa-y
 #5 - CMB-y
+#6 - Comparison to Hill & Spergel (2014) y-phi plot (Fig. 1)
+#7 - Comparison to Horowitz & Seljak (2017) y-y plot (Fig. 1)
 iaxes=0
 if(iaxes==0){set yrange [*:*]}
 if(iaxes==1){set yrange [1e-8:1e-4]}
@@ -77,6 +81,8 @@ if(iaxes==2){set yrange [1e-15:1e-11]}
 if(iaxes==3){set yrange [1e-8:1e-2]}
 if(iaxes==4){set yrange [1e-12:1e-8]}
 if(iaxes==5){set yrange [1e-12:1e-7]}
+if(iaxes==6){set yrange [0.:4e-11]}
+if(iaxes==7){set yrange [1e-14:1e-11]}
 
 set key top left
 

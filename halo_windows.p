@@ -3,36 +3,38 @@ unset multiplot
 
 cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
-if(print==0) set term aqua dashed
-if(print==1) set term post enh col fontfile cmsy; set output 'halo_windows.eps'
+if(print==0){set term aqua dashed; sun='sun'}
+if(print==1){set term post enh col fontfile cmsy; set output 'halo_windows.eps', sun='{/cmsy10 \014}'}
 
-file1='diagnostics/halo_window_m13.dat'
-file2='diagnostics/halo_window_m14.dat'
+file(m)=sprintf('diagnostics/halo_window_m%i.dat',m)
 
-msun='{/cmsy10 \014}'
-
-set xrange [1e-1:1e2]
+kmin=1e-1
+kmax=1e2
+set xrange [kmin:kmax]
 set xlabel 'kr_v'
 set log x
 
-set yrange [3.16e-3:3.16e0]
+wmin=3.16e-3
+wmax=3.16e0
+set yrange [wmin:wmax]
 set ylabel 'W(k,M)'
 set log y
 
-set multiplot layout 1,2
+set multiplot layout 1,3
 
-do for [i=1:2] {
+tits(m)=sprintf('M = 10^{%i} h^{-1} M_{'.sun.'}; z = 0',m)
 
-if(i==1){file=file1; tits='M = 10^{13} h^{-1} M_'.msun.'; z = 0'}
-if(i==2){file=file2; tits='M = 10^{14} h^{-1} M_'.msun.'; z = 0'}
+m1=13
+m2=m1+2
+do for [m=m1:m2] {
 
-set title tits
+set title tits(m)
 
-plot file u 1:2 w l dt 1 lw 3 lc rgb 'black' ti 'CDM',\
-     file u 1:3 w l dt 1 lw 3 lc rgb 'red' ti 'Gas',\
-     file u 1:4 w l dt 1 lw 3 lc rgb 'blue' ti 'Stars',\
-     file u 1:5 w l dt 2 lw 3 lc rgb 'red' ti 'Bound gas',\
-     file u 1:6 w l dt 3 lw 3 lc rgb 'red' ti 'Free gas'
+plot file(m) u 1:2 w l dt 1 lw 3 lc rgb 'black' ti 'CDM',\
+     file(m) u 1:3 w l dt 1 lw 3 lc rgb 'red' ti 'Gas',\
+     file(m) u 1:4 w l dt 1 lw 3 lc rgb 'blue' ti 'Stars',\
+     file(m) u 1:5 w l dt 2 lw 3 lc rgb 'red' ti 'Bound gas',\
+     file(m) u 1:6 w l dt 3 lw 3 lc rgb 'red' ti 'Free gas'
 
 }
 

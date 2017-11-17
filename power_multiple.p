@@ -30,7 +30,7 @@ set mxtics 10
 #Set power axis
 set log y
 #set yrange [1e-8:1e4]
-set ylabel '{/Symbol D}^2(k)'
+set ylabel '{/Symbol D}_{i,j}^2(k)'
 set format y '10^{%T}'
 
 unset colorbox
