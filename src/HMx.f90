@@ -1748,7 +1748,6 @@ CONTAINS
 
   FUNCTION Bessel(n,x)
 
-    USE nr
     IMPLICIT NONE
     REAL*8 :: Bessel
     REAL*8 :: x
@@ -1766,11 +1765,11 @@ CONTAINS
        IF(n<0) STOP 'Error: cannot call for negative n'
 
        IF(n==0) THEN
-          Bessel=bessj0(REAL(x))
+          Bessel=BESSEL_J0(REAL(x))
        ELSE IF(n==1) THEN
-          Bessel=bessj1(REAL(x))
+          Bessel=BESSEL_J1(REAL(x))
        ELSE
-          Bessel=bessj(n,REAL(x))      
+          Bessel=BESSEL_JN(n,REAL(x))      
        END IF
 
     END IF
