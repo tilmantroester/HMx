@@ -1,0 +1,10 @@
+# Fortran module binaries
+*.mod
+
+# Build files
+build/
+
+# Binaries
+bin/
+*.e
+
