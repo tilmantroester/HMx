@@ -1,31 +1,30 @@
-include ${COSMOSIS_SRC_DIR}/config/compilers.mk
+#HMx makefile
+
+#MEAD: Added my favourite flags
+FC = gfortran
+FFLAGS = -std=gnu -Warray-bounds -ffree-line-length-none -fmax-errors=4 -ffpe-trap=invalid,zero,overflow -fimplicit-none -O3
+DEBUGFLAGS = -Wall -fcheck=all -fbounds-check -fbacktrace -Og
+#Mead: Done
 
 SRC_DIR=src/
 BUILD_DIR=build/
 
-interface: $(BUILD_DIR)libhmx.a $(BUILD_DIR)cosmosis_interface.so
-bin: $(BUILD_DIR)HMx
+all: $(BUILD_DIR)HMx
 
+#MEAD: Added debug options
+debug: FFLAGS += $(DEBUGFLAGS)
+debug: $(BUILD_DIR)HMx
+#MEAD: Done
 
-$(BUILD_DIR)cosmosis_interface.so: $(BUILD_DIR)libhmx.a $(SRC_DIR)cosmosis_interface.f90
-	$(FC) $(FFLAGS) -shared -o $@ $+ -L$(BUILD_DIR) -lhmx $(LDFLAGS) -lcosmosis_fortran -lcosmosis -I$(BUILD_DIR) -J$(BUILD_DIR)
-
+#MEAD: Changed compile command to add FFLAGS
 $(BUILD_DIR)HMx: $(SRC_DIR)HMx.f90
-	$(FC) -std=gnu -ffree-line-length-none -o $@ $< -J$(BUILD_DIR)
-# test: test.f90 libhmcode.a
-	# $(FC) $(FFLAGS) -o $@ $< -L. -lhmcode $(LDFLAGS)
-	
+	$(FC) $(FFLAGS) -o $@ $< -J$(BUILD_DIR)
+#MEAD: Done
+
+#$(FC) -std=gnu -ffree-line-length-none -o $@ $< -J$(BUILD_DIR)
 
 clean:
 	rm -f $(BUILD_DIR)HMx
-	rm -f $(BUILD_DIR)libhmx.a
 	rm -f $(BUILD_DIR)hmx.o
-	rm -f $(BUILD_DIR)cosmosis_interface.so
 	rm -f $(BUILD_DIR)cosdef.mod
 	rm -f $(BUILD_DIR)HMx.mod
-	rm -f $(BUILD_DIR)HMx_setup.mod
-	rm -rf $(BUILD_DIR)*.dSYM/
-
-$(BUILD_DIR)libhmx.a: $(SRC_DIR)HMx.f90
-	$(FC) $(FFLAGS) -c  $+ $(LDFLAGS) -o $(BUILD_DIR)hmx.o -J$(BUILD_DIR)
-	$(AR) rc $@ $(BUILD_DIR)hmx.o

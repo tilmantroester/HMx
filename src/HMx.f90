@@ -45,7 +45,6 @@ MODULE cosdef
 
 END MODULE cosdef
 
-
 MODULE HMx
 
   !Module usage statements
@@ -130,74 +129,78 @@ MODULE HMx
 
   CONTAINS
 
-  SUBROUTINE init_HMx()
-    !Names of variable parameters
-    cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
-    cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
-    cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
-    cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
-    cosm%param_names(5)='A_*' !Prefactor for stellar fraction
-    
-    !Set default values for variable parameters
-    cosm%param(1)=1.d0
-    cosm%param(2)=0.d0
-    cosm%param(3)=1.18
-    cosm%param(4)=1.2d14
-    cosm%param(5)=0.02
+    SUBROUTINE init_HMx()
 
-    !Set a protected set of defaults
-    cosm%param_defaults=cosm%param
+      IMPLICIT NONE
 
-    !Minimum parameter values in variation
-    cosm%param_min(1)=0.4d0
-    cosm%param_min(2)=0.d0
-    cosm%param_min(3)=1.10d0
-    cosm%param_min(4)=1d13
-    cosm%param_min(5)=0.015d0
+      !Names of variable parameters
+      cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
+      cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
+      cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
+      cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
+      cosm%param_names(5)='A_*' !Prefactor for stellar fraction
 
-    !Maximum parameter values in variation
-    cosm%param_max(1)=2.d0
-    cosm%param_max(2)=2.d0
-    cosm%param_max(3)=1.26d0
-    cosm%param_max(4)=1d15
-    cosm%param_max(5)=0.055d0
+      !Set default values for variable parameters
+      cosm%param(1)=1.d0
+      cosm%param(2)=0.d0
+      cosm%param(3)=1.18
+      cosm%param(4)=1.2d14
+      cosm%param(5)=0.02
 
-    !Should the range be explored in log?
-    cosm%param_log(1)=.FALSE.
-    cosm%param_log(2)=.FALSE.
-    cosm%param_log(3)=.FALSE.
-    cosm%param_log(4)=.TRUE.
-    cosm%param_log(5)=.FALSE.
-    
-    !Name halo types
-    halo_type(-1)='DMONLY'
-    halo_type(0)='Matter'
-    halo_type(1)='CDM'
-    halo_type(2)='Gas'
-    halo_type(3)='Star'
-    halo_type(4)='Bound gas'
-    halo_type(5)='Free gas'
-    halo_type(6)='Pressure'
-    halo_type(7)='Void'
-    halo_type(8)='Compensated void'
+      !Set a protected set of defaults
+      cosm%param_defaults=cosm%param
 
-    !Name kernel types
-    !kernel_type(1)='Lensing'
-    !kernel_type(2)='Compton-y'
-    !kernel_type(3)='Gravitational waves'
+      !Minimum parameter values in variation
+      cosm%param_min(1)=0.4d0
+      cosm%param_min(2)=0.d0
+      cosm%param_min(3)=1.10d0
+      cosm%param_min(4)=1d13
+      cosm%param_min(5)=0.015d0
 
-    !Name cross-correlation field types
-    xcorr_type(1)='RCSLenS lensing'
-    xcorr_type(2)='Compton y'
-    xcorr_type(3)='CMB lensing'
-    xcorr_type(4)='CFHTLenS lensing'
-    xcorr_type(5)='KiDS lensing (z = 0.1 -> 0.9)'
-    xcorr_type(6)='KiDS lensing (z = 0.1 -> 0.3)'
-    xcorr_type(7)='KiDS lensing (z = 0.3 -> 0.5)'
-    xcorr_type(8)='KiDS lensing (z = 0.5 -> 0.7)'
-    xcorr_type(9)='KiDS lensing (z = 0.7 -> 0.9)'
-    xcorr_type(10)='Gravitational waves'
-  END SUBROUTINE init_HMx
+      !Maximum parameter values in variation
+      cosm%param_max(1)=2.d0
+      cosm%param_max(2)=2.d0
+      cosm%param_max(3)=1.26d0
+      cosm%param_max(4)=1d15
+      cosm%param_max(5)=0.055d0
+
+      !Should the range be explored in log?
+      cosm%param_log(1)=.FALSE.
+      cosm%param_log(2)=.FALSE.
+      cosm%param_log(3)=.FALSE.
+      cosm%param_log(4)=.TRUE.
+      cosm%param_log(5)=.FALSE.
+
+      !Name halo types
+      halo_type(-1)='DMONLY'
+      halo_type(0)='Matter'
+      halo_type(1)='CDM'
+      halo_type(2)='Gas'
+      halo_type(3)='Star'
+      halo_type(4)='Bound gas'
+      halo_type(5)='Free gas'
+      halo_type(6)='Pressure'
+      halo_type(7)='Void'
+      halo_type(8)='Compensated void'
+
+      !Name kernel types
+      !kernel_type(1)='Lensing'
+      !kernel_type(2)='Compton-y'
+      !kernel_type(3)='Gravitational waves'
+
+      !Name cross-correlation field types
+      xcorr_type(1)='RCSLenS lensing'
+      xcorr_type(2)='Compton y'
+      xcorr_type(3)='CMB lensing'
+      xcorr_type(4)='CFHTLenS lensing'
+      xcorr_type(5)='KiDS lensing (z = 0.1 -> 0.9)'
+      xcorr_type(6)='KiDS lensing (z = 0.1 -> 0.3)'
+      xcorr_type(7)='KiDS lensing (z = 0.3 -> 0.5)'
+      xcorr_type(8)='KiDS lensing (z = 0.5 -> 0.7)'
+      xcorr_type(9)='KiDS lensing (z = 0.7 -> 0.9)'
+      xcorr_type(10)='Gravitational waves'
+
+    END SUBROUTINE init_HMx
 
   SUBROUTINE calculate_HMx(itype,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
 
@@ -6482,31 +6485,31 @@ MODULE HMx
 
   END SUBROUTINE reverse
 
-  ! FUNCTION file_length(file_name)
+!!$  ! FUNCTION file_length(file_name)
+!!$
+!!$  !   IMPLICIT NONE
+!!$  !   CHARACTER(len=64) :: file_name
+!!$  !   INTEGER ::n, file_length
+!!$  !   REAL*8 :: data
+!!$
+!!$  !   !Finds the length of a file
+!!$
+!!$  !   OPEN(7,file=file_name)
+!!$  !   n=0
+!!$  !   DO
+!!$  !       n=n+1
+!!$  !       READ(7,*, end=301) data
+!!$  !   END DO
+!!$
+!!$  !   !301 is just the label to jump to when the end of the file is reached
+!!$
+!!$  ! 301 CLOSE(7)  
+!!$
+!!$  !   file_length=n-1
+!!$
+!!$  ! END FUNCTION file_length
 
-  !   IMPLICIT NONE
-  !   CHARACTER(len=64) :: file_name
-  !   INTEGER ::n, file_length
-  !   REAL*8 :: data
-
-  !   !Finds the length of a file
-
-  !   OPEN(7,file=file_name)
-  !   n=0
-  !   DO
-  !       n=n+1
-  !       READ(7,*, end=301) data
-  !   END DO
-
-  !   !301 is just the label to jump to when the end of the file is reached
-
-  ! 301 CLOSE(7)  
-
-  !   file_length=n-1
-
-  ! END FUNCTION file_length
-
-  ! Replacement for file_length without horrible GOTO
+  !TILMAN: Replacement for file_length without horrible GOTO
   function count_number_of_lines(filename) result(n)
     implicit none
     character(len=*), intent(in) :: filename
@@ -6542,6 +6545,7 @@ MODULE HMx
 
     close(file_unit)
   end function count_number_of_lines
+  !TILMAN: End
 
   SUBROUTINE fill_growtab(cosm)
 
@@ -6592,7 +6596,7 @@ MODULE HMx
 
   END SUBROUTINE fill_growtab
 
- SUBROUTINE ode_growth(x,v,t,kk,ti,tf,xi,vi,acc,imeth,cosm)
+  SUBROUTINE ode_growth(x,v,t,kk,ti,tf,xi,vi,acc,imeth,cosm)
 
     !Solves 2nd order ODE x''(t) from ti to tf and writes out array of x, v, t values 
     IMPLICIT NONE
@@ -6837,7 +6841,8 @@ MODULE HMx
     
     REAL*8, PARAMETER :: dx=1e-3
 
-    !Actually I don't think you need the IF because there is no subtraction cancellationm. Only sinc(0) is a problem
+    !Actually I don't think you need the IF because there is no subtraction cancellation problem
+    !Only sinc(0) is a problem
     IF(ABS(x)<ABS(dx)) THEN
        sinc=1.d0-(x**2)/6.d0
     ELSE
@@ -7747,12 +7752,13 @@ MODULE HMx
     
   END SUBROUTINE print_baryon_parameters
   
-END MODULE HMX
+END MODULE HMx
 
 PROGRAM HMx_driver
+  
   USE HMx
   USE cosdef
-  implicit none
+  IMPLICIT NONE
 
   CALL init_HMx()
 
@@ -8974,5 +8980,6 @@ PROGRAM HMx_driver
 
     STOP 'HMx: Error, you have specified the mode incorrectly'
 
-  END IF
+ END IF
+
 END PROGRAM HMx_driver
