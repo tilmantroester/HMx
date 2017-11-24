@@ -1,31 +1,21 @@
 MODULE cosdef
 
   TYPE cosmology
-     !Contains only things that do not need to be recalculated with each new z
+     !Contains cosmological parameters that need only be calculated once
      REAL*8 :: om_m, om_b, om_v, om_c, h, n, sig8, w, wa, om_nu
      REAL*8 :: om, k, z_cmb, om_r, T_cmb
      REAL*8 :: A
-     !REAL*8, ALLOCATABLE :: sigma(:), r_sigma(:)
      REAL*8, ALLOCATABLE :: logsigma(:), logr_sigma(:)
      REAL*8, ALLOCATABLE :: growth(:), a_growth(:)
      REAL*8, ALLOCATABLE :: r(:), a_r(:)
      INTEGER :: nsig, ng, nr
      CHARACTER(len=256) :: name
+     !Varying parameters
+     INTEGER :: np=5
+     REAL*8 :: param(5), param_defaults(5), param_min(5), param_max(5)
+     CHARACTER(len=256) :: param_names(5)
+     LOGICAL :: param_log(5)
   END TYPE cosmology
-
-  TYPE projection
-     !Projection quantities that need to be calculated only once
-     REAL*8, ALLOCATABLE :: x1(:), r_x1(:), x2(:), r_x2(:)
-     REAL*8 :: rs, zs
-     INTEGER :: nx1, nx2
-  END TYPE projection
-
-  TYPE lensing
-     !Quantities that are necessary for lensing specifically
-     REAL*8, ALLOCATABLE :: q(:), r_q(:)
-     REAL*8, ALLOCATABLE :: nz(:), z_nz(:)
-     INTEGER :: nq, nnz
-  END TYPE lensing
 
   TYPE tables
      !Halo-model stuff that needs to be recalculated for each new z
@@ -37,6 +27,21 @@ MODULE cosdef
      REAL*8 :: gmin, gmax, gbmin, gbmax
      INTEGER :: n
   END TYPE tables
+
+  TYPE projection
+     !Projection quantities that need to be calculated only once
+     !These relate to the Limber integrals
+     REAL*8, ALLOCATABLE :: X(:), r_X(:)
+     INTEGER :: nX
+  END TYPE projection
+
+  !Possibly this could usefully be merged with projection
+  TYPE lensing
+     !Quantities that are necessary for lensing specifically
+     REAL*8, ALLOCATABLE :: q(:), r_q(:)
+     REAL*8, ALLOCATABLE :: nz(:), z_nz(:)
+     INTEGER :: nq, nnz
+  END TYPE lensing
 
 END MODULE cosdef
 
@@ -54,29 +59,29 @@ PROGRAM HMx
   REAL*8, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
   REAL*8, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
   REAL*8, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
-  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m
-  INTEGER :: ip(2), ik(2), inz(2), ix(2), ixx(2)
+  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa
+  INTEGER :: ip(2), ix(2), ixx(2)
   REAL*8 :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL*8 :: z, z1, z2, r1, r2
   TYPE(cosmology) :: cosm
   TYPE(tables) :: lut
-  TYPE(projection) :: proj
+  TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: outfile, base, mid, ext, dir, name
   CHARACTER(len=256) :: mode
   INTEGER :: imode, icosmo, iowl
   REAL*8 :: sig8min, sig8max
   INTEGER :: ncos
-  REAL*8 :: m1, m2
+  REAL*8 :: m1, m2, mass
   !REAL*8 :: rv, rs, rmax
 
   !Varying parameters
-  INTEGER, PARAMETER :: np=5
-  REAL*8 :: param(np), param_defaults(np), param_min(np), param_max(np)
-  REAL*8 :: mass
-  CHARACTER(len=256) :: param_names(np)
-  INTEGER :: ipa
-  LOGICAL :: param_log(np)
+  !INTEGER, PARAMETER :: np=5
+  !REAL*8 :: param(np), param_defaults(np), param_min(np), param_max(np)
+  !REAL*8 :: mass
+  !CHARACTER(len=256) :: param_names(np)
+  !INTEGER :: ipa
+  !LOGICAL :: param_log(np)
 
   !Mathematical constants
   REAL*8, PARAMETER :: pi=3.141592654
@@ -84,17 +89,18 @@ PROGRAM HMx
 
   !Halo-model Parameters
   INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST)
-  INTEGER :: ihm=1 !Set verbosity
+  !INTEGER :: ihm=1 !Set verbosity
+  LOGICAL :: verbose=.TRUE.
   INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation
   REAL*8, PARAMETER :: mmin=1d7 !Minimum halo mass for the calculation
   REAL*8, PARAMETER :: mmax=1d17 !Maximum halo mass for the calculation
   INTEGER :: ip2h=2 !Method to 'correct' the 2-halo integral
   INTEGER, PARAMETER :: ibias=1 !Bias order to go to
   INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
-  REAL, PARAMETER :: Lbox=400. !Simulation box size
+  REAL*8, PARAMETER :: Lbox=400. !Simulation box size
   INTEGER, PARAMETER :: icumulative=1 !Do cumlative distributions for breakdown
   LOGICAL, PARAMETER :: ixi=.FALSE. !Do correlation functions from C(l)
-  INTEGER, PARAMETER :: ifull=0 !Do only full halo model C(l), xi(theta) calculations
+  LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
   REAL*8, PARAMETER :: acc=1d-4 !Global integration-accuracy parameter
   LOGICAL, PARAMETER :: void=.FALSE. !Do voids or not
   REAL*8, PARAMETER :: lcorr=0.5d0 !Set to zero for k=l/fk or 0.5 for k=(l+0.5)/fk
@@ -119,46 +125,45 @@ PROGRAM HMx
   REAL*8, PARAMETER :: critical_density=2.775d11 !Critical density at z=0
 
   !Name parameters (cannot do PARAMETER with mixed length strings)
-  !CHARACTER, PARAMETER :: halo_type(-1:6)!=(/'DMONLY','Matter','CDM','Gas','Star','Bound gas','Free gas','Pressure'/)
-  CHARACTER(len=256) :: halo_type(-1:8), kernel_type(3), xcorr_type(10)
+  CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)!, kernel_type(3)
 
   !Names of variable parameters
-  param_names(1)='alpha' !alpha in virial temperature (turbulence?)
-  param_names(2)='Dc' !Change in NFW concentration due to gas
-  param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
-  param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
-  param_names(5)='A_*' !Prefactor for stellar fraction
+  cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
+  cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
+  cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
+  cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
+  cosm%param_names(5)='A_*' !Prefactor for stellar fraction
   
   !Set default values for variable parameters
-  param(1)=1.d0
-  param(2)=0.d0
-  param(3)=1.18
-  param(4)=1.2d14
-  param(5)=0.02
+  cosm%param(1)=1.d0
+  cosm%param(2)=0.d0
+  cosm%param(3)=1.18
+  cosm%param(4)=1.2d14
+  cosm%param(5)=0.02
 
   !Set a protected set of defaults
-  param_defaults=param
+  cosm%param_defaults=cosm%param
 
   !Minimum parameter values in variation
-  param_min(1)=0.4d0
-  param_min(2)=0.d0
-  param_min(3)=1.10d0
-  param_min(4)=1d13
-  param_min(5)=0.015d0
+  cosm%param_min(1)=0.4d0
+  cosm%param_min(2)=0.d0
+  cosm%param_min(3)=1.10d0
+  cosm%param_min(4)=1d13
+  cosm%param_min(5)=0.015d0
 
   !Maximum parameter values in variation
-  param_max(1)=2.d0
-  param_max(2)=2.d0
-  param_max(3)=1.26d0
-  param_max(4)=1d15
-  param_max(5)=0.055d0
+  cosm%param_max(1)=2.d0
+  cosm%param_max(2)=2.d0
+  cosm%param_max(3)=1.26d0
+  cosm%param_max(4)=1d15
+  cosm%param_max(5)=0.055d0
 
   !Should the range be explored in log?
-  param_log(1)=.FALSE.
-  param_log(2)=.FALSE.
-  param_log(3)=.FALSE.
-  param_log(4)=.TRUE.
-  param_log(5)=.FALSE.
+  cosm%param_log(1)=.FALSE.
+  cosm%param_log(2)=.FALSE.
+  cosm%param_log(3)=.FALSE.
+  cosm%param_log(4)=.TRUE.
+  cosm%param_log(5)=.FALSE.
   
   !Name halo types
   halo_type(-1)='DMONLY'
@@ -173,9 +178,9 @@ PROGRAM HMx
   halo_type(8)='Compensated void'
 
   !Name kernel types
-  kernel_type(1)='Lensing'
-  kernel_type(2)='Compton-y'
-  kernel_type(3)='Gravitational waves'
+  !kernel_type(1)='Lensing'
+  !kernel_type(2)='Compton-y'
+  !kernel_type(3)='Gravitational waves'
 
   !Name cross-correlation field types
   xcorr_type(1)='RCSLenS lensing'
@@ -261,10 +266,20 @@ PROGRAM HMx
      !Do the halo-model calculation
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
 
+     !na=1
+     !ALLOCATE(a(na))
+     !a=scale_factor_z(z)
+     !a=1.
+     
+     !ip=-1
+     !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+
      !Write out the answer
      outfile='data/power.dat'
+     !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
 
+     !Write the one-void term if necessary
      IF(void) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
@@ -305,17 +320,20 @@ PROGRAM HMx
      !CALL fill_table(amin,amax,a,na)
 
      !Allocate power arrays
-     ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
+     !ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
 
      !Do the halo-model calculation
-     WRITE(*,*) 'HMx: Doing calculation'
-     DO j=na,1,-1
-        z=redshift_a(a(j))
-        CALL halomod_init(mmin,mmax,z,lut,cosm)
-        WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', j, REAL(z)
-        CALL calculate_halomod(-1,-1,k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-     END DO
-     WRITE(*,*)
+     !WRITE(*,*) 'HMx: Doing calculation'
+     !DO j=na,1,-1
+     !   z=redshift_a(a(j))
+     !   CALL halomod_init(mmin,mmax,z,lut,cosm)
+     !   WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', j, REAL(z)
+     !   CALL calculate_halomod(-1,-1,k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
+     !END DO
+     !WRITE(*,*)
+
+     ip=-1
+     CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
      
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,.TRUE.)
@@ -330,43 +348,43 @@ PROGRAM HMx
         name='DMONLY'
      ELSE IF(iowl==2) THEN
         name='REF'
-        param(1)=2.
-        param(2)=1.4
-        param(3)=1.24
-        param(4)=1d13
-        param(5)=0.055
+        cosm%param(1)=2.
+        cosm%param(2)=1.4
+        cosm%param(3)=1.24
+        cosm%param(4)=1d13
+        cosm%param(5)=0.055
      ELSE IF(iowl==3) THEN
         name='NOCOOL'
-        param(1)=2.
-        param(2)=0.8
-        param(3)=1.1
-        param(4)=0.
-        param(5)=0.
+        cosm%param(1)=2.
+        cosm%param(2)=0.8
+        cosm%param(3)=1.1
+        cosm%param(4)=0.
+        cosm%param(5)=0.
      ELSE IF(iowl==4) THEN
         name='AGN'
-        param(1)=2.
-        param(2)=0.5
-        param(3)=1.18
-        param(4)=8d13
-        param(5)=0.0225
+        cosm%param(1)=2.
+        cosm%param(2)=0.5
+        cosm%param(3)=1.18
+        cosm%param(4)=8d13
+        cosm%param(5)=0.0225
      ELSE IF(iowl==5) THEN
         name='AGN 8.5'
-        param(1)=2.
-        param(2)=-0.5
-        param(3)=1.26
-        param(4)=2d14
-        param(5)=0.0175
+        cosm%param(1)=2.
+        cosm%param(2)=-0.5
+        cosm%param(3)=1.26
+        cosm%param(4)=2d14
+        cosm%param(5)=0.0175
      ELSE IF(iowl==6) THEN
         name='AGN 8.7'
-        param(1)=2.
-        param(2)=-2.
-        param(3)=1.3
-        param(4)=1d15
-        param(5)=0.015
+        cosm%param(1)=2.
+        cosm%param(2)=-2.
+        cosm%param(3)=1.3
+        cosm%param(4)=1d15
+        cosm%param(5)=0.015
      END IF
 
      IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
-     CALL print_baryon_parameters(param,param_names,np)
+     CALL print_baryon_parameters(cosm)
 
      !Set number of k points and k range (log spaced)
      nk=200
@@ -377,7 +395,10 @@ PROGRAM HMx
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
      !Set the redshift
+     !na=1
      z=0.
+     !ALLOCATE(a(na))
+     !a(1)=scale_factor_z(z)
 
      !Assigns the cosmological model
      icosmo=1
@@ -405,6 +426,11 @@ PROGRAM HMx
      WRITE(*,fmt='(2I5,A30)') -1, -1, TRIM(outfile)
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+     
+     !ip=-1
+     !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+     !outfile='cosmo-OWLS/data/DMONLY.dat'
+     !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
 
      !Loop over matter types and do auto and cross-spectra
      DO j1=0,6
@@ -546,8 +572,14 @@ PROGRAM HMx
      
      nnz=7
      DO i=1,nnz
-        WRITE(*,*) 'HMx: n(z) number:', i
-        nz=i
+        IF(i==1) nz=1
+        IF(i==2) nz=4
+        IF(i==3) nz=5
+        IF(i==4) nz=6
+        IF(i==5) nz=7
+        IF(i==6) nz=8
+        IF(i==7) nz=9
+        WRITE(*,*) 'HMx: n(z) number:', nz
         CALL get_nz(nz,lens)
         WRITE(*,*) 'HMx: n(z) integral (linear):', inttab(lens%z_nz,lens%nz,lens%nnz,1)
         WRITE(*,*) 'HMx: n(z) integral (quadratic):', inttab(lens%z_nz,lens%nz,lens%nnz,2)
@@ -561,7 +593,7 @@ PROGRAM HMx
 
      !Set the fields
      ix=-1
-     CALL set_ix(ix,ip,ik,inz)
+     CALL set_ix(ix,ip)
      
      !Assign the cosmological model
      icosmo=-1
@@ -610,8 +642,10 @@ PROGRAM HMx
      WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
      WRITE(*,*) 'HMx: Profile type 1: ', TRIM(halo_type(ip(1)))
      WRITE(*,*) 'HMx: Profile type 2: ', TRIM(halo_type(ip(2)))
-     WRITE(*,*) 'HMx: Kernel type 1: ', TRIM(kernel_type(ik(1)))
-     WRITE(*,*) 'HMx: Kernel type 2: ', TRIM(kernel_type(ik(2)))
+     !WRITE(*,*) 'HMx: Kernel type 1: ', TRIM(kernel_type(ik(1)))
+     !WRITE(*,*) 'HMx: Kernel type 2: ', TRIM(kernel_type(ik(2)))
+     WRITE(*,*) 'HMx: Xcorr type 1: ', TRIM(xcorr_type(ix(1)))
+     WRITE(*,*) 'HMx: Xcorr type 2: ', TRIM(xcorr_type(ix(2)))
      WRITE(*,*) 'HMx: P(k) minimum k [h/Mpc]:', REAL(kmin)
      WRITE(*,*) 'HMx: P(k) maximum k [h/Mpc]:', REAL(kmax)
      WRITE(*,*) 'HMx: minimum a:', REAL(amin)
@@ -630,31 +664,39 @@ PROGRAM HMx
         CALL initialise_distances(cosm)
         CALL write_distances(cosm)
 
+        !Write out diagnostics
+        CALL halomod_init(mmin,mmax,z,lut,cosm)
+        dir='diagnostics'
+        CALL halo_diagnostics(z,lut,cosm,dir)
+        CALL halo_definitions(lut,dir)
+
+        CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+
         !Loop over scale factors
-        DO j=na,1,-1
+        !DO j=na,1,-1
+        !
+        !   z=-1+1./a(j)
+        !   
+        !   !Initiliasation for the halomodel calcualtion
+        !   CALL halomod_init(mmin,mmax,z,lut,cosm)
+        !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
+        !
+        !   IF(z==0.) THEN
+        !      dir='diagnostics'
+        !      CALL halo_diagnostics(z,lut,cosm,dir)
+        !      CALL halo_definitions(lut,dir)
+        !   END IF
 
-           z=-1+1./a(j)
-           
-           !Initiliasation for the halomodel calcualtion
-           CALL halomod_init(mmin,mmax,z,lut,cosm)
-           CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
+        !  !Write progress to screen
+        !  IF(j==na) THEN
+        !     WRITE(*,fmt='(A5,A7)') 'i', 'a'
+        !     WRITE(*,fmt='(A13)') '   ============'
+        !  END IF
+        !  WRITE(*,fmt='(I5,F8.3)') j, a(j)
 
-           IF(z==0.) THEN
-              dir='diagnostics'
-              CALL halo_diagnostics(z,lut,cosm,dir)
-              CALL halo_definitions(lut,dir)
-           END IF
-
-           !Write progress to screen
-           IF(j==na) THEN
-              WRITE(*,fmt='(A5,A7)') 'i', 'a'
-              WRITE(*,fmt='(A13)') '   ============'
-           END IF
-           WRITE(*,fmt='(I5,F8.3)') j, a(j)
-
-        END DO
-        WRITE(*,fmt='(A13)') '   ============'
-        WRITE(*,*)
+        !END DO
+        !WRITE(*,fmt='(A13)') '   ============'
+        !WRITE(*,*)
 
 !!$        !Fix the one-halo term P(k) to be a constant
 !!$        DO j=1,na
@@ -668,18 +710,21 @@ PROGRAM HMx
 
         !Output directory
         dir='data/'
-
         base=TRIM(dir)//'power'
         CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,.TRUE.)
 
         !Fill out the projection kernels
-        CALL fill_projection_kernels(ik,inz,proj,lens,cosm)
+        CALL fill_projection_kernels(ix,proj,cosm)
         CALL write_projection_kernels(proj,cosm)
-        
+        !output='projection/kernel1.dat'
+        !CALL write_projection_kernel(proj(1),cosm,output)
+        !output='projection/kernel2.dat'
+        !CALL write_projection_kernel(proj(2),cosm,output)
+
         !Set the distance range for the Limber integral
         r1=0.d0 !100.d0
-        r2=proj%rs
-        
+        r2=maxdist(proj)!proj%rs
+
         !Write to screen
         WRITE(*,*) 'HMx: Computing C(l)'
         WRITE(*,*) 'HMx: ell min:', REAL(ell(1))
@@ -688,11 +733,11 @@ PROGRAM HMx
         WRITE(*,*) 'HMx: lower limit of Limber integral [Mpc/h]:', REAL(r1)
         WRITE(*,*) 'HMx: upper limit of Limber integral [Mpc/h]:', REAL(r2)
         WRITE(*,*)
-        
+
         !Loop over all types of C(l) to create
         DO j=1,4
 
-           IF(ifull==1 .AND. (j .NE. 4)) CYCLE
+           IF(ifull .AND. (j .NE. 4)) CYCLE
            !IF(j==3) CYCLE !Skip the fucking one-halo term
 
            !Write information to screen
@@ -723,7 +768,7 @@ PROGRAM HMx
            IF(j==4) CALL Cell_contribution(r1,r2,k,a,powa,nk,na,proj,cosm)
 
            IF(ixi) THEN
-              
+
               !Set xi output files
               IF(j==1) outfile=TRIM(dir)//'xi_linear.dat'
               IF(j==2) outfile=TRIM(dir)//'xi_2halo.dat'
@@ -761,27 +806,28 @@ PROGRAM HMx
            !CALL write_distances(cosm)
 
            !Loop over redshifts
-           DO j=1,na
+           !DO j=1,na
+           !
+           !   z=redshift_a(a(j))
+           !   
+           !   !Initiliasation for the halomodel calcualtion
+           !   CALL halomod_init(mmin,mmax,z,lut,cosm)
+           !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
+           !   !Write progress to screen
+           !   IF(j==1) THEN
+           !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
+           !      WRITE(*,fmt='(A13)') '   ============'
+           !   END IF
+           !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
+           !
+           !END DO
+           !WRITE(*,fmt='(A13)') '   ============'
+           !WRITE(*,*)
 
-              z=redshift_a(a(j))
-              
-              !Initiliasation for the halomodel calcualtion
-              CALL halomod_init(mmin,mmax,z,lut,cosm)
-              CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-
-              !Write progress to screen
-              IF(j==1) THEN
-                 WRITE(*,fmt='(A5,A7)') 'i', 'a'
-                 WRITE(*,fmt='(A13)') '   ============'
-              END IF
-              WRITE(*,fmt='(I5,F8.3)') j, a(j)
-
-           END DO
-           WRITE(*,fmt='(A13)') '   ============'
-           WRITE(*,*)
-
+           CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+           
            !Fill out the projection kernels
-           CALL fill_projection_kernels(ik,inz,proj,lens,cosm)
+           CALL fill_projection_kernels(ix,proj,cosm)
            CALL write_projection_kernels(proj,cosm)
 
            !Now do the C(l) calculations
@@ -820,7 +866,7 @@ PROGRAM HMx
               END IF
               outfile=number_file(base,i,ext)
               !Actually calculate the C(ell)
-              CALL calculate_Cell(0.d0,proj%rs,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
+              CALL calculate_Cell(0.d0,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
            END DO
            WRITE(*,*) 'HMx: Done'
@@ -841,7 +887,7 @@ PROGRAM HMx
         CALL write_distances(cosm)
 
         !Fill out the projection kernels
-        CALL fill_projection_kernels(ik,inz,proj,lens,cosm)
+        CALL fill_projection_kernels(ix,proj,cosm)
         CALL write_projection_kernels(proj,cosm)
 
         DO i=0,6
@@ -970,7 +1016,7 @@ PROGRAM HMx
 
               WRITE(*,*) 'HMx: File: ', TRIM(outfile)
 
-              CALL calculate_Cell(0.d0,proj%rs,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
+              CALL calculate_Cell(0.d0,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
 
            END DO
@@ -988,25 +1034,27 @@ PROGRAM HMx
         CALL print_cosmology(cosm)
 
         !Loop over redshifts
-        DO j=1,na
+        !DO j=1,na
+        !
+        !   !z=-1.+1./a(j)
+        !   z=redshift_a(a(j))
+        !
+        !   !Initiliasation for the halomodel calcualtion
+        !   CALL halomod_init(mmin,mmax,z,lut,cosm)
+        !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
+        !
+        !   !Write progress to screen
+        !   IF(j==1) THEN
+        !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
+        !      WRITE(*,fmt='(A13)') '   ============'
+        !   END IF
+        !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
+        !
+        !END DO
+        !WRITE(*,fmt='(A13)') '   ============'
+        !WRITE(*,*)
 
-           !z=-1.+1./a(j)
-           z=redshift_a(a(j))
-
-           !Initiliasation for the halomodel calcualtion
-           CALL halomod_init(mmin,mmax,z,lut,cosm)
-           CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-
-           !Write progress to screen
-           IF(j==1) THEN
-              WRITE(*,fmt='(A5,A7)') 'i', 'a'
-              WRITE(*,fmt='(A13)') '   ============'
-           END IF
-           WRITE(*,fmt='(I5,F8.3)') j, a(j)
-
-        END DO
-        WRITE(*,fmt='(A13)') '   ============'
-        WRITE(*,*)
+        CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
 
         !output=TRIM(base)//'power'
         !CALL write_power_a(k,a,powa,nk,na,output)
@@ -1016,7 +1064,7 @@ PROGRAM HMx
         CALL write_distances(cosm)
 
         !Fill out the projection kernels
-        CALL fill_projection_kernels(ik,inz,proj,lens,cosm)
+        CALL fill_projection_kernels(ix,proj,cosm)
         CALL write_projection_kernels(proj,cosm)
 
         !Write to screen
@@ -1036,7 +1084,7 @@ PROGRAM HMx
               !z1=0.d0
               !z2=3.99d0 !Just less than z=4 to avoid rounding error
               r1=0.d0
-              r2=proj%rs
+              r2=maxdist(proj)
            ELSE
               IF(icumulative==0) THEN
                  !z1=zmin+(zmax-zmin)*float(i-1)/float(nz)
@@ -1199,7 +1247,7 @@ PROGRAM HMx
      dir='data'
 
      ixx=-1
-     CALL set_ix(ixx,ip,ik,inz)
+     CALL set_ix(ixx,ip)
 
      DO i=1,3
         IF(i==1) THEN
@@ -1256,20 +1304,20 @@ PROGRAM HMx
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
 
      !Loop over parameters
-     DO ipa=1,np
+     DO ipa=1,cosm%np
      !DO ipa=2,2
 
-        param=param_defaults
+        cosm%param=cosm%param_defaults
 
         !Loop over parameter values
         DO i=1,m
 
            !Set the parameter value that is being varied
-           IF(param_log(ipa)) THEN
-              param(ipa)=progression(log(param_min(ipa)),log(param_max(ipa)),i,m)
-              param(ipa)=exp(param(ipa))
+           IF(cosm%param_log(ipa)) THEN
+              cosm%param(ipa)=progression(log(cosm%param_min(ipa)),log(cosm%param_max(ipa)),i,m)
+              cosm%param(ipa)=exp(cosm%param(ipa))
            ELSE
-              param(ipa)=progression(param_min(ipa),param_max(ipa),i,m)
+              cosm%param(ipa)=progression(cosm%param_min(ipa),cosm%param_max(ipa),i,m)
            END IF
            
            !Write out halo matter and pressure profile information
@@ -1368,12 +1416,46 @@ PROGRAM HMx
 
 CONTAINS
 
-  SUBROUTINE set_ix(ix,ip,ik,inz)
+  SUBROUTINE calculate_HMx(itype,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+
+    IMPLICIT NONE
+    REAL*8, INTENT(IN) :: k(:), a(:)
+    INTEGER, INTENT(IN) :: nk, na, itype(2)
+    REAL*8, ALLOCATABLE, INTENT(OUT) :: powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
+    TYPE(cosmology), INTENT(IN) :: cosm
+    INTEGER :: i
+    REAL*8 :: z
+    TYPE(tables) :: lut
+
+    IF(ALLOCATED(powa_lin))  DEALLOCATE(powa_lin)
+    IF(ALLOCATED(powa_2h))   DEALLOCATE(powa_2h)
+    IF(ALLOCATED(powa_1h))   DEALLOCATE(powa_1h)
+    IF(ALLOCATED(powa_full)) DEALLOCATE(powa_full)
+
+    !Allocate power arrays
+    ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
+
+    !Do the halo-model calculation
+    IF(verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
+    DO i=na,1,-1
+       z=redshift_a(a(i))
+       CALL halomod_init(mmin,mmax,z,lut,cosm)
+       IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
+       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm)
+    END DO
+    IF(verbose) THEN
+       WRITE(*,*) 'CALCULATE_HMx: Done'
+       WRITE(*,*)
+    END IF
+
+  END SUBROUTINE calculate_HMx
+     
+  SUBROUTINE set_ix(ix,ip)
 
     !Set the cross-correlation type
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2)
-    INTEGER, INTENT(OUT) :: ip(2), ik(2), inz(2)
+    INTEGER, INTENT(OUT) :: ip(2)
     INTEGER :: i, j
 
     DO i=1,2
@@ -1392,26 +1474,26 @@ CONTAINS
        IF(ix(i)==2) THEN
           !Compton y
           ip(i)=6 !Profile type: 6 - Pressure
-          ik(i)=2 !Kernel type: 2 - y
-          inz(i)=-1 !n(z) distribution - NOT used here
+          !ik(i)=2 !Kernel type: 2 - y
+          !inz(i)=-1 !n(z) distribution - NOT used here
        ELSE IF(ix(i)==10) THEN
           !Gravitational waves
           ip(i)=-1 !Profile type: -1 DMONLY
-          ik(i)=3 !Kernel type: 3 gravity waves
-          inz(i)=-1 !n(z) distribution - NOT used here
+          !ik(i)=3 !Kernel type: 3 gravity waves
+          !inz(i)=-1 !n(z) distribution - NOT used here
        ELSE
           !Gravitational lensing
           !ip(i)=-1 !Profile type: -1 - DMONLY
           ip(i)=0 !Profile type: 0 - Matter
-          ik(i)=1 !Kernel type: 1 - Lensing
-          IF(ix(i)==1) inz(i)=1 !n(z): 1 - RCSLenS
-          IF(ix(i)==3) inz(i)=0 !n(z): 0 - CMB
-          IF(ix(i)==4) inz(i)=7 !n(z): 7 - CFHTLenS
-          IF(ix(i)==5) inz(i)=2 !n(z): 2 - KiDS 0.1 -> 0.9
-          IF(ix(i)==6) inz(i)=3 !n(z): 2 - KiDS 0.1 -> 0.3
-          IF(ix(i)==7) inz(i)=4 !n(z): 2 - KiDS 0.3 -> 0.5
-          IF(ix(i)==8) inz(i)=5 !n(z): 2 - KiDS 0.5 -> 0.7
-          IF(ix(i)==9) inz(i)=6 !n(z): 2 - KiDS 0.7 -> 0.9
+          !ik(i)=1 !Kernel type: 1 - Lensing
+          !IF(ix(i)==1) inz(i)=1 !n(z): 1 - RCSLenS
+          !IF(ix(i)==3) inz(i)=0 !n(z): 0 - CMB
+          !IF(ix(i)==4) inz(i)=7 !n(z): 7 - CFHTLenS
+          !IF(ix(i)==5) inz(i)=2 !n(z): 2 - KiDS 0.1 -> 0.9
+          !IF(ix(i)==6) inz(i)=3 !n(z): 2 - KiDS 0.1 -> 0.3
+          !IF(ix(i)==7) inz(i)=4 !n(z): 2 - KiDS 0.3 -> 0.5
+          !IF(ix(i)==8) inz(i)=5 !n(z): 2 - KiDS 0.5 -> 0.7
+          !IF(ix(i)==9) inz(i)=6 !n(z): 2 - KiDS 0.7 -> 0.9
       !ELSE
           !    STOP 'SET_IX: inx specified incorrectly'
        END IF
@@ -1429,18 +1511,20 @@ CONTAINS
     REAL*8, INTENT(OUT) :: Cell(nl)
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL*8, ALLOCATABLE :: k(:), pow_lin(:), pow_2h(:), pow_1h(:), pow(:,:)
-    TYPE(tables) :: lut
-    TYPE(lensing) :: lens
-    TYPE(projection) :: proj
+    !TYPE(tables) :: lut
+    !TYPE(lensing) :: lens
+    TYPE(projection) :: proj(2)
     LOGICAL, INTENT(IN) :: verbose
     REAL*8 :: kmin, kmax, amin, amax
-    INTEGER :: j, nk, na, inz(2), ip(2), ik(2)
+    INTEGER :: nk, na, ip(2)
     REAL*8 :: r1, r2
 
     !Set the k range
     kmin=1e-3
     kmax=1e1
     nk=32
+    CALL fill_table(log(kmin),log(kmax),k,nk)
+    k=exp(k)   
 
     !Set the a range
     amin=0.1 !scale_factor(cosm%z_cmb) !Problems with one-halo term if amin is less than 0.1
@@ -1448,10 +1532,7 @@ CONTAINS
     na=16
     CALL fill_table(amin,amax,a,na)
 
-    !Set number of k points and k range (log spaced)
-    !Also P(k,a)
-    CALL fill_table(log(kmin),log(kmax),k,nk)
-    k=exp(k)   
+    !Allocate power arrays
     ALLOCATE(pow(nk,na),pow_lin(nk),pow_2h(nk),pow_1h(nk))
 
     IF(verbose) THEN
@@ -1468,35 +1549,37 @@ CONTAINS
        WRITE(*,*)
     END IF
 
-    CALL set_ix(ix,ip,ik,inz)
+    CALL set_ix(ix,ip)
     
     !Loop over scale factors
-    DO j=na,1,-1
+    !DO j=na,1,-1
+    !
+    !   z=-1+1./a(j)
+    !
+    !   !Initiliasation for the halomodel calcualtion
+    !   CALL halomod_init(mmin,mmax,z,lut,cosm)
+    !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow(:,j),lut,cosm)
+    !
+    !   !Write progress to screen
+    !   IF(j==na .AND. verbose) THEN
+    !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
+    !      WRITE(*,fmt='(A13)') '   ============'
+    !   END IF
+    !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
+    !
+    !END DO
+    !WRITE(*,fmt='(A13)') '   ============'
+    !WRITE(*,*)
 
-       z=-1+1./a(j)
-
-       !Initiliasation for the halomodel calcualtion
-       CALL halomod_init(mmin,mmax,z,lut,cosm)
-       CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow(:,j),lut,cosm)
-
-       !Write progress to screen
-       IF(j==na .AND. verbose) THEN
-          WRITE(*,fmt='(A5,A7)') 'i', 'a'
-          WRITE(*,fmt='(A13)') '   ============'
-       END IF
-       WRITE(*,fmt='(I5,F8.3)') j, a(j)
-
-    END DO
-    WRITE(*,fmt='(A13)') '   ============'
-    WRITE(*,*)
-
+    CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+    
     !Fill out the projection kernels
-    CALL fill_projection_kernels(ik,inz,proj,lens,cosm)
+    CALL fill_projection_kernels(ix,proj,cosm)
     IF(verbose) CALL write_projection_kernels(proj,cosm)
 
     !Set the distance range for the Limber integral
     r1=0.d0
-    r2=proj%rs
+    r2=maxdist(proj)
 
     !Actually calculate the C(ell), but only for the full halo model part
     CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,pow,nk,na,proj,cosm)
@@ -1523,17 +1606,16 @@ CONTAINS
 
   END SUBROUTINE write_nz
 
-  SUBROUTINE fill_projection_kernels(ik,inz,proj,lens,cosm)
+  SUBROUTINE fill_projection_kernels(ix,proj,cosm)
 
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: ik(2)
-    INTEGER, INTENT(INOUT) :: inz(2)
+    INTEGER, INTENT(IN) :: ix(2)
     TYPE(cosmology), INTENT(IN) :: cosm
-    TYPE(lensing), INTENT(IN) :: lens
-    TYPE(projection) :: proj
+    !TYPE(lensing), INTENT(IN) :: lens
+    TYPE(projection) :: proj(2)
     INTEGER :: nk, i
 
-    IF(ik(1)==ik(2) .AND. inz(1)==inz(2)) THEN
+    IF(ix(1)==ix(2)) THEN
        nk=1
     ELSE
        nk=2
@@ -1544,29 +1626,47 @@ CONTAINS
        !Fill out the projection kernels
        !Repetition is a bit ugly, but probably cannot be avoided because the size
        !of the projection X and r_X arrays will be different in general
-       IF(i==1) THEN        
-          IF(ik(i)==1) CALL fill_lensing_kernel(inz(i),proj%r_x1,proj%x1,proj%nx1,lens,cosm)
-          IF(ik(i)==2 .OR. ik(i)==3) CALL fill_kernel(ik(i),proj%r_x1,proj%x1,proj%nx1,cosm)
-       ELSE IF(i==2) THEN
-          IF(ik(i)==1) CALL fill_lensing_kernel(inz(i),proj%r_x2,proj%x2,proj%nx2,lens,cosm)
-          IF(ik(i)==2 .OR. ik(i)==3) CALL fill_kernel(ik(i),proj%r_x2,proj%x2,proj%nx2,cosm)
-       END IF
+       !IF(i==1) THEN
+       !   IF(ik(i)==1) CALL fill_lensing_kernel(inz(i),proj%r_x1,proj%x1,proj%nx1,lens,cosm)
+       !   IF(ik(i)==2 .OR. ik(i)==3) CALL fill_kernel(ik(i),proj%r_x1,proj%x1,proj%nx1,cosm)
+       !ELSE IF(i==2) THEN
+       !   IF(ik(i)==1) CALL fill_lensing_kernel(inz(i),proj%r_x2,proj%x2,proj%nx2,lens,cosm)
+       !   IF(ik(i)==2 .OR. ik(i)==3) CALL fill_kernel(ik(i),proj%r_x2,proj%x2,proj%nx2,cosm)
+       !END IF
+       CALL fill_projection_kernel(ix(i),proj(i),cosm)
     END DO
 
     !In case the autospectrum is being considered
     IF(nk==1) THEN
-       proj%nx2=proj%nx1
-       IF(ALLOCATED(proj%r_x2)) DEALLOCATE(proj%r_x2)
-       IF(ALLOCATED(proj%x2))   DEALLOCATE(proj%x2)
-       ALLOCATE(proj%r_x2(proj%nx2),proj%x2(proj%nx2))
-       proj%r_x2=proj%r_x1
-       proj%x2=proj%x1
+       !proj%nx2=proj%nx1
+       !IF(ALLOCATED(proj%r_x2)) DEALLOCATE(proj%r_x2)
+       !IF(ALLOCATED(proj%x2))   DEALLOCATE(proj%x2)
+       !ALLOCATE(proj%r_x2(proj%nx2),proj%x2(proj%nx2))
+       !proj%r_x2=proj%r_x1
+       !proj%x2=proj%x1
+       proj(2)=proj(1)
     END IF
 
     !Get the maximum distance to be considered for the Limber integral
-    CALL maxdist(proj,cosm)
+    !CALL maxdist(proj,cosm)
 
   END SUBROUTINE fill_projection_kernels
+
+  SUBROUTINE fill_projection_kernel(ix,proj,cosm)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: ix
+    TYPE(projection), INTENT(OUT) :: proj
+    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(lensing) :: lens
+
+    IF(ix==2 .OR. ix==3) THEN
+       CALL fill_kernel(ix,proj,cosm)
+    ELSE
+       CALL fill_lensing_kernel(ix,proj,lens,cosm)
+    END IF
+    
+  END SUBROUTINE fill_projection_kernel
 
   SUBROUTINE calculate_Cell(r1,r2,ell,Cell,nl,k,a,pow,nk,na,proj,cosm)
 
@@ -1577,7 +1677,7 @@ CONTAINS
     REAL*8, INTENT(OUT) :: Cell(nl)
     REAL*8, INTENT(IN) :: k(nk), a(na), pow(nk,na)
     REAL*8, INTENT(IN) :: r1, r2
-    TYPE(projection), INTENT(IN) :: proj
+    TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL*8 :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j
@@ -1596,7 +1696,7 @@ CONTAINS
     !WRITE(*,*)
 
     !Write some useful things to the screen
-    IF(ihm==1) THEN
+    IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_CELL: ell min:', REAL(ell(1))
        WRITE(*,*) 'CALCULATE_CELL: ell max:', REAL(ell(nl))
        WRITE(*,*) 'CALCULATE_CELL: number of ell:', nl
@@ -1607,13 +1707,13 @@ CONTAINS
     END IF
 
     !Finally do the integration
-    IF(ihm==1) WRITE(*,*) 'CALCULATE CELL: Doing calculation'
+    IF(verbose) WRITE(*,*) 'CALCULATE CELL: Doing calculation'
     DO i=1,nl
        !WRITE(*,*) i, ell(i)
        Cell(i)=integrate_Limber(ell(i),r1,r2,logk,loga,logpow,nk,na,acc,3,proj,cosm)
        !WRITE(*,*) i, ell(i), Cell(i)
     END DO
-    IF(ihm==1) THEN
+    IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_CELL: Done'
        WRITE(*,*)
     END IF
@@ -1627,7 +1727,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: nk, na
     REAL*8, INTENT(IN) :: k(nk), a(na), pow(nk,na)
     REAL*8, INTENT(IN) :: r1, r2
-    TYPE(projection), INTENT(IN) :: proj
+    TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL*8 :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j, l
@@ -1788,14 +1888,13 @@ CONTAINS
     INTEGER :: i
 
     !Write to screen
-    IF(ihm==1) THEN
+    IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_HALOMOD: k min:', k(1)
        WRITE(*,*) 'CALCULATE_HALOMOD: k max:', k(nk)
        WRITE(*,*) 'CALCULATE_HALOMOD: number of k:', nk
        WRITE(*,*) 'CALCULATE_HALOMOD: z:', z
+       WRITE(*,*) 'CALCULATE_HALOMOD: Calculating halo-model power spectrum'
     END IF
-
-    IF(ihm==1) WRITE(*,*) 'CALCULATE_HALOMOD: Calculating halo-model power spectrum'
 
     !Loop over k values
     !ADD OMP support properly. What is private and shared? CHECK THIS!
@@ -1812,7 +1911,7 @@ CONTAINS
     END DO
     !!$OMP END PARALLEL DO
 
-    IF(ihm==1) THEN
+    IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_HALOMOD: Done'
        WRITE(*,*)
     END IF
@@ -1827,7 +1926,7 @@ CONTAINS
     REAL*8, INTENT(IN) :: k(nk), pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
     INTEGER :: i
 
-    IF(ihm==1) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
+    IF(verbose) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
 
     !Loop over k values
     OPEN(7,file=output)
@@ -1837,7 +1936,7 @@ CONTAINS
     END DO
     CLOSE(7)
 
-    IF(ihm==1) THEN
+    IF(verbose) THEN
        WRITE(*,*) 'WRITE_POWER: Done'
        WRITE(*,*)
     END IF
@@ -2351,20 +2450,22 @@ CONTAINS
     !This subroutine writes out the physical parameters at some redshift 
     !(e.g. Delta_v) rather than the model parameters
 
-    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
-    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Halo-model parameters at your redshift'
-    WRITE(*,*) '==========================='
-    WRITE(*,fmt='(A10,F10.5)') 'z:', z
-    WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(z,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'dc:', delta_c(z,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'eta:', eta(z,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'k*:', kstar(lut,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'A:', As(cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(z,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_transition(lut,cosm)
-    WRITE(*,*) '==========================='
-    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Done'
-    WRITE(*,*)
+    IF(verbose) THEN
+       WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
+       WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Halo-model parameters at your redshift'
+       WRITE(*,*) '==========================='
+       WRITE(*,fmt='(A10,F10.5)') 'z:', z
+       WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(z,cosm)
+       WRITE(*,fmt='(A10,F10.5)') 'dc:', delta_c(z,cosm)
+       WRITE(*,fmt='(A10,F10.5)') 'eta:', eta(z,cosm)
+       WRITE(*,fmt='(A10,F10.5)') 'k*:', kstar(lut,cosm)
+       WRITE(*,fmt='(A10,F10.5)') 'A:', As(cosm)
+       WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(z,cosm)
+       WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_transition(lut,cosm)
+       WRITE(*,*) '==========================='
+       WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE print_halomodel_parameters
 
@@ -2425,20 +2526,22 @@ CONTAINS
     IMPLICIT NONE
     TYPE(cosmology) :: cosm
 
-    IF(ihm==1) WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', cosm%om_m
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_b:', cosm%om_b
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%om_c
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v:', cosm%om_v
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'h:', cosm%h
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_0:', cosm%w
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', cosm%wa
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sig8:', cosm%sig8
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n:', cosm%n
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%om
-    !IF(ihm==1) WRITE(*,fmt='(A11,A15,F10.5)') 'COSMOLOGY:', 'k / (Mpc/h)^-2:', cosm%k
-    IF(ihm==1) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', cosm%z_cmb
-    IF(ihm==1) WRITE(*,*)
+    IF(verbose) THEN
+       WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', cosm%om_m
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_b:', cosm%om_b
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%om_c
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v:', cosm%om_v
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'h:', cosm%h
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_0:', cosm%w
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', cosm%wa
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sig8:', cosm%sig8
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n:', cosm%n
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%om
+       ! WRITE(*,fmt='(A11,A15,F10.5)') 'COSMOLOGY:', 'k / (Mpc/h)^-2:', cosm%k
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', cosm%z_cmb
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE print_cosmology
 
@@ -2524,13 +2627,12 @@ CONTAINS
     cosm%om=cosm%om_m+cosm%om_v
     cosm%k=(cosm%om-1.d0)/(conH0**2)
 
-    IF(ihm==1) THEN
+    IF(verbose) THEN
        WRITE(*,*) 'INITIALISE_COSMOLOGY: Omega_r:', REAL(cosm%om_r)
        WRITE(*,*) 'INITIALISE_COSMOLOGY: Omega_c:', REAL(cosm%om_c)
        WRITE(*,*) 'INITIALISE_COSMOLOGY: Omega:', REAL(cosm%om)
        WRITE(*,*) 'INITIALISE_COSMOLOGY: k:', REAL(cosm%k)
-       WRITE(*,*) 'INITIALISE_COSMOLOGY: Complete'
-       WRITE(*,*)
+       WRITE(*,*) !Need this space because 'growth' is called in the middle
     END IF
 
     !Fill the tables of g(z)
@@ -2542,7 +2644,7 @@ CONTAINS
     !Calculate the initial sigma_8 value (will not be correct)
     sigi=sigma(8.d0,0.d0,cosm)
 
-    IF(ihm==1) WRITE(*,*) 'INITIALISE_COSMOLOGY: Initial sigma_8:', REAL(sigi)
+    IF(verbose) WRITE(*,*) 'INITIALISE_COSMOLOGY: Initial sigma_8:', REAL(sigi)
 
     !Reset the normalisation to give the correct sigma8
     cosm%A=cosm%sig8/sigi
@@ -2552,7 +2654,7 @@ CONTAINS
     sigi=sigma(8.d0,0.d0,cosm)
 
     !Write to screen
-    IF(ihm==1) THEN
+    IF(verbose) THEN
        WRITE(*,*) 'INITIALISE_COSMOLOGY: Normalisation factor:', REAL(cosm%A)
        WRITE(*,*) 'INITIALISE_COSMOLOGY: Target sigma_8:', REAL(cosm%sig8)
        WRITE(*,*) 'INITIALISE_COSMOLOGY: Final sigma_8 (calculated):', REAL(sigi)
@@ -2574,16 +2676,20 @@ CONTAINS
     REAL*8 :: rh
     INTEGER :: i
 
+    INTEGER, PARAMETER :: nr=128
+
     zmin=0.
     zmax=cosm%z_cmb
     amin=scale_factor_z(zmax)
     amax=scale_factor_z(zmin)
-    WRITE(*,*) 'INITIALISE_DISTANCE: Redshift range for r(z) tables'
-    WRITE(*,*) 'INITIALISE_DISTANCE: minimum z:', REAL(zmin)
-    WRITE(*,*) 'INITIALISE_DISTANCE: maximum z:', REAL(zmax)
-    WRITE(*,*) 'INITIALISE_DISTANCE: minimum a:', REAL(amin)
-    WRITE(*,*) 'INITIALISE_DISTANCE: maximum a:', REAL(amax)
-    cosm%nr=128
+    IF(verbose) THEN
+       WRITE(*,*) 'INITIALISE_DISTANCE: Redshift range for r(z) tables'
+       WRITE(*,*) 'INITIALISE_DISTANCE: minimum z:', REAL(zmin)
+       WRITE(*,*) 'INITIALISE_DISTANCE: maximum z:', REAL(zmax)
+       WRITE(*,*) 'INITIALISE_DISTANCE: minimum a:', REAL(amin)
+       WRITE(*,*) 'INITIALISE_DISTANCE: maximum a:', REAL(amax)
+    END IF
+    cosm%nr=nr
     CALL fill_table(amin,amax,cosm%a_r,cosm%nr)
     IF(ALLOCATED(cosm%r)) DEALLOCATE(cosm%r)
     ALLOCATE(cosm%r(cosm%nr))
@@ -2592,14 +2698,18 @@ CONTAINS
     DO i=1,cosm%nr
        cosm%r(i)=integrate_distance(cosm%a_r(i),1.d0,acc,3,cosm)
     END DO
-    WRITE(*,*) 'INITIALISE_DISTANCE: minimum r [Mpc/h]:', REAL(cosm%r(cosm%nr))
-    WRITE(*,*) 'INITIALISE_DISTANCE: maximum r [Mpc/h]:', REAL(cosm%r(1))
+    IF(verbose) THEN
+       WRITE(*,*) 'INITIALISE_DISTANCE: minimum r [Mpc/h]:', REAL(cosm%r(cosm%nr))
+       WRITE(*,*) 'INITIALISE_DISTANCE: maximum r [Mpc/h]:', REAL(cosm%r(1))
+    END IF
 
     !Find the horizon distance in your cosmology
     rh=integrate_distance(0.d0,1.d0,acc,3,cosm)
-    WRITE(*,*) 'INITIALISE_DISTANCE: Horizon distance [Mpc/h]:', REAL(rh)
-    WRITE(*,*) 'INITIALISE_DISTANCE: Done'
-    WRITE(*,*)
+    IF(verbose) THEN
+       WRITE(*,*) 'INITIALISE_DISTANCE: Horizon distance [Mpc/h]:', REAL(rh)
+       WRITE(*,*) 'INITIALISE_DISTANCE: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE initialise_distances
 
@@ -2673,77 +2783,102 @@ CONTAINS
     
   END FUNCTION redshift_r
 
-  SUBROUTINE maxdist(proj,cosm)
+  FUNCTION maxdist(proj)!,cosm)
 
     !Calculates the maximum distance necessary for the lensing integration
     IMPLICIT NONE
-    TYPE(projection) :: proj
-    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL*8 :: maxdist
+    TYPE(projection), INTENT(IN) :: proj(2)
+    !TYPE(cosmology), INTENT(IN) :: cosm
     REAL*8 :: rmax1, rmax2
     
     REAL*8, PARAMETER :: dr=0.01
 
     !Fix the maximum redshift and distance (which may fixed at source plane)
-    rmax1=MAXVAL(proj%r_x1)
-    rmax2=MAXVAL(proj%r_x2)
+    rmax1=MAXVAL(proj(1)%r_x)
+    rmax2=MAXVAL(proj(2)%r_x)
     !Subtract a small distance here because of rounding errors in recalculating zmax
-    proj%rs=MIN(rmax1,rmax2)-dr
-    proj%zs=redshift_a(find(proj%rs,cosm%r,cosm%a_r,cosm%nr,3,3,2))
+    maxdist=MIN(rmax1,rmax2)-dr
+    !zs=redshift_a(find(maxdist,cosm%r,cosm%a_r,cosm%nr,3,3,2))
 
-    WRITE(*,*) 'MAXDIST: maximum radius kernel 1 [Mpc/h]:', REAL(rmax1)
-    WRITE(*,*) 'MAXDIST: maximum radius kernel 2 [Mpc/h]:', REAL(rmax2)
-    WRITE(*,*) 'MAXDIST: maximum radius [Mpc/h]:', REAL(proj%rs)
-    WRITE(*,*) 'MAXDIST: maximum redshift:', REAL(proj%zs)
-    WRITE(*,*) 'MAXDIST: Done'
-    WRITE(*,*)
+    !IF(verbose) THEN
+    !   WRITE(*,*) 'MAXDIST: maximum radius kernel 1 [Mpc/h]:', REAL(rmax1)
+    !   WRITE(*,*) 'MAXDIST: maximum radius kernel 2 [Mpc/h]:', REAL(rmax2)
+    !   WRITE(*,*) 'MAXDIST: maximum radius [Mpc/h]:', REAL(proj%rs)
+    !   WRITE(*,*) 'MAXDIST: maximum redshift:', REAL(proj%zs)
+    !   WRITE(*,*) 'MAXDIST: Done'
+    !   WRITE(*,*)
+    !END IF
 
-  END SUBROUTINE maxdist
+  END FUNCTION maxdist
 
   SUBROUTINE write_projection_kernels(proj,cosm)
 
     IMPLICIT NONE
-    TYPE(projection), INTENT(IN) :: proj
+    TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
     CHARACTER(len=256) :: output
+    
+    output=TRIM('projection/kernel1.dat')
+    CALL write_projection_kernel(proj(1),cosm,output)
+
+    output=TRIM('projection/kernel2.dat')
+    CALL write_projection_kernel(proj(2),cosm,output)
+    
+  END SUBROUTINE write_projection_kernels
+  
+  SUBROUTINE write_projection_kernel(proj,cosm,output)
+
+    IMPLICIT NONE
+    TYPE(projection), INTENT(IN) :: proj
+    TYPE(cosmology), INTENT(IN) :: cosm
+    CHARACTER(len=256), INTENT(IN) :: output
     INTEGER :: i
     REAL*8 :: r, z
 
     !Kernel 1
-    output=TRIM('projection/kernel1.dat')
-    WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel 1: ', TRIM(output)
+    !output=TRIM('projection/kernel1.dat')
+    IF(verbose) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel: ', TRIM(output)
     OPEN(7,file=output)
-    DO i=1,proj%nx1     
-       r=proj%r_x1(i)
+    DO i=1,proj%nX    
+       r=proj%r_X(i)
        z=redshift_r(r,cosm)
-       WRITE(7,*) r, z, proj%x1(i)
+       WRITE(7,*) r, z, proj%X(i)
     END DO
     CLOSE(7)
+    IF(verbose) THEN
+       WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing done'
+       WRITE(*,*)
+    END IF
 
     !Kernel 2
-    output=TRIM('projection/kernel2.dat')
-    WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel 2: ', TRIM(output)
-    OPEN(7,file=output)
-    DO i=1,proj%nx2
-       !Kernel 2
-       r=proj%r_x2(i)
-       z=redshift_r(r,cosm)
-       WRITE(7,*) r, z, proj%x2(i)
-    END DO
-    CLOSE(7)
-    WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing done'
-    WRITE(*,*)
+    !output=TRIM('projection/kernel2.dat')
+    !IF(verbose) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel 2: ', TRIM(output)
+    !OPEN(7,file=output)
+    !DO i=1,proj%nx2
+    !   !Kernel 2
+    !   r=proj%r_x2(i)
+    !   z=redshift_r(r,cosm)
+    !   WRITE(7,*) r, z, proj%x2(i)
+    !END DO
+    !CLOSE(7)
+    !IF(verbose) THEN
+    !   WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing done'
+    !   WRITE(*,*)
+    !END IF
 
-  END SUBROUTINE write_projection_kernels
+  END SUBROUTINE write_projection_kernel
 
-  SUBROUTINE fill_lensing_kernel(inz,r_x,x,nx_out,lens,cosm)
+  SUBROUTINE fill_lensing_kernel(ix,proj,lens,cosm)
 
     !Fill the lensing projection kernel
     IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: inz
+    INTEGER, INTENT(IN) :: ix
     TYPE(lensing) :: lens
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
-    INTEGER, INTENT(OUT) :: nx_out
+    TYPE(projection), INTENT(OUT) :: proj
+    !REAL*8, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
+    !INTEGER, INTENT(OUT) :: nx_out
     REAL*8 :: zmin, zmax, rmax, r
     CHARACTER(len=256) :: output
     INTEGER :: i
@@ -2752,23 +2887,25 @@ CONTAINS
     REAL*8, PARAMETER :: rmin=0.d0 !Minimum distance in integral    
     INTEGER, PARAMETER :: nx=128 !Number of entries in X(r) table
 
-    IF(inz==-1) THEN
-       WRITE(*,*) 'FILL_LENSING_KERNEL: Choose n(z)'
-       WRITE(*,*) '================================'
-       WRITE(*,*) '0 - Fixed source plane'
-       WRITE(*,*) '1 - Realistic n(z) distribution'
-       READ(*,*) inz
-       WRITE(*,*) '================================'
-       WRITE(*,*)
-    END IF
+    !IF(inz==-1) THEN
+    !   WRITE(*,*) 'FILL_LENSING_KERNEL: Choose n(z)'
+    !   WRITE(*,*) '================================'
+    !   WRITE(*,*) '0 - Fixed source plane'
+    !   WRITE(*,*) '1 - Realistic n(z) distribution'
+    !   READ(*,*) inz
+    !   WRITE(*,*) '================================'
+    !   WRITE(*,*)
+    !END IF
+
+    IF(ix==2 .OR. ix==10) STOP 'FILL_LENSING_KERNEL: Error, trying to do this for a non-lensing ix'
 
     !Choose either n(z) or fixed z_s
-    IF(inz==0) THEN      
+    IF(ix==3) THEN      
        zmin=0.
        zmax=cosm%z_cmb
        WRITE(*,*) 'FILL_LENSING_KERNEL: Source plane redshift:', REAL(zmax)
     ELSE
-       CALL get_nz(inz,lens)
+       CALL get_nz(ix,lens)
        zmin=lens%z_nz(1)
        zmax=lens%z_nz(lens%nnz)
        output='lensing/nz.dat'
@@ -2784,36 +2921,36 @@ CONTAINS
     WRITE(*,*)
 
     !Fill the q(r) table
-    CALL fill_efficiency(inz,rmin,rmax,zmax,lens,cosm)
+    CALL fill_lensing_efficiency(ix,rmin,rmax,zmax,lens,cosm)
 
     !Write the q(r) table to file
     output='lensing/efficiency.dat'
-    CALL write_efficiency(lens,cosm,output)
+    CALL write_lensing_efficiency(lens,cosm,output)
 
     !Assign arrays for the projection function
-    nx_out=nx
-    CALL fill_table(rmin,rmax,r_x,nx)
+    proj%nx=nx
+    CALL fill_table(rmin,rmax,proj%r_x,nx)
     WRITE(*,*) 'FILL_LENSING_KERNEL: number of points:', nx
-    IF(ALLOCATED(x)) DEALLOCATE(x)
-    ALLOCATE(x(nx))
+    IF(ALLOCATED(proj%x)) DEALLOCATE(proj%x)
+    ALLOCATE(proj%x(proj%nx))
 
     DO i=1,nx
        !Get r and fill X(r)
-       r=r_x(i)
-       x(i)=lensing_kernel(r,lens,cosm)  
+       r=proj%r_x(i)
+       proj%x(i)=lensing_kernel(r,lens,cosm)  
        !Enforce that the kernel must not be negative (is this necessary?)
-       IF(x(i)<0.) x(i)=0.d0
+       IF(proj%x(i)<0.d0) proj%x(i)=0.d0
     END DO
     WRITE(*,*) 'FILL_LENSING_KERNEL: Done'
     WRITE(*,*)
 
   END SUBROUTINE fill_lensing_kernel
 
-  SUBROUTINE fill_efficiency(inz,rmin,rmax,zmax,lens,cosm)
+  SUBROUTINE fill_lensing_efficiency(ix,rmin,rmax,zmax,lens,cosm)
 
     !Fill the table for lensing efficiency
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: inz
+    INTEGER, INTENT(IN) :: ix
     REAL*8, INTENT(IN) :: rmin, rmax, zmax
     TYPE(lensing), INTENT(INOUT) :: lens
     TYPE(cosmology), INTENT(IN) :: cosm
@@ -2836,7 +2973,7 @@ CONTAINS
           !To avoid division by zero
           lens%q(i)=1.d0
        ELSE
-          IF(inz==0) THEN
+          IF(ix==7) THEN
              !q(r) for a fixed source plane
              lens%q(i)=f_k(rmax-r,cosm)/f_k(rmax,cosm)
           ELSE
@@ -2848,7 +2985,7 @@ CONTAINS
     WRITE(*,*) 'FILL_EFFICIENCY: Done writing'
     WRITE(*,*)
 
-  END SUBROUTINE fill_efficiency
+  END SUBROUTINE fill_lensing_efficiency
 
   FUNCTION q_r(r,lens)
 
@@ -2862,7 +2999,7 @@ CONTAINS
     
   END FUNCTION q_r
 
-  SUBROUTINE write_efficiency(lens,cosm,output)
+  SUBROUTINE write_lensing_efficiency(lens,cosm,output)
 
     !Write lensing efficiency q(r) function to a file
     IMPLICIT NONE
@@ -2884,7 +3021,7 @@ CONTAINS
     WRITE(*,*) 'WRITE_EFFICIENCY: Done'
     WRITE(*,*)
     
-  END SUBROUTINE write_efficiency
+  END SUBROUTINE write_lensing_efficiency
 
   FUNCTION lensing_kernel(r,lens,cosm)
 
@@ -2908,40 +3045,44 @@ CONTAINS
     
   END FUNCTION lensing_kernel
 
-  SUBROUTINE fill_kernel(ik,r_x,x,nx,cosm)
+  SUBROUTINE fill_kernel(ix,proj,cosm)
 
     !Fill the Compton-y look-up table
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: ik
-    REAL*8, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
-    INTEGER, INTENT(OUT) :: nx 
+    INTEGER, INTENT(IN) :: ix
+    !REAL*8, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
+    !INTEGER, INTENT(OUT) :: nx
+    TYPE(projection), INTENT(OUT) :: proj
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i
     REAL*8 :: rmax, r
 
     REAL*8, PARAMETER :: rmin=0.d0 !Minimum r for table
-    nx=128 !Entires in look-up table. Cannot be parameter because intent out
+    INTEGER, PARAMETER :: nx=128 !Entires in look-up table
+    
+    proj%nx=nx 
 
     !Get the distance range for the projection function
     !Use the same as that for the distance calculation
     !Assign arrays for the kernel function
     rmax=MAXVAL(cosm%r)
-    CALL fill_table(rmin,rmax,r_x,nx)
+    CALL fill_table(rmin,rmax,proj%r_X,proj%nX)
     WRITE(*,*) 'FILL_KERNEL: minimum r [Mpc/h]:', REAL(rmin)
     WRITE(*,*) 'FILL_KERNEL: maximum r [Mpc/h]:', REAL(rmax)
     WRITE(*,*) 'FILL_KERNEL: number of points:', nx
-    IF(ALLOCATED(x)) DEALLOCATE(x)
-    ALLOCATE(x(nx))
+    
+    IF(ALLOCATED(proj%X)) DEALLOCATE(proj%X)
+    ALLOCATE(proj%X(nX))
 
     !Now fill the y-kernel (which is simply proportional to 'a')
-    DO i=1,nx
-       r=r_x(i)
-       IF(ik==2) THEN
-          x(i)=y_kernel(r,cosm)
-       ELSE IF(ik==3) THEN
-          x(i)=gravity_kernel(r,cosm)
+    DO i=1,nX
+       r=proj%r_x(i)
+       IF(ix==2) THEN
+          proj%x(i)=y_kernel(r,cosm)
+       ELSE IF(ix==10) THEN
+          proj%x(i)=gravity_kernel(r,cosm)
        ELSE
-          STOP 'FILL_KERNEL: Error, ik not specified correctly'
+          STOP 'FILL_KERNEL: Error, ix not specified correctly'
        END IF
     END DO
 
@@ -3208,12 +3349,13 @@ CONTAINS
     lut%sigv100=sqrt(dispint(100.d0,z,cosm)/3.d0)
     lut%sig8z=sigma(8.d0,z,cosm)
 
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: Filling look-up tables'
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: tables being filled at redshift:', REAL(z)
-
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: sigv [Mpc/h]:', REAL(lut%sigv)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: sigv100 [Mpc/h]:', REAL(lut%sigv100)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: sig8(z):', REAL(lut%sig8z)
+    IF(verbose) THEN
+       WRITE(*,*) 'HALOMOD_INIT: Filling look-up tables'
+       WRITE(*,*) 'HALOMOD_INIT: tables being filled at redshift:', REAL(z)
+       WRITE(*,*) 'HALOMOD_INIT: sigv [Mpc/h]:', REAL(lut%sigv)
+       WRITE(*,*) 'HALOMOD_INIT: sigv100 [Mpc/h]:', REAL(lut%sigv100)
+       WRITE(*,*) 'HALOMOD_INIT: sig8(z):', REAL(lut%sig8z)
+    END IF
 
     IF(ALLOCATED(lut%rr)) CALL deallocate_LUT(lut)
 
@@ -3236,7 +3378,7 @@ CONTAINS
 
     END DO
 
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: m, r, nu, sig tables filled'
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: m, r, nu, sig tables filled'
 
     !Fills up a table for sigma(fM) for Bullock c(m) relation
     !This is the f=0.01 parameter in the Bullock realtion sigma(fM,z)
@@ -3244,53 +3386,62 @@ CONTAINS
     DO i=1,lut%n
        lut%sigf(i)=sigma_cb(lut%rr(i)*f,z,cosm)
     END DO
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: sigf tables filled'  
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: sigf tables filled'  
 
     !Fill virial radius table using real radius table
     Dv=Delta_v(z,cosm)
     lut%rv=lut%rr/(Dv**onethird)
 
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: virial radius tables filled'
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: Delta_v:', REAL(Dv)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: minimum nu:', REAL(lut%nu(1))
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: maximum nu:', REAL(lut%nu(lut%n))
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: minimum R_v [Mpc/h]:', REAL(lut%rv(1))
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: maximum R_v [Mpc/h]:', REAL(lut%rv(lut%n))
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: minimum M [Msun/h]:', REAL(lut%m(1))
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: maximum M [Msun/h]:', REAL(lut%m(lut%n))
+    IF(verbose) THEN
+       WRITE(*,*) 'HALOMOD_INIT: virial radius tables filled'
+       WRITE(*,*) 'HALOMOD_INIT: Delta_v:', REAL(Dv)
+       WRITE(*,*) 'HALOMOD_INIT: minimum nu:', REAL(lut%nu(1))
+       WRITE(*,*) 'HALOMOD_INIT: maximum nu:', REAL(lut%nu(lut%n))
+       WRITE(*,*) 'HALOMOD_INIT: minimum R_v [Mpc/h]:', REAL(lut%rv(1))
+       WRITE(*,*) 'HALOMOD_INIT: maximum R_v [Mpc/h]:', REAL(lut%rv(lut%n))
+       WRITE(*,*) 'HALOMOD_INIT: minimum M [Msun/h]:', REAL(lut%m(1))
+       WRITE(*,*) 'HALOMOD_INIT: maximum M [Msun/h]:', REAL(lut%m(lut%n))
+    END IF
 
     lut%gmin=1.d0-integrate(lut%nu(1),10.d0,gnu,acc,3)
     lut%gmax=integrate(lut%nu(lut%n),10.d0,gnu,acc,3)
     lut%gbmin=1.d0-integrate(lut%nu(1),10.d0,gnubnu,acc,3)
     lut%gbmax=integrate(lut%nu(lut%n),10.d0,gnubnu,acc,3)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at low end:', REAL(lut%gmin)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at high end:', REAL(lut%gmax)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: missing g(nu)b(nu) at low end:', REAL(lut%gbmin)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: missing g(nu)b(nu) at high end:', REAL(lut%gbmax)
+    IF(verbose) THEN
+       WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at low end:', REAL(lut%gmin)
+       WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at high end:', REAL(lut%gmax)
+       WRITE(*,*) 'HALOMOD_INIT: missing g(nu)b(nu) at low end:', REAL(lut%gbmin)
+       WRITE(*,*) 'HALOMOD_INIT: missing g(nu)b(nu) at high end:', REAL(lut%gbmax)
+    END IF
 
     !Find non-linear radius and scale
     lut%rnl=r_nl(lut)
     lut%knl=1./lut%rnl
 
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: non-linear radius [Mpc/h]:', REAL(lut%rnl)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: non-linear wavenumber [h/Mpc]:', REAL(lut%knl)
+    IF(verbose) THEN
+       WRITE(*,*) 'HALOMOD_INIT: non-linear radius [Mpc/h]:', REAL(lut%rnl)
+       WRITE(*,*) 'HALOMOD_INIT: non-linear wavenumber [h/Mpc]:', REAL(lut%knl)
+    END IF
 
     lut%neff=effective_index(lut,cosm)
 
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: n_eff:', REAL(lut%neff)
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: n_eff:', REAL(lut%neff)
 
     CALL conc_bull(z,cosm,lut)
 
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: halo concentration tables filled'
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: minimum concentration:', REAL(lut%c(lut%n))
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: maximum concentration:', REAL(lut%c(1))
+    IF(verbose) THEN
+       WRITE(*,*) 'HALOMOD_INIT: halo concentration tables filled'
+       WRITE(*,*) 'HALOMOD_INIT: minimum concentration:', REAL(lut%c(lut%n))
+       WRITE(*,*) 'HALOMOD_INIT: maximum concentration:', REAL(lut%c(1))
+    END IF
 
     A0=one_halo_amplitude(z,lut,cosm)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: A0 [Mpc/h]^3:', REAL(A0)
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: M* [Msun/h]:', REAL(A0*comoving_matter_density(cosm))
-    
-    IF(ihm==1) WRITE(*,*) 'HALOMOD_INIT: Done'
-    IF(ihm==1) WRITE(*,*)
+    IF(verbose) THEN
+       WRITE(*,*) 'HALOMOD_INIT: A0 [Mpc/h]^3:', REAL(A0)
+       WRITE(*,*) 'HALOMOD_INIT: M* [Msun/h]:', REAL(A0*comoving_matter_density(cosm))
+       WRITE(*,*) 'HALOMOD_INIT: Done'
+       WRITE(*,*)
+    END IF
 
     rhom=comoving_matter_density(cosm)
     rhoc=comoving_critical_density(z,cosm)
@@ -3301,8 +3452,9 @@ CONTAINS
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r500c,lut%c500c,lut%m500c,500.d0,rhoc,lut%n)
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r200c,lut%c200c,lut%m200c,200.d0,rhoc,lut%n)
 
-    IF(ihm==1) CALL print_halomodel_parameters(z,lut,cosm)
-    IF(ihm==1) ihm=0
+    CALL print_halomodel_parameters(z,lut,cosm)
+    
+    IF(verbose) verbose=.FALSE.
 
   END SUBROUTINE halomod_init
 
@@ -4062,10 +4214,12 @@ CONTAINS
     cosm%nsig=nsig
     ALLOCATE(rtab(nsig),sigtab(nsig))
 
-    IF(ihm==1) WRITE(*,*) 'SIGTAB: Filling sigma interpolation table'
-    IF(ihm==1) WRITE(*,*) 'SIGTAB: R minimum [Mpc/h]:', rmin !If I put REAL() here I get an error with goslow for some reason!?
-    IF(ihm==1) WRITE(*,*) 'SIGTAB: R maximum [Mpc/h]:', REAL(rmax)
-    IF(ihm==1) WRITE(*,*) 'SIGTAB: number of points:', nsig    
+    IF(verbose) THEN
+       WRITE(*,*) 'SIGTAB: Filling sigma interpolation table'
+       WRITE(*,*) 'SIGTAB: R minimum [Mpc/h]:', rmin !If I put REAL() here I get an error with goslow for some reason!?
+       WRITE(*,*) 'SIGTAB: R maximum [Mpc/h]:', REAL(rmax)
+       WRITE(*,*) 'SIGTAB: number of points:', nsig
+    END IF
 
     DO i=1,nsig
 
@@ -4088,8 +4242,10 @@ CONTAINS
 
     DEALLOCATE(rtab,sigtab)
 
-    IF(ihm==1) WRITE(*,*) 'SIGTAB: Done'
-    IF(ihm==1) WRITE(*,*)
+    IF(verbose) THEN
+       WRITE(*,*) 'SIGTAB: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE fill_sigtab
 
@@ -4838,7 +4994,7 @@ CONTAINS
        !NFW with increase concentation
        irho=5
        !dc=1.
-       dc=param(2)*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b
+       dc=cosm%param(2)*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b
        rss=1.d0/(1.d0/rs+dc/rv)
     ELSE
        STOP 'WIN_CDM: Error, imod specified incorrectly'
@@ -5072,7 +5228,7 @@ CONTAINS
        !Calculate the value of the temperature prefactor
        !f=p=pac=1.
        !IF(variation) fac=param(1) !Fudge factor (turbulence?)
-       alpha=param(1)
+       alpha=cosm%param(1)
        T0=alpha*virial_temperature(m,rv)
 
        !Get the units correct
@@ -5393,7 +5549,7 @@ CONTAINS
        ELSE IF(irho==11 .OR. irho==12 .OR. irho==13) THEN
           !Komatsu & Seljak (2001) profile
           !gamma=1.18 !Recommended by Rabold (2017)
-          gamma=param(3)
+          gamma=cosm%param(3)
           y=r/rs
           rho=(log(1.+y)/y)
           IF(irho==11) THEN
@@ -7591,15 +7747,15 @@ CONTAINS
     dinit=ainit
     vinit=1.
 
-    IF(ihm==1) WRITE(*,*) 'GROWTH: Solving growth equation'
+    IF(verbose) WRITE(*,*) 'GROWTH: Solving growth equation'
     CALL ode_growth(d_tab,v_tab,a_tab,0.d0,ainit,amax,dinit,vinit,acc,3,cosm)
-    IF(ihm==1) WRITE(*,*) 'GROWTH: ODE done'
+    IF(verbose) WRITE(*,*) 'GROWTH: ODE done'
 
     !Normalise so that g(z=0)=1
     norm=find(1.d0,a_tab,d_tab,SIZE(a_tab),3,3,2)
-    IF(ihm==1) WRITE(*,*) 'GROWTH: unnormalised g(a=1):', REAL(norm)
+    IF(verbose) WRITE(*,*) 'GROWTH: unnormalised g(a=1):', REAL(norm)
     d_tab=d_tab/norm
-    IF(ihm==1) WRITE(*,*)
+    IF(verbose) WRITE(*,*)
 
     !This downsamples the tables that come out of the ODE solver (which can be a bit long)
     !Could use some table-interpolation routine here to save time
@@ -8026,7 +8182,7 @@ CONTAINS
     ELSE IF(imod==2) THEN
        !From Schneider (2015)
        !m0=1.2d14
-       m0=param(4)
+       m0=cosm%param(4)
        beta=0.6d0
        halo_boundgas_fraction=(cosm%om_b/cosm%om_m)/(1.+(m0/m)**beta)
     ELSE IF(imod==3) THEN
@@ -8061,7 +8217,7 @@ CONTAINS
        !Fedeli (2014)
        !A=0.02
        !IF(variation) A=param(5)
-       A=param(5)
+       A=cosm%param(5)
        m0=5.e12
        sigma=1.2
        halo_star_fraction=A*exp(-((log10(m/m0))**2)/(2.*sigma**2))
@@ -8081,40 +8237,40 @@ CONTAINS
 
   END FUNCTION halo_star_fraction
 
-  SUBROUTINE get_nz(inz,lens)
+  SUBROUTINE get_nz(ix,lens)
 
     !The the n(z) function for lensing
     IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: inz
+    INTEGER, INTENT(IN) :: ix
     TYPE(lensing), INTENT(INOUT) :: lens
     
-    CHARACTER(len=256) :: names(7)
-    names(1)='1 - RCSLenS'
-    names(2)='2 - KiDS (z = 0.1 -> 0.9)'
-    names(3)='3 - KiDS (z = 0.1 -> 0.3)'
-    names(4)='4 - KiDS (z = 0.3 -> 0.5)'
-    names(5)='5 - KiDS (z = 0.5 -> 0.7)'
-    names(6)='6 - KiDS (z = 0.7 -> 0.9)'
-    names(7)='7 - CFHTLenS (Van Waerbeke 2013)'
+    !CHARACTER(len=256) :: names(7)
+    !names(1)='1 - RCSLenS'
+    !names(2)='2 - KiDS (z = 0.1 -> 0.9)'
+    !names(3)='3 - KiDS (z = 0.1 -> 0.3)'
+    !names(4)='4 - KiDS (z = 0.3 -> 0.5)'
+    !names(5)='5 - KiDS (z = 0.5 -> 0.7)'
+    !names(6)='6 - KiDS (z = 0.7 -> 0.9)'
+    !names(7)='7 - CFHTLenS (Van Waerbeke 2013)'
 
-    IF(inz==-1) THEN
-       WRITE(*,*) 'GET_NZ: Choose n(z)'
-       WRITE(*,*) '==================='
-       DO i=1,SIZE(names)
-          WRITE(*,*) TRIM(names(i))
-       END DO
-       READ(*,*) inz
-       WRITE(*,*) '==================='
-       WRITE(*,*)
-    END IF
+    !IF(inz==-1) THEN
+    !   WRITE(*,*) 'GET_NZ: Choose n(z)'
+    !   WRITE(*,*) '==================='
+    !   DO i=1,SIZE(names)
+    !      WRITE(*,*) TRIM(names(i))
+    !   END DO
+    !   READ(*,*) inz
+    !   WRITE(*,*) '==================='
+    !   WRITE(*,*)
+    !END IF
 
-    IF(inz==1 .OR. inz==7) THEN
-       CALL fill_analytic_nz_table(inz,lens)
+    IF(ix==1 .OR. ix==4) THEN
+       CALL fill_analytic_nz_table(ix,lens)
     ELSE
-       CALL fill_nz_table(inz,lens)
+       CALL fill_nz_table(ix,lens)
     END IF
 
-    WRITE(*,*) 'GET_NZ: ', TRIM(names(inz))
+    !WRITE(*,*) 'GET_NZ: ', TRIM(names(inz))
     WRITE(*,*) 'GET_NZ: zmin:', lens%z_nz(1)
     WRITE(*,*) 'GET_NZ: zmax:', lens%z_nz(lens%nnz)
     WRITE(*,*) 'GET_NZ: nz:', lens%nnz
@@ -8122,10 +8278,10 @@ CONTAINS
 
   END SUBROUTINE get_nz
 
-  SUBROUTINE fill_analytic_nz_table(inz,lens)
+  SUBROUTINE fill_analytic_nz_table(ix,lens)
 
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: inz
+    INTEGER, INTENT(IN) :: ix
     TYPE(lensing), INTENT(INOUT) :: lens
     INTEGER :: i
 
@@ -8136,38 +8292,38 @@ CONTAINS
     !From analytical function
     lens%nnz=n
     IF(ALLOCATED(lens%z_nz)) DEALLOCATE(lens%z_nz)
-    IF(ALLOCATED(lens%nz))   DEALLOCATE(lens%nz)
+    IF(ALLOCATED(lens%nz)) DEALLOCATE(lens%nz)
     ALLOCATE(lens%z_nz(lens%nnz),lens%nz(lens%nnz))
 
     !Fill the look-up tables
     CALL fill_table(zmin,zmax,lens%z_nz,lens%nnz)
     DO i=1,n
-       lens%nz(i)=nz_lensing(lens%z_nz(i),inz)
+       lens%nz(i)=nz_lensing(lens%z_nz(i),ix)
     END DO
     
   END SUBROUTINE fill_analytic_nz_table
 
-  SUBROUTINE fill_nz_table(inz,lens)
+  SUBROUTINE fill_nz_table(ix,lens)
 
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: inz
+    INTEGER, INTENT(IN) :: ix
     TYPE(lensing), INTENT(INOUT) :: lens
     INTEGER :: i
     CHARACTER(len=256) :: input
 
     !Get file name
-    IF(inz==2) THEN
+    IF(ix==5) THEN
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.1-0.9_MEAD.txt'
-    ELSE IF(inz==3) THEN
+    ELSE IF(ix==6) THEN
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.1-0.3.txt'
-    ELSE IF(inz==4) THEN
+    ELSE IF(ix==7) THEN
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.3-0.5.txt'
-    ELSE IF(inz==5) THEN
+    ELSE IF(ix==8) THEN
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.5-0.7.txt'
-    ELSE IF(inz==6) THEN
+    ELSE IF(ix==9) THEN
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.7-0.9.txt'
     ELSE
-       STOP 'GET_NZ: inz not specified correctly'
+       STOP 'GET_NZ: ix not specified correctly'
     END IF
     WRITE(*,*) 'GET_NZ: Input file:', TRIM(input)
 
@@ -8186,16 +8342,16 @@ CONTAINS
     
   END SUBROUTINE fill_nz_table
 
-  FUNCTION nz_lensing(z,inz)
+  FUNCTION nz_lensing(z,ix)
 
     IMPLICIT NONE
     REAL*8 :: nz_lensing
     REAL*8, INTENT(IN) :: z
-    INTEGER, INTENT(IN) :: inz
+    INTEGER, INTENT(IN) :: ix
     REAL*8 :: a, b, c, d, e, f, g, h, i
     REAL*8 :: n1, n2, n3
 
-    IF(inz==1) THEN
+    IF(ix==1) THEN
        !RCSLenS
        a=2.94
        b=-0.44
@@ -8210,7 +8366,7 @@ CONTAINS
        n2=d*z*exp(-(z-e)**2/f**2)
        n3=g*z*exp(-(z-h)**2/i**2)
        nz_lensing=n1+n2+n3
-    ELSE IF(inz==7) THEN
+    ELSE IF(ix==4) THEN
        !CFHTLenS
        z1=0.7 !Not a free parameter in Van Waerbeke 2013
        z2=1.2 !Not a free parameter in Van Waerbeke 2013
@@ -8220,7 +8376,7 @@ CONTAINS
        d=0.46
        nz_lensing=a*exp(-((z-z1)/b)**2)+c*exp(-((z-z2)/d)**2)
     ELSE
-       STOP 'NZ_LENSING: inz specified incorrectly'
+       STOP 'NZ_LENSING: ix specified incorrectly'
     END IF
 
   END FUNCTION nz_lensing
@@ -8560,7 +8716,7 @@ CONTAINS
     REAL*8, INTENT(IN) :: l
     REAL*8, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
-    TYPE(projection), INTENT(IN) :: proj
+    TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i, j
     INTEGER :: n
@@ -8655,8 +8811,9 @@ CONTAINS
     REAL*8, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
     TYPE(cosmology), INTENT(IN) :: cosm
-    TYPE(projection), INTENT(IN) :: proj
-    REAL*8 :: z, a, k, x1, x2
+    TYPE(projection), INTENT(IN) :: proj(2)
+    REAL*8 :: z, a, k, X(2)
+    INTEGER :: i
     
     IF(r==0.d0) THEN
 
@@ -8665,20 +8822,20 @@ CONTAINS
     ELSE
        
        !Get the two kernels
-       x1=find(r,proj%r_x1,proj%x1,proj%nx1,3,3,2)
-       x2=find(r,proj%r_x2,proj%x2,proj%nx2,3,3,2)
+       DO i=1,2
+          X(i)=find(r,proj(i)%r_X,proj(i)%X,proj(i)%nX,3,3,2)
+       END DO
+       !x2=find(r,proj%r_x2,proj%x2,proj%nx2,3,3,2)
        !x1=exp(find(log(r),log(proj%r_x1),log(proj%x1),proj%nx1,3,3,2)) !Barfed with this
        !x2=exp(find(log(r),log(proj%r_x2),log(proj%x2),proj%nx2,3,3,2)) !Barfed with this
 
        !Get variables r, z(r) and k(r) for P(k,z)
-       !z=find(r,cosm%r,cosm%z_r,cosm%nr,3,3,2)
        z=redshift_r(r,cosm)
-       !a=1./(1.+z)
        a=scale_factor_z(z)
        k=(l+lcorr)/f_k(r,cosm) !LoVerde et al. (2008) Limber correction
        
        !Construct the integrand
-       Limber_integrand=x1*x2*find_pka(k,a,logktab,logatab,logptab,nk,na)/f_k(r,cosm)**2
+       Limber_integrand=X(1)*X(2)*find_pka(k,a,logktab,logatab,logptab,nk,na)/f_k(r,cosm)**2
        !Limber_integrand=x1*x2/f_k(r,cosm)**2 !Note that this is very hard to integrate for kappa-y or y-y
        !Limber_integrand=find_pkz(k,z,logktab,ztab,logptab,nk,nz)/f_k(r,cosm)
        
@@ -8693,7 +8850,7 @@ CONTAINS
     REAL*8, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
     TYPE(cosmology), INTENT(IN) :: cosm
-    TYPE(projection), INTENT(IN) :: proj
+    TYPE(projection), INTENT(IN) :: proj(2)
     CHARACTER(len=256), INTENT(IN) :: outfile
     REAL*8 :: k, r, z, total, int
     INTEGER :: i
@@ -8750,18 +8907,19 @@ CONTAINS
 
   END FUNCTION find_pka
 
-  SUBROUTINE print_baryon_parameters(param,param_names,n)
+  SUBROUTINE print_baryon_parameters(cosm)!param,param_names,n)
 
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: param(n)
-    CHARACTER(len=256), INTENT(IN) :: param_names(n)
-    INTEGER, INTENT(IN) :: n
+    !REAL*8, INTENT(IN) :: param(n)
+    !CHARACTER(len=256), INTENT(IN) :: param_names(n)
+    !INTEGER, INTENT(IN) :: n
     INTEGER :: i
+    TYPE(cosmology), INTENT(IN) :: cosm
 
     WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Writing to screen'
     WRITE(*,*) '=========================================='
-    DO i=1,n
-       WRITE(*,*) i, TRIM(param_names(i)), ':', param(i)
+    DO i=1,cosm%np
+       WRITE(*,*) i, TRIM(cosm%param_names(i)), ':', cosm%param(i)
     END DO
     WRITE(*,*) '=========================================='
     WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Done'

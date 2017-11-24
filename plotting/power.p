@@ -1,7 +1,8 @@
 reset
 
-if(print==0) set term aqua dashed font ',14'
-if(print==1) set term post enh col sol; set output 'power.eps'
+if(!exists("print")){print=0}
+if(print==0){set term aqua dashed font ',14'}
+if(print==1){set term post enh col sol; set output 'power.eps'}
 
 #This gnuplot script plots the output file 'power.dat' that is spat out of HMcode.
 #Simply load up gnuplot (type gnuplot in the terminal) and then type "gnuplot>load 'plot.p'"
@@ -12,6 +13,9 @@ fac=4.*pi/(2.*pi)**3
 kmin=1e-3
 kmax=1e2
 
+if(!exists("void")){void=0}
+
+if(!exists("delta")){delta=1}
 if(delta==0) {pmin=1e-3; pmax=1e5; plab='P(k) / (h^{-1} Mpc)^3'}
 if(delta==1) {pmin=1e-8; pmax=1e4; plab='{/Symbol D}^2(k)'}
 
