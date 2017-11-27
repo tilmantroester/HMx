@@ -2,44 +2,44 @@ MODULE cosdef
 
   TYPE cosmology
      !Contains cosmological parameters that need only be calculated once
-     REAL*8 :: om_m, om_b, om_v, om_c, h, n, sig8, w, wa, om_nu
-     REAL*8 :: om, k, z_cmb, om_r, T_cmb
-     REAL*8 :: A
-     REAL*8, ALLOCATABLE :: logsigma(:), logr_sigma(:)
-     REAL*8, ALLOCATABLE :: growth(:), a_growth(:)
-     REAL*8, ALLOCATABLE :: r(:), a_r(:)
+     REAL :: om_m, om_b, om_v, om_c, h, n, sig8, w, wa, om_nu
+     REAL :: om, k, z_cmb, om_r, T_cmb
+     REAL :: A
+     REAL, ALLOCATABLE :: logsigma(:), logr_sigma(:)
+     REAL, ALLOCATABLE :: growth(:), a_growth(:)
+     REAL, ALLOCATABLE :: r(:), a_r(:)
      INTEGER :: nsig, ng, nr
      CHARACTER(len=256) :: name
      !Varying parameters
      INTEGER :: np=5
-     REAL*8 :: param(5), param_defaults(5), param_min(5), param_max(5)
+     REAL :: param(5), param_defaults(5), param_min(5), param_max(5)
      CHARACTER(len=256) :: param_names(5)
      LOGICAL :: param_log(5)
   END TYPE cosmology
 
   TYPE tables
      !Halo-model stuff that needs to be recalculated for each new z
-     REAL*8, ALLOCATABLE :: c(:), rv(:), nu(:), sig(:), zc(:), m(:), rr(:), sigf(:)
-     REAL*8, ALLOCATABLE :: r500(:), m500(:), c500(:), r200(:), m200(:), c200(:)
-     REAL*8, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
-     REAL*8, ALLOCATABLE :: log_m(:)
-     REAL*8 :: sigv, sigv100, c3, knl, rnl, neff, sig8z
-     REAL*8 :: gmin, gmax, gbmin, gbmax
+     REAL, ALLOCATABLE :: c(:), rv(:), nu(:), sig(:), zc(:), m(:), rr(:), sigf(:)
+     REAL, ALLOCATABLE :: r500(:), m500(:), c500(:), r200(:), m200(:), c200(:)
+     REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
+     REAL, ALLOCATABLE :: log_m(:)
+     REAL :: sigv, sigv100, c3, knl, rnl, neff, sig8z
+     REAL :: gmin, gmax, gbmin, gbmax
      INTEGER :: n
   END TYPE tables
 
   TYPE projection
      !Projection quantities that need to be calculated only once
      !These relate to the Limber integrals
-     REAL*8, ALLOCATABLE :: X(:), r_X(:)
+     REAL, ALLOCATABLE :: X(:), r_X(:)
      INTEGER :: nX
   END TYPE projection
 
   !Possibly this could usefully be merged with projection
   TYPE lensing
      !Quantities that are necessary for lensing specifically
-     REAL*8, ALLOCATABLE :: q(:), r_q(:)
-     REAL*8, ALLOCATABLE :: nz(:), z_nz(:)
+     REAL, ALLOCATABLE :: q(:), r_q(:)
+     REAL, ALLOCATABLE :: nz(:), z_nz(:)
      INTEGER :: nq, nnz
   END TYPE lensing
 
@@ -49,20 +49,27 @@ MODULE HMx
 
   !Module usage statements
   USE cosdef
-
-  !Standard implicit none statement
+  USE constants
+  USE random_numbers
+  USE array_operations
+  USE file_info
+  USE special_functions
+  USE interpolate
+  USE string_operations
+  USE calculus
+  USE calculus_table
+  
+  !Parameter definitions
   IMPLICIT NONE
-
-  !Standard parameters
-  REAL*8 :: plin
-  REAL*8, ALLOCATABLE :: k(:), a(:)
-  REAL*8, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
-  REAL*8, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
-  REAL*8, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
+  REAL :: plin
+  REAL, ALLOCATABLE :: k(:), a(:)
+  REAL, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
+  REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
+  REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
   INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa
   INTEGER :: ip(2), ix(2), ixx(2)
-  REAL*8 :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
-  REAL*8 :: z, z1, z2, r1, r2
+  REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
+  REAL :: z, z1, z2, r1, r2
   TYPE(cosmology) :: cosm
   TYPE(tables) :: lut
   TYPE(projection) :: proj(2)
@@ -70,147 +77,148 @@ MODULE HMx
   CHARACTER(len=256) :: outfile, base, mid, ext, dir, name
   CHARACTER(len=256) :: mode
   INTEGER :: imode, icosmo, iowl
-  REAL*8 :: sig8min, sig8max
+  REAL :: sig8min, sig8max
   INTEGER :: ncos
-  REAL*8 :: m1, m2, mass
-  !REAL*8 :: rv, rs, rmax
+  REAL :: m1, m2, mass
+  !REAL :: rv, rs, rmax
 
   !Varying parameters
   !INTEGER, PARAMETER :: np=5
-  !REAL*8 :: param(np), param_defaults(np), param_min(np), param_max(np)
-  !REAL*8 :: mass
+  !REAL :: param(np), param_defaults(np), param_min(np), param_max(np)
+  !REAL :: mass
   !CHARACTER(len=256) :: param_names(np)
   !INTEGER :: ipa
   !LOGICAL :: param_log(np)
 
   !Mathematical constants
-  REAL*8, PARAMETER :: pi=3.141592654
-  REAL*8, PARAMETER :: onethird=0.3333333333
+  !REAL, PARAMETER :: pi=3.141592654
+  !REAL, PARAMETER :: onethird=0.3333333333
+  REAL, PARAMETER :: zero=0.
 
   !Halo-model Parameters
   INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST)
   !INTEGER :: ihm=1 !Set verbosity
   LOGICAL :: verbose=.TRUE.
   INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation
-  REAL*8, PARAMETER :: mmin=1d7 !Minimum halo mass for the calculation
-  REAL*8, PARAMETER :: mmax=1d17 !Maximum halo mass for the calculation
+  REAL, PARAMETER :: mmin=1e7 !Minimum halo mass for the calculation
+  REAL, PARAMETER :: mmax=1e17 !Maximum halo mass for the calculation
   INTEGER :: ip2h=2 !Method to 'correct' the 2-halo integral
   INTEGER, PARAMETER :: ibias=1 !Bias order to go to
   INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
-  REAL*8, PARAMETER :: Lbox=400. !Simulation box size
+  REAL, PARAMETER :: Lbox=400. !Simulation box size
   INTEGER, PARAMETER :: icumulative=1 !Do cumlative distributions for breakdown
   LOGICAL, PARAMETER :: ixi=.FALSE. !Do correlation functions from C(l)
   LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
-  REAL*8, PARAMETER :: acc=1d-4 !Global integration-accuracy parameter
+  REAL, PARAMETER :: acc=1e-4 !Global integration-accuracy parameter
   LOGICAL, PARAMETER :: void=.FALSE. !Do voids or not
-  REAL*8, PARAMETER :: lcorr=0.5d0 !Set to zero for k=l/fk or 0.5 for k=(l+0.5)/fk
+  REAL, PARAMETER :: lcorr=0.5 !Set to zero for k=l/fk or 0.5 for k=(l+0.5)/fk
 
   !Physical constants
-  REAL*8, PARAMETER :: yfac=8.125561e-16 !sigma_T/m_e*c^2 in SI
-  REAL*8, PARAMETER :: kb=1.38065d-23 !Boltzmann constant in SI
-  !REAL*8, PARAMETER :: epn=0.875 !1/mu_e electron per nucleon (~8/7 for x=0.25 He mass frac)
-  !REAL*8, PARAMETER :: mue=1.14 !mu_e nucleons per electron (~7/8 for x=0.25 He mass frac)
-  REAL*8, PARAMETER :: fh=0.76 !Hydrogen mass fraction
-  REAL*8, PARAMETER :: mue=2.d0/(1.d0+fh) !Nucleons per electron (~1.136 if fh=0.76)
-  REAL*8, PARAMETER :: pfac=(5.*fh+3.)/(2.*(fh+1.)) !Pressure factor (Hill & Pajer 2013; I do not understand; ~1.932 if fh=0.76)
-  REAL*8, PARAMETER :: conH0=2998. !(c/H0) in Mpc/h
-  REAL*8, PARAMETER :: mp=1.6726219d-27 !Proton mass in kg
-  REAL*8, PARAMETER :: msun=1.989d30 ! kg/Msun
-  REAL*8, PARAMETER :: mpc=3.086d22 ! m/Mpc
-  REAL*8, PARAMETER :: bigG=6.67408d-11 !Gravitational constant in kg^-1 m^3 s^-2
-  REAL*8, PARAMETER :: eV=1.60218e-19 !Electronvolt in Joules
-  REAL*8, PARAMETER :: cm=0.01 !Centimetre in metres
-  REAL*8, PARAMETER :: rad2deg=180.d0/pi !Radians-to-degrees conversion
-  REAL*8, PARAMETER :: neff=3.046 !Effective number of neutrinos
-  REAL*8, PARAMETER :: critical_density=2.775d11 !Critical density at z=0
+  REAL, PARAMETER :: yfac=8.125561e-16 !sigma_T/m_e*c^2 in SI
+  REAL, PARAMETER :: kb=1.38065e-23 !Boltzmann constant in SI
+  !REAL, PARAMETER :: epn=0.875 !1/mu_e electron per nucleon (~8/7 for x=0.25 He mass frac)
+  !REAL, PARAMETER :: mue=1.14 !mu_e nucleons per electron (~7/8 for x=0.25 He mass frac)
+  REAL, PARAMETER :: fh=0.76 !Hydrogen mass fraction
+  REAL, PARAMETER :: mue=2./(1.+fh) !Nucleons per electron (~1.136 if fh=0.76)
+  REAL, PARAMETER :: pfac=(5.*fh+3.)/(2.*(fh+1.)) !Pressure factor (Hill & Pajer 2013; I do not understand; ~1.932 if fh=0.76)
+  REAL, PARAMETER :: conH0=2998. !(c/H0) in Mpc/h
+  REAL, PARAMETER :: mp=1.6726219e-27 !Proton mass in kg
+  REAL, PARAMETER :: msun=1.989e30 ! kg/Msun
+  REAL, PARAMETER :: mpc=3.086e22 ! m/Mpc
+  REAL, PARAMETER :: bigG=6.67408e-11 !Gravitational constant in kg^-1 m^3 s^-2
+  REAL, PARAMETER :: eV=1.60218e-19 !Electronvolt in Joules
+  REAL, PARAMETER :: cm=0.01 !Centimetre in metres
+  REAL, PARAMETER :: rad2deg=180./pi !Radians-to-degrees conversion
+  REAL, PARAMETER :: neff=3.046 !Effective number of neutrinos
+  REAL, PARAMETER :: critical_density=2.775d11 !Critical density at z=0
 
   !Name parameters (cannot do PARAMETER with mixed length strings)
   CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)!, kernel_type(3)
 
-  CONTAINS
+CONTAINS
 
-    SUBROUTINE init_HMx()
+  SUBROUTINE init_HMx()
 
-      IMPLICIT NONE
+    IMPLICIT NONE
 
-      !Names of variable parameters
-      cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
-      cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
-      cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
-      cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
-      cosm%param_names(5)='A_*' !Prefactor for stellar fraction
+    !Names of variable parameters
+    cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
+    cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
+    cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
+    cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
+    cosm%param_names(5)='A_*' !Prefactor for stellar fraction
 
-      !Set default values for variable parameters
-      cosm%param(1)=1.d0
-      cosm%param(2)=0.d0
-      cosm%param(3)=1.18
-      cosm%param(4)=1.2d14
-      cosm%param(5)=0.02
+    !Set default values for variable parameters
+    cosm%param(1)=1.
+    cosm%param(2)=0.
+    cosm%param(3)=1.18
+    cosm%param(4)=1.2d14
+    cosm%param(5)=0.02
 
-      !Set a protected set of defaults
-      cosm%param_defaults=cosm%param
+    !Set a protected set of defaults
+    cosm%param_defaults=cosm%param
 
-      !Minimum parameter values in variation
-      cosm%param_min(1)=0.4d0
-      cosm%param_min(2)=0.d0
-      cosm%param_min(3)=1.10d0
-      cosm%param_min(4)=1d13
-      cosm%param_min(5)=0.015d0
+    !Minimum parameter values in variation
+    cosm%param_min(1)=0.4
+    cosm%param_min(2)=0.
+    cosm%param_min(3)=1.10
+    cosm%param_min(4)=1e13
+    cosm%param_min(5)=0.015
 
-      !Maximum parameter values in variation
-      cosm%param_max(1)=2.d0
-      cosm%param_max(2)=2.d0
-      cosm%param_max(3)=1.26d0
-      cosm%param_max(4)=1d15
-      cosm%param_max(5)=0.055d0
+    !Maximum parameter values in variation
+    cosm%param_max(1)=2.
+    cosm%param_max(2)=2.
+    cosm%param_max(3)=1.26
+    cosm%param_max(4)=1e15
+    cosm%param_max(5)=0.055
 
-      !Should the range be explored in log?
-      cosm%param_log(1)=.FALSE.
-      cosm%param_log(2)=.FALSE.
-      cosm%param_log(3)=.FALSE.
-      cosm%param_log(4)=.TRUE.
-      cosm%param_log(5)=.FALSE.
+    !Should the range be explored in log?
+    cosm%param_log(1)=.FALSE.
+    cosm%param_log(2)=.FALSE.
+    cosm%param_log(3)=.FALSE.
+    cosm%param_log(4)=.TRUE.
+    cosm%param_log(5)=.FALSE.
 
-      !Name halo types
-      halo_type(-1)='DMONLY'
-      halo_type(0)='Matter'
-      halo_type(1)='CDM'
-      halo_type(2)='Gas'
-      halo_type(3)='Star'
-      halo_type(4)='Bound gas'
-      halo_type(5)='Free gas'
-      halo_type(6)='Pressure'
-      halo_type(7)='Void'
-      halo_type(8)='Compensated void'
+    !Name halo types
+    halo_type(-1)='DMONLY'
+    halo_type(0)='Matter'
+    halo_type(1)='CDM'
+    halo_type(2)='Gas'
+    halo_type(3)='Star'
+    halo_type(4)='Bound gas'
+    halo_type(5)='Free gas'
+    halo_type(6)='Pressure'
+    halo_type(7)='Void'
+    halo_type(8)='Compensated void'
 
-      !Name kernel types
-      !kernel_type(1)='Lensing'
-      !kernel_type(2)='Compton-y'
-      !kernel_type(3)='Gravitational waves'
+    !Name kernel types
+    !kernel_type(1)='Lensing'
+    !kernel_type(2)='Compton-y'
+    !kernel_type(3)='Gravitational waves'
 
-      !Name cross-correlation field types
-      xcorr_type(1)='RCSLenS lensing'
-      xcorr_type(2)='Compton y'
-      xcorr_type(3)='CMB lensing'
-      xcorr_type(4)='CFHTLenS lensing'
-      xcorr_type(5)='KiDS lensing (z = 0.1 -> 0.9)'
-      xcorr_type(6)='KiDS lensing (z = 0.1 -> 0.3)'
-      xcorr_type(7)='KiDS lensing (z = 0.3 -> 0.5)'
-      xcorr_type(8)='KiDS lensing (z = 0.5 -> 0.7)'
-      xcorr_type(9)='KiDS lensing (z = 0.7 -> 0.9)'
-      xcorr_type(10)='Gravitational waves'
+    !Name cross-correlation field types
+    xcorr_type(1)='RCSLenS lensing'
+    xcorr_type(2)='Compton y'
+    xcorr_type(3)='CMB lensing'
+    xcorr_type(4)='CFHTLenS lensing'
+    xcorr_type(5)='KiDS lensing (z = 0.1 -> 0.9)'
+    xcorr_type(6)='KiDS lensing (z = 0.1 -> 0.3)'
+    xcorr_type(7)='KiDS lensing (z = 0.3 -> 0.5)'
+    xcorr_type(8)='KiDS lensing (z = 0.5 -> 0.7)'
+    xcorr_type(9)='KiDS lensing (z = 0.7 -> 0.9)'
+    xcorr_type(10)='Gravitational waves'
 
-    END SUBROUTINE init_HMx
+  END SUBROUTINE init_HMx
 
   SUBROUTINE calculate_HMx(itype,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
 
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: k(:), a(:)
+    REAL, INTENT(IN) :: k(:), a(:)
     INTEGER, INTENT(IN) :: nk, na, itype(2)
-    REAL*8, ALLOCATABLE, INTENT(OUT) :: powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
+    REAL, ALLOCATABLE, INTENT(OUT) :: powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i
-    REAL*8 :: z
+    REAL :: z
     TYPE(tables) :: lut
 
     IF(ALLOCATED(powa_lin))  DEALLOCATE(powa_lin)
@@ -235,7 +243,7 @@ MODULE HMx
     END IF
 
   END SUBROUTINE calculate_HMx
-     
+
   SUBROUTINE set_ix(ix,ip)
 
     !Set the cross-correlation type
@@ -280,43 +288,43 @@ MODULE HMx
           !IF(ix(i)==7) inz(i)=4 !n(z): 2 - KiDS 0.3 -> 0.5
           !IF(ix(i)==8) inz(i)=5 !n(z): 2 - KiDS 0.5 -> 0.7
           !IF(ix(i)==9) inz(i)=6 !n(z): 2 - KiDS 0.7 -> 0.9
-      !ELSE
+          !ELSE
           !    STOP 'SET_IX: inx specified incorrectly'
        END IF
     END DO
-    
+
   END SUBROUTINE set_ix
-  
+
   SUBROUTINE xcorr(ix,ell,Cell,nl,cosm,verbose)
 
     !Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2)
     INTEGER, INTENT(IN) :: nl
-    REAL*8, INTENT(IN) :: ell(nl)
-    REAL*8, INTENT(OUT) :: Cell(nl)
+    REAL, INTENT(IN) :: ell(nl)
+    REAL, INTENT(OUT) :: Cell(nl)
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8, ALLOCATABLE :: k(:), pow_lin(:), pow_2h(:), pow_1h(:), pow(:,:)
+    REAL, ALLOCATABLE :: k(:), pow_lin(:), pow_2h(:), pow_1h(:), pow(:,:)
     !TYPE(tables) :: lut
     !TYPE(lensing) :: lens
     TYPE(projection) :: proj(2)
     LOGICAL, INTENT(IN) :: verbose
-    REAL*8 :: kmin, kmax, amin, amax
+    REAL :: kmin, kmax, amin, amax
     INTEGER :: nk, na, ip(2)
-    REAL*8 :: r1, r2
+    REAL :: r1, r2
 
     !Set the k range
     kmin=1e-3
     kmax=1e1
     nk=32
-    CALL fill_table(log(kmin),log(kmax),k,nk)
+    CALL fill_array(log(kmin),log(kmax),k,nk)
     k=exp(k)   
 
     !Set the a range
     amin=0.1 !scale_factor(cosm%z_cmb) !Problems with one-halo term if amin is less than 0.1
     amax=1.
     na=16
-    CALL fill_table(amin,amax,a,na)
+    CALL fill_array(amin,amax,a,na)
 
     !Allocate power arrays
     ALLOCATE(pow(nk,na),pow_lin(nk),pow_2h(nk),pow_1h(nk))
@@ -336,7 +344,7 @@ MODULE HMx
     END IF
 
     CALL set_ix(ix,ip)
-    
+
     !Loop over scale factors
     !DO j=na,1,-1
     !
@@ -358,13 +366,13 @@ MODULE HMx
     !WRITE(*,*)
 
     CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
-    
+
     !Fill out the projection kernels
     CALL fill_projection_kernels(ix,proj,cosm)
     IF(verbose) CALL write_projection_kernels(proj,cosm)
 
     !Set the distance range for the Limber integral
-    r1=0.d0
+    r1=0.
     r2=maxdist(proj)
 
     !Actually calculate the C(ell), but only for the full halo model part
@@ -374,7 +382,7 @@ MODULE HMx
        WRITE(*,*) 'XCORR: Done'
        WRITE(*,*)
     END IF
-    
+
   END SUBROUTINE xcorr
 
   SUBROUTINE write_nz(lens,output)
@@ -451,7 +459,7 @@ MODULE HMx
     ELSE
        CALL fill_lensing_kernel(ix,proj,lens,cosm)
     END IF
-    
+
   END SUBROUTINE fill_projection_kernel
 
   SUBROUTINE calculate_Cell(r1,r2,ell,Cell,nl,k,a,pow,nk,na,proj,cosm)
@@ -459,15 +467,15 @@ MODULE HMx
     !Calculates C(l) using the Limber approximation
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nl, nk, na
-    REAL*8, INTENT(IN) :: ell(nl)
-    REAL*8, INTENT(OUT) :: Cell(nl)
-    REAL*8, INTENT(IN) :: k(nk), a(na), pow(nk,na)
-    REAL*8, INTENT(IN) :: r1, r2
+    REAL, INTENT(IN) :: ell(nl)
+    REAL, INTENT(OUT) :: Cell(nl)
+    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
+    REAL, INTENT(IN) :: r1, r2
     TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: logk(nk), loga(na), logpow(nk,na)
+    REAL :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j
-    !REAL*8, PARAMETER :: acc=1d-4
+    !REAL, PARAMETER :: acc=1d-4
 
     !Note that using Limber and flat-sky for sensible results limits lmin to ~10
 
@@ -511,11 +519,11 @@ MODULE HMx
     !Calculates C(l) using the Limber approximation
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nk, na
-    REAL*8, INTENT(IN) :: k(nk), a(na), pow(nk,na)
-    REAL*8, INTENT(IN) :: r1, r2
+    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
+    REAL, INTENT(IN) :: r1, r2
     TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: logk(nk), loga(na), logpow(nk,na)
+    REAL :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j, l
     CHARACTER(len=256) :: fbase, fext, outfile
 
@@ -536,9 +544,9 @@ MODULE HMx
     DO i=1,n
        l=2**(i-1)
        outfile=number_file(fbase,i,fext)
-       CALL Limber_contribution(DBLE(l),r1,r2,logk,loga,logpow,nk,na,proj,cosm,outfile)
+       CALL Limber_contribution(REAL(l),r1,r2,logk,loga,logpow,nk,na,proj,cosm,outfile)
     END DO
-    
+
   END SUBROUTINE Cell_contribution
 
   SUBROUTINE write_Cell(ell,Cell,nl,output)
@@ -546,13 +554,13 @@ MODULE HMx
     !Write C(ell) to a file
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nl
-    REAL*8, INTENT(IN) :: ell(nl), Cell(nl)
+    REAL, INTENT(IN) :: ell(nl), Cell(nl)
     CHARACTER(len=256) :: output
     INTEGER :: i
 
     OPEN(7,file=output)
     DO i=1,nl
-       WRITE(7,*) ell(i), Cell(i), ell(i)*(1.+ell(i))*Cell(i)/(2.d0*pi)
+       WRITE(7,*) ell(i), Cell(i), ell(i)*(1.+ell(i))*Cell(i)/(2.*pi)
     END DO
     CLOSE(7)
 
@@ -562,12 +570,12 @@ MODULE HMx
 
     !Calcuate the correlation functions given a C(ell) table
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: l_tab(nl), cl_tab(nl)
-    REAL*8, INTENT(OUT) :: th_tab(nth), xi_tab(3,nth)
+    REAL, INTENT(IN) :: l_tab(nl), cl_tab(nl)
+    REAL, INTENT(OUT) :: th_tab(nth), xi_tab(3,nth)
     INTEGER, INTENT(IN) :: nl, lmax, nth
     INTEGER :: i, j
-    REAL*8 :: logl(nl), logCl(nl)
-    REAL*8 :: theta, Cl, l, xi0, xi2, xi4
+    REAL :: logl(nl), logCl(nl)
+    REAL :: theta, Cl, l, xi0, xi2, xi4
 
     !Speed up find routine by doing logarithms in advance
     logl=log(l_tab)
@@ -578,29 +586,29 @@ MODULE HMx
 
        !Get theta value and convert from degrees to radians
        theta=th_tab(i)/rad2deg
-       
+
        !Set values to zero before summing
-       xi0=0.d0
-       xi2=0.d0
-       xi4=0.d0
+       xi0=0.
+       xi2=0.
+       xi4=0.
 
        !Do the conversion from Cl to xi as a summation over integer ell
        DO j=1,lmax
 
-          l=DBLE(j)
+          l=REAL(j)
           !Cl=exp(find(log(l),log(l_tab),log(Cl_tab),nl,3,3,2))
           Cl=exp(find(log(l),logl,logCl,nl,3,3,2))
-          
-          xi0=xi0+(2.d0*l+1.d0)*Cl*Bessel(0,l*theta)
-          xi2=xi2+(2.d0*l+1.d0)*Cl*Bessel(2,l*theta)
-          xi4=xi4+(2.d0*l+1.d0)*Cl*Bessel(4,l*theta)
+
+          xi0=xi0+(2.*l+1.)*Cl*Bessel(0,l*theta)
+          xi2=xi2+(2.*l+1.)*Cl*Bessel(2,l*theta)
+          xi4=xi4+(2.*l+1.)*Cl*Bessel(4,l*theta)
 
        END DO
 
        !Divide by correct pre-factor
-       xi0=xi0/(4.d0*pi)
-       xi2=xi2/(4.d0*pi)
-       xi4=xi4/(4.d0*pi)
+       xi0=xi0/(4.*pi)
+       xi2=xi2/(4.*pi)
+       xi4=xi4/(4.*pi)
 
        !Convert theta from radians to degrees
        theta=theta*rad2deg
@@ -620,55 +628,25 @@ MODULE HMx
   SUBROUTINE write_xi(th_tab,xi_tab,nth,output)
 
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: th_tab(nth), xi_tab(3,nth)
+    REAL, INTENT(IN) :: th_tab(nth), xi_tab(3,nth)
     INTEGER, INTENT(IN) :: nth
     CHARACTER(len=256), INTENT(IN) :: output
-    
+
     OPEN(7,file=output)
     DO i=1,nth
        WRITE(7,*) th_tab(i), xi_tab(1,i), xi_tab(2,i), xi_tab(3,i)
     END DO
     CLOSE(7)
-    
+
   END SUBROUTINE write_xi
-
-  FUNCTION Bessel(n,x)
-
-    IMPLICIT NONE
-    REAL*8 :: Bessel
-    REAL*8 :: x
-    INTEGER :: n
-    
-    REAL*8, PARAMETER :: xlarge=1.d15
-
-    IF(x>xlarge) THEN
-
-       !To stop it going mental for very large values of x
-       Bessel=0.d0
-
-    ELSE
-
-       IF(n<0) STOP 'Error: cannot call for negative n'
-
-       IF(n==0) THEN
-          Bessel=BESSEL_J0(REAL(x))
-       ELSE IF(n==1) THEN
-          Bessel=BESSEL_J1(REAL(x))
-       ELSE
-          Bessel=BESSEL_JN(n,REAL(x))      
-       END IF
-
-    END IF
-
-  END FUNCTION Bessel
 
   SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,lut,cosm)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype1, itype2
     INTEGER, INTENT(IN) :: nk
-    REAL*8, INTENT(IN) :: k(nk), z
-    REAL*8, INTENT(OUT) :: pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
+    REAL, INTENT(IN) :: k(nk), z
+    REAL, INTENT(OUT) :: pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     INTEGER :: i
@@ -684,7 +662,7 @@ MODULE HMx
 
     !Loop over k values
     !ADD OMP support properly. What is private and shared? CHECK THIS!
-    !!$OMP PARALLEL DO DEFAULT(SHARED), private(k,plin, pfull,p1h,p2h)
+!!$OMP PARALLEL DO DEFAULT(SHARED), private(k,plin, pfull,p1h,p2h)
     DO i=1,nk
 
        !Get the linear power
@@ -695,7 +673,7 @@ MODULE HMx
        CALL halomod(itype1,itype2,k(i),z,pow_2h(i),pow_1h(i),pow(i),plin,lut,cosm)
 
     END DO
-    !!$OMP END PARALLEL DO
+!!$OMP END PARALLEL DO
 
     IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_HALOMOD: Done'
@@ -709,7 +687,7 @@ MODULE HMx
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: output
     INTEGER, INTENT(IN) :: nk
-    REAL*8, INTENT(IN) :: k(nk), pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
+    REAL, INTENT(IN) :: k(nk), pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
     INTEGER :: i
 
     IF(verbose) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
@@ -734,9 +712,9 @@ MODULE HMx
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: base
     INTEGER, INTENT(IN) :: nk, na
-    REAL*8, INTENT(IN) :: k(nk), a(na), pow_lin(nk,na), pow_2h(nk,na), pow_1h(nk,na), pow_full(nk,na)
+    REAL, INTENT(IN) :: k(nk), a(na), pow_lin(nk,na), pow_2h(nk,na), pow_1h(nk,na), pow_full(nk,na)
     LOGICAL, INTENT(IN) :: verbose
-    REAL*8 :: pow(nk,na)
+    REAL :: pow(nk,na)
     INTEGER :: i
     CHARACTER(len=256) :: output
     LOGICAL :: verbose2
@@ -764,7 +742,7 @@ MODULE HMx
        END IF
        CALL write_power_a(k,a,pow,nk,na,output,verbose2)
     END DO
-    
+
   END SUBROUTINE write_power_a_multiple
 
   SUBROUTINE write_power_a(k,a,pow,nk,na,output,verbose)
@@ -772,7 +750,7 @@ MODULE HMx
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: output
     INTEGER, INTENT(IN) :: nk, na
-    REAL*8, INTENT(IN) :: k(nk), a(na), pow(nk,na)
+    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i, j
     !CHARACTER(len=256) :: output!_2halo, output_1halo, output_full, output_lin, output
@@ -784,9 +762,9 @@ MODULE HMx
 
     !Write out data to files
     IF(verbose) THEN
-    !   WRITE(*,*) 'WRITE_POWER_A: Writing 2-halo power to ', TRIM(output_2halo)
-    !   WRITE(*,*) 'WRITE_POWER_A: Writing 1-halo power to ', TRIM(output_1halo)
-    !   WRITE(*,*) 'WRITE_POWER_A: Writing full power to ',   TRIM(output_full)
+       !   WRITE(*,*) 'WRITE_POWER_A: Writing 2-halo power to ', TRIM(output_2halo)
+       !   WRITE(*,*) 'WRITE_POWER_A: Writing 1-halo power to ', TRIM(output_1halo)
+       !   WRITE(*,*) 'WRITE_POWER_A: Writing full power to ',   TRIM(output_full)
        WRITE(*,*) 'WRITE_POWER_A: The top row of the file contains the redshifts '
        WRITE(*,*) 'WRITE_POWER_A: The first entry in the file is hashes - #####'
        WRITE(*,*) 'WRITE_POWER_A: Subsequent rows first contain ''k''...'
@@ -817,72 +795,20 @@ MODULE HMx
 
   END SUBROUTINE write_power_a
 
-  FUNCTION number_file(fbase,i,fext)
-
-    IMPLICIT NONE
-    CHARACTER(len=256) ::number_file
-    CHARACTER(len=256), INTENT(IN) :: fbase, fext
-    INTEGER, INTENT(IN) :: i
-    CHARACTER(len=8) :: num
-
-    !IF(i<0) STOP 'NUMBER_FILE: Error: cannot write negative number file names'
-
-    IF(i<10) THEN       
-       WRITE(num,fmt='(I1)') i
-    ELSE IF(i<100) THEN
-       WRITE(num,fmt='(I2)') i
-    ELSE IF(i<1000) THEN
-       WRITE(num,fmt='(I3)') i
-    END IF
-
-    number_file=TRIM(fbase)//TRIM(num)//TRIM(fext)
-
-  END FUNCTION number_file
-
-  FUNCTION number_file2(fbase,i1,mid,i2,fext)
-
-    IMPLICIT NONE
-    CHARACTER(len=256) ::number_file2
-    CHARACTER(len=256), INTENT(IN) :: fbase, fext, mid
-    INTEGER, INTENT(IN) :: i1, i2
-    CHARACTER(len=8) :: num1, num2
-
-    !IF(i<0) STOP 'NUMBER_FILE: Error: cannot write negative number file names'
-
-    IF(i1<10) THEN       
-       WRITE(num1,fmt='(I1)') i1
-    ELSE IF(i1<100) THEN
-       WRITE(num1,fmt='(I2)') i1
-    ELSE IF(i1<1000) THEN
-       WRITE(num1,fmt='(I3)') i1
-    END IF
-
-    IF(i2<10) THEN       
-       WRITE(num2,fmt='(I1)') i2
-    ELSE IF(i2<100) THEN
-       WRITE(num2,fmt='(I2)') i2
-    ELSE IF(i2<1000) THEN
-       WRITE(num2,fmt='(I3)') i2
-    END IF
-
-    number_file2=TRIM(fbase)//TRIM(num1)//TRIM(mid)//TRIM(num2)//TRIM(fext)
-
-  END FUNCTION number_file2
-
   SUBROUTINE halo_diagnostics(z,lut,cosm,dir)
 
     IMPLICIT NONE
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
-    REAL*8, INTENT(IN) :: z
+    REAL, INTENT(IN) :: z
     CHARACTER(len=256), INTENT(IN) :: dir
-    REAL*8 :: mass    
+    REAL :: mass    
     CHARACTER(len=256) :: base, ext, outfile
     INTEGER :: m, m1, m2
 
-    !REAL*8, PARAMETER :: mass1=1d13
-    !REAL*8, PARAMETER :: mass2=1d14
-    !REAL*8, PARAMETER :: mass3=1d15
+    !REAL, PARAMETER :: mass1=1d13
+    !REAL, PARAMETER :: mass2=1d14
+    !REAL, PARAMETER :: mass3=1d15
 
     WRITE(*,*) 'HALO_DIAGNOSTICS: Outputting diagnostics'
 
@@ -892,7 +818,7 @@ MODULE HMx
     m1=10
     m2=16
     DO m=m1,m2
-       
+
        mass=10.**m
 
        base=TRIM(dir)//'/halo_profile_m'
@@ -909,9 +835,9 @@ MODULE HMx
        ext='.dat'
        outfile=number_file(base,m,ext)
        CALL write_halo_transforms(mass,z,lut,cosm,outfile)
-       
+
     END DO
-    
+
     WRITE(*,*) 'HALO_DIAGNOSTICS: Done'
     WRITE(*,*)
 
@@ -952,11 +878,11 @@ MODULE HMx
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: outfile
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: m, mmin, mmax
+    REAL :: m, mmin, mmax
     INTEGER :: i, j, n
 
-    mmin=1d10
-    mmax=1d16
+    mmin=1e10
+    mmax=1e16
     n=101
 
     OPEN(7,file=outfile)
@@ -974,13 +900,13 @@ MODULE HMx
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: outfile
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8, INTENT(IN) :: m, z
-    REAL*8 :: r, rv, rs, c
+    REAL, INTENT(IN) :: m, z
+    REAL :: r, rv, rs, c
     INTEGER :: i
     TYPE(tables), INTENT(IN) :: lut
-    
-    REAL*8, PARAMETER :: rmin=1d-3 !Mininum r/rv
-    REAL*8, PARAMETER :: rmax=1d1 !Maximum r/rv
+
+    REAL, PARAMETER :: rmin=1e-3 !Mininum r/rv
+    REAL, PARAMETER :: rmax=1e1 !Maximum r/rv
     INTEGER, PARAMETER :: n=512 !Number of points
 
     !Calculate halo attributes
@@ -1010,13 +936,13 @@ MODULE HMx
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: outfile
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8, INTENT(IN) :: m, z
+    REAL, INTENT(IN) :: m, z
     TYPE(tables), INTENT(IN) :: lut
-    REAL*8 :: x, rv, c, rs, k, rhobar
+    REAL :: x, rv, c, rs, k, rhobar
     INTEGER :: i
-    
-    REAL*8, PARAMETER :: xmin=1d-1 !Mininum r/rv
-    REAL*8, PARAMETER :: xmax=1d2 !Maximum r/rv
+
+    REAL, PARAMETER :: xmin=1e-1 !Mininum r/rv
+    REAL, PARAMETER :: xmax=1e2 !Maximum r/rv
     INTEGER, PARAMETER :: n=512 !Number of points
 
     !Calculate halo attributes
@@ -1046,8 +972,8 @@ MODULE HMx
   FUNCTION Delta_v(z,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: Delta_v
-    REAL*8, INTENT(IN) :: z
+    REAL :: Delta_v
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Virialised overdensity
@@ -1066,9 +992,9 @@ MODULE HMx
 
     !Bryan & Norman (1998) spherical over-density calculation
     IMPLICIT NONE
-    REAL*8 :: Dv_brynor
-    REAL*8 :: x, om_m
-    REAL*8, INTENT(IN) :: z
+    REAL :: Dv_brynor
+    REAL :: x, om_m
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     om_m=omega_m(z,cosm)
@@ -1090,8 +1016,8 @@ MODULE HMx
   FUNCTION delta_c(z,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: delta_c
-    REAL*8, INTENT(IN) :: z
+    REAL :: delta_c
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Linear collapse density
@@ -1099,7 +1025,7 @@ MODULE HMx
        !Nakamura & Suto (1997) fitting formula for LCDM
        delta_c=1.686*(1.+0.0123*log10(omega_m(z,cosm)))
     ELSE IF(imead==1) THEN
-       delta_c=1.59+0.0314*log(sigma_cb(8.d0,z,cosm))
+       delta_c=1.59+0.0314*log(sigma_cb(8.,z,cosm))
        delta_c=delta_c*(1.+0.0123*log10(omega_m(z,cosm)))
     ELSE
        STOP 'Error, imead defined incorrectly'
@@ -1110,15 +1036,15 @@ MODULE HMx
   FUNCTION eta(z,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: eta
-    REAL*8, INTENT(IN) :: z
+    REAL :: eta
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     IF(imead==0 .OR. imead==-1) THEN
        eta=0.
     ELSE IF(imead==1) THEN
        !The first parameter here is 'eta_0' in Mead et al. (2015; arXiv 1505.07833)
-       eta=0.603-0.3*(sigma_cb(8.d0,z,cosm))
+       eta=0.603-0.3*(sigma_cb(8.,z,cosm))
     ELSE
        STOP 'Error, imead defined incorrectly'
     END IF
@@ -1128,11 +1054,11 @@ MODULE HMx
   FUNCTION kstar(lut,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: kstar
+    REAL :: kstar
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
-    REAL*8 :: crap
-    
+    REAL :: crap
+
     !To prevent compile-time warnings
     crap=cosm%A
 
@@ -1151,10 +1077,10 @@ MODULE HMx
   FUNCTION As(cosm)
 
     IMPLICIT NONE
-    REAL*8 :: As
+    REAL :: As
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: crap
-    
+    REAL :: crap
+
     !To prevent compile-time warnings
     crap=cosm%A
 
@@ -1174,11 +1100,11 @@ MODULE HMx
   FUNCTION fdamp(z,cosm)
 
     IMPLICIT NONE
-    REAL*8 ::fdamp
-    REAL*8, INTENT(IN) :: z
+    REAL ::fdamp
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: crap
-    
+    REAL :: crap
+
     !To prevent compile-time warnings
     crap=cosm%A
     crap=z
@@ -1202,11 +1128,11 @@ MODULE HMx
   FUNCTION alpha_transition(lut,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: alpha_transition
+    REAL :: alpha_transition
     TYPE(tables), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: crap
-    
+    REAL :: crap
+
     !To prevent compile-time warnings
     crap=cosm%A
 
@@ -1229,7 +1155,7 @@ MODULE HMx
   SUBROUTINE print_halomodel_parameters(z,lut,cosm)
 
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: z
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
 
@@ -1259,53 +1185,16 @@ MODULE HMx
 
     !Calculates k_nl as 1/R where nu(R)=1.
     TYPE(tables), INTENT(IN) :: lut
-    REAL*8 :: r_nl  
+    REAL :: r_nl  
 
     IF(lut%nu(1)>1.) THEN
        !This catches some very strange values
        r_nl=lut%rr(1)
     ELSE
-       r_nl=exp(find(log(1.d0),log(lut%nu),log(lut%rr),lut%n,3,3,2))
+       r_nl=exp(find(log(1.),log(lut%nu),log(lut%rr),lut%n,3,3,2))
     END IF
 
   END FUNCTION r_nl
-
-  SUBROUTINE fill_table(min,max,arr,n)
-
-    !Fills array 'arr' in equally spaced intervals
-    !I'm not sure if inputting an array like this is okay
-    IMPLICIT NONE
-    INTEGER :: i
-    REAL*8, INTENT(IN) :: min, max
-    REAL*8, ALLOCATABLE :: arr(:)
-    INTEGER, INTENT(IN) :: n
-
-    !Allocate the array, and deallocate it if it is full
-    IF(ALLOCATED(arr)) DEALLOCATE(arr)
-    ALLOCATE(arr(n))
-    arr=0.
-
-    IF(n==1) THEN
-       arr(1)=min
-    ELSE IF(n>1) THEN
-       DO i=1,n
-          !arr(i)=min+(max-min)*DBLE(i-1)/DBLE(n-1)
-          arr(i)=progression(min,max,i,n)
-       END DO
-    END IF
-
-  END SUBROUTINE fill_table
-
-  FUNCTION progression(xmin,xmax,i,n)
-
-    IMPLICIT NONE
-    REAL*8 :: progression
-    REAL*8, INTENT(IN) :: xmin, xmax
-    INTEGER, INTENT(IN) :: i, n
-
-    progression=xmin+(xmax-xmin)*DBLE(i-1)/DBLE(n-1)
-    
-  END FUNCTION progression
 
   SUBROUTINE print_cosmology(cosm)
 
@@ -1403,15 +1292,15 @@ MODULE HMx
   SUBROUTINE initialise_cosmology(cosm)
 
     IMPLICIT NONE
-    REAL*8 :: sigi
+    REAL :: sigi
     TYPE(cosmology) :: cosm
 
     !Derived cosmological parameters
-    cosm%om_r=2.5d-5*(1.+0.227*neff)/cosm%h**2
+    cosm%om_r=2.5e-5*(1.+0.227*neff)/cosm%h**2
     cosm%om_m=cosm%om_m-cosm%om_r !Maintain flatness
     cosm%om_c=cosm%om_m-cosm%om_b-cosm%om_nu
     cosm%om=cosm%om_m+cosm%om_v
-    cosm%k=(cosm%om-1.d0)/(conH0**2)
+    cosm%k=(cosm%om-1.)/(conH0**2)
 
     IF(verbose) THEN
        WRITE(*,*) 'INITIALISE_COSMOLOGY: Omega_r:', REAL(cosm%om_r)
@@ -1425,10 +1314,10 @@ MODULE HMx
     CALL fill_growtab(cosm)
 
     !Set the normalisation to 1 initially
-    cosm%A=1.d0
+    cosm%A=1.
 
     !Calculate the initial sigma_8 value (will not be correct)
-    sigi=sigma(8.d0,0.d0,cosm)
+    sigi=sigma(8.,zero,cosm)
 
     IF(verbose) WRITE(*,*) 'INITIALISE_COSMOLOGY: Initial sigma_8:', REAL(sigi)
 
@@ -1437,7 +1326,7 @@ MODULE HMx
     !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
 
     !Recalculate sigma8, should be correct this time
-    sigi=sigma(8.d0,0.d0,cosm)
+    sigi=sigma(8.,zero,cosm)
 
     !Write to screen
     IF(verbose) THEN
@@ -1458,8 +1347,8 @@ MODULE HMx
     !Fill up tables of a vs. r(a) (comoving distance)
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL*8 :: zmin, zmax, amin, amax
-    REAL*8 :: rh
+    REAL :: zmin, zmax, amin, amax
+    REAL :: rh
     INTEGER :: i
 
     INTEGER, PARAMETER :: nr=128
@@ -1476,13 +1365,13 @@ MODULE HMx
        WRITE(*,*) 'INITIALISE_DISTANCE: maximum a:', REAL(amax)
     END IF
     cosm%nr=nr
-    CALL fill_table(amin,amax,cosm%a_r,cosm%nr)
+    CALL fill_array(amin,amax,cosm%a_r,cosm%nr)
     IF(ALLOCATED(cosm%r)) DEALLOCATE(cosm%r)
     ALLOCATE(cosm%r(cosm%nr))
 
     !Now do the r(z) calculation
     DO i=1,cosm%nr
-       cosm%r(i)=integrate_distance(cosm%a_r(i),1.d0,acc,3,cosm)
+       cosm%r(i)=integrate_distance(cosm%a_r(i),1.,acc,3,cosm)
     END DO
     IF(verbose) THEN
        WRITE(*,*) 'INITIALISE_DISTANCE: minimum r [Mpc/h]:', REAL(cosm%r(cosm%nr))
@@ -1490,7 +1379,7 @@ MODULE HMx
     END IF
 
     !Find the horizon distance in your cosmology
-    rh=integrate_distance(0.d0,1.d0,acc,3,cosm)
+    rh=integrate_distance(0.,1.,acc,3,cosm)
     IF(verbose) THEN
        WRITE(*,*) 'INITIALISE_DISTANCE: Horizon distance [Mpc/h]:', REAL(rh)
        WRITE(*,*) 'INITIALISE_DISTANCE: Done'
@@ -1506,7 +1395,7 @@ MODULE HMx
     TYPE(cosmology), INTENT(IN) :: cosm
     CHARACTER(len=256) :: output
     INTEGER :: i
-    REAL*8 :: z
+    REAL :: z
 
     !Now do the r(z) calculation
     output='projection/distance.dat'
@@ -1519,83 +1408,74 @@ MODULE HMx
     CLOSE(7)
     WRITE(*,*) 'WRITE_DISTANCE: Done'
     WRITE(*,*)
-    
+
   END SUBROUTINE write_distances
 
   FUNCTION redshift_a(a)
 
     IMPLICIT NONE
-    REAL*8 :: redshift_a
-    REAL*8, INTENT(IN) :: a
+    REAL :: redshift_a
+    REAL, INTENT(IN) :: a
 
-    IF(a==0.d0) STOP 'REDSHIFT_A: Error, routine called with a=0'
+    IF(a==0.) STOP 'REDSHIFT_A: Error, routine called with a=0'
 
-    redshift_a=-1.d0+1.d0/a
-    
+    redshift_a=-1.+1./a
+
   END FUNCTION redshift_a
 
   FUNCTION scale_factor_z(z)
 
     IMPLICIT NONE
-    REAL*8 :: scale_factor_z
-    REAL*8, INTENT(IN) :: z
+    REAL :: scale_factor_z
+    REAL, INTENT(IN) :: z
 
-    scale_factor_z=1.d0/(1.d0+z)
-    
+    scale_factor_z=1./(1.+z)
+
   END FUNCTION scale_factor_z
 
   FUNCTION cosmic_distance(z,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: cosmic_distance
-    REAL*8, INTENT(IN) :: z
+    REAL :: cosmic_distance
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: a
+    REAL :: a
 
     a=scale_factor_z(z)
-    
+
     cosmic_distance=find(a,cosm%a_r,cosm%r,cosm%nr,3,3,2)
-    
+
   END FUNCTION cosmic_distance
 
   FUNCTION redshift_r(r,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: redshift_r
-    REAL*8, INTENT(IN) :: r
+    REAL :: redshift_r
+    REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(IN) :: cosm
-    
+
     redshift_r=redshift_a(find(r,cosm%r,cosm%a_r,cosm%nr,3,3,2))
-    
+
   END FUNCTION redshift_r
 
   FUNCTION maxdist(proj)!,cosm)
 
     !Calculates the maximum distance necessary for the lensing integration
     IMPLICIT NONE
-    REAL*8 :: maxdist
+    REAL :: maxdist
     TYPE(projection), INTENT(IN) :: proj(2)
     !TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: rmax1, rmax2
-    
-    REAL*8, PARAMETER :: dr=0.01
+    REAL :: rmax1, rmax2
+
+    REAL, PARAMETER :: dr=0.01
 
     !Fix the maximum redshift and distance (which may fixed at source plane)
     rmax1=MAXVAL(proj(1)%r_x)
     rmax2=MAXVAL(proj(2)%r_x)
+    
     !Subtract a small distance here because of rounding errors in recalculating zmax
     maxdist=MIN(rmax1,rmax2)-dr
-    !zs=redshift_a(find(maxdist,cosm%r,cosm%a_r,cosm%nr,3,3,2))
-
-    !IF(verbose) THEN
-    !   WRITE(*,*) 'MAXDIST: maximum radius kernel 1 [Mpc/h]:', REAL(rmax1)
-    !   WRITE(*,*) 'MAXDIST: maximum radius kernel 2 [Mpc/h]:', REAL(rmax2)
-    !   WRITE(*,*) 'MAXDIST: maximum radius [Mpc/h]:', REAL(proj%rs)
-    !   WRITE(*,*) 'MAXDIST: maximum redshift:', REAL(proj%zs)
-    !   WRITE(*,*) 'MAXDIST: Done'
-    !   WRITE(*,*)
-    !END IF
-
+    
   END FUNCTION maxdist
 
   SUBROUTINE write_projection_kernels(proj,cosm)
@@ -1604,15 +1484,15 @@ MODULE HMx
     TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
     CHARACTER(len=256) :: output
-    
+
     output=TRIM('projection/kernel1.dat')
     CALL write_projection_kernel(proj(1),cosm,output)
 
     output=TRIM('projection/kernel2.dat')
     CALL write_projection_kernel(proj(2),cosm,output)
-    
+
   END SUBROUTINE write_projection_kernels
-  
+
   SUBROUTINE write_projection_kernel(proj,cosm,output)
 
     IMPLICIT NONE
@@ -1620,10 +1500,9 @@ MODULE HMx
     TYPE(cosmology), INTENT(IN) :: cosm
     CHARACTER(len=256), INTENT(IN) :: output
     INTEGER :: i
-    REAL*8 :: r, z
+    REAL :: r, z
 
     !Kernel 1
-    !output=TRIM('projection/kernel1.dat')
     IF(verbose) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel: ', TRIM(output)
     OPEN(7,file=output)
     DO i=1,proj%nX    
@@ -1637,22 +1516,6 @@ MODULE HMx
        WRITE(*,*)
     END IF
 
-    !Kernel 2
-    !output=TRIM('projection/kernel2.dat')
-    !IF(verbose) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel 2: ', TRIM(output)
-    !OPEN(7,file=output)
-    !DO i=1,proj%nx2
-    !   !Kernel 2
-    !   r=proj%r_x2(i)
-    !   z=redshift_r(r,cosm)
-    !   WRITE(7,*) r, z, proj%x2(i)
-    !END DO
-    !CLOSE(7)
-    !IF(verbose) THEN
-    !   WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing done'
-    !   WRITE(*,*)
-    !END IF
-
   END SUBROUTINE write_projection_kernel
 
   SUBROUTINE fill_lensing_kernel(ix,proj,lens,cosm)
@@ -1663,14 +1526,14 @@ MODULE HMx
     TYPE(lensing) :: lens
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(projection), INTENT(OUT) :: proj
-    !REAL*8, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
+    !REAL, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
     !INTEGER, INTENT(OUT) :: nx_out
-    REAL*8 :: zmin, zmax, rmax, r
+    REAL :: zmin, zmax, rmax, r
     CHARACTER(len=256) :: output
     INTEGER :: i
 
     !Parameters
-    REAL*8, PARAMETER :: rmin=0.d0 !Minimum distance in integral    
+    REAL, PARAMETER :: rmin=0. !Minimum distance in integral    
     INTEGER, PARAMETER :: nx=128 !Number of entries in X(r) table
 
     !IF(inz==-1) THEN
@@ -1715,7 +1578,7 @@ MODULE HMx
 
     !Assign arrays for the projection function
     proj%nx=nx
-    CALL fill_table(rmin,rmax,proj%r_x,nx)
+    CALL fill_array(rmin,rmax,proj%r_x,nx)
     WRITE(*,*) 'FILL_LENSING_KERNEL: number of points:', nx
     IF(ALLOCATED(proj%x)) DEALLOCATE(proj%x)
     ALLOCATE(proj%x(proj%nx))
@@ -1725,7 +1588,7 @@ MODULE HMx
        r=proj%r_x(i)
        proj%x(i)=lensing_kernel(r,lens,cosm)  
        !Enforce that the kernel must not be negative (is this necessary?)
-       IF(proj%x(i)<0.d0) proj%x(i)=0.d0
+       IF(proj%x(i)<0.) proj%x(i)=0.
     END DO
     WRITE(*,*) 'FILL_LENSING_KERNEL: Done'
     WRITE(*,*)
@@ -1737,27 +1600,27 @@ MODULE HMx
     !Fill the table for lensing efficiency
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
-    REAL*8, INTENT(IN) :: rmin, rmax, zmax
+    REAL, INTENT(IN) :: rmin, rmax, zmax
     TYPE(lensing), INTENT(INOUT) :: lens
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: r, z
+    REAL :: r, z
     INTEGER :: i
-    
+
     INTEGER, PARAMETER :: nq=128 !Number of entries in q(r) table
 
     !Fill the r vs. q(r) tables
     lens%nq=nq
     WRITE(*,*) 'FILL_EFFICIENCY: number of points:', lens%nq
-    CALL fill_table(rmin,rmax,lens%r_q,lens%nq)
+    CALL fill_array(rmin,rmax,lens%r_q,lens%nq)
     IF(ALLOCATED(lens%q)) DEALLOCATE(lens%q)
     ALLOCATE(lens%q(lens%nq))
-    
+
     DO i=1,lens%nq
        r=lens%r_q(i)
        z=redshift_r(r,cosm)
        IF(r==0.) THEN
           !To avoid division by zero
-          lens%q(i)=1.d0
+          lens%q(i)=1.
        ELSE
           IF(ix==7) THEN
              !q(r) for a fixed source plane
@@ -1777,12 +1640,12 @@ MODULE HMx
 
     !Interpolation function for q(r)
     IMPLICIT NONE
-    REAL*8 :: q_r
-    REAL*8, INTENT(IN) :: r
+    REAL :: q_r
+    REAL, INTENT(IN) :: r
     TYPE(lensing), INTENT(IN) :: lens
-    
+
     q_r=find(r,lens%r_q,lens%q,lens%nq,3,3,2)
-    
+
   END FUNCTION q_r
 
   SUBROUTINE write_lensing_efficiency(lens,cosm,output)
@@ -1792,7 +1655,7 @@ MODULE HMx
     TYPE(lensing), INTENT(INOUT) :: lens
     TYPE(cosmology), INTENT(IN) :: cosm
     CHARACTER(len=256), INTENT(IN) :: output
-    REAL*8 :: r, z, q
+    REAL :: r, z, q
     INTEGER :: i
 
     WRITE(*,*) 'WRITE_EFFICIENCY: Writing q(r): ', TRIM(output)
@@ -1806,18 +1669,18 @@ MODULE HMx
     CLOSE(7)
     WRITE(*,*) 'WRITE_EFFICIENCY: Done'
     WRITE(*,*)
-    
+
   END SUBROUTINE write_lensing_efficiency
 
   FUNCTION lensing_kernel(r,lens,cosm)
 
     !The lensing projection kernel
     IMPLICIT NONE
-    REAL*8 :: lensing_kernel
-    REAL*8, INTENT(IN) :: r
+    REAL :: lensing_kernel
+    REAL, INTENT(IN) :: r
     TYPE(lensing) :: lens
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: z, q
+    REAL :: z, q
 
     !Get z(r)
     z=redshift_r(r,cosm)
@@ -1828,7 +1691,7 @@ MODULE HMx
     !This is then the projection kernel (X_kappa)
     lensing_kernel=(1.+z)*f_k(r,cosm)*q
     lensing_kernel=lensing_kernel*1.5*cosm%om_m/(conH0**2)
-    
+
   END FUNCTION lensing_kernel
 
   SUBROUTINE fill_kernel(ix,proj,cosm)
@@ -1836,27 +1699,27 @@ MODULE HMx
     !Fill the Compton-y look-up table
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
-    !REAL*8, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
+    !REAL, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
     !INTEGER, INTENT(OUT) :: nx
     TYPE(projection), INTENT(OUT) :: proj
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i
-    REAL*8 :: rmax, r
+    REAL :: rmax, r
 
-    REAL*8, PARAMETER :: rmin=0.d0 !Minimum r for table
+    REAL, PARAMETER :: rmin=0. !Minimum r for table
     INTEGER, PARAMETER :: nx=128 !Entires in look-up table
-    
+
     proj%nx=nx 
 
     !Get the distance range for the projection function
     !Use the same as that for the distance calculation
     !Assign arrays for the kernel function
     rmax=MAXVAL(cosm%r)
-    CALL fill_table(rmin,rmax,proj%r_X,proj%nX)
+    CALL fill_array(rmin,rmax,proj%r_X,proj%nX)
     WRITE(*,*) 'FILL_KERNEL: minimum r [Mpc/h]:', REAL(rmin)
     WRITE(*,*) 'FILL_KERNEL: maximum r [Mpc/h]:', REAL(rmax)
     WRITE(*,*) 'FILL_KERNEL: number of points:', nx
-    
+
     IF(ALLOCATED(proj%X)) DEALLOCATE(proj%X)
     ALLOCATE(proj%X(nX))
 
@@ -1881,12 +1744,12 @@ MODULE HMx
 
     !The Compton-y projeciton kernel
     IMPLICIT NONE
-    REAL*8 :: y_kernel
-    REAL*8, INTENT(IN) :: r
+    REAL :: y_kernel
+    REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(IN) :: cosm
-    !REAL*8 :: z, a
-    REAL*8 :: crap
-    
+    !REAL :: z, a
+    REAL :: crap
+
     !z=redshift_r(r,cosm)
     !a=scale_factor_z(z)
 
@@ -1896,21 +1759,21 @@ MODULE HMx
 
     y_kernel=yfac*mpc !Convert some units; note that there is no factor of 'a'
     y_kernel=y_kernel*eV*cm**(-3) !Convert from eV cm^-3 to J m^-3
-    
+
   END FUNCTION y_kernel
 
   FUNCTION gravity_kernel(r,cosm)
 
     !Projection kernel for gravitational waves (~ 1/r)
     IMPLICIT NONE
-    REAL*8 :: gravity_kernel
-    REAL*8, INTENT(IN) :: r
+    REAL :: gravity_kernel
+    REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: crap
-    
-    REAL*8, PARAMETER :: A=1.d0
-    REAL*8, PARAMETER :: rmin=10.
-    
+    REAL :: crap
+
+    REAL, PARAMETER :: A=1.
+    REAL, PARAMETER :: rmin=10.
+
     !To stop compile-time warnings
     crap=cosm%om_m
 
@@ -1919,22 +1782,22 @@ MODULE HMx
     ELSE
        gravity_kernel=A/r
     END IF
-    
+
   END FUNCTION gravity_kernel
 
   FUNCTION f_k(r,cosm)
 
     !Curvature function
     IMPLICIT NONE
-    REAL*8 :: f_k
-    REAL*8, INTENT(IN) :: r
+    REAL :: f_k
+    REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(IN) :: cosm
 
-    IF(cosm%k==0.d0) THEN
+    IF(cosm%k==0.) THEN
        f_k=r
-    ELSE IF(cosm%k<0.d0) THEN
+    ELSE IF(cosm%k<0.) THEN
        f_k=sinh(sqrt(-cosm%k)*r)/sqrt(-cosm%k)
-    ELSE IF(cosm%k>0.d0) THEN
+    ELSE IF(cosm%k>0.) THEN
        f_k=sin(sqrt(cosm%k)*r)/sqrt(cosm%k)
     ELSE
        STOP 'F_K: Something went wrong'
@@ -1946,15 +1809,15 @@ MODULE HMx
 
     !Derivative of curvature function
     IMPLICIT NONE
-    REAL*8 :: fdash_k
-    REAL*8, INTENT(IN) :: r
+    REAL :: fdash_k
+    REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(IN) :: cosm
 
-    IF(cosm%k==0.d0) THEN
+    IF(cosm%k==0.) THEN
        fdash_k=1.
-    ELSE IF(cosm%k<0.d0) THEN
+    ELSE IF(cosm%k<0.) THEN
        fdash_k=cosh(sqrt(-cosm%k)*r)
-    ELSE IF(cosm%k>0.d0) THEN
+    ELSE IF(cosm%k>0.) THEN
        fdash_k=cos(sqrt(cosm%k)*r)
     ELSE
        STOP 'F_K: Something went wrong'
@@ -1966,8 +1829,8 @@ MODULE HMx
 
     IMPLICIT NONE
     TYPE(cosmology) :: cosm
-    REAL*8 :: om_m_min, om_m_max, om_b_min, om_b_max, n_min, n_max
-    REAL*8 :: w_min, w_max, h_min, h_max, sig8_min, sig8_max, wa_min, wa_max
+    REAL :: om_m_min, om_m_max, om_b_min, om_b_max, n_min, n_max
+    REAL :: w_min, w_max, h_min, h_max, sig8_min, sig8_max, wa_min, wa_max
 
     !Needs to be set to normalise P_lin
     cosm%A=1.
@@ -2005,43 +1868,6 @@ MODULE HMx
     cosm%sig8=uniform(sig8_min,sig8_max)
 
   END SUBROUTINE random_cosmology
-
-  SUBROUTINE RNG_set(seed)
-
-    !Seeds the RNG using the system clock so that it is different each time
-    IMPLICIT NONE
-    INTEGER :: int, timearray(3)
-    REAL*8 :: rand
-    INTEGER, INTENT(IN) :: seed
-
-    WRITE(*,*) 'Initialising RNG'
-
-    IF(seed==0) THEN
-       !This fills the time array using the system clock!
-       !If called within the same second the numbers will be identical!
-       CALL itime(timeArray)
-       !This then initialises the generator!
-       int=FLOOR(rand(timeArray(1)+timeArray(2)+timeArray(3)))
-    ELSE
-       int=FLOOR(rand(seed))
-    END IF
-    WRITE(*,*) 'RNG set'
-    WRITE(*,*)
-
-  END SUBROUTINE RNG_set
-
-  FUNCTION uniform(x1,x2)
-
-    !Produces a uniform random number between x1 and x2
-    IMPLICIT NONE
-    REAL*8 :: uniform
-    REAL*8, INTENT(IN) :: x1, x2
-    REAL*8 :: rand !This needs to be defined for the ifort compiler
-
-    !Rand is some inbuilt function
-    uniform=x1+(x2-x1)*(rand(0))
-
-  END FUNCTION uniform
 
   SUBROUTINE allocate_LUT(lut,n)
 
@@ -2118,22 +1944,22 @@ MODULE HMx
   SUBROUTINE halomod_init(mmin,mmax,z,lut,cosm)
 
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: z
-    REAL*8, INTENT(IN) :: mmin, mmax
+    REAL, INTENT(IN) :: z
+    REAL, INTENT(IN) :: mmin, mmax
     INTEGER :: i
-    REAL*8 :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc
+    REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc
     TYPE(cosmology) :: cosm
     TYPE(tables) :: lut
-    
+
     INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
 
     !Halo-model initialisation routine
     !The computes other tables necessary for the one-halo integral
 
     !Find value of sigma_v
-    lut%sigv=sqrt(dispint(0.d0,z,cosm)/3.d0)
-    lut%sigv100=sqrt(dispint(100.d0,z,cosm)/3.d0)
-    lut%sig8z=sigma(8.d0,z,cosm)
+    lut%sigv=sqrt(dispint(0.,z,cosm)/3.)
+    lut%sigv100=sqrt(dispint(100.,z,cosm)/3.)
+    lut%sig8z=sigma(8.,z,cosm)
 
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: Filling look-up tables'
@@ -2168,7 +1994,7 @@ MODULE HMx
 
     !Fills up a table for sigma(fM) for Bullock c(m) relation
     !This is the f=0.01 parameter in the Bullock realtion sigma(fM,z)
-    f=0.01**onethird
+    f=0.01**(1./3.)
     DO i=1,lut%n
        lut%sigf(i)=sigma_cb(lut%rr(i)*f,z,cosm)
     END DO
@@ -2176,7 +2002,7 @@ MODULE HMx
 
     !Fill virial radius table using real radius table
     Dv=Delta_v(z,cosm)
-    lut%rv=lut%rr/(Dv**onethird)
+    lut%rv=lut%rr/(Dv**(1./3.))
 
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: virial radius tables filled'
@@ -2189,10 +2015,10 @@ MODULE HMx
        WRITE(*,*) 'HALOMOD_INIT: maximum M [Msun/h]:', REAL(lut%m(lut%n))
     END IF
 
-    lut%gmin=1.d0-integrate(lut%nu(1),10.d0,gnu,acc,3)
-    lut%gmax=integrate(lut%nu(lut%n),10.d0,gnu,acc,3)
-    lut%gbmin=1.d0-integrate(lut%nu(1),10.d0,gnubnu,acc,3)
-    lut%gbmax=integrate(lut%nu(lut%n),10.d0,gnubnu,acc,3)
+    lut%gmin=1.-integrate(lut%nu(1),10.,gnu,acc,3)
+    lut%gmax=integrate(lut%nu(lut%n),10.,gnu,acc,3)
+    lut%gbmin=1.-integrate(lut%nu(1),10.,gnubnu,acc,3)
+    lut%gbmax=integrate(lut%nu(lut%n),10.,gnubnu,acc,3)
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at low end:', REAL(lut%gmin)
        WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at high end:', REAL(lut%gmax)
@@ -2231,15 +2057,15 @@ MODULE HMx
 
     rhom=comoving_matter_density(cosm)
     rhoc=comoving_critical_density(z,cosm)
-    
+
     !Calculate Delta = 200, 500 and Delta_c = 200, 500 quantities
-    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,1.d0,lut%r500,lut%c500,lut%m500,500.d0,1.d0,lut%n)
-    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,1.d0,lut%r200,lut%c200,lut%m200,200.d0,1.d0,lut%n)
-    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r500c,lut%c500c,lut%m500c,500.d0,rhoc,lut%n)
-    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r200c,lut%c200c,lut%m200c,200.d0,rhoc,lut%n)
+    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,1.,lut%r500,lut%c500,lut%m500,500.,1.,lut%n)
+    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,1.,lut%r200,lut%c200,lut%m200,200.,1.,lut%n)
+    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r500c,lut%c500c,lut%m500c,500.,rhoc,lut%n)
+    CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r200c,lut%c200c,lut%m200c,200.,rhoc,lut%n)
 
     CALL print_halomodel_parameters(z,lut,cosm)
-    
+
     IF(verbose) verbose=.FALSE.
 
   END SUBROUTINE halomod_init
@@ -2247,24 +2073,24 @@ MODULE HMx
   FUNCTION one_halo_amplitude(z,lut,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: one_halo_amplitude
-    REAL*8, INTENT(IN) :: z
+    REAL :: one_halo_amplitude
+    REAL, INTENT(IN) :: z
     TYPE(tables), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: wk(2,lut%n)
+    REAL :: wk(2,lut%n)
     INTEGER :: i
 
-    REAL*8, PARAMETER :: ksmall=1d-3 !A 'small' wavenumber
+    REAL, PARAMETER :: ksmall=1e-3 !A 'small' wavenumber
 
     DO i=1,lut%n
        wk(1,i)=lut%m(i)
     END DO
     wk(1,:)=wk(1,:)/comoving_matter_density(cosm)
     wk(2,:)=wk(1,:)
-    
+
     one_halo_amplitude=p_1h(wk,ksmall,z,lut,cosm)
     one_halo_amplitude=one_halo_amplitude/(4.*pi*(ksmall/(2.*pi))**3)
-    
+
   END FUNCTIOn one_halo_amplitude
 
   SUBROUTINE convert_mass_definition(ri,ci,mi,Di,rhoi,rj,cj,mj,Dj,rhoj,n)
@@ -2272,11 +2098,11 @@ MODULE HMx
     !Converts mass definition from Delta_i rho_i overdense to Delta_j rho_j overdense
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: ri(n), ci(n), mi(n)
-    REAL*8, INTENT(OUT) :: rj(n), cj(n), mj(n)
-    REAL*8, INTENT(IN) :: Di, Dj, rhoi, rhoj
-    REAL*8, ALLOCATABLE :: LHS(:), RHS(:)
-    REAL*8 :: rs
+    REAL, INTENT(IN) :: ri(n), ci(n), mi(n)
+    REAL, INTENT(OUT) :: rj(n), cj(n), mj(n)
+    REAL, INTENT(IN) :: Di, Dj, rhoi, rhoj
+    REAL, ALLOCATABLE :: LHS(:), RHS(:)
+    REAL :: rs
     INTEGER :: i
 
     !Ensure these are all zero
@@ -2331,8 +2157,8 @@ MODULE HMx
 
     !Solves y(x)=a for x
     IMPLICIT NONE
-    REAL*8 :: find_solve
-    REAL*8, INTENT(IN) :: a, xtab(n), ytab(n)
+    REAL :: find_solve
+    REAL, INTENT(IN) :: a, xtab(n), ytab(n)
     INTEGER, INTENT(IN) :: n
 
     find_solve=find(a,ytab,xtab,n,3,3,2)
@@ -2343,10 +2169,10 @@ MODULE HMx
 
     !The NFW 'mass' factor that crops up all the time
     IMPLICIT NONE
-    REAL*8 :: nfw_factor
-    REAL*8, INTENT(IN) :: x
+    REAL :: nfw_factor
+    REAL, INTENT(IN) :: x
 
-    nfw_factor=log(1.d0+x)-x/(1.d0+x)
+    nfw_factor=log(1.+x)-x/(1.+x)
 
   END FUNCTION nfw_factor
 
@@ -2354,11 +2180,11 @@ MODULE HMx
 
     !The comoving radius corresponding to mass M in a homogeneous universe
     IMPLICIT NONE
-    REAL*8 :: radius_m
-    REAL*8, INTENT(IN) :: m
+    REAL :: radius_m
+    REAL, INTENT(IN) :: m
     TYPE(cosmology), INTENT(IN) :: cosm
 
-    radius_m=(3.d0*m/(4.d0*pi*comoving_matter_density(cosm)))**onethird
+    radius_m=(3.*m/(4.*pi*comoving_matter_density(cosm)))**(1./3.)
 
   END FUNCTION radius_m
 
@@ -2366,16 +2192,16 @@ MODULE HMx
 
     !Power spectrum slope a the non-linear scale
     IMPLICIT NONE
-    REAL*8 :: effective_index
+    REAL :: effective_index
     TYPE(cosmology) :: cosm
     TYPE(tables) :: lut
 
     !Numerical differentiation to find effective index at collapse
-    effective_index=-3.d0-derivative_table(log(lut%rnl),log(lut%rr),log(lut%sig**2),lut%n,3,3)
+    effective_index=-3.-derivative_table(log(lut%rnl),log(lut%rr),log(lut%sig**2),lut%n,3,3)
 
     !For some bizarre cosmologies r_nl is very small, so almost no collapse has occured
     !In this case the n_eff calculation goes mad and needs to be fixed using this fudge.
-    IF(effective_index<cosm%n-4.d0) effective_index=cosm%n-4.d0
+    IF(effective_index<cosm%n-4.) effective_index=cosm%n-4.
     IF(effective_index>cosm%n)      effective_index=cosm%n
 
   END FUNCTION effective_index
@@ -2384,10 +2210,10 @@ MODULE HMx
 
     !Calculates the Bullock et al. (2001) mass-concentration relation
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: z
+    REAL, INTENT(IN) :: z
     TYPE(cosmology) :: cosm, cos_lcdm
     TYPE(tables) :: lut
-    REAL*8 :: A, zinf, ainf, zf, g_lcdm, g_wcdm
+    REAL :: A, zinf, ainf, zf, g_lcdm, g_wcdm
     INTEGER :: i   
 
     A=As(cosm)
@@ -2399,7 +2225,7 @@ MODULE HMx
     DO i=1,lut%n
 
        zf=lut%zc(i)
-       lut%c(i)=A*(1.d0+zf)/(1.d0+z)
+       lut%c(i)=A*(1.+zf)/(1.+z)
 
        !Dolag2004 prescription for adding DE dependence
        IF(imead==1) THEN
@@ -2407,7 +2233,7 @@ MODULE HMx
           !IF((cosm%w .NE. -1.) .OR. (cosm%wa .NE. 0)) THEN
 
           !The redshift considered to be infinite
-          zinf=10.d0
+          zinf=10.
           !ainf=1./(1.+zinf)
           ainf=scale_factor_z(zinf)
 
@@ -2418,15 +2244,15 @@ MODULE HMx
           cos_lcdm=cosm
           DEALLOCATE(cos_lcdm%growth)
           DEALLOCATE(cos_lcdm%a_growth)
-          cos_lcdm%w=-1.d0
-          cos_lcdm%wa=0.d0
-          cos_lcdm%om_v=1.d0-cosm%om_m !Added this so that 'making a LCDM cosmology' works for curved models.
+          cos_lcdm%w=-1.
+          cos_lcdm%wa=0.
+          cos_lcdm%om_v=1.-cosm%om_m !Added this so that 'making a LCDM cosmology' works for curved models.
 
           !Needs to use grow_int explicitly in case tabulated values are stored
           g_lcdm=growint(ainf,cos_lcdm)
 
           !Changed this to a power of 1.5, which produces more accurate results for extreme DE
-          lut%c(i)=lut%c(i)*((g_wcdm/g_lcdm)**1.5d0)
+          lut%c(i)=lut%c(i)*((g_wcdm/g_lcdm)**1.5)
 
        END IF
 
@@ -2438,12 +2264,12 @@ MODULE HMx
 
     !This fills up the halo collapse redshift table as per Bullock relations   
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: z
+    REAL, INTENT(IN) :: z
     TYPE(cosmology) :: cosm
     TYPE(tables) :: lut
-    REAL*8 :: dc
-    REAL*8 :: af, zf, RHS, a, growz
-    REAL*8, ALLOCATABLE :: af_tab(:), grow_tab(:)
+    REAL :: dc
+    REAL :: af, zf, RHS, a, growz
+    REAL, ALLOCATABLE :: af_tab(:), grow_tab(:)
     INTEGER :: i, ntab  
 
     ntab=SIZE(cosm%growth)
@@ -2485,7 +2311,7 @@ MODULE HMx
 
     !Calcuates the mass contains in a sphere of comoving radius 'r' in a homogeneous universe
     IMPLICIT NONE
-    REAL*8 :: mass_r, r
+    REAL :: mass_r, r
     TYPE(cosmology) :: cosm
 
     !Relation between mean cosmological mass and radius
@@ -2498,8 +2324,8 @@ MODULE HMx
     !Comoving critical density in (Msun/h) / (Mpc/h)^3
     !This constant is (3/8pi) x H0^2/G
     IMPLICIT NONE
-    REAL*8 :: comoving_critical_density
-    REAL*8, INTENT(IN) :: z
+    REAL :: comoving_critical_density
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     comoving_critical_density=physical_critical_density(z,cosm)/(1.+z)**3
@@ -2511,8 +2337,8 @@ MODULE HMx
     !Physical critical density in (Msun/h) / (Mpc/h)^3
     !This constant is (3/8pi) x H0^2/G
     IMPLICIT NONE
-    REAL*8 :: physical_critical_density
-    REAL*8, INTENT(IN) :: z
+    REAL :: physical_critical_density
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     physical_critical_density=critical_density*Hubble2(z,cosm)
@@ -2525,20 +2351,20 @@ MODULE HMx
     !This constant is (3/8pi) x H0^2/G x Omega_m(z=0)
     !Not a function of redshift!
     IMPLICIT NONE
-    REAL*8 :: comoving_matter_density
+    REAL :: comoving_matter_density
     TYPE(cosmology), INTENT(IN) :: cosm
 
     comoving_matter_density=critical_density*cosm%om_m
 
-  END FUNCTION comoving_matter_density  
+  END FUNCTION comoving_matter_density
 
   FUNCTION physical_matter_density(z,cosm)
 
     !Physical matter density in (Msun/h) / (Mpc/h)^3
     !This constant is (3/8pi) x H0^2/G x Omega_m(z=0)
     IMPLICIT NONE
-    REAL*8 :: physical_matter_density
-    REAL*8, INTENT(IN) :: z
+    REAL :: physical_matter_density
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     physical_matter_density=comoving_matter_density(cosm)*(1.+z)**3
@@ -2549,7 +2375,7 @@ MODULE HMx
 
     !Transfer function selection
     IMPLICIT NONE
-    REAL*8 :: Tk, k
+    REAL :: Tk, k
     TYPE(cosmology) :: cosm
 
     Tk=Tk_eh(k,cosm)
@@ -2562,18 +2388,18 @@ MODULE HMx
     !JP - the astonishing D.J. Eisenstein & W. Hu fitting formula (ApJ 496 605 [1998])
     !JP - remember I use k/h, whereas they use pure k, om_m is cdm + baryons
     IMPLICIT NONE
-    REAL*8 :: Tk_eh
-    REAL*8, INTENT(IN) :: yy
+    REAL :: Tk_eh
+    REAL, INTENT(IN) :: yy
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: rk, e, thet, b1, b2, zd, ze, rd, re, rke, s, rks
-    REAL*8 :: q
-    REAL*8 :: y, g, ab
-    REAL*8 :: a1, a2, ac
-    REAL*8 :: bc
-    REAL*8 :: f, fac
-    REAL*8 :: c1, c2, tc
-    REAL*8 :: bb, bn, ss, tb
-    REAL*8 :: om_m, om_b, h
+    REAL :: rk, e, thet, b1, b2, zd, ze, rd, re, rke, s, rks
+    REAL :: q
+    REAL :: y, g, ab
+    REAL :: a1, a2, ac
+    REAL :: bc
+    REAL :: f, fac
+    REAL :: c1, c2, tc
+    REAL :: bb, bn, ss, tb
+    REAL :: om_m, om_b, h
 
     om_m=cosm%om_m
     om_b=cosm%om_b
@@ -2636,8 +2462,8 @@ MODULE HMx
     !Linear matter power spectrum
     !P(k) should have been previously normalised so as to get the amplitude 'A' correct
     IMPLICIT NONE
-    REAL*8 :: p_lin
-    REAL*8, INTENT (IN) :: k, z
+    REAL :: p_lin
+    REAL, INTENT (IN) :: k, z
     TYPE(cosmology), INTENT(IN) :: cosm 
 
     IF(k==0.) THEN
@@ -2660,13 +2486,13 @@ MODULE HMx
 
     !Gets the one- and two-halo terms and combines them
     IMPLICIT NONE
-    REAL*8, INTENT(OUT) :: p1h, p2h, pfull
-    REAL*8, INTENT(IN) :: plin, k, z
+    REAL, INTENT(OUT) :: p1h, p2h, pfull
+    REAL, INTENT(IN) :: plin, k, z
     INTEGER, INTENT(IN) :: ih1, ih2
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
-    REAL*8 :: alp
-    REAL*8 :: wk(2,lut%n), m, rv, rs
+    REAL :: alp
+    REAL :: wk(2,lut%n), m, rv, rs
     INTEGER :: i, j, ih(2)
 
     !Initially fill this small array 
@@ -2686,13 +2512,13 @@ MODULE HMx
     !Calls expressions for one- and two-halo terms and then combines
     !to form the full power spectrum
     IF(k==0.) THEN
-       
+
        !This should really never be called for k=0
-       p1h=0.d0
-       p2h=0.d0
-       
+       p1h=0.
+       p2h=0.
+
     ELSE
-       
+
        !Calculate the halo window functions
        DO j=1,2
           DO i=1,lut%n
@@ -2719,7 +2545,7 @@ MODULE HMx
                 m=lut%m(i)
                 rv=lut%rv(i)
                 rs=rv/lut%c(i)
-                wk(j,i)=win_type(1,ih(j),0.d0,m,rv,rs,z,lut,cosm)
+                wk(j,i)=win_type(1,ih(j),0.,m,rv,rs,z,lut,cosm)
              END DO
              IF(ih(2)==ih(1)) THEN
                 !Avoid having to call win_type twice if doing auto spectrum
@@ -2731,7 +2557,7 @@ MODULE HMx
 
        !Get the two-halo term
        p2h=p_2h(ih,wk,k,z,plin,lut,cosm)
-       
+
     END IF
 
     !Construct the 'full' halo-model power spectrum
@@ -2739,37 +2565,37 @@ MODULE HMx
        pfull=p2h+p1h
     ELSE IF(imead==1) THEN
        alp=alpha_transition(lut,cosm)
-       pfull=(p2h**alp+p1h**alp)**(1.d0/alp)
+       pfull=(p2h**alp+p1h**alp)**(1./alp)
     END IF
 
     !If we are worrying about voids
     IF(void) THEN
        pfull=pfull+p_1v(k,lut)
     END IF
-    
+
   END SUBROUTINE halomod
 
   FUNCTION p_2h(ih,wk,k,z,plin,lut,cosm)
 
     !Produces the 'two-halo' power
     IMPLICIT NONE
-    REAL*8 :: p_2h
-    REAL*8, INTENT(IN) :: k, plin
-    REAL*8, INTENT(IN) :: z
+    REAL :: p_2h
+    REAL, INTENT(IN) :: k, plin
+    REAL, INTENT(IN) :: z
     TYPE(tables), INTENT(IN) :: lut
-    REAL*8, INTENT(IN) :: wk(2,lut%n)
+    REAL, INTENT(IN) :: wk(2,lut%n)
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER, INTENT(IN) :: ih(2)
-    REAL*8 :: sigv, frac, rhom
-    REAL*8, ALLOCATABLE :: integrand11(:), integrand12(:)
-    REAL*8, ALLOCATABLE :: integrand21(:), integrand22(:)
-    REAL*8 :: nu, m, wk1, wk2, m0
-    REAL*8 :: sum11, sum12
-    REAL*8 :: sum21, sum22
+    REAL :: sigv, frac, rhom
+    REAL, ALLOCATABLE :: integrand11(:), integrand12(:)
+    REAL, ALLOCATABLE :: integrand21(:), integrand22(:)
+    REAL :: nu, m, wk1, wk2, m0
+    REAL :: sum11, sum12
+    REAL :: sum21, sum22
     INTEGER :: i
 
     rhom=comoving_matter_density(cosm)
-    
+
     IF(imead==0 .OR. imead==-1) THEN
 
        ALLOCATE(integrand11(lut%n),integrand12(lut%n))
@@ -2797,8 +2623,8 @@ MODULE HMx
        END DO
 
        !Evaluate these integrals from the tabled values
-       sum11=inttab(lut%nu,integrand11,lut%n,3)
-       sum12=inttab(lut%nu,integrand12,lut%n,3)
+       sum11=integrate_table(lut%nu,integrand11,lut%n,1,lut%n,3)
+       sum12=integrate_table(lut%nu,integrand12,lut%n,1,lut%n,3)
 
        IF(ip2h==0) THEN
           !Do nothing in this case
@@ -2825,8 +2651,8 @@ MODULE HMx
           !This means it is hard to check that the normalisation is correct
           !e.g., how much do low mass haloes matter
           !Varying mmin does make a difference to the values of the integrals
-          sum21=inttab(lut%nu,integrand21,lut%n,3)
-          sum22=inttab(lut%nu,integrand22,lut%n,3)
+          sum21=integrate_table(lut%nu,integrand21,lut%n,1,lut%n,3)
+          sum22=integrate_table(lut%nu,integrand22,lut%n,1,lut%n,3)
           p_2h=p_2h+(plin**2)*sum21*sum22*(rhom**2)
        END IF
 
@@ -2852,13 +2678,13 @@ MODULE HMx
 
     !Calculates the one-halo term
     IMPLICIT NONE
-    REAL*8 :: p_1h
-    REAL*8, INTENT(IN) :: k, z
+    REAL :: p_1h
+    REAL, INTENT(IN) :: k, z
     TYPE(tables), INTENT(IN) :: lut
-    REAL*8, INTENT(IN) :: wk(2,lut%n)
+    REAL, INTENT(IN) :: wk(2,lut%n)
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: m, g, fac, et, ks
-    REAL*8, ALLOCATABLE :: integrand(:)
+    REAL :: m, g, fac, et, ks
+    REAL, ALLOCATABLE :: integrand(:)
     INTEGER :: i
 
     ALLOCATE(integrand(lut%n))
@@ -2876,7 +2702,7 @@ MODULE HMx
 
     !Carries out the integration
     !Important to use basic trapezium rule because the integrand is messy due to rapid oscillations in W(k)
-    p_1h=comoving_matter_density(cosm)*inttab(lut%nu,integrand,lut%n,1)*(4.*pi)*(k/(2.*pi))**3
+    p_1h=comoving_matter_density(cosm)*integrate_table(lut%nu,integrand,lut%n,1,lut%n,1)*(4.*pi)*(k/(2.*pi))**3
 
     DEALLOCATE(integrand)
 
@@ -2906,17 +2732,17 @@ MODULE HMx
   FUNCTION p_1v(k,lut)!,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: p_1v
-    REAL*8, INTENT(IN) :: k
+    REAL :: p_1v
+    REAL, INTENT(IN) :: k
     TYPE(tables), INTENT(IN) :: lut
     !TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: dc, wk, V, rvoid, rcomp, nu
-    REAL*8 :: integrand(lut%n)
+    REAL :: dc, wk, V, rvoid, rcomp, nu
+    REAL :: integrand(lut%n)
     INTEGER :: i, n
 
     !Parameters
-    REAL*8, PARAMETER :: dv=-1.
-    REAL*8, PARAMETER :: fvoid=1.1
+    REAL, PARAMETER :: dv=-1.
+    REAL, PARAMETER :: fvoid=1.1
     LOGICAL, PARAMETER :: compensate=.TRUE.
     LOGICAL, PARAMETER :: simple=.FALSE.
 
@@ -2964,11 +2790,11 @@ MODULE HMx
     IF(simple) THEN
        p_1v=wk**2/V
     ELSE
-       p_1v=inttab(lut%nu,integrand,n,1)
+       p_1v=integrate_table(lut%nu,integrand,n,1,n,1)
     END IF
 
     p_1v=p_1v*(4.*pi)*(k/(2.*pi))**3
-    
+
   END FUNCTION p_1v
 
   SUBROUTINE fill_sigtab(cosm)
@@ -2978,8 +2804,8 @@ MODULE HMx
     !and prevents a large number of calls to the sigint functions
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL*8, ALLOCATABLE :: rtab(:), sigtab(:)
-    REAL*8 :: r, sig
+    REAL, ALLOCATABLE :: rtab(:), sigtab(:)
+    REAL :: r, sig
     INTEGER :: i
 
     !These values of 'r' work fine for any power spectrum of cosmological importance
@@ -2987,8 +2813,8 @@ MODULE HMx
     !rmin and rmax need to be decided in advance and are chosen such that
     !R vs. sigma(R) is a power-law below and above these values of R   
     INTEGER, PARAMETER :: nsig=64 !Number of entries for sigma(R) tables
-    REAL*8, PARAMETER :: rmin=1d-4 !Minimum r value (NB. sigma(R) needs to be power-law below)
-    REAL*8, PARAMETER :: rmax=1d3 !Maximum r value (NB. sigma(R) needs to be power-law above)
+    REAL, PARAMETER :: rmin=1e-4 !Minimum r value (NB. sigma(R) needs to be power-law below)
+    REAL, PARAMETER :: rmax=1e3 !Maximum r value (NB. sigma(R) needs to be power-law above)
 
     !These must be not allocated before sigma calculations otherwise when sigma(r) is called
     !otherwise sigma(R) looks for the result in the tables
@@ -2996,7 +2822,7 @@ MODULE HMx
     !IF(ALLOCATED(cosm%sigma)) DEALLOCATE(cosm%sigma)
     IF(ALLOCATED(cosm%logr_sigma)) DEALLOCATE(cosm%logr_sigma)
     IF(ALLOCATED(cosm%logsigma)) DEALLOCATE(cosm%logsigma)
-    
+
     cosm%nsig=nsig
     ALLOCATE(rtab(nsig),sigtab(nsig))
 
@@ -3013,7 +2839,7 @@ MODULE HMx
        !r=exp(log(rmin)+log(rmax/rmin)*float(i-1)/float(nsig-1))
        r=exp(progression(log(rmin),log(rmax),i,nsig))
 
-       sig=sigma(r,0.d0,cosm)
+       sig=sigma(r,0.,cosm)
 
        rtab(i)=r
        sigtab(i)=sig
@@ -3039,13 +2865,13 @@ MODULE HMx
 
     !Gets sigma(R)
     IMPLICIT NONE
-    REAL*8 :: sigma
-    REAL*8, INTENT(IN) :: r, z
+    REAL :: sigma
+    REAL, INTENT(IN) :: r, z
     TYPE(cosmology), INTENT(IN) :: cosm
-    
-    !REAL*8, PARAMETER :: acc=1d-4
+
+    !REAL, PARAMETER :: acc=1d-4
     INTEGER, PARAMETER :: iorder=3
-    REAL*8, PARAMETER :: rsplit=1d-2
+    REAL, PARAMETER :: rsplit=1e-2
 
     IF(r>=rsplit) THEN
        sigma=sqrt(sigint0(r,z,cosm,acc,iorder))
@@ -3061,13 +2887,13 @@ MODULE HMx
 
     !The integrand for the sigma(R) integrals
     IMPLICIT NONE
-    REAL*8 :: sigma_integrand
-    REAL*8, INTENT(IN) :: k, R, z
+    REAL :: sigma_integrand
+    REAL, INTENT(IN) :: k, R, z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: y, w_hat
+    REAL :: y, w_hat
 
-    IF(k==0.d0) THEN
-       sigma_integrand=0.d0
+    IF(k==0.) THEN
+       sigma_integrand=0.
     ELSE
        y=k*R
        w_hat=wk_tophat(y)
@@ -3080,32 +2906,32 @@ MODULE HMx
 
     !The integrand for the sigma(R) integrals
     IMPLICIT NONE
-    REAL*8 :: sigma_integrand_transformed
-    REAL*8, INTENT(IN) :: t, R, z
+    REAL :: sigma_integrand_transformed
+    REAL, INTENT(IN) :: t, R, z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: k, y, w_hat
-    
+    REAL :: k, y, w_hat
+
     INTERFACE
        FUNCTION f(x)
-         REAL*8 :: f
-         REAL*8, INTENT(IN) :: x
+         REAL :: f
+         REAL, INTENT(IN) :: x
        END FUNCTION f
     END INTERFACE
 
     !Integrand to the sigma integral in terms of t. Defined by k=(1/t-1)/f(R) where f(R) is *any* function
 
-    IF(t==0.d0) THEN
+    IF(t==0.) THEN
        !t=0 corresponds to k=infintiy when W(kR)=0.
-       sigma_integrand_transformed=0.d0
-    ELSE IF(t==1.d0) THEN
+       sigma_integrand_transformed=0.
+    ELSE IF(t==1.) THEN
        !t=1 corresponds to k=0. when P(k)=0.
-       sigma_integrand_transformed=0.d0
+       sigma_integrand_transformed=0.
     ELSE
        !f(R) can be *any* function of R here to improve integration speed
-       k=(-1.d0+1.d0/t)/f(R)
+       k=(-1.+1./t)/f(R)
        y=k*R
        w_hat=wk_tophat(y)
-       sigma_integrand_transformed=p_lin(k,z,cosm)*(w_hat**2)/(t*(1.d0-t))
+       sigma_integrand_transformed=p_lin(k,z,cosm)*(w_hat**2)/(t*(1.-t))
     END IF
 
   END FUNCTION sigma_integrand_transformed
@@ -3115,34 +2941,34 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: sigint0
-    REAL*8, INTENT(IN) :: r, z
+    REAL :: sigint0
+    REAL, INTENT(IN) :: r, z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8, INTENT(IN) :: acc
+    REAL, INTENT(IN) :: acc
     INTEGER, INTENT(IN) :: iorder
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
-    REAL*8, PARAMETER :: a=0.d0 !Integration lower limit (corresponts to k=inf)
-    REAL*8, PARAMETER :: b=1.d0 !Integration upper limit (corresponds to k=0)
+    REAL, PARAMETER :: a=0. !Integration lower limit (corresponts to k=inf)
+    REAL, PARAMETER :: b=1. !Integration upper limit (corresponds to k=0)
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       sigint0=0.d0
+       sigint0=0.
 
     ELSE
 
        !Reset the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
 
@@ -3158,7 +2984,7 @@ MODULE HMx
              !The first go is just the trapezium of the end points
              f1=sigma_integrand_transformed(a,r,f0_rapid,z,cosm)
              f2=sigma_integrand_transformed(b,r,f0_rapid,z,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
           ELSE
@@ -3172,20 +2998,20 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'SIGINT0: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
              sigint0=REAL(sum_new)
              EXIT
@@ -3195,7 +3021,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -3209,19 +3035,19 @@ MODULE HMx
     !This is the 'rapidising' function to increase integration speed
     !for sigma(R). Found by trial-and-error
     IMPLICIT NONE
-    REAL*8 :: f0_rapid
-    REAL*8, INTENT(IN) :: r
-    REAL*8 :: alpha
-    
-    REAL*8, PARAMETER :: rsplit=1d-2
+    REAL :: f0_rapid
+    REAL, INTENT(IN) :: r
+    REAL :: alpha
+
+    REAL, PARAMETER :: rsplit=1e-2
 
     IF(r>rsplit) THEN
        !alpha 0.3-0.5 works well
-       alpha=0.5d0
+       alpha=0.5
     ELSE
        !If alpha=1 this goes tits up
        !alpha 0.7-0.9 works well
-       alpha=0.8d0
+       alpha=0.8
     END IF
 
     f0_rapid=r**alpha
@@ -3233,36 +3059,36 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: sigint1
-    REAL*8, INTENT(IN) :: r, z
+    REAL :: sigint1
+    REAL, INTENT(IN) :: r, z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8, INTENT(IN) :: acc
+    REAL, INTENT(IN) :: acc
     INTEGER, INTENT(IN) :: iorder
-    REAL*8 :: a, b
+    REAL :: a, b
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
-    a=r/(r+r**.5d0)
-    b=1.d0
+    a=r/(r+r**.5)
+    b=1.
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       sigint1=0.d0
+       sigint1=0.
 
     ELSE
 
        !Reset the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
 
@@ -3278,7 +3104,7 @@ MODULE HMx
              !The first go is just the trapezium of the end points
              f1=sigma_integrand_transformed(a,r,f1_rapid,z,cosm)
              f2=sigma_integrand_transformed(b,r,f1_rapid,z,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
           ELSE
@@ -3292,20 +3118,20 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=REAL(sum_2n)
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'SIGINT1: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
              sigint1=REAL(sum_new)
              EXIT
@@ -3315,7 +3141,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -3329,10 +3155,10 @@ MODULE HMx
     !This is the 'rapidising' function to increase integration speed
     !for sigma(R). Found by trial-and-error
     IMPLICIT NONE
-    REAL*8 :: f1_rapid
-    REAL*8, INTENT(IN) :: r
-    
-    REAL*8, PARAMETER :: alpha=0.5d0
+    REAL :: f1_rapid
+    REAL, INTENT(IN) :: r
+
+    REAL, PARAMETER :: alpha=0.5
 
     f1_rapid=r**alpha
 
@@ -3343,37 +3169,37 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: sigint2
-    REAL*8, INTENT(IN) :: r, z
+    REAL :: sigint2
+    REAL, INTENT(IN) :: r, z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8, INTENT(IN) :: acc
+    REAL, INTENT(IN) :: acc
     INTEGER, INTENT(IN) :: iorder
-    REAL*8 :: a, b
+    REAL :: a, b
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
-    REAL*8, PARAMETER :: C=10.d0 !How far to go out in 1/r units for integral
+    REAL, PARAMETER :: C=10. !How far to go out in 1/r units for integral
 
-    a=1.d0/r
+    a=1./r
     b=C/r
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       sigint2=0.d0
+       sigint2=0.
 
     ELSE
 
        !Reset the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
 
@@ -3389,7 +3215,7 @@ MODULE HMx
              !The first go is just the trapezium of the end points
              f1=sigma_integrand(a,r,z,cosm)
              f2=sigma_integrand(b,r,z,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
           ELSE
@@ -3403,20 +3229,20 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'SIGINT2: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
              sigint2=REAL(sum_new)
              !WRITE(*,*) 'INTEGRATE_STORE: Nint:', n
@@ -3427,7 +3253,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -3440,8 +3266,8 @@ MODULE HMx
 
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: sigma_cb
-    REAL*8, INTENT(IN) :: r, z
+    REAL :: sigma_cb
+    REAL, INTENT(IN) :: r, z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Finds sigma_cold from look-up tables
@@ -3452,132 +3278,132 @@ MODULE HMx
 
   END FUNCTION sigma_cb
 
-  FUNCTION inttab(x,y,n,iorder)
-
-    !Integrates tables y(x)dx
-    IMPLICIT NONE
-    REAL*8 :: inttab
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: x(n), y(n)
-    REAL*8 :: a, b, c, d, h
-    REAL*8 :: q1, q2, q3, qi, qf
-    REAL*8 :: x1, x2, x3, x4, y1, y2, y3, y4, xi, xf
-    REAL*8 :: sum
-    INTEGER :: i, i1, i2, i3, i4
-    INTEGER, INTENT(IN) :: iorder
-
-    sum=0.d0
-
-    IF(iorder==1) THEN
-
-       !Sums over all Trapezia (a+b)*h/2
-       DO i=1,n-1
-          a=y(i+1)
-          b=y(i)
-          h=x(i+1)-x(i)
-          sum=sum+(a+b)*h/2.d0
-       END DO
-
-    ELSE IF(iorder==2) THEN
-
-       DO i=1,n-2
-
-          x1=x(i)
-          x2=x(i+1)
-          x3=x(i+2)
-
-          y1=y(i)
-          y2=y(i+1)
-          y3=y(i+2)
-
-          CALL fit_quadratic(a,b,c,x1,y1,x2,y2,x3,y3)
-
-          q1=a*(x1**3.)/3.+b*(x1**2.)/2.+c*x1
-          q2=a*(x2**3.)/3.+b*(x2**2.)/2.+c*x2
-          q3=a*(x3**3.)/3.+b*(x3**2.)/2.+c*x3
-
-          !Takes value for first and last sections but averages over sections where you
-          !have two independent estimates of the area
-          IF(n==3) THEN
-             sum=sum+q3-q1
-          ELSE IF(i==1) THEN
-             sum=sum+(q2-q1)+(q3-q2)/2.d0
-          ELSE IF(i==n-2) THEN
-             sum=sum+(q2-q1)/2.d0+(q3-q2)
-          ELSE
-             sum=sum+(q3-q1)/2.
-          END IF
-
-       END DO
-
-    ELSE IF(iorder==3) THEN
-
-       DO i=1,n-1
-
-          !First choose the integers used for defining cubics for each section
-          !First and last are different because the section does not lie in the *middle* of a cubic
-
-          IF(i==1) THEN
-
-             i1=1
-             i2=2
-             i3=3
-             i4=4
-
-          ELSE IF(i==n-1) THEN
-
-             i1=n-3
-             i2=n-2
-             i3=n-1
-             i4=n
-
-          ELSE
-
-             i1=i-1
-             i2=i
-             i3=i+1
-             i4=i+2
-
-          END IF
-
-          x1=x(i1)
-          x2=x(i2)
-          x3=x(i3)
-          x4=x(i4)
-
-          y1=y(i1)
-          y2=y(i2)
-          y3=y(i3)
-          y4=y(i4)
-
-          CALL fit_cubic(a,b,c,d,x1,y1,x2,y2,x3,y3,x4,y4)
-
-          !These are the limits of the particular section of integral
-          xi=x(i)
-          xf=x(i+1)
-
-          qi=a*(xi**4.)/4.+b*(xi**3.)/3.+c*(xi**2.)/2.+d*xi
-          qf=a*(xf**4.)/4.+b*(xf**3.)/3.+c*(xf**2.)/2.+d*xf
-
-          sum=sum+qf-qi
-
-       END DO
-
-    ELSE
-
-       STOP 'INTTAB: Error, order not specified correctly'
-
-    END IF
-
-    inttab=REAL(sum)
-
-  END FUNCTION inttab
+!!$  FUNCTION inttab(x,y,n,iorder)
+!!$
+!!$    !Integrates tables y(x)dx
+!!$    IMPLICIT NONE
+!!$    REAL :: inttab
+!!$    INTEGER, INTENT(IN) :: n
+!!$    REAL, INTENT(IN) :: x(n), y(n)
+!!$    REAL :: a, b, c, d, h
+!!$    REAL :: q1, q2, q3, qi, qf
+!!$    REAL :: x1, x2, x3, x4, y1, y2, y3, y4, xi, xf
+!!$    REAL :: sum
+!!$    INTEGER :: i, i1, i2, i3, i4
+!!$    INTEGER, INTENT(IN) :: iorder
+!!$
+!!$    sum=0.
+!!$
+!!$    IF(iorder==1) THEN
+!!$
+!!$       !Sums over all Trapezia (a+b)*h/2
+!!$       DO i=1,n-1
+!!$          a=y(i+1)
+!!$          b=y(i)
+!!$          h=x(i+1)-x(i)
+!!$          sum=sum+(a+b)*h/2.
+!!$       END DO
+!!$
+!!$    ELSE IF(iorder==2) THEN
+!!$
+!!$       DO i=1,n-2
+!!$
+!!$          x1=x(i)
+!!$          x2=x(i+1)
+!!$          x3=x(i+2)
+!!$
+!!$          y1=y(i)
+!!$          y2=y(i+1)
+!!$          y3=y(i+2)
+!!$
+!!$          CALL fix_quadratic(a,b,c,x1,y1,x2,y2,x3,y3)
+!!$
+!!$          q1=a*(x1**3.)/3.+b*(x1**2.)/2.+c*x1
+!!$          q2=a*(x2**3.)/3.+b*(x2**2.)/2.+c*x2
+!!$          q3=a*(x3**3.)/3.+b*(x3**2.)/2.+c*x3
+!!$
+!!$          !Takes value for first and last sections but averages over sections where you
+!!$          !have two independent estimates of the area
+!!$          IF(n==3) THEN
+!!$             sum=sum+q3-q1
+!!$          ELSE IF(i==1) THEN
+!!$             sum=sum+(q2-q1)+(q3-q2)/2.
+!!$          ELSE IF(i==n-2) THEN
+!!$             sum=sum+(q2-q1)/2.+(q3-q2)
+!!$          ELSE
+!!$             sum=sum+(q3-q1)/2.
+!!$          END IF
+!!$
+!!$       END DO
+!!$
+!!$    ELSE IF(iorder==3) THEN
+!!$
+!!$       DO i=1,n-1
+!!$
+!!$          !First choose the integers used for defining cubics for each section
+!!$          !First and last are different because the section does not lie in the *middle* of a cubic
+!!$
+!!$          IF(i==1) THEN
+!!$
+!!$             i1=1
+!!$             i2=2
+!!$             i3=3
+!!$             i4=4
+!!$
+!!$          ELSE IF(i==n-1) THEN
+!!$
+!!$             i1=n-3
+!!$             i2=n-2
+!!$             i3=n-1
+!!$             i4=n
+!!$
+!!$          ELSE
+!!$
+!!$             i1=i-1
+!!$             i2=i
+!!$             i3=i+1
+!!$             i4=i+2
+!!$
+!!$          END IF
+!!$
+!!$          x1=x(i1)
+!!$          x2=x(i2)
+!!$          x3=x(i3)
+!!$          x4=x(i4)
+!!$
+!!$          y1=y(i1)
+!!$          y2=y(i2)
+!!$          y3=y(i3)
+!!$          y4=y(i4)
+!!$
+!!$          CALL fix_cubic(a,b,c,d,x1,y1,x2,y2,x3,y3,x4,y4)
+!!$
+!!$          !These are the limits of the particular section of integral
+!!$          xi=x(i)
+!!$          xf=x(i+1)
+!!$
+!!$          qi=a*(xi**4.)/4.+b*(xi**3.)/3.+c*(xi**2.)/2.+d*xi
+!!$          qf=a*(xf**4.)/4.+b*(xf**3.)/3.+c*(xf**2.)/2.+d*xf
+!!$
+!!$          sum=sum+qf-qi
+!!$
+!!$       END DO
+!!$
+!!$    ELSE
+!!$
+!!$       STOP 'INTTAB: Error, order not specified correctly'
+!!$
+!!$    END IF
+!!$
+!!$    inttab=REAL(sum)
+!!$
+!!$  END FUNCTION inttab
 
   FUNCTION win_type(ik,itype,k,m,rv,rs,z,lut,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_type
-    REAL*8, INTENT(IN) :: k, m, rv, rs, z
+    REAL :: win_type
+    REAL, INTENT(IN) :: k, m, rv, rs, z
     INTEGER, INTENT(IN) :: itype, ik
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
@@ -3623,9 +3449,9 @@ MODULE HMx
   FUNCTION win_total(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_total
+    REAL :: win_total
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, rv, rs, m
+    REAL, INTENT(IN) :: k, rv, rs, m
     TYPE(cosmology), INTENT(IN) :: cosm
 
     win_total=win_CDM(ik,k,m,rv,rs,cosm)+win_gas(ik,k,m,rv,rs,cosm)+win_star(ik,k,m,rv,rs,cosm)
@@ -3635,9 +3461,9 @@ MODULE HMx
   FUNCTION win_gas(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_gas
+    REAL :: win_gas
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
 
     win_gas=win_boundgas(ik,1,k,m,rv,rs,cosm)+win_freegas(ik,1,k,m,rv,rs,cosm)
@@ -3647,12 +3473,12 @@ MODULE HMx
   FUNCTION win_void(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_void
+    REAL :: win_void
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
-    REAL*8 :: r, rmin, rmax
+    REAL :: r, rmin, rmax
 
     !Set the void model
     !1 - Top-hat void
@@ -3665,7 +3491,7 @@ MODULE HMx
        STOP 'WIN_VOID: Error, imod specified incorrectly'
     END IF
 
-    rmin=0.d0
+    rmin=0.
     rmax=10.*rv
 
     IF(ik==0) THEN
@@ -3675,18 +3501,18 @@ MODULE HMx
     ELSE       
        win_void=m*win_norm(k,rmin,rmax,rv,rs,irho)/comoving_matter_density(cosm)
     END IF
-    
+
   END FUNCTION win_void
 
   FUNCTION win_compensated_void(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8:: win_compensated_void
+    REAL:: win_compensated_void
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
-    REAL*8 :: r, rmin, rmax
+    REAL :: r, rmin, rmax
 
     !Set the void model
     !1 - Top-hat void
@@ -3699,7 +3525,7 @@ MODULE HMx
        STOP 'WIN_COMPENSATED_VOID: Error, imod specified incorrectly'
     END IF
 
-    rmin=0.d0
+    rmin=0.
     rmax=10.*rv
 
     IF(ik==0) THEN
@@ -3709,18 +3535,18 @@ MODULE HMx
     ELSE       
        win_compensated_void=m*win_norm(k,rmin,rmax,rv,rs,irho)/comoving_matter_density(cosm)
     END IF
-    
+
   END FUNCTION win_compensated_void
 
   FUNCTION win_DMONLY(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_DMONLY
+    REAL :: win_DMONLY
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
-    REAL*8 :: r, rmin, rmax
+    REAL :: r, rmin, rmax
 
     !Set the DMONLY halo model
     !1 - Analyical NFW
@@ -3741,7 +3567,7 @@ MODULE HMx
        STOP 'WIN_DMONLY: Error, imod specified incorrectly'
     END IF
 
-    rmin=0.d0
+    rmin=0.
     rmax=rv
 
     IF(ik==0) THEN
@@ -3760,12 +3586,12 @@ MODULE HMx
   FUNCTION win_CDM(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_CDM
+    REAL :: win_CDM
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
-    REAL*8 :: rss, dc, r, rmin, rmax
+    REAL :: rss, dc, r, rmin, rmax
 
     !Set the model
     !1 - NFW
@@ -3781,12 +3607,12 @@ MODULE HMx
        irho=5
        !dc=1.
        dc=cosm%param(2)*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b
-       rss=1.d0/(1.d0/rs+dc/rv)
+       rss=1./(1./rs+dc/rv)
     ELSE
        STOP 'WIN_CDM: Error, imod specified incorrectly'
     END IF
 
-    rmin=0.d0
+    rmin=0.
     rmax=rv
 
     IF(ik==0) THEN
@@ -3807,13 +3633,13 @@ MODULE HMx
   FUNCTION win_star(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_star
+    REAL :: win_star
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
-    REAL*8 :: rstar, r, rmin, rmax
-    REAL*8 :: crap
+    REAL :: rstar, r, rmin, rmax
+    REAL :: crap
 
     !Set the model
     !1 - Fedeli (2014) stellar distribution
@@ -3843,7 +3669,7 @@ MODULE HMx
        STOP 'WIN_STAR: Error, imod_star specified incorrectly'
     END IF
 
-    rmin=0.d0
+    rmin=0.
 
     IF(ik==0) THEN
        r=k
@@ -3864,9 +3690,9 @@ MODULE HMx
 
     !Window function for bound + unbound pressures
     IMPLICIT NONE
-    REAL*8 :: win_pressure
+    REAL :: win_pressure
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs, z
+    REAL, INTENT(IN) :: k, m, rv, rs, z
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     LOGICAL, PARAMETER :: use_UPP=.FALSE.
@@ -3881,16 +3707,16 @@ MODULE HMx
 
   END FUNCTION win_pressure
 
-   FUNCTION UPP(ik,k,m,rv,rs,z,lut,cosm)
+  FUNCTION UPP(ik,k,m,rv,rs,z,lut,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: UPP
+    REAL :: UPP
     INTEGER, INTENT(IN) :: ik
-    REAL*8, INTENT(IN) :: k, m, rv, rs, z
+    REAL, INTENT(IN) :: k, m, rv, rs, z
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut  
     INTEGER :: irho
-    REAL*8 :: r500c, rmin, rmax, a, r, alphap, b, m500c, E
+    REAL :: r500c, rmin, rmax, a, r, alphap, b, m500c, E
 
     !Set UPP profile
     irho=14
@@ -3899,7 +3725,7 @@ MODULE HMx
     r500c=exp(find(log(m),log(lut%m),log(lut%r500c),lut%n,3,3,2))
 
     !Set the radius range for the integration
-    rmin=0.d0
+    rmin=0.
     rmax=1.*rv
 
     !UPP is written in terms of physical coordinates (?)
@@ -3921,7 +3747,7 @@ MODULE HMx
 
     !Upp, P(x), equation 4.1 in Ma et al. (2015)
     m500c=exp(find(log(m),log(lut%m),log(lut%m500c),lut%n,3,3,2))
-    m500c=m500c*(1.d0-b)
+    m500c=m500c*(1.-b)
 
     !Dimensionless Hubble
     E=sqrt(Hubble2(z,cosm))
@@ -3932,7 +3758,7 @@ MODULE HMx
     !WRITE(*,*)
 
     !Pre-factors from equation 4.1 in Ma et al. (2015)
-    UPP=UPP*((m500c/2.1d14)**(alphap+2./3.))*(E**(8./3.))*3.37
+    UPP=UPP*((m500c/2.1e14)**(alphap+2./3.))*(E**(8./3.))*3.37
     !win_pressure_bound=win_pressure_bound*eV*0.01**(-3) !Convert from eV cm^-3 to J m^-3
 
     !Is pressure comoving or not?
@@ -3940,37 +3766,37 @@ MODULE HMx
 
     !Convert thermal pressure to electron pressure
     UPP=UPP/pfac
-    
+
   END FUNCTION UPP
 
   FUNCTION win_boundgas(ik,itype,k,m,rv,rs,cosm)
 
     !Window function for the pressure of the bound component
     IMPLICIT NONE
-    REAL*8 :: win_boundgas
+    REAL :: win_boundgas
     INTEGER, INTENT(IN) :: ik, itype
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: rho0, T0, r, alpha
-    REAL*8 :: rmin, rmax, rb
+    REAL :: rho0, T0, r, alpha
+    REAL :: rmin, rmax, rb
     INTEGER :: irho_density, irho_pressure
 
     !Select model
     !1 - Komatsu-Seljak gas model
     !2 - Isothermal beta model
     INTEGER, PARAMETER :: imod=1
-    
+
     IF(imod==1) THEN
        !Set KS profile
        irho_density=11
        irho_pressure=13
-       rmin=0.d0
+       rmin=0.
        rmax=rv
        rb=rs
     ELSE IF(imod==2) THEN
        irho_density=6 !Set cored isothermal profile with beta=2/3 
        irho_pressure=irho_density !okay to use density for pressure because temperature is constant
-       rmin=0.d0
+       rmin=0.
        rmax=rv
        rb=rs
     ELSE        
@@ -4009,7 +3835,7 @@ MODULE HMx
        !Calculate the value of the density profile prefactor
        !also change units from cosmological to SI
        rho0=m*halo_boundgas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rb,irho_density)
-       rho0=rho0*msun/mpc**3
+       rho0=rho0*msun/mpc**3 !OVERFLOW ERROR WITH REAL(4)
 
        !Calculate the value of the temperature prefactor
        !f=p=pac=1.
@@ -4033,11 +3859,11 @@ MODULE HMx
   FUNCTION win_freegas(ik,itype,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: win_freegas
+    REAL :: win_freegas
     INTEGER, INTENT(IN) :: ik, itype
-    REAL*8, INTENT(IN) :: k, m, rv, rs
+    REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: rf, rmin, rmax, r, A, gamma, rho0, T0
+    REAL :: rf, rmin, rmax, r, A, gamma, rho0, T0
     INTEGER :: irho_density, irho_pressure
     LOGICAL :: imatch_pressure
 
@@ -4049,28 +3875,28 @@ MODULE HMx
 
     imatch_pressure=.FALSE.
 
-    IF(halo_freegas_fraction(m,cosm)==0.d0) THEN
+    IF(halo_freegas_fraction(m,cosm)==0.) THEN
 
        !Sometimes the freegas fraction will be zero, in which case this avoids problems
-       win_freegas=0.d0
-       
+       win_freegas=0.
+
     ELSE
 
        IF(imod==1) THEN
           !Simple isothermal model, motivated by constant velocity and rate expulsion
           irho_density=1
           irho_pressure=irho_density !Okay because T is constant
-          rmin=0.d0
-          rmax=2.d0*rv
+          rmin=0.
+          rmax=2.*rv
           rf=rs !Does not need to be set
        ELSE IF(imod==2) THEN
           !Ejected gas model from Schneider (2015)
           irho_density=10
           irho_pressure=irho_density !Okay because T is constant
-          rmin=0.d0
+          rmin=0.
           rf=rv
           !rf=param(3)*rv
-          rmax=15.d0*rf !Needs to be such that integral converges (15rf seems okay)
+          rmax=15.*rf !Needs to be such that integral converges (15rf seems okay)
        ELSE IF(imod==3) THEN
           !Isothermal model with continuous link to KS
           !!
@@ -4087,8 +3913,8 @@ MODULE HMx
           irho_pressure=irho_density !Okay because T is constant
           rf=rs !Does not need to be set
           rmin=rv
-          rmax=rv+halo_freegas_fraction(m,cosm)/(4.d0*pi*A) !This ensures density continuity and mass conservation
-          gamma=5.d0
+          rmax=rv+halo_freegas_fraction(m,cosm)/(4.*pi*A) !This ensures density continuity and mass conservation
+          gamma=5.
           IF(rmax>gamma*rv) rmax=gamma*rv !This needs to be set otherwise get huge decrement in gas power at large scales
           imatch_pressure=.TRUE. !Match the pressure at the boundary
           !!
@@ -4121,42 +3947,42 @@ MODULE HMx
                 !Only works for isothermal profile
                 win_freegas=win_boundgas(0,2,rv,m,rv,rs,cosm)*(r/rv)**(-2)
              ELSE
-                win_freegas=0.d0
+                win_freegas=0.
              END IF
-                
+
           ELSE
 
-          !Pressure profile of free gas
-          IF(ik==0) THEN
-             r=k
-             win_freegas=rho(r,rmin,rmax,rv,rf,irho_pressure)
-          ELSE IF(ik==1) THEN  
-             win_freegas=win_norm(k,rmin,rmax,rv,rf,irho_pressure)*normalisation(rmin,rmax,rv,rf,irho_pressure)              
-          ELSE
-             STOP 'WIN_PRESSURE_FREE: Error, ik not specified correctly'
+             !Pressure profile of free gas
+             IF(ik==0) THEN
+                r=k
+                win_freegas=rho(r,rmin,rmax,rv,rf,irho_pressure)
+             ELSE IF(ik==1) THEN  
+                win_freegas=win_norm(k,rmin,rmax,rv,rf,irho_pressure)*normalisation(rmin,rmax,rv,rf,irho_pressure)              
+             ELSE
+                STOP 'WIN_PRESSURE_FREE: Error, ik not specified correctly'
+             END IF
+
+             !Calculate the value of the density profile prefactor
+             !and change units from cosmological to SI
+             rho0=m*halo_freegas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rf,irho_density)
+             rho0=rho0*msun/mpc**3 !OVERFLOW ERROR WITH REAL(4)
+
+             !Calculate the value of the temperature prefactor
+             !beta=1.
+             !beta=param(2)
+             T0=virial_temperature(m,rv)
+
+             !Pre factors to convert from Temp x density -> pressure (Temp x n_e)          
+             win_freegas=win_freegas*rho0*T0*kb/(mp*mue)
+             win_freegas=win_freegas/(eV*cm**(-3))
+             win_freegas=win_freegas/pfac
+
           END IF
 
-          !Calculate the value of the density profile prefactor
-          !and change units from cosmological to SI
-          rho0=m*halo_freegas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rf,irho_density)
-          rho0=rho0*msun/mpc**3
-
-          !Calculate the value of the temperature prefactor
-          !beta=1.d0
-          !beta=param(2)
-          T0=virial_temperature(m,rv)
-
-          !Pre factors to convert from Temp x density -> pressure (Temp x n_e)          
-          win_freegas=win_freegas*rho0*T0*kb/(mp*mue)
-          win_freegas=win_freegas/(eV*cm**(-3))
-          win_freegas=win_freegas/pfac
-
-          END IF
-          
        ELSE
 
           STOP 'WIN_FREEGAS: Error, itype not specified correctly'
-          
+
        END IF
 
     END IF
@@ -4167,14 +3993,14 @@ MODULE HMx
 
     !Halo virial temperature in K
     IMPLICIT NONE
-    REAL*8 :: virial_temperature
-    REAL*8 :: M, R !Virial mass and radius
-    
-    REAL*8, PARAMETER :: fac=0.5d0 !Virial relation pre-factor (1/2, 3/2, ... ?)
+    REAL :: virial_temperature
+    REAL :: M, R !Virial mass and radius
+
+    REAL, PARAMETER :: fac=0.5 !Virial relation pre-factor (1/2, 3/2, ... ?)
 
     virial_temperature=fac*bigG*((m*msun)*mp*mue)/(r*mpc)
     virial_temperature=virial_temperature/kb !Convert to temperature from energy
-    
+
   END FUNCTION virial_temperature
 
   FUNCTION win_norm(k,rmin,rmax,rv,rs,irho)
@@ -4184,11 +4010,11 @@ MODULE HMx
     !and that win must be between 0 and 1
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: win_norm
-    REAL*8, INTENT(IN) :: rmin, rmax, k, rv, rs
+    REAL :: win_norm
+    REAL, INTENT(IN) :: rmin, rmax, k, rv, rs
     INTEGER, INTENT(IN) :: irho
 
-    IF(k==0.d0) THEN
+    IF(k==0.) THEN
 
        !If called for the zero mode (e.g. for the normalisation)
        win_norm=1.
@@ -4225,8 +4051,8 @@ MODULE HMx
     !This is the value of r^2/rho(r) at r=0. For most profiles this is zero
 
     IMPLICIT NONE
-    REAL*8 :: rhor2at0
-  !REAL*8, INTENT(IN) :: rmax, rv, rs
+    REAL :: rhor2at0
+    !REAL, INTENT(IN) :: rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
 
     IF(irho==0) THEN
@@ -4234,9 +4060,9 @@ MODULE HMx
     ELSE IF(irho==1 .OR. irho==9) THEN
        !1 - Isothermal
        !9 - Stellar profile from Schneider (2015)
-       rhor2at0=1.d0
+       rhor2at0=1.
     ELSE
-       rhor2at0=0.d0
+       rhor2at0=0.
     END IF
 
   END FUNCTION rhor2at0
@@ -4266,16 +4092,16 @@ MODULE HMx
     !16 - Isothermal shell
 
     IMPLICIT NONE
-    REAL*8 :: rho
-    REAL*8, INTENT(IN) :: r, rmin, rmax, rv, rs
+    REAL :: rho
+    REAL, INTENT(IN) :: r, rmin, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
-    REAL*8 :: y, ct, t, c, gamma, rt, A
-    REAL*8 :: P0, c500, alpha, beta, r500
-    REAL*8 :: f1, f2
+    REAL :: y, ct, t, c, gamma, rt, A
+    REAL :: P0, c500, alpha, beta, r500
+    REAL :: f1, f2
 
     IF(r<rmin .OR. r>rmax) THEN
        !The profile is considered to be zero outside this region
-       rho=0.d0
+       rho=0.
     ELSE
        IF(irho==0) THEN
           !Delta function
@@ -4283,24 +4109,24 @@ MODULE HMx
           rho=0. 
        ELSE IF(irho==1 .OR. irho==16) THEN
           !Isothermal
-          rho=1.d0/r**2
+          rho=1./r**2
        ELSE IF(irho==2) THEN
           !Top hat
-          rho=1.d0
+          rho=1.
        ELSE IF(irho==3) THEN
           !Moore (1999)
           y=r/rs
-          rho=1.d0/((y**1.5)*(1.+y**1.5))
+          rho=1./((y**1.5)*(1.+y**1.5))
        ELSE IF(irho==4 .OR. irho==5) THEN
           !NFW (1997)
           y=r/rs
-          rho=1.d0/(y*(1.+y)**2)
+          rho=1./(y*(1.+y)**2)
        ELSE IF(irho==6) THEN
           !Isothermal beta model (X-ray gas; SZ profiles; beta=2/3 fixed)
           !AKA 'cored isothermal profile'
           y=r/rs
           beta=2./3.
-          rho=1.d0/((1.+y**2)**(3.*beta/2.))
+          rho=1./((1.+y**2)**(3.*beta/2.))
        ELSE IF(irho==7) THEN
           !Stellar profile from Fedeli (2014a)
           y=r/rs
@@ -4309,7 +4135,7 @@ MODULE HMx
           !Komatsu & Seljak (2001) profile with NFW transition radius
           !VERY slow to calculate the W(k) for some reason
           !Also creates a weird upturn in P(k) that I do not think can be correct
-          t=sqrt(5.d0)
+          t=sqrt(5.)
           rt=rv/t
           y=r/rs
           c=rs/rv
@@ -4378,11 +4204,11 @@ MODULE HMx
 
     !Calculates W(k,M)
     IMPLICIT NONE
-    REAL*8 :: winint
-    REAL*8, INTENT(IN) :: k, rmin, rmax, rv, rs
+    REAL :: winint
+    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
-    
-    !REAL*8, PARAMETER :: acc=1d-4
+
+    !REAL, PARAMETER :: acc=1d-4
     INTEGER, PARAMETER :: iorder=3 !Integration order
     INTEGER, PARAMETER :: imeth=3 !Integration method
     !imeth = 1 - normal integration
@@ -4401,7 +4227,7 @@ MODULE HMx
     IF(imeth==1) THEN
        winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,irho,iorder,acc)
     ELSE IF(imeth==2 .OR. imeth==4 .OR. imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
-       IF(rmin .NE. 0.d0) STOP 'WININT: This cannot cope with rmin to rmax - probably could be fixed quickly'
+       IF(rmin .NE. 0.) STOP 'WININT: This cannot cope with rmin to rmax - probably could be fixed quickly'
        winint=winint_bumps(k,rmax,rv,rs,irho,iorder,acc,imeth)
     ELSE IF(imeth==3) THEN
        winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,irho,iorder,acc)
@@ -4411,69 +4237,69 @@ MODULE HMx
 
   END FUNCTION winint
 
-  !!$  SUBROUTINE winint_diagnostics(rmin,rmax,rv,rs,irho,outfile)
-  !!$
-  !!$    !Write out the winint integrand as a function of k
-  !!$    IMPLICIT NONE
-  !!$    REAL*8, INTENT(IN) :: rmin, rmax, rv, rs
-  !!$    INTEGER, INTENT(IN) :: irho
-  !!$    CHARACTER(len=256), INTENT(IN) :: outfile
-  !!$    INTEGER :: i, j
-  !!$    REAL*8 :: r, k
-  !!$    REAL*8, ALLOCATABLE :: integrand(:)
-  !!$
-  !!$    REAL*8, PARAMETER :: kmin=1d-1
-  !!$    REAL*8, PARAMETER :: kmax=1d2
-  !!$    INTEGER, PARAMETER :: nr=256 !Number of points in r
-  !!$    INTEGER, PARAMETER :: nk=16 !Number of points in k
-  !!$
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: Doing these'
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: maximum r [Mpc/h]:', REAL(rmax)
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: virial radius [Mpc/h]:', REAL(rv)
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: scale radius [Mpc/h]:', REAL(rs)
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: concentration:', REAL(rv/rs)
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: profile number:', irho
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: outfile: ', TRIM(outfile)
-  !!$
-  !!$    ALLOCATE(integrand(nk))
-  !!$    
-  !!$    OPEN(7,file=outfile)
-  !!$    DO i=1,nr
-  !!$       r=progression(0.d0,rmax,i,nr)
-  !!$       DO j=1,nk
-  !!$          k=exp(progression(log(kmin),log(kmax),j,nk))
-  !!$          integrand(j)=winint_integrand(rmin,rmax,r,rv,rs,irho)*sinc(r*k)
-  !!$       END DO
-  !!$       WRITE(7,*) r, (integrand(j), j=1,nk)
-  !!$    END DO
-  !!$    CLOSE(7)
-  !!$
-  !!$    WRITE(*,*) 'WININT_DIAGNOSTICS: Done'
-  !!$    WRITE(*,*)
-  !!$    
-  !!$  END SUBROUTINE winint_diagnostics
+!!$  SUBROUTINE winint_diagnostics(rmin,rmax,rv,rs,irho,outfile)
+!!$
+!!$    !Write out the winint integrand as a function of k
+!!$    IMPLICIT NONE
+!!$    REAL, INTENT(IN) :: rmin, rmax, rv, rs
+!!$    INTEGER, INTENT(IN) :: irho
+!!$    CHARACTER(len=256), INTENT(IN) :: outfile
+!!$    INTEGER :: i, j
+!!$    REAL :: r, k
+!!$    REAL, ALLOCATABLE :: integrand(:)
+!!$
+!!$    REAL, PARAMETER :: kmin=1d-1
+!!$    REAL, PARAMETER :: kmax=1d2
+!!$    INTEGER, PARAMETER :: nr=256 !Number of points in r
+!!$    INTEGER, PARAMETER :: nk=16 !Number of points in k
+!!$
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: Doing these'
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: maximum r [Mpc/h]:', REAL(rmax)
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: virial radius [Mpc/h]:', REAL(rv)
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: scale radius [Mpc/h]:', REAL(rs)
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: concentration:', REAL(rv/rs)
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: profile number:', irho
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: outfile: ', TRIM(outfile)
+!!$
+!!$    ALLOCATE(integrand(nk))
+!!$    
+!!$    OPEN(7,file=outfile)
+!!$    DO i=1,nr
+!!$       r=progression(0.,rmax,i,nr)
+!!$       DO j=1,nk
+!!$          k=exp(progression(log(kmin),log(kmax),j,nk))
+!!$          integrand(j)=winint_integrand(rmin,rmax,r,rv,rs,irho)*sinc(r*k)
+!!$       END DO
+!!$       WRITE(7,*) r, (integrand(j), j=1,nk)
+!!$    END DO
+!!$    CLOSE(7)
+!!$
+!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: Done'
+!!$    WRITE(*,*)
+!!$    
+!!$  END SUBROUTINE winint_diagnostics
 
   FUNCTION winint_normal(a,b,k,rmin,rmax,rv,rs,irho,iorder,acc)
 
     !Integration routine using 'normal' method to calculate the normalised halo FT
     IMPLICIT NONE
-    REAL*8 :: winint_normal
-    REAL*8, INTENT(IN) :: k, rmin, rmax, rv, rs
+    REAL :: winint_normal
+    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
     INTEGER, INTENT(IN) :: iorder
-    REAL*8, INTENT(IN) :: acc
-    REAL*8, INTENT(IN) :: a, b
-    REAL*8 :: sum
-    REAL*8 :: r, dr, winold, weight
+    REAL, INTENT(IN) :: acc
+    REAL, INTENT(IN) :: a, b
+    DOUBLE PRECISION :: sum
+    REAL :: r, dr, winold, weight
     INTEGER :: n, i, j
-    
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
     INTEGER, PARAMETER :: ninit=2
-    
+
     IF(a==b) THEN
 
-       winint_normal=0.d0
+       winint_normal=0.
 
     ELSE
 
@@ -4484,7 +4310,7 @@ MODULE HMx
           n=ninit*(2**(j-1))
 
           !Set the integration sum variable to zero
-          sum=0.d0
+          sum=0.
 
           DO i=1,n
 
@@ -4492,29 +4318,29 @@ MODULE HMx
              IF(iorder==1) THEN
                 !Composite trapezium weights
                 IF(i==1 .OR. i==n) THEN
-                   weight=0.5d0
+                   weight=0.5
                 ELSE
-                   weight=1.d0
+                   weight=1.
                 END IF
              ELSE IF(iorder==2) THEN
                 !Composite extended formula weights
                 IF(i==1 .OR. i==n) THEN
-                   weight=0.416666666666d0
+                   weight=0.416666666666
                 ELSE IF(i==2 .OR. i==n-1) THEN
-                   weight=1.083333333333d0
+                   weight=1.083333333333
                 ELSE
-                   weight=1.d0
+                   weight=1.
                 END IF
              ELSE IF(iorder==3) THEN
                 !Composite Simpson weights
                 IF(i==1 .OR. i==n) THEN
-                   weight=0.375d0
+                   weight=0.375
                 ELSE IF(i==2 .OR. i==n-1) THEN
-                   weight=1.166666666666d0
+                   weight=1.166666666666
                 ELSE IF(i==3 .OR. i==n-2) THEN
-                   weight=0.958333333333d0
+                   weight=0.958333333333
                 ELSE
-                   weight=1.d0
+                   weight=1.
                 END IF
              ELSE
                 STOP 'WININT_NORMAL: Error, order specified incorrectly'
@@ -4528,13 +4354,13 @@ MODULE HMx
           END DO
 
           !The dr are all equally spaced
-          dr=(b-a)/DBLE(n-1)
+          dr=(b-a)/REAL(n-1)
 
-          winint_normal=sum*dr
+          winint_normal=REAL(sum)*dr
 
-          IF((j>jmin) .AND. winint_normal==0.d0) THEN
+          IF((j>jmin) .AND. winint_normal==0.) THEN
              EXIT
-          ELSE IF((j>jmin) .AND. (ABS(-1.d0+winint_normal/winold)<acc)) THEN
+          ELSE IF((j>jmin) .AND. (ABS(-1.+winint_normal/winold)<acc)) THEN
              EXIT
           ELSE
              winold=winint_normal
@@ -4551,30 +4377,30 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: winint_store
-    REAL*8, INTENT(IN) :: k, rmin, rmax, rv, rs, acc
+    REAL :: winint_store
+    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, acc
     INTEGER, INTENT(IN) :: iorder, irho
-    REAL*8, INTENT(IN) :: a, b
+    REAL, INTENT(IN) :: a, b
     INTEGER :: i, j, n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       winint_store=0.d0
+       winint_store=0.
 
     ELSE
 
        !Reset the sum variables for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
 
@@ -4583,14 +4409,14 @@ MODULE HMx
           n=1+2**(j-1)
 
           !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/DBLE(n-1)
+          dx=(b-a)/REAL(n-1)
 
           IF(j==1) THEN
 
              !The first go is just the trapezium of the end points
              f1=winint_integrand(a,rmin,rmax,rv,rs,irho)*sinc(a*k)
              f2=winint_integrand(b,rmin,rmax,rv,rs,irho)*sinc(b*k)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
           ELSE
@@ -4603,22 +4429,22 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'WININT_STORE: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
-             winint_store=sum_new
+             winint_store=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
              STOP 'WININT_STORE: Integration timed out'
@@ -4626,7 +4452,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -4640,16 +4466,16 @@ MODULE HMx
     !The integrand for the W(k) integral
     !Note that the sinc function is not included
     IMPLICIT NONE
-    REAL*8 :: winint_integrand
-    REAL*8, INTENT(IN) :: r, rmin, rmax, rv, rs
+    REAL :: winint_integrand
+    REAL, INTENT(IN) :: r, rmin, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
-    !REAL*8, PARAMETER :: rmin=0.d0
-    !REAL*8, PARAMETER :: rmax=1d8 !Some large number
+    !REAL, PARAMETER :: rmin=0.
+    !REAL, PARAMETER :: rmax=1d8 !Some large number
 
-    IF(r==0.d0) THEN
-       winint_integrand=4.d0*pi*rhor2at0(irho)
+    IF(r==0.) THEN
+       winint_integrand=4.*pi*rhor2at0(irho)
     ELSE
-       winint_integrand=4.d0*pi*(r**2)*rho(r,rmin,rmax,rv,rs,irho)
+       winint_integrand=4.*pi*(r**2)*rho(r,rmin,rmax,rv,rs,irho)
     END IF
 
   END FUNCTION winint_integrand
@@ -4658,42 +4484,42 @@ MODULE HMx
 
     !Integration routine to calculate the normalised halo FT
     IMPLICIT NONE
-    REAL*8 :: winint_bumps
-    REAL*8, INTENT(IN) :: k, rmax, rv, rs
+    REAL :: winint_bumps
+    REAL, INTENT(IN) :: k, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
     INTEGER, INTENT(IN) :: iorder, imeth
-    REAL*8, INTENT(IN) :: acc
-    REAL*8 :: sum, w, rn, rmin
-    REAL*8 :: r1, r2
-    REAL*8 :: a3, a2, a1, a0
-    REAL*8 :: x1, x2, x3, x4
-    REAL*8 :: y1, y2, y3, y4
+    REAL, INTENT(IN) :: acc
+    REAL :: sum, w, rn, rmin
+    REAL :: r1, r2
+    REAL :: a3, a2, a1, a0
+    REAL :: x1, x2, x3, x4
+    REAL :: y1, y2, y3, y4
     INTEGER :: i, n
-    
+
     INTEGER, PARAMETER :: nlim=3 !Do the bumps approximation after this number of bumps
 
     !This MUST be set to zero for this routine
-    rmin=0.d0
+    rmin=0.
 
     !Calculate the number of nodes of sinc(k*rmax) for 0<=r<=rmax
     n=FLOOR(k*rmax/pi)
 
     !Set the sum variable to zero
-    sum=0.d0
+    sum=0.
 
     !Integrate over each chunk between nodes separately
     DO i=0,n
 
        !Set the lower integration limit
-       IF(k==0.d0) THEN
+       IF(k==0.) THEN
           !Special case when k=0 to avoid division by zero
-          r1=0.d0
+          r1=0.
        ELSE
           r1=i*pi/k
        END IF
 
        !Set the upper integration limit
-       IF(k==0.d0 .OR. i==n) THEN
+       IF(k==0. .OR. i==n) THEN
           !Special case when on last section because end is rmax, not a node!
           r2=rmax
        ELSE
@@ -4705,7 +4531,7 @@ MODULE HMx
        !Now do the integration along a section
        IF(imeth==2) THEN
           w=winint_normal(r1,r2,k,rmin,rmax,rv,rs,irho,iorder,acc)
-       ELSE IF(k==0.d0 .OR. imeth==4 .OR. (imeth==7 .AND. n<=nlim)) THEN
+       ELSE IF(k==0. .OR. imeth==4 .OR. (imeth==7 .AND. n<=nlim)) THEN
           w=winint_store(r1,r2,k,rmin,rmax,rv,rs,irho,iorder,acc)
        ELSE IF(imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
           IF(i==0 .OR. i==n) THEN
@@ -4716,22 +4542,22 @@ MODULE HMx
              IF(imeth==5) THEN
                 !Linear approximation to integral between nodes - see notes
                 !All results from the analytic integral of a linear polynomial vs. one sine oscillation
-                rn=pi*(2*i+1)/(2.d0*k)
-                w=(2.d0/k**2)*winint_integrand(rn,rmin,rmax,rv,rs,irho)*((-1.d0)**i)/rn !Note there is no sinc here
+                rn=pi*(2*i+1)/(2.*k)
+                w=(2./k**2)*winint_integrand(rn,rmin,rmax,rv,rs,irho)*((-1.)**i)/rn !Note there is no sinc here
              ELSE IF(imeth==6 .OR. (imeth==7 .AND. n>nlim)) THEN
                 !Cubic approximation to integral between nodes - see notes
                 !All results from the analytic integral of a cubic polynomial vs. one sine oscillation
                 x1=r1 !Beginning
-                x2=r1+1.d0*(r2-r1)/3.d0 !Middle
-                x3=r1+2.d0*(r2-r1)/3.d0 !Middle
+                x2=r1+1.*(r2-r1)/3. !Middle
+                x3=r1+2.*(r2-r1)/3. !Middle
                 x4=r2 !End
                 y1=winint_integrand(x1,rmin,rmax,rv,rs,irho)/x1 !Note there is no sinc here
                 y2=winint_integrand(x2,rmin,rmax,rv,rs,irho)/x2 !Note there is no sinc here
                 y3=winint_integrand(x3,rmin,rmax,rv,rs,irho)/x3 !Note there is no sinc here
                 y4=winint_integrand(x4,rmin,rmax,rv,rs,irho)/x4 !Note there is no sinc here
-                CALL fit_cubic(a3,a2,a1,a0,x1,y1,x2,y2,x3,y3,x4,y4)
-                w=-6.d0*a3*(r2+r1)-4.d0*a2
-                w=w+(k**2)*(a3*(r2**3+r1**3)+a2*(r2**2+r1**2)+a1*(r2+r1)+2.d0*a0)
+                CALL fix_cubic(a3,a2,a1,a0,x1,y1,x2,y2,x3,y3,x4,y4)
+                w=-6.*a3*(r2+r1)-4.*a2
+                w=w+(k**2)*(a3*(r2**3+r1**3)+a2*(r2**2+r1**2)+a1*(r2+r1)+2.*a0)
                 w=w*((-1)**i)/k**4
              ELSE
                 STOP 'BUMPS: Error, imeth specified incorrectly'
@@ -4759,12 +4585,12 @@ MODULE HMx
 
     !The analytic normalised (W(k=0)=1) Fourier Transform of the NFW profile
     IMPLICIT NONE
-    REAL*8 :: winnfw
-    REAL*8, INTENT(IN) :: k, rv, rs
-    REAL*8 :: c, ks
-    REAL*8 :: si1, si2, ci1, ci2
-    REAL*8 :: p1, p2, p3
-    REAL*8 :: rmin, rmax
+    REAL :: winnfw
+    REAL, INTENT(IN) :: k, rv, rs
+    REAL :: c, ks
+    REAL :: si1, si2, ci1, ci2
+    REAL :: p1, p2, p3
+    REAL :: rmin, rmax
 
     c=rv/rs
     ks=k*rv/c
@@ -4779,7 +4605,7 @@ MODULE HMx
     p3=sin(ks*c)/(ks*(1.+c))
 
     winnfw=p1+p2-p3
-    rmin=0.d0
+    rmin=0.
     rmax=rv
     winnfw=4.*pi*winnfw*(rs**3.)/normalisation(rmin,rmax,rv,rs,4)
 
@@ -4803,10 +4629,10 @@ MODULE HMx
     !16 - Isothermal shell (M = 4pi*(rmax-rmin))
 
     IMPLICIT NONE
-    REAL*8 :: normalisation
-    REAL*8, INTENT(IN) :: rmin, rmax, rv, rs
+    REAL :: normalisation
+    REAL, INTENT(IN) :: rmin, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
-    REAL*8 :: cmax, k
+    REAL :: cmax, k
 
     IF(irho==0) THEN
        !Delta function
@@ -4838,7 +4664,7 @@ MODULE HMx
        normalisation=4.*pi*sqrt(pi/2.)*rs**3
     ELSE
        !Otherwise need to do the integral numerically
-       k=0.d0 !k=0 gives normalisation
+       k=0. !k=0 gives normalisation
        normalisation=winint(k,rmin,rmax,rv,rs,irho)
     END IF
 
@@ -4848,8 +4674,8 @@ MODULE HMx
 
     !Bias function selection!
     IMPLICIT NONE
-    REAL*8 :: bnu
-    REAL*8, INTENT(IN) :: nu    
+    REAL :: bnu
+    REAL, INTENT(IN) :: nu    
 
     IF(imf==1) THEN
        bnu=bps(nu)
@@ -4865,9 +4691,9 @@ MODULE HMx
 
     !Press Scheter bias
     IMPLICIT NONE
-    REAL*8 :: bps
-    REAL*8, INTENT(IN) :: nu
-    REAL*8 :: dc
+    REAL :: bps
+    REAL, INTENT(IN) :: nu
+    REAL :: dc
 
     dc=1.686
 
@@ -4879,9 +4705,9 @@ MODULE HMx
 
     !Sheth Tormen bias
     IMPLICIT NONE
-    REAL*8 :: bst
-    REAL*8, INTENT(IN) :: nu
-    REAL*8 :: p, q, dc
+    REAL :: bst
+    REAL, INTENT(IN) :: nu
+    REAL :: p, q, dc
 
     p=0.3
     q=0.707
@@ -4895,8 +4721,8 @@ MODULE HMx
 
     !Bias function selection!
     IMPLICIT NONE
-    REAL*8 :: b2nu
-    REAL*8, INTENT(IN) :: nu    
+    REAL :: b2nu
+    REAL, INTENT(IN) :: nu    
 
     IF(imf==1) THEN
        b2nu=b2ps(nu)
@@ -4912,10 +4738,10 @@ MODULE HMx
 
     !Press & Schechter second order bias
     IMPLICIT NONE
-    REAL*8 :: b2ps
-    REAL*8, INTENT(IN) :: nu
-    REAL*8 :: p, q, dc
-    REAL*8 :: eps1, eps2, E1, E2, a2
+    REAL :: b2ps
+    REAL, INTENT(IN) :: nu
+    REAL :: p, q, dc
+    REAL :: eps1, eps2, E1, E2, a2
 
     STOP 'B2PS: Check this very carefully'
     !I just took the ST form and set p=0 and q=1
@@ -4938,10 +4764,10 @@ MODULE HMx
 
     !Sheth & Tormen second-order bias
     IMPLICIT NONE
-    REAL*8 :: b2st
-    REAL*8, INTENT(IN) :: nu
-    REAL*8 :: p, q, dc
-    REAL*8 :: eps1, eps2, E1, E2, a2
+    REAL :: b2st
+    REAL, INTENT(IN) :: nu
+    REAL :: p, q, dc
+    REAL :: eps1, eps2, E1, E2, a2
 
     !Notation follows from Cooray & Sheth (2002) pp 25-26
 
@@ -4963,8 +4789,8 @@ MODULE HMx
 
     !Mass function
     IMPLICIT NONE
-    REAL*8 :: gnu
-    REAL*8, INTENT(IN) :: nu
+    REAL :: gnu
+    REAL, INTENT(IN) :: nu
 
     IF(imf==1) THEN
        gnu=gps(nu)
@@ -4980,10 +4806,10 @@ MODULE HMx
 
     !Press Scheter mass function!
     IMPLICIT NONE
-    REAL*8 :: gps
-    REAL*8, INTENT(IN) :: nu
-    
-    REAL*8, PARAMETER :: A=0.7978846
+    REAL :: gps
+    REAL, INTENT(IN) :: nu
+
+    REAL, PARAMETER :: A=0.7978846
 
     gps=A*exp(-(nu**2)/2.)
 
@@ -4995,15 +4821,15 @@ MODULE HMx
     !Note I use nu=dc/sigma(M) and this Sheth & Tormen (1999) use nu=(dc/sigma)^2
     !This accounts for some small differences
     IMPLICIT NONE
-    REAL*8 :: gst
-    REAL*8, INTENT(IN) :: nu
-    
-    REAL*8, PARAMETER :: p=0.3d0
-    REAL*8, PARAMETER :: q=0.707d0
-    REAL*8, PARAMETER :: A=0.21616
+    REAL :: gst
+    REAL, INTENT(IN) :: nu
 
-    !p=0.3d0
-    !q=0.707d0
+    REAL, PARAMETER :: p=0.3
+    REAL, PARAMETER :: q=0.707
+    REAL, PARAMETER :: A=0.21616
+
+    !p=0.3
+    !q=0.707
     !A=0.21616
 
     gst=A*(1.+((q*nu*nu)**(-p)))*exp(-q*nu*nu/2.)
@@ -5014,26 +4840,26 @@ MODULE HMx
 
     !g(nu) times b(nu)
     IMPLICIT NONE
-    REAL*8 :: gnubnu
-    REAL*8, INTENT(IN) :: nu
+    REAL :: gnubnu
+    REAL, INTENT(IN) :: nu
 
     gnubnu=gnu(nu)*bnu(nu)
-    
+
   END FUNCTION gnubnu
 
   FUNCTION Hubble2(z,cosm)
 
     !Calculates Hubble^2 in units such that H^2(z=0)=1.
     IMPLICIT NONE
-    REAL*8 :: Hubble2
-    REAL*8, INTENT(IN) :: z
+    REAL :: Hubble2
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: a
-    
+    REAL :: a
+
     !a=1./(1.+z)
     a=scale_factor_z(z)
-    
-    Hubble2=cosm%om_m*(1.d0+z)**3+cosm%om_r*(1.d0+z)**4+cosm%om_v*X_de(a,cosm)+(1.d0-cosm%om)*(1.d0+z)**2
+
+    Hubble2=cosm%om_m*(1.+z)**3+cosm%om_r*(1.+z)**4+cosm%om_v*X_de(a,cosm)+(1.-cosm%om)*(1.+z)**2
 
   END FUNCTION Hubble2
 
@@ -5044,32 +4870,32 @@ MODULE HMx
     !Makes some assumptions that DE is not important at high z
     !Need to worry if Omega_de is scaling anything like a^-4 (e.g., kinetic dominated a^-6)
     IMPLICIT NONE
-    REAL*8 :: Hubble2a4_highz
+    REAL :: Hubble2a4_highz
     TYPE(cosmology), INTENT(IN) :: cosm
-    
+
     Hubble2a4_highz=cosm%om_r
 
   END FUNCTION Hubble2a4_highz
 
-  !!$  FUNCTION InverseHubble(z,cosm)
-  !!$
-  !!$    !1/H(z) in units of Mpc/h
-  !!$    !USE cosdef
-  !!$    IMPLICIT NONE
-  !!$    REAL*8 :: InverseHubble
-  !!$    REAL*8, INTENT(IN) :: z
-  !!$    TYPE(cosmology) :: cosm
-  !!$
-  !!$    InverseHubble=conH0/sqrt(Hubble2(z,cosm))
-  !!$
-  !!$  END FUNCTION InverseHubble
+!!$  FUNCTION InverseHubble(z,cosm)
+!!$
+!!$    !1/H(z) in units of Mpc/h
+!!$    !USE cosdef
+!!$    IMPLICIT NONE
+!!$    REAL :: InverseHubble
+!!$    REAL, INTENT(IN) :: z
+!!$    TYPE(cosmology) :: cosm
+!!$
+!!$    InverseHubble=conH0/sqrt(Hubble2(z,cosm))
+!!$
+!!$  END FUNCTION InverseHubble
 
   FUNCTION Omega_m(z,cosm)
 
     !This calculates Omega_m variations with z!
     IMPLICIT NONE
-    REAL*8 :: Omega_m
-    REAL*8, INTENT(IN) :: z
+    REAL :: Omega_m
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
     Omega_m=(cosm%om_m*(1.+z)**3)/hubble2(z,cosm)
@@ -5081,11 +4907,11 @@ MODULE HMx
     !Scale-independent growth function | g(z=0)=1
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: grow
-    REAL*8, INTENT(IN) :: z
+    REAL :: grow
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: a
-    
+    REAL :: a
+
     IF(z==0.) THEN
        grow=1.
     ELSE
@@ -5100,36 +4926,36 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: growint
-    REAL*8, INTENT(IN) :: a
+    REAL :: growint
+    REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: b
+    REAL :: b
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
     INTEGER, PARAMETER :: iorder=3   
 
     !Integration range for integration parameter
     !Note a -> 1
-    b=1.d0
+    b=1.
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       growint=exp(0.d0)
+       growint=exp(0.)
 
     ELSE
 
        !Reset the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
 
@@ -5145,7 +4971,7 @@ MODULE HMx
              !The first go is just the trapezium of the end points
              f1=growint_integrand(a,cosm)
              f2=growint_integrand(b,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
           ELSE
@@ -5159,22 +4985,22 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'GROWINT: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
-             growint=exp(sum_new)
+             growint=exp(REAL(sum_new))
              EXIT
           ELSE IF(j==jmax) THEN
              STOP 'GROWINT: Integration timed out'
@@ -5182,7 +5008,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -5195,10 +5021,10 @@ MODULE HMx
 
     !Integrand for the approximate growth integral
     IMPLICIT NONE
-    REAL*8 :: growint_integrand
-    REAL*8, INTENT(IN) :: a
+    REAL :: growint_integrand
+    REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: gam
+    REAL :: gam
 
     IF(cosm%w<-1.) THEN
        gam=0.55+0.02*(1.+cosm%w)
@@ -5218,25 +5044,25 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: dispint
-    REAL*8, INTENT(IN) :: z, R
+    REAL :: dispint
+    REAL, INTENT(IN) :: z, R
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: a, b
+    REAL :: a, b
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
-    !REAL*8, PARAMETER :: acc=1d-4
+    !REAL, PARAMETER :: acc=1d-4
     INTEGER, PARAMETER :: iorder=3   
 
     !Integration range for integration parameter
     !Note 0 -> infinity in k has changed to 0 -> 1 in x
-    a=0.d0
-    b=1.d0
+    a=0.
+    b=1.
 
     IF(a==b) THEN
 
@@ -5246,10 +5072,10 @@ MODULE HMx
     ELSE
 
        !Reset the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
 
@@ -5265,7 +5091,7 @@ MODULE HMx
              !The first go is just the trapezium of the end points
              f1=dispint_integrand(a,R,z,cosm)
              f2=dispint_integrand(b,R,z,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
           ELSE
@@ -5279,20 +5105,20 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'DISPINT: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
              dispint=REAL(sum_new)
              EXIT
@@ -5302,7 +5128,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -5315,1237 +5141,31 @@ MODULE HMx
 
     !This is the integrand for the velocity dispersion integral
     IMPLICIT NONE
-    REAL*8 :: dispint_integrand
-    REAL*8, INTENT(IN) :: theta, z, R
+    REAL :: dispint_integrand
+    REAL, INTENT(IN) :: theta, z, R
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: k
-    
-    REAL*8, PARAMETER :: alpha=1.65d0 !Speeds up integral for large 'R'
-    REAL*8, PARAMETER :: Rsplit=10.d0 !Value to impliment speed up
+    REAL :: k
+
+    REAL, PARAMETER :: alpha=1.65 !Speeds up integral for large 'R'
+    REAL, PARAMETER :: Rsplit=10. !Value to impliment speed up
 
     !Note that I have not included the speed up alpha and Rsplit
     !The choice of alpha=1.65 seemed to work well for R=100.
     !Rsplit=10 is thoughlessly chosen (only because 100.>10.)
     !Including this seems to make things slower (faster integration but slower IF statements?)
 
-    IF(theta==0.d0 .OR. theta==1.d0) THEN
-       dispint_integrand=0.d0
+    IF(theta==0. .OR. theta==1.) THEN
+       dispint_integrand=0.
     ELSE
        !IF(r>Rsplit) THEN
-       !   k=(-1.d0+1.d0/theta)/r**alpha
+       !   k=(-1.+1./theta)/r**alpha
        !ELSE
-       k=(-1.d0+1.d0/theta)
+       k=(-1.+1./theta)
        !END IF
-       dispint_integrand=(p_lin(k,z,cosm)/k**2)*(wk_tophat(k*r)**2)/(theta*(1.d0-theta))
+       dispint_integrand=(p_lin(k,z,cosm)/k**2)*(wk_tophat(k*r)**2)/(theta*(1.-theta))
     END IF
 
   END FUNCTION dispint_integrand
-
-  FUNCTION Si(x)
-
-    IMPLICIT NONE
-    REAL*8 :: Si
-    REAL*8, INTENT(IN) :: x
-    REAL*8 :: x2, y, f, g, si8
-    
-    REAL*8, PARAMETER :: pi8=3.1415926535897932384626433d0
-
-    !Expansions for high and low x thieved from Wikipedia, two different expansions for above and below 4.
-
-    IF(ABS(x)<=4.) THEN
-
-       x2=x*x
-
-       si8 = x*(1.d0+x2*(-4.54393409816329991d-2+x2*(1.15457225751016682d-3&
-            +x2*(-1.41018536821330254d-5+x2*(9.43280809438713025d-8+x2*(-3.53201978997168357d-10&
-            +x2*(7.08240282274875911d-13+x2*(-6.05338212010422477d-16))))))))/ &
-            (1.+x2*(1.01162145739225565d-2 +x2*(4.99175116169755106d-5+&
-            x2*(1.55654986308745614d-7+x2*(3.28067571055789734d-10+x2*(4.5049097575386581d-13&
-            +x2*(3.21107051193712168d-16)))))))
-
-       si=real(si8)
-
-    ELSE IF(ABS(x)>4.) THEN
-
-       y=1.d0/(x*x)
-
-       f = (1.d0 + y*(7.44437068161936700618d2 + y*(1.96396372895146869801d5 +&
-            y*(2.37750310125431834034d7 +y*(1.43073403821274636888d9 + y*(4.33736238870432522765d10 &
-            + y*(6.40533830574022022911d11 + y*(4.20968180571076940208d12 + &
-            y*(1.00795182980368574617d13 + y*(4.94816688199951963482d12 +&
-            y*(-4.94701168645415959931d11)))))))))))/ (x*(1. +y*(7.46437068161927678031d2 +&
-            y*(1.97865247031583951450d5 +y*(2.41535670165126845144d7 + &
-            y*(1.47478952192985464958d9 + y*(4.58595115847765779830d10 +&
-            y*(7.08501308149515401563d11 + y*(5.06084464593475076774d12 + &
-            y*(1.43468549171581016479d13 + y*(1.11535493509914254097d13)))))))))))
-
-
-       g = y*(1.d0 + y*(8.1359520115168615d2 + y*(2.35239181626478200d5 + &
-            y*(3.12557570795778731d7 + y*(2.06297595146763354d9 + y*(6.83052205423625007d10 +&
-            y*(1.09049528450362786d12 + y*(7.57664583257834349d12 +y*(1.81004487464664575d13 +&
-            y*(6.43291613143049485d12 +y*(-1.36517137670871689d12)))))))))))/&
-            (1. + y*(8.19595201151451564d2 +y*(2.40036752835578777d5 + y*(3.26026661647090822d7 &
-            + y*(2.23355543278099360d9 + y*(7.87465017341829930d10 + y*(1.39866710696414565d12 &
-            + y*(1.17164723371736605d13 + y*(4.01839087307656620d13 +y*(3.99653257887490811d13))))))))))
-
-       si=real(pi8/2.d0-f*cos(x)-g*sin(x))
-
-    ELSE
-
-       STOP 'ERROR: Si, something went wrong'
-
-    END IF
-
-  END FUNCTION Si
-
-  FUNCTION Ci(x)
-
-    IMPLICIT NONE
-    REAL*8 :: Ci
-    REAL*8, INTENT(IN) :: x
-    REAL*8 :: x2, y, f, g, ci8
-    
-    REAL*8, PARAMETER :: em_const=0.577215664901532861d0
-
-    !Expansions for high and low x thieved from Wikipedia, two different expansions for above and below 4.
-
-    IF(ABS(x)<=4.) THEN
-
-       x2=x*x
-
-       ci8=em_const+log(x)+x2*(-0.25d0+x2*(7.51851524438898291d-3+x2*(-1.27528342240267686d-4&
-            +x2*(1.05297363846239184d-6+x2*(-4.68889508144848019d-9+x2*(1.06480802891189243d-11&
-            +x2*(-9.93728488857585407d-15)))))))/ (1.+x2*(1.1592605689110735d-2+&
-            x2*(6.72126800814254432d-5+x2*(2.55533277086129636d-7+x2*(6.97071295760958946d-10+&
-            x2*(1.38536352772778619d-12+x2*(1.89106054713059759d-15+x2*(1.39759616731376855d-18))))))))
-
-       ci=real(ci8)
-
-    ELSE IF(ABS(x)>4.) THEN
-
-       y=1./(x*x) 
-
-       f = (1.d0 + y*(7.44437068161936700618d2 + y*(1.96396372895146869801d5 + &
-            y*(2.37750310125431834034d7 +y*(1.43073403821274636888d9 + y*(4.33736238870432522765d10&
-            + y*(6.40533830574022022911d11 + y*(4.20968180571076940208d12 + y*(1.00795182980368574617d13&
-            + y*(4.94816688199951963482d12 +y*(-4.94701168645415959931d11)))))))))))/&
-            (x*(1. +y*(7.46437068161927678031d2 +y*(1.97865247031583951450d5 +&
-            y*(2.41535670165126845144d7 + y*(1.47478952192985464958d9 + &
-            y*(4.58595115847765779830d10 +y*(7.08501308149515401563d11 + y*(5.06084464593475076774d12 &
-            + y*(1.43468549171581016479d13 + y*(1.11535493509914254097d13)))))))))))   
-
-       g = y*(1.d0 + y*(8.1359520115168615d2 + y*(2.35239181626478200d5 + y*(3.12557570795778731d7&
-            + y*(2.06297595146763354d9 + y*(6.83052205423625007d10 +&
-            y*(1.09049528450362786d12 + y*(7.57664583257834349d12 +&
-            y*(1.81004487464664575d13 + y*(6.43291613143049485d12 +y*(-1.36517137670871689d12)))))))))))&
-            / (1. + y*(8.19595201151451564d2 +y*(2.40036752835578777d5 +&
-            y*(3.26026661647090822d7 + y*(2.23355543278099360d9 + y*(7.87465017341829930d10 &
-            + y*(1.39866710696414565d12 + y*(1.17164723371736605d13 + y*(4.01839087307656620d13 +y*(3.99653257887490811d13))))))))))
-
-       ci=real(f*sin(x)-g*cos(x))
-
-    ELSE
-
-       STOP 'ERROR: Ci, something went wrong'
-
-    END IF
-
-  END FUNCTION Ci
-
-  FUNCTION derivative_table(x,xin,yin,n,iorder,imeth)
-
-    !Given two arrays x and y such that y=y(x) this uses interpolation to calculate the derivative y'(x_i) at position x_i
-    IMPLICIT NONE
-    REAL*8 :: derivative_table
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: x, xin(n), yin(n)
-    REAL*8, ALLOCATABLE ::  xtab(:), ytab(:)
-    REAL*8 :: a, b, c, d
-    REAL*8 :: x1, x2, x3, x4
-    REAL*8 :: y1, y2, y3, y4
-    INTEGER :: i
-    INTEGER, INTENT(IN) :: imeth, iorder
-
-    !This version interpolates if the value is off either end of the array!
-    !Care should be chosen to insert x, xtab, ytab as log if this might give better!
-    !Results from the interpolation!
-
-    !imeth = 1 => find x in xtab by crudely searching
-    !imeth = 2 => find x in xtab quickly assuming the table is linearly spaced
-    !imeth = 3 => find x in xtab using midpoint splitting (iterations=CEILING(log2(n)))
-
-    !iorder = 1 => linear interpolation
-    !iorder = 2 => quadratic interpolation
-    !iorder = 3 => cubic interpolation
-
-    ALLOCATE(xtab(n),ytab(n))
-
-    xtab=xin
-    ytab=yin
-
-    IF(xtab(1)>xtab(n)) THEN
-       !Reverse the arrays in this case
-       CALL reverse(xtab,n)
-       CALL reverse(ytab,n)
-    END IF
-
-    IF(iorder==1) THEN
-
-       IF(n<2) STOP 'DERIVATIVE_TABLE: Not enough points in your table for linear interpolation'
-
-       IF(x<=xtab(2)) THEN
-
-          x2=xtab(2)
-          x1=xtab(1)
-
-          y2=ytab(2)
-          y1=ytab(1)
-
-       ELSE IF (x>=xtab(n-1)) THEN
-
-          x2=xtab(n)
-          x1=xtab(n-1)
-
-          y2=ytab(n)
-          y1=ytab(n-1)
-
-       ELSE
-
-          i=table_integer(x,xtab,n,imeth)
-
-          x2=xtab(i+1)
-          x1=xtab(i)
-
-          y2=ytab(i+1)
-          y1=ytab(i)
-
-       END IF
-
-       CALL fit_line(a,b,x1,y1,x2,y2)
-       derivative_table=a
-
-    ELSE IF(iorder==2) THEN
-
-       IF(n<3) STOP 'DERIVATIVE_TABLE: Not enough points in your table'
-
-       IF(x<=xtab(2) .OR. x>=xtab(n-1)) THEN
-
-          IF(x<=xtab(2)) THEN
-
-             x3=xtab(3)
-             x2=xtab(2)
-             x1=xtab(1)
-
-             y3=ytab(3)
-             y2=ytab(2)
-             y1=ytab(1)
-
-          ELSE IF (x>=xtab(n-1)) THEN
-
-             x3=xtab(n)
-             x2=xtab(n-1)
-             x1=xtab(n-2)
-
-             y3=ytab(n)
-             y2=ytab(n-1)
-             y1=ytab(n-2)
-
-          END IF
-
-          CALL fit_quadratic(a,b,c,x1,y1,x2,y2,x3,y3)
-
-          derivative_table=2.*a*x+b
-
-       ELSE
-
-          i=table_integer(x,xtab,n,imeth)
-
-          x1=xtab(i-1)
-          x2=xtab(i)
-          x3=xtab(i+1)
-          x4=xtab(i+2)
-
-          y1=ytab(i-1)
-          y2=ytab(i)
-          y3=ytab(i+1)
-          y4=ytab(i+2)
-
-          !In this case take the average of two separate quadratic spline values
-
-          derivative_table=0.
-
-          CALL fit_quadratic(a,b,c,x1,y1,x2,y2,x3,y3)
-          derivative_table=derivative_table+(2.*a*x+b)/2.
-
-          CALL fit_quadratic(a,b,c,x2,y2,x3,y3,x4,y4)
-          derivative_table=derivative_table+(2.*a*x+b)/2.
-
-       END IF
-
-    ELSE IF(iorder==3) THEN
-
-       IF(n<4) STOP 'DERIVATIVE_TABLE: Not enough points in your table'
-
-       IF(x<=xtab(3)) THEN
-
-          x4=xtab(4)
-          x3=xtab(3)
-          x2=xtab(2)
-          x1=xtab(1)
-
-          y4=ytab(4)
-          y3=ytab(3)
-          y2=ytab(2)
-          y1=ytab(1)
-
-       ELSE IF (x>=xtab(n-2)) THEN
-
-          x4=xtab(n)
-          x3=xtab(n-1)
-          x2=xtab(n-2)
-          x1=xtab(n-3)
-
-          y4=ytab(n)
-          y3=ytab(n-1)
-          y2=ytab(n-2)
-          y1=ytab(n-3)
-
-       ELSE
-
-          i=table_integer(x,xtab,n,imeth)
-
-          x1=xtab(i-1)
-          x2=xtab(i)
-          x3=xtab(i+1)
-          x4=xtab(i+2)
-
-          y1=ytab(i-1)
-          y2=ytab(i)
-          y3=ytab(i+1)
-          y4=ytab(i+2)
-
-       END IF
-
-       CALL fit_cubic(a,b,c,d,x1,y1,x2,y2,x3,y3,x4,y4)
-       derivative_table=3.*a*(x**2)+2.*b*x+c
-
-    ELSE
-
-       STOP 'DERIVATIVE_TABLE: Error, iorder not specified correctly'
-
-    END IF
-
-  END FUNCTION derivative_table
-
-  FUNCTION find(x,xin,yin,n,iorder,ifind,imeth)
-
-    !Given two arrays x and y this routine interpolates to find the y_i value at position x_i
-    IMPLICIT NONE
-    REAL*8 :: find
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: x, xin(n), yin(n)
-    REAL*8, ALLOCATABLE ::  xtab(:), ytab(:)
-    REAL*8 :: a, b, c, d
-    REAL*8 :: x1, x2, x3, x4
-    REAL*8 :: y1, y2, y3, y4
-    INTEGER :: i
-    INTEGER, INTENT(IN) :: imeth, iorder, ifind
-
-    !This version interpolates if the value is off either end of the array!
-    !Care should be chosen to insert x, xtab, ytab as log if this might give better!
-    !Results from the interpolation!
-
-    !If the value required is off the table edge the interpolation is always linear
-
-    !iorder = 1 => linear interpolation
-    !iorder = 2 => quadratic interpolation
-    !iorder = 3 => cubic interpolation
-
-    !ifind = 1 => find x in xtab quickly assuming the table is linearly spaced
-    !ifind = 2 => find x in xtab by crudely searching from x(1) to x(n)
-    !ifind = 3 => find x in xtab using midpoint splitting (iterations=CEILING(log2(n)))
-
-    !imeth = 1 => Cubic polynomial interpolation
-    !imeth = 2 => Lagrange polynomial interpolation
-
-    ALLOCATE(xtab(n),ytab(n))
-
-    xtab=xin
-    ytab=yin
-
-    IF(xtab(1)>xtab(n)) THEN
-       !Reverse the arrays in this case
-       CALL reverse(xtab,n)
-       CALL reverse(ytab,n)
-    END IF
-
-    IF(x<xtab(1)) THEN
-
-       !Do a linear interpolation beyond the table boundary
-
-       x1=xtab(1)
-       x2=xtab(2)
-
-       y1=ytab(1)
-       y2=ytab(2)
-
-       IF(imeth==1) THEN
-          CALL fit_line(a,b,x1,y1,x2,y2)
-          find=a*x+b
-       ELSE IF(imeth==2) THEN
-          find=Lagrange_polynomial(x,1,(/x1,x2/),(/y1,y2/))
-       ELSE
-          STOP 'FIND: Error, method not specified correctly'
-       END IF
-
-    ELSE IF(x>xtab(n)) THEN
-
-       !Do a linear interpolation beyond the table boundary
-
-       x1=xtab(n-1)
-       x2=xtab(n)
-
-       y1=ytab(n-1)
-       y2=ytab(n)
-
-       IF(imeth==1) THEN
-          CALL fit_line(a,b,x1,y1,x2,y2)
-          find=a*x+b
-       ELSE IF(imeth==2) THEN
-          find=Lagrange_polynomial(x,1,(/x1,x2/),(/y1,y2/))
-       ELSE
-          STOP 'FIND: Error, method not specified correctly'
-       END IF
-
-    ELSE IF(iorder==1) THEN
-
-       IF(n<2) STOP 'FIND: Not enough points in your table for linear interpolation'
-
-       IF(x<=xtab(2)) THEN
-
-          x1=xtab(1)
-          x2=xtab(2)
-
-          y1=ytab(1)
-          y2=ytab(2)
-
-       ELSE IF (x>=xtab(n-1)) THEN
-
-          x1=xtab(n-1)
-          x2=xtab(n)
-
-          y1=ytab(n-1)
-          y2=ytab(n)
-
-       ELSE
-
-          i=table_integer(x,xtab,n,ifind)
-
-          x1=xtab(i)
-          x2=xtab(i+1)
-
-          y1=ytab(i)
-          y2=ytab(i+1)
-
-       END IF
-
-       IF(imeth==1) THEN
-          CALL fit_line(a,b,x1,y1,x2,y2)
-          find=a*x+b
-       ELSE IF(imeth==2) THEN
-          find=Lagrange_polynomial(x,1,(/x1,x2/),(/y1,y2/))
-       ELSE
-          STOP 'FIND: Error, method not specified correctly'
-       END IF
-
-    ELSE IF(iorder==2) THEN
-
-       IF(n<3) STOP 'FIND: Not enough points in your table'
-
-       IF(x<=xtab(2) .OR. x>=xtab(n-1)) THEN
-
-          IF(x<=xtab(2)) THEN
-
-             x1=xtab(1)
-             x2=xtab(2)
-             x3=xtab(3)
-
-             y1=ytab(1)
-             y2=ytab(2)
-             y3=ytab(3)
-
-          ELSE IF (x>=xtab(n-1)) THEN
-
-             x1=xtab(n-2)
-             x2=xtab(n-1)
-             x3=xtab(n)
-
-             y1=ytab(n-2)
-             y2=ytab(n-1)
-             y3=ytab(n)
-
-          END IF
-
-          IF(imeth==1) THEN
-             CALL fit_quadratic(a,b,c,x1,y1,x2,y2,x3,y3)
-             find=a*(x**2)+b*x+c
-          ELSE IF(imeth==2) THEN
-             find=Lagrange_polynomial(x,2,(/x1,x2,x3/),(/y1,y2,y3/))
-          ELSE
-             STOP 'FIND: Error, method not specified correctly'
-          END IF
-
-       ELSE
-
-          i=table_integer(x,xtab,n,ifind)
-
-          x1=xtab(i-1)
-          x2=xtab(i)
-          x3=xtab(i+1)
-          x4=xtab(i+2)
-
-          y1=ytab(i-1)
-          y2=ytab(i)
-          y3=ytab(i+1)
-          y4=ytab(i+2)
-
-          IF(imeth==1) THEN
-             !In this case take the average of two separate quadratic spline values
-             CALL fit_quadratic(a,b,c,x1,y1,x2,y2,x3,y3)
-             find=(a*(x**2)+b*x+c)/2.
-             CALL fit_quadratic(a,b,c,x2,y2,x3,y3,x4,y4)
-             find=find+(a*(x**2)+b*x+c)/2.
-          ELSE IF(imeth==2) THEN
-             !In this case take the average of two quadratic Lagrange polynomials
-             find=(Lagrange_polynomial(x,2,(/x1,x2,x3/),(/y1,y2,y3/))+Lagrange_polynomial(x,2,(/x2,x3,x4/),(/y2,y3,y4/)))/2.
-          ELSE
-             STOP 'FIND: Error, method not specified correctly'
-          END IF
-
-       END IF
-
-    ELSE IF(iorder==3) THEN
-
-       IF(n<4) STOP 'FIND: Not enough points in your table'
-
-       IF(x<=xtab(3)) THEN
-
-          x1=xtab(1)
-          x2=xtab(2)
-          x3=xtab(3)
-          x4=xtab(4)        
-
-          y1=ytab(1)
-          y2=ytab(2)
-          y3=ytab(3)
-          y4=ytab(4)
-
-       ELSE IF (x>=xtab(n-2)) THEN
-
-          x1=xtab(n-3)
-          x2=xtab(n-2)
-          x3=xtab(n-1)
-          x4=xtab(n)
-
-          y1=ytab(n-3)
-          y2=ytab(n-2)
-          y3=ytab(n-1)
-          y4=ytab(n)
-
-       ELSE
-
-          i=table_integer(x,xtab,n,ifind)
-
-          x1=xtab(i-1)
-          x2=xtab(i)
-          x3=xtab(i+1)
-          x4=xtab(i+2)
-
-          y1=ytab(i-1)
-          y2=ytab(i)
-          y3=ytab(i+1)
-          y4=ytab(i+2)
-
-       END IF
-
-       IF(imeth==1) THEN
-          CALL fit_cubic(a,b,c,d,x1,y1,x2,y2,x3,y3,x4,y4)
-          find=a*x**3+b*x**2+c*x+d
-       ELSE IF(imeth==2) THEN
-          find=Lagrange_polynomial(x,3,(/x1,x2,x3,x4/),(/y1,y2,y3,y4/))
-       ELSE
-          STOP 'FIND: Error, method not specified correctly'
-       END IF
-
-    ELSE
-
-       STOP 'FIND: Error, interpolation order specified incorrectly'
-
-    END IF
-
-  END FUNCTION find
-
-  FUNCTION find2d(x,xin,y,yin,fin,nx,ny,iorder,ifind,imeth)
-
-    !A 2D interpolation routine to find value f(x,y) at position x, y
-    IMPLICIT NONE
-    REAL*8 :: find2d
-    INTEGER, INTENT(IN) :: nx, ny
-    REAL*8, INTENT(IN) :: x, xin(nx), y, yin(ny), fin(nx,ny)
-    INTEGER, INTENT(IN) :: iorder, ifind, imeth
-    REAL*8, ALLOCATABLE ::  xtab(:), ytab(:), ftab(:,:)
-    REAL*8 :: a, b, c, d
-    REAL*8 :: x1, x2, x3, x4
-    REAL*8 :: y1, y2, y3, y4
-    REAL*8 :: f11, f12, f13, f14
-    REAL*8 :: f21, f22, f23, f24
-    REAL*8 :: f31, f32, f33, f34
-    REAL*8 :: f41, f42, f43, f44
-    REAL*8 :: f10, f20, f30, f40
-    REAL*8 :: f01, f02, f03, f04
-    INTEGER :: i1, i2, i3, i4
-    INTEGER :: j1, j2, j3, j4
-    REAL*8 :: findx, findy
-    INTEGER :: i, j
-    
-    !This version interpolates if the value is off either end of the array!
-    !Care should be chosen to insert x, xtab, ytab as log if this might give better!
-    !Results from the interpolation!
-
-    !If the value required is off the table edge the interpolation is always linear
-
-    !iorder = 1 => linear interpolation
-    !iorder = 2 => quadratic interpolation
-    !iorder = 3 => cubic interpolation
-
-    !ifind = 1 => find x in xtab by crudely searching from x(1) to x(n)
-    !ifind = 2 => find x in xtab quickly assuming the table is linearly spaced
-    !ifind = 3 => find x in xtab using midpoint splitting (iterations=CEILING(log2(n)))
-
-    !imeth = 1 => Uses cubic polynomials for interpolation
-    !imeth = 2 => Uses Lagrange polynomials for interpolation
-
-    IF(imeth==2) STOP 'FIND2D: No Lagrange polynomials for you'
-
-    ALLOCATE(xtab(nx),ytab(ny),ftab(nx,ny))
-
-    xtab=xin
-    ytab=yin
-    ftab=fin
-
-    IF(xtab(1)>xtab(nx)) STOP 'FIND2D: x table in wrong order'
-    IF(ytab(1)>ytab(ny)) STOP 'FIND2D: y table in wrong order'
-
-    IF((x<xtab(1) .OR. x>xtab(nx)) .AND. (y>ytab(ny) .OR. y<ytab(1))) THEN
-       WRITE(*,*) 'FIND2D: point', x, y
-       STOP 'FIND2D: Desired point is outside x AND y table range'
-    END IF
-
-    IF(iorder==1) THEN
-
-       IF(nx<2) STOP 'FIND2D: Not enough x points in your table for linear interpolation'
-       IF(ny<2) STOP 'FIND2D: Not enough y points in your table for linear interpolation'
-
-       IF(x<=xtab(2)) THEN
-
-          i=1
-
-       ELSE IF (x>=xtab(nx-1)) THEN
-
-          i=nx-1
-
-       ELSE
-
-          i=table_integer(x,xtab,nx,ifind)
-
-       END IF
-
-       i1=i
-       i2=i+1
-
-       x1=xtab(i1)
-       x2=xtab(i2)      
-
-       IF(y<=ytab(2)) THEN
-
-          j=1
-
-       ELSE IF (y>=ytab(ny-1)) THEN
-
-          j=ny-1
-
-       ELSE
-
-          j=table_integer(y,ytab,ny,ifind)
-
-       END IF
-
-       j1=j
-       j2=j+1
-
-       y1=ytab(j1)
-       y2=ytab(j2)
-
-       !
-
-       f11=ftab(i1,j1)
-       f12=ftab(i1,j2)
-
-       f21=ftab(i2,j1)
-       f22=ftab(i2,j2)
-
-       !y direction interpolation
-
-       CALL fit_line(a,b,x1,f11,x2,f21)
-       f01=a*x+b
-
-       CALL fit_line(a,b,x1,f12,x2,f22)
-       f02=a*x+b
-
-       CALL fit_line(a,b,y1,f01,y2,f02)
-       findy=a*y+b
-
-       !x direction interpolation
-
-       CALL fit_line(a,b,y1,f11,y2,f12)
-       f10=a*y+b
-
-       CALL fit_line(a,b,y1,f21,y2,f22)
-       f20=a*y+b
-
-       CALL fit_line(a,b,x1,f10,x2,f20)
-       findx=a*x+b
-
-       !
-
-       !Final result is an average over each direction
-       find2d=(findx+findy)/2.
-
-    ELSE IF(iorder==2) THEN
-
-       STOP 'FIND2D: Quadratic 2D interpolation not implemented - also probably pointless'
-
-    ELSE IF(iorder==3) THEN
-
-       IF(x<xtab(1) .OR. x>xtab(nx)) THEN
-
-          IF(nx<2) STOP 'FIND2D: Not enough x points in your table for linear interpolation'
-          IF(ny<4) STOP 'FIND2D: Not enough y points in your table for cubic interpolation'
-
-          !x is off the table edge
-
-          IF(x<xtab(1)) THEN
-
-             i1=1
-             i2=2
-
-          ELSE
-
-             i1=nx-1
-             i2=nx
-
-          END IF
-
-          x1=xtab(i1)
-          x2=xtab(i2)
-
-          IF(y<=ytab(4)) THEN
-
-             j=2
-
-          ELSE IF (y>=ytab(ny-3)) THEN
-
-             j=ny-2
-
-          ELSE
-
-             j=table_integer(y,ytab,ny,ifind)
-
-          END IF
-
-          j1=j-1
-          j2=j
-          j3=j+1
-          j4=j+2
-
-          y1=ytab(j1)
-          y2=ytab(j2)
-          y3=ytab(j3)
-          y4=ytab(j4)
-
-          f11=ftab(i1,j1)
-          f12=ftab(i1,j2)
-          f13=ftab(i1,j3)
-          f14=ftab(i1,j4)
-
-          f21=ftab(i2,j1)
-          f22=ftab(i2,j2)
-          f23=ftab(i2,j3)
-          f24=ftab(i2,j4)
-
-          !y interpolation
-          CALL fit_cubic(a,b,c,d,y1,f11,y2,f12,y3,f13,y4,f14)
-          f10=a*y**3+b*y**2+c*y+d
-
-          CALL fit_cubic(a,b,c,d,y1,f21,y2,f22,y3,f23,y4,f24)
-          f20=a*y**3+b*y**2+c*y+d
-
-          !x interpolation
-          CALL fit_line(a,b,x1,f10,x2,f20)
-          find2d=a*x+b
-
-       ELSE IF(y<ytab(1) .OR. y>ytab(ny)) THEN
-
-          !y is off the table edge
-
-          IF(nx<4) STOP 'FIND2D: Not enough x points in your table for cubic interpolation'
-          IF(ny<2) STOP 'FIND2D: Not enough y points in your table for linear interpolation'
-
-          IF(x<=xtab(4)) THEN
-
-             i=2
-
-          ELSE IF (x>=xtab(nx-3)) THEN
-
-             i=nx-2
-
-          ELSE
-
-             i=table_integer(x,xtab,nx,ifind)
-
-          END IF
-
-          i1=i-1
-          i2=i
-          i3=i+1
-          i4=i+2
-
-          x1=xtab(i1)
-          x2=xtab(i2)
-          x3=xtab(i3)
-          x4=xtab(i4)
-
-          IF(y<ytab(1)) THEN
-
-             j1=1
-             j2=2
-
-          ELSE
-
-             j1=ny-1
-             j2=ny
-
-          END IF
-
-          y1=ytab(j1)
-          y2=ytab(j2)
-
-          f11=ftab(i1,j1)
-          f21=ftab(i2,j1)
-          f31=ftab(i3,j1)
-          f41=ftab(i4,j1)
-
-          f12=ftab(i1,j2)
-          f22=ftab(i2,j2)
-          f32=ftab(i3,j2)
-          f42=ftab(i4,j2)
-
-          !x interpolation
-
-          CALL fit_cubic(a,b,c,d,x1,f11,x2,f21,x3,f31,x4,f41)
-          f01=a*x**3+b*x**2+c*x+d
-
-          CALL fit_cubic(a,b,c,d,x1,f12,x2,f22,x3,f32,x4,f42)
-          f02=a*x**3+b*x**2+c*x+d
-
-          !y interpolation
-
-          CALL fit_line(a,b,y1,f01,y2,f02)
-          find2d=a*y+b
-
-       ELSE
-
-          !Points exists within table boundardies (normal)
-
-          IF(nx<4) STOP 'FIND2D: Not enough x points in your table for cubic interpolation'
-          IF(ny<4) STOP 'FIND2D: Not enough y points in your table for cubic interpolation'
-
-          IF(x<=xtab(4)) THEN
-
-             i=2
-
-          ELSE IF (x>=xtab(nx-3)) THEN
-
-             i=nx-2
-
-          ELSE
-
-             i=table_integer(x,xtab,nx,ifind)
-
-          END IF
-
-          i1=i-1
-          i2=i
-          i3=i+1
-          i4=i+2
-
-          x1=xtab(i1)
-          x2=xtab(i2)
-          x3=xtab(i3)
-          x4=xtab(i4)
-
-          IF(y<=ytab(4)) THEN
-
-             j=2
-
-          ELSE IF (y>=ytab(ny-3)) THEN
-
-             j=ny-2
-
-          ELSE
-
-             j=table_integer(y,ytab,ny,ifind)
-
-          END IF
-
-          j1=j-1
-          j2=j
-          j3=j+1
-          j4=j+2
-
-          y1=ytab(j1)
-          y2=ytab(j2)
-          y3=ytab(j3)
-          y4=ytab(j4)
-
-          !
-
-          f11=ftab(i1,j1)
-          f12=ftab(i1,j2)
-          f13=ftab(i1,j3)
-          f14=ftab(i1,j4)
-
-          f21=ftab(i2,j1)
-          f22=ftab(i2,j2)
-          f23=ftab(i2,j3)
-          f24=ftab(i2,j4)
-
-          f31=ftab(i3,j1)
-          f32=ftab(i3,j2)
-          f33=ftab(i3,j3)
-          f34=ftab(i3,j4)
-
-          f41=ftab(i4,j1)
-          f42=ftab(i4,j2)
-          f43=ftab(i4,j3)
-          f44=ftab(i4,j4)
-
-          !x interpolation
-
-          CALL fit_cubic(a,b,c,d,x1,f11,x2,f21,x3,f31,x4,f41)
-          f01=a*x**3+b*x**2+c*x+d
-
-          CALL fit_cubic(a,b,c,d,x1,f12,x2,f22,x3,f32,x4,f42)
-          f02=a*x**3+b*x**2+c*x+d
-
-          CALL fit_cubic(a,b,c,d,x1,f13,x2,f23,x3,f33,x4,f43)
-          f03=a*x**3+b*x**2+c*x+d
-
-          CALL fit_cubic(a,b,c,d,x1,f14,x2,f24,x3,f34,x4,f44)
-          f04=a*x**3+b*x**2+c*x+d
-
-          CALL fit_cubic(a,b,c,d,y1,f01,y2,f02,y3,f03,y4,f04)
-          findy=a*y**3+b*y**2+c*y+d
-
-          !y interpolation
-
-          CALL fit_cubic(a,b,c,d,y1,f11,y2,f12,y3,f13,y4,f14)
-          f10=a*y**3+b*y**2+c*y+d
-
-          CALL fit_cubic(a,b,c,d,y1,f21,y2,f22,y3,f23,y4,f24)
-          f20=a*y**3+b*y**2+c*y+d
-
-          CALL fit_cubic(a,b,c,d,y1,f31,y2,f32,y3,f33,y4,f34)
-          f30=a*y**3+b*y**2+c*y+d
-
-          CALL fit_cubic(a,b,c,d,y1,f41,y2,f42,y3,f43,y4,f44)
-          f40=a*y**3+b*y**2+c*y+d
-
-          CALL fit_cubic(a,b,c,d,x1,f10,x2,f20,x3,f30,x4,f40)
-          findx=a*x**3+b*x**2+c*x+d
-
-          !Final result is an average over each direction
-          find2d=(findx+findy)/2.
-
-       END IF
-
-    ELSE
-
-       STOP 'FIND2D: order for interpolation not specified correctly'
-
-    END IF
-
-  END FUNCTION find2d
-
-  FUNCTION Lagrange_polynomial(x,n,xv,yv)
-
-    !Computes the result of the nth order Lagrange polynomial at point x, L(x)
-    IMPLICIT NONE
-    REAL*8 :: Lagrange_polynomial
-    REAL*8, INTENT(IN) :: x, xv(n+1), yv(n+1)
-    REAL*8 :: l(n+1)
-    INTEGER, INTENT(IN) :: n
-    INTEGER :: i, j
-
-    !Initialise variables, one for sum and one for multiplication
-    Lagrange_polynomial=0.
-    l=1.
-
-    !Loops to find the polynomials, one is a sum and one is a multiple
-    DO i=0,n
-       DO j=0,n
-          IF(i .NE. j) l(i+1)=l(i+1)*(x-xv(j+1))/(xv(i+1)-xv(j+1))
-       END DO
-       Lagrange_polynomial=Lagrange_polynomial+l(i+1)*yv(i+1)
-    END DO
-
-  END FUNCTION Lagrange_polynomial
-
-  FUNCTION table_integer(x,xtab,n,imeth)
-
-    !Chooses between ways to find the integer location below some value in an array
-    IMPLICIT NONE
-    INTEGER :: table_integer
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: x, xtab(n)
-    INTEGER, INTENT(IN) :: imeth
-
-    IF(imeth==1) THEN
-       table_integer=linear_table_integer(x,xtab,n)
-    ELSE IF(imeth==2) THEN
-       table_integer=search_int(x,xtab,n)
-    ELSE IF(imeth==3) THEN
-       table_integer=int_split(x,xtab,n)
-    ELSE
-       STOP 'TABLE INTEGER: Method specified incorrectly'
-    END IF
-
-  END FUNCTION table_integer
-
-  FUNCTION linear_table_integer(x,xtab,n)
-
-    !Assuming the table is exactly linear this gives you the integer position
-    IMPLICIT NONE
-    INTEGER :: linear_table_integer
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: x, xtab(n)
-    REAL*8 :: x1, x2, xn
-    
-    REAL*8, PARAMETER :: acc=1d-3 !Test for table linearity (wasteful)
-
-    !Returns the integer (table position) below the value of x
-    !eg. if x(3)=6. and x(4)=7. and x=6.5 this will return 6
-    !Assumes table is organised linearly (care for logs)
-
-    x1=xtab(1)
-    x2=xtab(2)
-    xn=xtab(n)
-
-    IF(x1>xn) STOP 'LINEAR_TABLE_INTEGER :: table in the wrong order'
-    IF(ABS(-1.+float(n-1)*(x2-x1)/(xn-x1))>acc) STOP 'LINEAR_TABLE_INTEGER :: table does not seem to be linear'
-
-    linear_table_integer=1+FLOOR(float(n-1)*(x-x1)/(xn-x1))
-
-  END FUNCTION linear_table_integer
-
-  FUNCTION search_int(x,xtab,n)
-
-    !Does a stupid search through the table from beginning to end to find integer
-    IMPLICIT NONE
-    INTEGER :: search_int
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: x, xtab(n)
-    INTEGER :: i
-
-    IF(xtab(1)>xtab(n)) STOP 'SEARCH_INT: table in wrong order'
-
-    DO i=1,n
-       IF(x>=xtab(i) .AND. x<=xtab(i+1)) EXIT
-    END DO
-
-    search_int=i
-
-  END FUNCTION search_int
-
-  FUNCTION int_split(x,xtab,n)
-
-    !Finds the position of the value in the table by continually splitting it in half
-    IMPLICIT NONE
-    INTEGER :: int_split
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(IN) :: x, xtab(n)
-    INTEGER :: i1, i2, imid
-
-    IF(xtab(1)>xtab(n)) STOP 'INT_SPLIT: table in wrong order'
-
-    i1=1
-    i2=n
-
-    DO
-
-       imid=NINT((i1+i2)/2.)
-
-       IF(x<xtab(imid)) THEN
-          i2=imid
-       ELSE
-          i1=imid
-       END IF
-
-       IF(i2==i1+1) EXIT
-
-    END DO
-
-    int_split=i1
-
-  END FUNCTION int_split
-
-  SUBROUTINE fit_line(a1,a0,x1,y1,x2,y2)
-
-    !Given xi, yi i=1,2 fits a line between these points
-    IMPLICIT NONE
-    REAL*8, INTENT(OUT) :: a0, a1
-    REAL*8, INTENT(IN) :: x1, y1, x2, y2   
-
-    a1=(y2-y1)/(x2-x1)
-    a0=y1-a1*x1
-
-  END SUBROUTINE fit_line
-
-  SUBROUTINE fit_quadratic(a2,a1,a0,x1,y1,x2,y2,x3,y3)
-
-    !Given xi, yi i=1,2,3 fits a quadratic between these points
-    IMPLICIT NONE
-    REAL*8, INTENT(OUT) :: a0, a1, a2
-    REAL*8, INTENT(IN) :: x1, y1, x2, y2, x3, y3   
-
-    a2=((y2-y1)/(x2-x1)-(y3-y1)/(x3-x1))/(x2-x3)
-    a1=(y2-y1)/(x2-x1)-a2*(x2+x1)
-    a0=y1-a2*(x1**2)-a1*x1
-
-  END SUBROUTINE fit_quadratic
-
-  SUBROUTINE fit_cubic(a,b,c,d,x1,y1,x2,y2,x3,y3,x4,y4)
-
-    !Given xi, yi i=1,2,3,4 fits a cubic between these points
-    IMPLICIT NONE
-    REAL*8, INTENT(OUT) :: a, b, c, d
-    REAL*8, INTENT(IN) :: x1, y1, x2, y2, x3, y3, x4, y4
-    REAL*8 :: f1, f2, f3    
-
-    f1=(y4-y1)/((x4-x2)*(x4-x1)*(x4-x3))
-    f2=(y3-y1)/((x3-x2)*(x3-x1)*(x4-x3))
-    f3=(y2-y1)/((x2-x1)*(x4-x3))*(1./(x4-x2)-1./(x3-x2))
-
-    a=f1-f2-f3
-
-    f1=(y3-y1)/((x3-x2)*(x3-x1))
-    f2=(y2-y1)/((x2-x1)*(x3-x2))
-    f3=a*(x3+x2+x1)
-
-    b=f1-f2-f3
-
-    f1=(y4-y1)/(x4-x1)
-    f2=a*(x4**2+x4*x1+x1**2)
-    f3=b*(x4+x1)
-
-    c=f1-f2-f3
-
-    d=y1-a*x1**3-b*x1**2-c*x1
-
-  END SUBROUTINE fit_cubic
-
-  SUBROUTINE reverse(arry,n)
-
-    !This reverses the contents of arry!
-    IMPLICIT NONE
-    INTEGER, INTENT(IN) :: n
-    REAL*8, INTENT(INOUT) :: arry(n)
-    INTEGER :: i
-    REAL*8, ALLOCATABLE :: hold(:) 
-
-    ALLOCATE(hold(n))
-
-    hold=arry
-
-    DO i=1,n
-       arry(i)=hold(n-i+1)
-    END DO
-
-    DEALLOCATE(hold)
-
-  END SUBROUTINE reverse
-
-!!$  ! FUNCTION file_length(file_name)
-!!$
-!!$  !   IMPLICIT NONE
-!!$  !   CHARACTER(len=64) :: file_name
-!!$  !   INTEGER ::n, file_length
-!!$  !   REAL*8 :: data
-!!$
-!!$  !   !Finds the length of a file
-!!$
-!!$  !   OPEN(7,file=file_name)
-!!$  !   n=0
-!!$  !   DO
-!!$  !       n=n+1
-!!$  !       READ(7,*, end=301) data
-!!$  !   END DO
-!!$
-!!$  !   !301 is just the label to jump to when the end of the file is reached
-!!$
-!!$  ! 301 CLOSE(7)  
-!!$
-!!$  !   file_length=n-1
-!!$
-!!$  ! END FUNCTION file_length
-
-  !TILMAN: Replacement for file_length without horrible GOTO
-  function count_number_of_lines(filename) result(n)
-    implicit none
-    character(len=*), intent(in) :: filename
-    integer :: n, file_unit, iostat
-    character :: c
-
-    open(newunit=file_unit, file=filename, status='old', iostat=iostat)
-    if(iostat > 0) then
-        print *, "Failed to open file ", filename
-        n = -1
-        return
-    end if
-
-    n = 0
-    do
-        read(unit=file_unit, fmt=*, iostat=iostat) c
-        if(iostat == 0) then
-            if(c == '#') then
-                print *, "Deteced comment lines in file ", filename, ". Check your data file."
-                cycle
-            end if
-
-            n = n + 1
-        else if(iostat < 0) then
-            !print *, "Reached end of file."
-            exit
-        else
-            print *, "Error reading file ", filename
-            n = -1
-            return
-        end if
-    end do
-
-    close(file_unit)
-  end function count_number_of_lines
-  !TILMAN: End
 
   SUBROUTINE fill_growtab(cosm)
 
@@ -6554,11 +5174,11 @@ MODULE HMx
     IMPLICIT NONE
     TYPE(cosmology) :: cosm
     INTEGER :: i
-    REAL*8 :: a, norm
-    REAL*8, ALLOCATABLE :: d_tab(:), v_tab(:), a_tab(:)
-    REAL*8 :: ainit, amax, dinit, vinit
-    
-    !REAL*8, PARAMETER :: acc=1d-4
+    REAL :: a, norm
+    REAL, ALLOCATABLE :: d_tab(:), v_tab(:), a_tab(:)
+    REAL :: ainit, amax, dinit, vinit
+
+    !REAL, PARAMETER :: acc=1d-4
     INTEGER, PARAMETER :: n=64 !Number of entries for growth tables
 
     !The calculation should start at a z when Om_m(z)=1., so that the assumption
@@ -6572,11 +5192,11 @@ MODULE HMx
     vinit=1.
 
     IF(verbose) WRITE(*,*) 'GROWTH: Solving growth equation'
-    CALL ode_growth(d_tab,v_tab,a_tab,0.d0,ainit,amax,dinit,vinit,acc,3,cosm)
+    CALL ode_growth(d_tab,v_tab,a_tab,0.,ainit,amax,dinit,vinit,acc,3,cosm)
     IF(verbose) WRITE(*,*) 'GROWTH: ODE done'
 
     !Normalise so that g(z=0)=1
-    norm=find(1.d0,a_tab,d_tab,SIZE(a_tab),3,3,2)
+    norm=find(1.,a_tab,d_tab,SIZE(a_tab),3,3,2)
     IF(verbose) WRITE(*,*) 'GROWTH: unnormalised g(a=1):', REAL(norm)
     d_tab=d_tab/norm
     IF(verbose) WRITE(*,*)
@@ -6600,13 +5220,13 @@ MODULE HMx
 
     !Solves 2nd order ODE x''(t) from ti to tf and writes out array of x, v, t values 
     IMPLICIT NONE
-    REAL*8 :: xi, ti, tf, dt, acc, vi, x4, v4, t4, kk
-    REAL*8 :: kx1, kx2, kx3, kx4, kv1, kv2, kv3, kv4
-    REAL*8, ALLOCATABLE :: x8(:), t8(:), v8(:), xh(:), th(:), vh(:)
-    REAL*8, ALLOCATABLE :: x(:), v(:), t(:)
+    REAL :: xi, ti, tf, dt, acc, vi, x4, v4, t4, kk
+    REAL :: kx1, kx2, kx3, kx4, kv1, kv2, kv3, kv4
+    REAL, ALLOCATABLE :: x8(:), t8(:), v8(:), xh(:), th(:), vh(:)
+    REAL, ALLOCATABLE :: x(:), v(:), t(:)
     INTEGER :: i, j, k, n, np, ifail, kn, imeth
     TYPE(cosmology) :: cosm
-    
+
     INTEGER, PARAMETER :: jmax=30
     INTEGER, PARAMETER :: ninit=100
 
@@ -6630,16 +5250,16 @@ MODULE HMx
        ALLOCATE(x8(n),t8(n),v8(n))
 
        !Set the arrays to initialy be zeroes (is this neceseary?)
-       x8=0.d0
-       t8=0.d0
-       v8=0.d0
+       x8=0.
+       t8=0.
+       v8=0.
 
        !Set the intial conditions at the intial time
        x8(1)=xi
        v8(1)=vi
 
        !Fill up a table for the time values
-       CALL fill_table(DBLE(ti),DBLE(tf),t8,n)
+       CALL fill_array(ti,tf,t8,n)
 
        !Set the time interval
        dt=(tf-ti)/float(n-1)
@@ -6661,7 +5281,7 @@ MODULE HMx
 
              x8(i+1)=x8(i)+kx1
              v8(i+1)=v8(i)+kv1
-                  
+
           ELSE IF(imeth==2) THEN
 
              !Mid-point method
@@ -6673,7 +5293,7 @@ MODULE HMx
 
              x8(i+1)=x8(i)+kx2
              v8(i+1)=v8(i)+kv2
-             
+
           ELSE IF(imeth==3) THEN
 
              !4th order Runge-Kutta method (fast!)
@@ -6742,9 +5362,9 @@ MODULE HMx
 
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: fd
-    REAL*8, INTENT(IN) :: d, v, k, a
-    REAL*8 :: crap
+    REAL :: fd
+    REAL, INTENT(IN) :: d, v, k, a
+    REAL :: crap
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !To prevent compile-time warnings
@@ -6764,10 +5384,10 @@ MODULE HMx
 
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: fv
-    REAL*8, INTENT(IN) :: d, v, k, a
-    REAL*8 :: f1, f2, z
-    REAL*8 :: crap
+    REAL :: fv
+    REAL, INTENT(IN) :: d, v, k, a
+    REAL :: f1, f2, z
+    REAL :: crap
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !To prevent compile-time warning
@@ -6790,9 +5410,9 @@ MODULE HMx
 
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: AH
-    REAL*8, INTENT(IN) :: z
-    REAL*8 :: a
+    REAL :: AH
+    REAL, INTENT(IN) :: z
+    REAL :: a
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !\ddot{a}/a
@@ -6810,8 +5430,8 @@ MODULE HMx
 
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: X_de
-    REAL*8, INTENT(IN) :: a
+    REAL :: X_de
+    REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !The time evolution for Om_w for w(a) DE models
@@ -6824,66 +5444,28 @@ MODULE HMx
     !w(a) for DE models
     !USE cosdef
     IMPLICIT NONE
-    REAL*8 :: w_de
-    REAL*8, INTENT(IN) :: a
+    REAL :: w_de
+    REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(IN) :: cosm
 
     w_de=cosm%w+(1.-a)*cosm%wa
 
   END FUNCTION w_de
 
-  FUNCTION sinc(x)
-
-    !Sinc(x)=sin(x)/x
-    IMPLICIT NONE
-    REAL*8 :: sinc
-    REAL*8, INTENT(IN) :: x
-    
-    REAL*8, PARAMETER :: dx=1e-3
-
-    !Actually I don't think you need the IF because there is no subtraction cancellation problem
-    !Only sinc(0) is a problem
-    IF(ABS(x)<ABS(dx)) THEN
-       sinc=1.d0-(x**2)/6.d0
-    ELSE
-       sinc=sin(x)/x
-    END IF
-
-  END FUNCTION sinc
-
-  FUNCTION wk_tophat(x)
-
-    !The normlaised Fourier Transform of a top-hat
-    IMPLICIT NONE
-    REAL*8 :: wk_tophat
-    REAL*8, INTENT(IN) :: x
-    
-    REAL*8, PARAMETER :: dx=1d-3
-
-    !Taylor expansion used for low |x| to avoid cancellation problems
-
-    IF(ABS(x)<ABS(dx)) THEN
-       wk_tophat=1.d0-(x**2)/10.d0
-    ELSE
-       wk_tophat=3.d0*(sin(x)-x*cos(x))/(x**3)
-    END IF
-
-  END FUNCTION wk_tophat
-
   FUNCTION wk_isothermal(x)
 
     !The normlaised Fourier Transform of a top-hat
     IMPLICIT NONE
-    REAL*8 :: wk_isothermal
-    REAL*8, INTENT(IN) :: x
-    
-    REAL*8, PARAMETER :: dx=1d-3
+    REAL :: wk_isothermal
+    REAL, INTENT(IN) :: x
+
+    REAL, PARAMETER :: dx=1e-3
 
     !Taylor expansion used for low |x| to avoid cancellation problems
 
     IF(ABS(x)<ABS(dx)) THEN
        !Taylor series at low x
-       wk_isothermal=1.d0-(x**2)/18.d0
+       wk_isothermal=1.-(x**2)/18.
     ELSE
        wk_isothermal=Si(x)/x
     END IF
@@ -6894,16 +5476,16 @@ MODULE HMx
 
     !The normlaised Fourier Transform of a top-hat
     IMPLICIT NONE
-    REAL*8 :: wk_isothermal_2
-    REAL*8, INTENT(IN) :: x, y
-    
-    REAL*8, PARAMETER :: dx=1d-3
+    REAL :: wk_isothermal_2
+    REAL, INTENT(IN) :: x, y
+
+    REAL, PARAMETER :: dx=1e-3
 
     !Taylor expansion used for low |x| to avoid cancellation problems
 
     !IF(ABS(x)<ABS(dx)) THEN
     !   !Taylor series at low x
-    !   wk_isothermal_2=1.d0-(x**2)/18.d0
+    !   wk_isothermal_2=1.-(x**2)/18.
     !ELSE
     wk_isothermal_2=(Si(x)-Si(y))/(x-y)
     !END IF
@@ -6914,9 +5496,9 @@ MODULE HMx
 
     !Mass fraction of a type within a halo
     IMPLICIT NONE
-    REAL*8 :: halo_fraction
+    REAL :: halo_fraction
     INTEGER, INTENT(IN) :: itype
-    REAL*8, INTENT(IN) :: m
+    REAL, INTENT(IN) :: m
     TYPE(cosmology) :: cosm
 
     If(itype==-1 .OR. itype==0) THEN
@@ -6941,8 +5523,8 @@ MODULE HMx
 
     !Mass fraction of a halo in gas
     IMPLICIT NONE
-    REAL*8 :: halo_gas_fraction
-    REAL*8, INTENT(IN) :: m
+    REAL :: halo_gas_fraction
+    REAL, INTENT(IN) :: m
     TYPE(cosmology), INTENT(IN) :: cosm
 
     halo_gas_fraction=halo_boundgas_fraction(m,cosm)+halo_freegas_fraction(m,cosm)
@@ -6953,14 +5535,14 @@ MODULE HMx
 
     !Mass fraction of a halo in CDM
     IMPLICIT NONE
-    REAL*8 :: halo_CDM_fraction
-    REAL*8, INTENT(IN) :: m
-    REAL*8 :: crap
+    REAL :: halo_CDM_fraction
+    REAL, INTENT(IN) :: m
+    REAL :: crap
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !To prevent compile-time warning
     crap=m
-    
+
     !Always the universal value
     halo_CDM_fraction=cosm%om_c/cosm%om_m
 
@@ -6970,13 +5552,13 @@ MODULE HMx
 
     !Mass fraction of a halo in free gas
     IMPLICIT NONE
-    REAL*8 :: halo_freegas_fraction
-    REAL*8, INTENT(IN) :: m
+    REAL :: halo_freegas_fraction
+    REAL, INTENT(IN) :: m
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !This is always all the gas that is not bound or in stars
     halo_freegas_fraction=cosm%om_b/cosm%om_m-halo_star_fraction(m,cosm)-halo_boundgas_fraction(m,cosm)
-    IF(halo_freegas_fraction<0.d0) halo_freegas_fraction=0.d0
+    IF(halo_freegas_fraction<0.) halo_freegas_fraction=0.
 
   END FUNCTION halo_freegas_fraction
 
@@ -6984,10 +5566,10 @@ MODULE HMx
 
     !Fraction of a halo in bound gas
     IMPLICIT NONE
-    REAL*8 :: halo_boundgas_fraction
-    REAL*8, INTENT(IN) :: m
+    REAL :: halo_boundgas_fraction
+    REAL, INTENT(IN) :: m
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: m0, sigma, beta
+    REAL :: m0, sigma, beta
 
     !Set the model
     !1 - Fedeli (2014a) bound gas model
@@ -6997,10 +5579,10 @@ MODULE HMx
 
     IF(imod==1) THEN
        !From Fedeli (2014a)
-       m0=1.d12
-       sigma=3.d0
+       m0=1.e12
+       sigma=3.
        IF(m<m0) THEN
-          halo_boundgas_fraction=0.d0
+          halo_boundgas_fraction=0.
        ELSE
           halo_boundgas_fraction=erf(log10(m/m0)/sigma)*cosm%om_b/cosm%om_m
        END IF
@@ -7008,7 +5590,7 @@ MODULE HMx
        !From Schneider (2015)
        !m0=1.2d14
        m0=cosm%param(4)
-       beta=0.6d0
+       beta=0.6
        halo_boundgas_fraction=(cosm%om_b/cosm%om_m)/(1.+(m0/m)**beta)
     ELSE IF(imod==3) THEN
        !Universal baryon fraction model (account for stellar contribution)
@@ -7023,11 +5605,11 @@ MODULE HMx
 
     !Mass fraction of a halo in stars
     IMPLICIT NONE
-    REAL*8 :: halo_star_fraction
-    REAL*8, INTENT(IN) :: m
+    REAL :: halo_star_fraction
+    REAL, INTENT(IN) :: m
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: m0, sigma, A, min
-    REAL*8 :: crap
+    REAL :: m0, sigma, A, min
+    REAL :: crap
 
     !Set the model
     !1 - Fedeli (2014)
@@ -7068,7 +5650,7 @@ MODULE HMx
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(lensing), INTENT(INOUT) :: lens
-    
+
     !CHARACTER(len=256) :: names(7)
     !names(1)='1 - RCSLenS'
     !names(2)='2 - KiDS (z = 0.1 -> 0.9)'
@@ -7110,8 +5692,8 @@ MODULE HMx
     TYPE(lensing), INTENT(INOUT) :: lens
     INTEGER :: i
 
-    REAL*8, PARAMETER :: zmin=0.d0
-    REAL*8, PARAMETER :: zmax=2.5d0
+    REAL, PARAMETER :: zmin=0.
+    REAL, PARAMETER :: zmax=2.5
     INTEGER, PARAMETER :: n=128
 
     !From analytical function
@@ -7121,11 +5703,11 @@ MODULE HMx
     ALLOCATE(lens%z_nz(lens%nnz),lens%nz(lens%nnz))
 
     !Fill the look-up tables
-    CALL fill_table(zmin,zmax,lens%z_nz,lens%nnz)
+    CALL fill_array(zmin,zmax,lens%z_nz,lens%nnz)
     DO i=1,n
        lens%nz(i)=nz_lensing(lens%z_nz(i),ix)
     END DO
-    
+
   END SUBROUTINE fill_analytic_nz_table
 
   SUBROUTINE fill_nz_table(ix,lens)
@@ -7164,17 +5746,17 @@ MODULE HMx
        READ(7,*) lens%z_nz(i), lens%nz(i)
     END DO
     CLOSE(7)
-    
+
   END SUBROUTINE fill_nz_table
 
   FUNCTION nz_lensing(z,ix)
 
     IMPLICIT NONE
-    REAL*8 :: nz_lensing
-    REAL*8, INTENT(IN) :: z
+    REAL :: nz_lensing
+    REAL, INTENT(IN) :: z
     INTEGER, INTENT(IN) :: ix
-    REAL*8 :: a, b, c, d, e, f, g, h, i
-    REAL*8 :: n1, n2, n3
+    REAL :: a, b, c, d, e, f, g, h, i
+    REAL :: n1, n2, n3
 
     IF(ix==1) THEN
        !RCSLenS
@@ -7206,151 +5788,54 @@ MODULE HMx
 
   END FUNCTION nz_lensing
 
-  FUNCTION integrate(a,b,f,acc,iorder)
-
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
-    IMPLICIT NONE
-    REAL*8 :: integrate
-    REAL*8, INTENT(IN) :: a, b, acc
-    INTEGER, INTENT(IN) :: iorder
-    INTEGER :: i, j
-    INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=30
-
-    INTERFACE
-       FUNCTION f(x)
-         REAL*8 :: f
-         REAL*8, INTENT(IN) :: x
-       END FUNCTION f
-    END INTERFACE
-
-    IF(a==b) THEN
-
-       !Fix the answer to zero if the integration limits are identical
-       integrate=0.d0
-
-    ELSE
-
-       !Reset the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
-
-       DO j=1,jmax
-          
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
-          n=1+2**(j-1)
-
-          !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/DBLE(n-1)
-
-          IF(j==1) THEN
-             
-             !The first go is just the trapezium of the end points
-             f1=f(a)
-             f2=f(b)
-             sum_2n=0.5d0*(f1+f2)*dx
-             sum_new=sum_2n
-             
-          ELSE
-
-             !Loop over only new even points to add these to the integral
-             DO i=2,n,2
-                !x=a+(b-a)*DBLE(i-1)/DBLE(n-1)
-                x=progression(a,b,i,n)
-                fx=f(x)
-                sum_2n=sum_2n+fx
-             END DO
-
-             !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
-
-             !Now calculate the new sum depending on the integration order
-             IF(iorder==1) THEN  
-                sum_new=sum_2n
-             ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
-             ELSE
-                STOP 'INTEGRATE: Error, iorder specified incorrectly'
-             END IF
-
-          END IF
-
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
-             !jmin avoids spurious early convergence
-             integrate=sum_new
-             EXIT
-          ELSE IF(j==jmax) THEN
-             STOP 'INTEGRATE: Integration timed out'
-          ELSE
-             !Integral has not converged so store old sums and reset sum variables
-             sum_old=sum_new
-             sum_n=sum_2n
-             sum_2n=0.d0
-          END IF
-
-       END DO
-
-    END IF
-
-  END FUNCTION integrate
-
   FUNCTION integrate_distance(a,b,acc,iorder,cosm)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: integrate_distance
-    REAL*8, INTENT(IN) :: a, b, acc
+    REAL :: integrate_distance
+    REAL, INTENT(IN) :: a, b, acc
     INTEGER, INTENT(IN) :: iorder
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       integrate_distance=0.d0
+       integrate_distance=0.
 
     ELSE
 
        !Set the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
-          
+
           !Note, you need this to be 1+2**n for some integer n
           !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
           n=1+2**(j-1)
 
           !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/DBLE(n-1)
+          dx=(b-a)/REAL(n-1)
 
           IF(j==1) THEN
-             
+
              !The first go is just the trapezium of the end points
              f1=distance_integrand(a,cosm)
              f2=distance_integrand(b,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
-             
+
           ELSE
 
              !Loop over only new even points to add these to the integral
@@ -7361,22 +5846,22 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'INTEGRATE_DISTANCE: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
-             integrate_distance=sum_new
+             integrate_distance=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
              STOP 'INTEGRATE_DISTANCE: Integration timed out'
@@ -7384,7 +5869,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -7396,20 +5881,20 @@ MODULE HMx
   FUNCTION distance_integrand(a,cosm)
 
     IMPLICIT NONE
-    REAL*8 :: distance_integrand
-    REAL*8, INTENT(IN) :: a
+    REAL :: distance_integrand
+    REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL*8 :: z
-    
-    REAL*8, PARAMETER :: amin=1d-5
-        
+    REAL :: z
+
+    REAL, PARAMETER :: amin=1e-5
+
     IF(a<amin) THEN
        distance_integrand=conH0/sqrt(Hubble2a4_highz(cosm))
     ELSE
        z=redshift_a(a)
        distance_integrand=conH0/(sqrt(Hubble2(z,cosm))*a**2)
     END IF
-    
+
   END FUNCTION distance_integrand
 
   FUNCTION integrate_q(r,a,b,acc,iorder,lens,cosm)
@@ -7417,50 +5902,50 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: integrate_q
-    REAL*8, INTENT(IN) :: a, b, r, acc
+    REAL :: integrate_q
+    REAL, INTENT(IN) :: a, b, r, acc
     INTEGER, INTENT(IN) :: iorder
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(lensing), INTENT(IN) :: lens
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       integrate_q=0.d0
+       integrate_q=0.
 
     ELSE
 
        !Set the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
-          
+
           !Note, you need this to be 1+2**n for some integer n
           !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
           n=1+2**(j-1)
 
           !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/DBLE(n-1)
+          dx=(b-a)/REAL(n-1)
 
           IF(j==1) THEN
-             
+
              !The first go is just the trapezium of the end points
              f1=q_integrand(a,r,lens,cosm)
              f2=q_integrand(b,r,lens,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
-             
+
           ELSE
 
              !Loop over only new even points to add these to the integral
@@ -7472,22 +5957,22 @@ MODULE HMx
              END DO
 
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'INTEGRATE_Q: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
-             integrate_q=sum_new
+             integrate_q=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
              STOP 'INTEGRATE_Q: Integration timed out'
@@ -7495,7 +5980,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -7510,11 +5995,11 @@ MODULE HMx
     !z is integrated over while r is just a parameter
     !This is only called for n(z)
     IMPLICIT NONE
-    REAL*8 :: q_integrand
-    REAL*8, INTENT(IN) :: r, z
+    REAL :: q_integrand
+    REAL, INTENT(IN) :: r, z
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(lensing), INTENT(IN) :: lens
-    REAL*8 :: rdash, nz
+    REAL :: rdash, nz
 
     IF(z==0.) THEN
        q_integrand=0.
@@ -7535,55 +6020,55 @@ MODULE HMx
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL*8 :: integrate_Limber
-    REAL*8, INTENT(IN) :: a, b, acc
+    REAL :: integrate_Limber
+    REAL, INTENT(IN) :: a, b, acc
     INTEGER, INTENT(IN) :: iorder
-    REAL*8, INTENT(IN) :: l
-    REAL*8, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
+    REAL, INTENT(IN) :: l
+    REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
     TYPE(projection), INTENT(IN) :: proj(2)
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i, j
     INTEGER :: n
-    REAL*8 :: x, dx
-    REAL*8 :: f1, f2, fx
-    REAL*8 :: sum_n, sum_2n, sum_new, sum_old
-    
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=25
 
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       integrate_Limber=0.d0
+       integrate_Limber=0.
 
     ELSE
 
        !Set the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
 
        DO j=1,jmax
-          
+
           !Note, you need this to be 1+2**n for some integer n
           !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
           n=1+2**(j-1)
 
           !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/DBLE(n-1)
+          dx=(b-a)/REAL(n-1)
 
           !WRITE(*,*) j, n
 
           IF(j==1) THEN
-             
+
              !The first go is just the trapezium of the end points
              f1=Limber_integrand(a,l,logktab,logatab,logptab,nk,na,proj,cosm)
              f2=Limber_integrand(b,l,logktab,logatab,logptab,nk,na,proj,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
+             sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
-             
+
           ELSE
 
              !Loop over only new even points to add these to the integral
@@ -7593,24 +6078,24 @@ MODULE HMx
                 fx=Limber_integrand(x,l,logktab,logatab,logptab,nk,na,proj,cosm)
                 sum_2n=sum_2n+fx
              END DO
-             
+
              !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
+             sum_2n=sum_n/2.+sum_2n*dx
 
              !Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
              ELSE
                 STOP 'INTEGRATE_LIMBER: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
-             integrate_Limber=sum_new
+             integrate_Limber=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
              STOP 'INTEGRATE_LIMBER: Integration timed out'
@@ -7618,7 +6103,7 @@ MODULE HMx
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
              sum_n=sum_2n
-             sum_2n=0.d0
+             sum_2n=0.
           END IF
 
        END DO
@@ -7631,21 +6116,21 @@ MODULE HMx
 
     !The integrand for the Limber integral
     IMPLICIT NONE
-    REAL*8 :: Limber_integrand
-    REAL*8, INTENT(IN) :: r, l
-    REAL*8, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
+    REAL :: Limber_integrand
+    REAL, INTENT(IN) :: r, l
+    REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(projection), INTENT(IN) :: proj(2)
-    REAL*8 :: z, a, k, X(2)
+    REAL :: z, a, k, X(2)
     INTEGER :: i
-    
-    IF(r==0.d0) THEN
 
-       Limber_integrand=0.d0
+    IF(r==0.) THEN
+
+       Limber_integrand=0.
 
     ELSE
-       
+
        !Get the two kernels
        DO i=1,2
           X(i)=find(r,proj(i)%r_X,proj(i)%X,proj(i)%nX,3,3,2)
@@ -7658,26 +6143,26 @@ MODULE HMx
        z=redshift_r(r,cosm)
        a=scale_factor_z(z)
        k=(l+lcorr)/f_k(r,cosm) !LoVerde et al. (2008) Limber correction
-       
+
        !Construct the integrand
        Limber_integrand=X(1)*X(2)*find_pka(k,a,logktab,logatab,logptab,nk,na)/f_k(r,cosm)**2
        !Limber_integrand=x1*x2/f_k(r,cosm)**2 !Note that this is very hard to integrate for kappa-y or y-y
        !Limber_integrand=find_pkz(k,z,logktab,ztab,logptab,nk,nz)/f_k(r,cosm)
-       
+
     END IF
-    
+
   END FUNCTION Limber_integrand
 
   SUBROUTINE Limber_contribution(l,a,b,logktab,logatab,logptab,nk,na,proj,cosm,outfile)
 
     IMPLICIT NONE
-    REAL*8, INTENT(IN) :: l, a, b
-    REAL*8, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
+    REAL, INTENT(IN) :: l, a, b
+    REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(projection), INTENT(IN) :: proj(2)
     CHARACTER(len=256), INTENT(IN) :: outfile
-    REAL*8 :: k, r, z, total, int
+    REAL :: k, r, z, total, int
     INTEGER :: i
 
     INTEGER, PARAMETER  :: n=1024 !Number of samples to take in r
@@ -7695,7 +6180,7 @@ MODULE HMx
     DO i=1,n
        !r=a+(b-a)*DBLE(i-1)/DBLE(n-1)
        r=progression(a,b,i,n)
-       IF(r==0.d0) THEN
+       IF(r==0.) THEN
           CYCLE
        ELSE
           k=(l+lcorr)/f_k(r,cosm)
@@ -7706,23 +6191,23 @@ MODULE HMx
        END IF
     END DO
     CLOSE(7)
-    
+
   END SUBROUTINE Limber_contribution
 
   FUNCTION find_pka(k,a,logktab,logatab,logptab,nk,na)
 
     !Looks up the power as a 2D function of k and a
     IMPLICIT NONE
-    REAL*8 :: find_pka
+    REAL :: find_pka
     INTEGER, INTENT(IN) :: nk, na
-    REAL*8, INTENT(IN) :: k, a
-    REAL*8, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
-    
-    REAL*8, PARAMETER :: kmin=1e-3 !kmin value
-    REAL*8, PARAMETER :: kmax=1e2 !kmax value
+    REAL, INTENT(IN) :: k, a
+    REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
+
+    REAL, PARAMETER :: kmin=1e-3 !kmin value
+    REAL, PARAMETER :: kmax=1e2 !kmax value
 
     IF(k<=kmin .OR. k>=kmax) THEN
-       find_pka=0.d0
+       find_pka=0.
     ELSE
        find_pka=exp(find2d(log(k),logktab,log(a),logatab,logptab,nk,na,3,3,1))
     END IF
@@ -7735,7 +6220,7 @@ MODULE HMx
   SUBROUTINE print_baryon_parameters(cosm)!param,param_names,n)
 
     IMPLICIT NONE
-    !REAL*8, INTENT(IN) :: param(n)
+    !REAL, INTENT(IN) :: param(n)
     !CHARACTER(len=256), INTENT(IN) :: param_names(n)
     !INTEGER, INTENT(IN) :: n
     INTEGER :: i
@@ -7749,13 +6234,13 @@ MODULE HMx
     WRITE(*,*) '=========================================='
     WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Done'
     WRITE(*,*)
-    
+
   END SUBROUTINE print_baryon_parameters
-  
+
 END MODULE HMx
 
 PROGRAM HMx_driver
-  
+
   USE HMx
   USE cosdef
   IMPLICIT NONE
@@ -7764,360 +6249,360 @@ PROGRAM HMx_driver
 
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
-    imode=-1
+     imode=-1
   ELSE
-    READ(mode,*) imode
+     READ(mode,*) imode
   END IF
 
   !HMx developed by Alexander Mead
   WRITE(*,*)
   WRITE(*,*) 'HMx: Welcome to HMx'
   IF(imead==-1) THEN
-    WRITE(*,*) 'HMx: Doing basic halo-model calculation (Two-halo term is linear)'
+     WRITE(*,*) 'HMx: Doing basic halo-model calculation (Two-halo term is linear)'
   ELSE IF(imead==0) THEN
-    WRITE(*,*) 'HMx: Doing standard halo-model calculation (Seljak 2000)'
+     WRITE(*,*) 'HMx: Doing standard halo-model calculation (Seljak 2000)'
   ELSE IF(imead==1) THEN
-    WRITE(*,*) 'HMx: Doing accurate halo-model calculation (Mead et al. 2015)'
+     WRITE(*,*) 'HMx: Doing accurate halo-model calculation (Mead et al. 2015)'
   ELSE
-    STOP 'HMx: imead specified incorrectly'
+     STOP 'HMx: imead specified incorrectly'
   END IF
   WRITE(*,*)
 
   IF(imode==-1) THEN
-    WRITE(*,*) 'HMx: Choose what to do'
-    WRITE(*,*) '======================'
-    WRITE(*,*) ' 0 - Matter power spectrum at z = 0'
-    WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
-    WRITE(*,*) ' 2 - Comparison with cosmo-OWLS'
-    WRITE(*,*) ' 3 - Run diagnostics'
-    WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
-    WRITE(*,*) ' 5 - Pressure field comparison'
-    WRITE(*,*) ' 6 - n(z) check'
-    WRITE(*,*) ' 7 - Do cross correlation'
-    WRITE(*,*) ' 8 - Cross correlation as a function of cosmology'
-    WRITE(*,*) ' 9 - Breakdown correlations in halo mass'
-    WRITE(*,*) '10 - Breakdown correlations in redshift'
-    WRITE(*,*) '11 - Breakdown correlations in halo radius'
-    WRITE(*,*) '12 - Project triad'
-    WRITE(*,*) '13 - Cross-correlation coefficient'
-    WRITE(*,*) '14 - 3D spectra as HMx parameters vary'
-    !WRITE(*,*) '15 - matter spectra as HMx parameters vary'
-    READ(*,*) imode
-    WRITE(*,*) '======================'
-    WRITE(*,*)
+     WRITE(*,*) 'HMx: Choose what to do'
+     WRITE(*,*) '======================'
+     WRITE(*,*) ' 0 - Matter power spectrum at z = 0'
+     WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
+     WRITE(*,*) ' 2 - Comparison with cosmo-OWLS'
+     WRITE(*,*) ' 3 - Run diagnostics'
+     WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
+     WRITE(*,*) ' 5 - Pressure field comparison'
+     WRITE(*,*) ' 6 - n(z) check'
+     WRITE(*,*) ' 7 - Do cross correlation'
+     WRITE(*,*) ' 8 - Cross correlation as a function of cosmology'
+     WRITE(*,*) ' 9 - Breakdown correlations in halo mass'
+     WRITE(*,*) '10 - Breakdown correlations in redshift'
+     WRITE(*,*) '11 - Breakdown correlations in halo radius'
+     WRITE(*,*) '12 - Project triad'
+     WRITE(*,*) '13 - Cross-correlation coefficient'
+     WRITE(*,*) '14 - 3D spectra as HMx parameters vary'
+     !WRITE(*,*) '15 - matter spectra as HMx parameters vary'
+     READ(*,*) imode
+     WRITE(*,*) '======================'
+     WRITE(*,*)
   END IF
 
   IF(imode==0) THEN
 
-    !Set number of k points and k range (log spaced)
-    nk=200
-    kmin=1e-3
-    kmax=1e2
-    CALL fill_table(log(kmin),log(kmax),k,nk)
-    k=exp(k)
-    ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+     !Set number of k points and k range (log spaced)
+     nk=200
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
-    !Assigns the cosmological model
-    icosmo=0
-    CALL assign_cosmology(icosmo,cosm)
+     !Assigns the cosmological model
+     icosmo=0
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    !Sets the redshift
-    z=0.
+     !Sets the redshift
+     z=0.
 
-    !Initiliasation for the halomodel calcualtion
-    CALL halomod_init(mmin,mmax,z,lut,cosm)
+     !Initiliasation for the halomodel calcualtion
+     CALL halomod_init(mmin,mmax,z,lut,cosm)
 
-    !Do the halo-model calculation
-    CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
+     !Do the halo-model calculation
+     CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
 
-    !na=1
-    !ALLOCATE(a(na))
-    !a=scale_factor_z(z)
-    !a=1.
-    
-    !ip=-1
-    !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+     !na=1
+     !ALLOCATE(a(na))
+     !a=scale_factor_z(z)
+     !a=1.
 
-    !Write out the answer
-    outfile='data/power.dat'
-    !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
-    CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+     !ip=-1
+     !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
 
-    !Write the one-void term if necessary
-    IF(void) THEN
+     !Write out the answer
+     outfile='data/power.dat'
+     !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
+     CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+
+     !Write the one-void term if necessary
+     IF(void) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
-          WRITE(8,*) k(i), p_1v(k(i),lut)!,cosm)
+           WRITE(8,*) k(i), p_1v(k(i),lut)!,cosm)
         END DO
         CLOSE(8)
-    END IF
+     END IF
 
   ELSE IF(imode==1) THEN
 
-    !Assigns the cosmological model
-    icosmo=0
-    CALL assign_cosmology(icosmo,cosm)
+     !Assigns the cosmological model
+     icosmo=0
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    !Set number of k points and k range (log spaced)
-    nk=200
-    kmin=1e-3
-    kmax=1e2
-    CALL fill_table(log(kmin),log(kmax),k,nk)
-    k=exp(k)
+     !Set number of k points and k range (log spaced)
+     nk=200
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
 
-    !Set the number of redshifts and range (linearly spaced) and convert z -> a
-    nz=16
-    zmin=0.
-    zmax=4.
-    CALL fill_table(zmin,zmax,a,nz)
-    a=1./(1.+a)
-    na=nz
+     !Set the number of redshifts and range (linearly spaced) and convert z -> a
+     nz=16
+     zmin=0.
+     zmax=4.
+     CALL fill_array(zmin,zmax,a,nz)
+     a=1./(1.+a)
+     na=nz
 
-    !Instead could set an a-range
-    !amin=scale_factor(cosm%z_cmb)
-    !amax=1.
-    !na=16
-    !CALL fill_table(amin,amax,a,na)
+     !Instead could set an a-range
+     !amin=scale_factor(cosm%z_cmb)
+     !amax=1.
+     !na=16
+     !CALL fill_array(amin,amax,a,na)
 
-    !Allocate power arrays
-    !ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
+     !Allocate power arrays
+     !ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
 
-    !Do the halo-model calculation
-    !WRITE(*,*) 'HMx: Doing calculation'
-    !DO j=na,1,-1
-    !   z=redshift_a(a(j))
-    !   CALL halomod_init(mmin,mmax,z,lut,cosm)
-    !   WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', j, REAL(z)
-    !   CALL calculate_halomod(-1,-1,k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-    !END DO
-    !WRITE(*,*)
+     !Do the halo-model calculation
+     !WRITE(*,*) 'HMx: Doing calculation'
+     !DO j=na,1,-1
+     !   z=redshift_a(a(j))
+     !   CALL halomod_init(mmin,mmax,z,lut,cosm)
+     !   WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', j, REAL(z)
+     !   CALL calculate_halomod(-1,-1,k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
+     !END DO
+     !WRITE(*,*)
 
-    ip=-1
-    CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
-    
-    base='data/power'
-    CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,.TRUE.)
+     ip=-1
+     CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+
+     base='data/power'
+     CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,.TRUE.)
 
   ELSE IF(imode==2) THEN
 
-    !Compare to cosmo-OWLS models
+     !Compare to cosmo-OWLS models
 
-    !Set OWLS model, or set to zero for defaults
-    iowl=4
-    IF(iowl==1) THEN
+     !Set OWLS model, or set to zero for defaults
+     iowl=4
+     IF(iowl==1) THEN
         name='DMONLY'
-    ELSE IF(iowl==2) THEN
+     ELSE IF(iowl==2) THEN
         name='REF'
         cosm%param(1)=2.
         cosm%param(2)=1.4
         cosm%param(3)=1.24
-        cosm%param(4)=1d13
+        cosm%param(4)=1e13
         cosm%param(5)=0.055
-    ELSE IF(iowl==3) THEN
+     ELSE IF(iowl==3) THEN
         name='NOCOOL'
         cosm%param(1)=2.
         cosm%param(2)=0.8
         cosm%param(3)=1.1
         cosm%param(4)=0.
         cosm%param(5)=0.
-    ELSE IF(iowl==4) THEN
+     ELSE IF(iowl==4) THEN
         name='AGN'
         cosm%param(1)=2.
         cosm%param(2)=0.5
         cosm%param(3)=1.18
-        cosm%param(4)=8d13
+        cosm%param(4)=8e13
         cosm%param(5)=0.0225
-    ELSE IF(iowl==5) THEN
+     ELSE IF(iowl==5) THEN
         name='AGN 8.5'
         cosm%param(1)=2.
         cosm%param(2)=-0.5
         cosm%param(3)=1.26
         cosm%param(4)=2d14
         cosm%param(5)=0.0175
-    ELSE IF(iowl==6) THEN
+     ELSE IF(iowl==6) THEN
         name='AGN 8.7'
         cosm%param(1)=2.
         cosm%param(2)=-2.
         cosm%param(3)=1.3
-        cosm%param(4)=1d15
+        cosm%param(4)=1e15
         cosm%param(5)=0.015
-    END IF
+     END IF
 
-    IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
-    CALL print_baryon_parameters(cosm)
+     IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
+     CALL print_baryon_parameters(cosm)
 
-    !Set number of k points and k range (log spaced)
-    nk=200
-    kmin=1e-3
-    kmax=1e2
-    CALL fill_table(log(kmin),log(kmax),k,nk)
-    k=exp(k)
-    ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+     !Set number of k points and k range (log spaced)
+     nk=200
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
-    !Set the redshift
-    !na=1
-    z=0.
-    !ALLOCATE(a(na))
-    !a(1)=scale_factor_z(z)
+     !Set the redshift
+     !na=1
+     z=0.
+     !ALLOCATE(a(na))
+     !a(1)=scale_factor_z(z)
 
-    !Assigns the cosmological model
-    icosmo=1
-    CALL assign_cosmology(icosmo,cosm)
+     !Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    !Initiliasation for the halomodel calcualtion
-    CALL halomod_init(mmin,mmax,z,lut,cosm)
+     !Initiliasation for the halomodel calcualtion
+     CALL halomod_init(mmin,mmax,z,lut,cosm)
 
-    !Runs the diagnostics
-    dir='diagnostics'
-    CALL halo_diagnostics(z,lut,cosm,dir)
-    CALL halo_definitions(lut,dir)
-    
-    !File base and extension
-    base='cosmo-OWLS/data/power_'
-    mid=''
-    ext='.dat'
+     !Runs the diagnostics
+     dir='diagnostics'
+     CALL halo_diagnostics(z,lut,cosm,dir)
+     CALL halo_definitions(lut,dir)
 
-    !Dark-matter only
-    outfile='cosmo-OWLS/data/DMONLY.dat'
-    WRITE(*,fmt='(2I5,A30)') -1, -1, TRIM(outfile)
-    CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
-    CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
-    
-    !ip=-1
-    !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
-    !outfile='cosmo-OWLS/data/DMONLY.dat'
-    !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
+     !File base and extension
+     base='cosmo-OWLS/data/power_'
+     mid=''
+     ext='.dat'
 
-    !Loop over matter types and do auto and cross-spectra
-    DO j1=0,6
+     !Dark-matter only
+     outfile='cosmo-OWLS/data/DMONLY.dat'
+     WRITE(*,fmt='(2I5,A30)') -1, -1, TRIM(outfile)
+     CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
+     CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+
+     !ip=-1
+     !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+     !outfile='cosmo-OWLS/data/DMONLY.dat'
+     !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
+
+     !Loop over matter types and do auto and cross-spectra
+     DO j1=0,6
         DO j2=j1,6
 
-          !Fix output file and write to screen
-          outfile=number_file2(base,j1,mid,j2,ext)
-          WRITE(*,fmt='(2I5,A30)') j1, j2, TRIM(outfile)
+           !Fix output file and write to screen
+           outfile=number_file2(base,j1,mid,j2,ext)
+           WRITE(*,fmt='(2I5,A30)') j1, j2, TRIM(outfile)
 
-          CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
-          CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+           CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
+           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
 
         END DO
-    END DO
+     END DO
 
   ELSE IF(imode==3) THEN
 
-    !Assigns the cosmological model
-    icosmo=0
-    CALL assign_cosmology(icosmo,cosm)
+     !Assigns the cosmological model
+     icosmo=0
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    !WRITE(*,*) 'Redshift:'
-    !READ(*,*) z
-    !WRITE(*,*)
-    z=0.
+     !WRITE(*,*) 'Redshift:'
+     !READ(*,*) z
+     !WRITE(*,*)
+     z=0.
 
-    !Initiliasation for the halomodel calcualtion
-    CALL halomod_init(mmin,mmax,z,lut,cosm)
+     !Initiliasation for the halomodel calcualtion
+     CALL halomod_init(mmin,mmax,z,lut,cosm)
 
-    !Runs the diagnostics
-    dir='diagnostics'
-    CALL halo_diagnostics(z,lut,cosm,dir)
-    CALL halo_definitions(lut,dir)
+     !Runs the diagnostics
+     dir='diagnostics'
+     CALL halo_diagnostics(z,lut,cosm,dir)
+     CALL halo_definitions(lut,dir)
 
-    !output='winint/integrand.dat'
-    !irho=14
-    !rv=1.
-    !rs=0.25
-    !rmax=rv
-    !CALL winint_diagnostics(rmax,rv,rs,irho,output)
+     !output='winint/integrand.dat'
+     !irho=14
+     !rv=1.
+     !rs=0.25
+     !rmax=rv
+     !CALL winint_diagnostics(rmax,rv,rs,irho,output)
 
   ELSE IF(imode==4) THEN
 
-    STOP 'Error, random mode not implemented yet'
+     STOP 'Error, random mode not implemented yet'
 
-    !Ignore this, only useful for bug tests
-    CALL RNG_set(0)
+     !Ignore this, only useful for bug tests
+     CALL RNG_set(0)
 
-    !Only not uncommented to suppress compile-time warnings
-    DO
+     !Only not uncommented to suppress compile-time warnings
+     DO
         CALL random_cosmology(cosm)   
-    END DO
-    !Ignore this, only useful for bug tests
+     END DO
+     !Ignore this, only useful for bug tests
 
   ELSE IF(imode==5) THEN
 
-    !Compare to cosmo-OWLS models for pressure
+     !Compare to cosmo-OWLS models for pressure
 
-    !Set number of k points and k range (log spaced)
-    nk=200
-    kmin=1.e-3
-    kmax=1.e2
-    CALL fill_table(log(kmin),log(kmax),k,nk)
-    k=exp(k)
-    ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+     !Set number of k points and k range (log spaced)
+     nk=200
+     kmin=1.e-3
+     kmax=1.e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
-    !Set the redshift
-    z=0.
+     !Set the redshift
+     z=0.
 
-    !Assigns the cosmological model
-    icosmo=1
-    CALL assign_cosmology(icosmo,cosm)
+     !Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    !Initiliasation for the halomodel calcualtion
-    CALL halomod_init(mmin,mmax,z,lut,cosm)
+     !Initiliasation for the halomodel calcualtion
+     CALL halomod_init(mmin,mmax,z,lut,cosm)
 
-    !Runs the diagnostics
-    dir='diagnostics'
-    CALL halo_diagnostics(z,lut,cosm,dir)
-    CALL halo_definitions(lut,dir)
+     !Runs the diagnostics
+     dir='diagnostics'
+     CALL halo_diagnostics(z,lut,cosm,dir)
+     CALL halo_definitions(lut,dir)
 
-    !File base and extension
-    base='pressure/power_'
-    ext='.dat'
+     !File base and extension
+     base='pressure/power_'
+     ext='.dat'
 
-    !Number of different spectra
-    n=3
+     !Number of different spectra
+     n=3
 
-    !Do the calculation
-    DO j=0,n
+     !Do the calculation
+     DO j=0,n
 
         IF(j==0) THEN
-          !DMONLY
-          j1=-1
-          j2=-1
-          outfile='pressure/DMONLY.dat'
+           !DMONLY
+           j1=-1
+           j2=-1
+           outfile='pressure/DMONLY.dat'
         ELSE IF(j==1) THEN
-          !Matter x matter
-          j1=0
-          j2=0
-          outfile='dd'
+           !Matter x matter
+           j1=0
+           j2=0
+           outfile='dd'
         ELSE IF(j==2) THEN
-          !Matter x pressure
-          j1=0
-          j2=6
-          outfile='dp'
+           !Matter x pressure
+           j1=0
+           j2=6
+           outfile='dp'
         ELSE IF(j==3) THEN
-          !Pressure x pressure
-          j1=6
-          j2=6
-          outfile='pp'
+           !Pressure x pressure
+           j1=6
+           j2=6
+           outfile='pp'
         END IF
 
         IF(j .NE. 0) outfile=TRIM(base)//TRIM(outfile)//TRIM(ext)
@@ -8127,19 +6612,19 @@ PROGRAM HMx_driver
         CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
         CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
 
-    END DO
+     END DO
 
   ELSE IF(imode==6) THEN
 
-    !n(z) normalisation check
+     !n(z) normalisation check
 
-    WRITE(*,*) 'HMx: Checking n(z) functions'
+     WRITE(*,*) 'HMx: Checking n(z) functions'
 
-    !inz(1)=-1
-    !inz(2)=0
-    
-    nnz=7
-    DO i=1,nnz
+     !inz(1)=-1
+     !inz(2)=0
+
+     nnz=7
+     DO i=1,nnz
         IF(i==1) nz=1
         IF(i==2) nz=4
         IF(i==3) nz=5
@@ -8149,80 +6634,80 @@ PROGRAM HMx_driver
         IF(i==7) nz=9
         WRITE(*,*) 'HMx: n(z) number:', nz
         CALL get_nz(nz,lens)
-        WRITE(*,*) 'HMx: n(z) integral (linear):', inttab(lens%z_nz,lens%nz,lens%nnz,1)
-        WRITE(*,*) 'HMx: n(z) integral (quadratic):', inttab(lens%z_nz,lens%nz,lens%nnz,2)
-        WRITE(*,*) 'HMx: n(z) integral (cubic):', inttab(lens%z_nz,lens%nz,lens%nnz,3)
+        WRITE(*,*) 'HMx: n(z) integral (linear):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,1)
+        WRITE(*,*) 'HMx: n(z) integral (quadratic):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,2)
+        WRITE(*,*) 'HMx: n(z) integral (cubic):', integrate_table(lens%z_nz,lens%nz,lens%nnz,2,lens%nnz,3)
         WRITE(*,*)
-    END DO
+     END DO
 
   ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==11) THEN
 
-    !General stuff for all cross correlations
+     !General stuff for all cross correlations
 
-    !Set the fields
-    ix=-1
-    CALL set_ix(ix,ip)
-    
-    !Assign the cosmological model
-    icosmo=-1
-    CALL assign_cosmology(icosmo,cosm)
+     !Set the fields
+     ix=-1
+     CALL set_ix(ix,ip)
 
-    !Set the k range
-    kmin=1e-3
-    kmax=1e2
-    nk=200
-    
-    !Set the z range
-    !amin=scale_factor_z(cosm%z_cmb) !Problems with one-halo term if amin is less than 0.1
-    amin=0.1
-    amax=1.
-    na=16
+     !Assign the cosmological model
+     icosmo=-1
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Set number of k points and k range (log spaced)
-    !Also z points and z range (linear)
-    !Also P(k,z)
-    CALL fill_table(log(kmin),log(kmax),k,nk)
-    k=exp(k)
-    CALL fill_table(amin,amax,a,na)
-    ALLOCATE(powa_lin(nk,na),powa_1h(nk,na),powa_2h(nk,na),powa_full(nk,na),powa(nk,na))
+     !Set the k range
+     kmin=1e-3
+     kmax=1e2
+     nk=200
 
-    !Set the ell range
-    lmin=1d0
-    lmax=1d5
-    nl=128
+     !Set the z range
+     !amin=scale_factor_z(cosm%z_cmb) !Problems with one-halo term if amin is less than 0.1
+     amin=0.1
+     amax=1.
+     na=16
 
-    !Allocate arrays for l and C(l)
-    CALL fill_table(log(lmin),log(lmax),ell,nl)
-    ell=exp(ell)
-    ALLOCATE(Cell(nl))
+     !Set number of k points and k range (log spaced)
+     !Also z points and z range (linear)
+     !Also P(k,z)
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     CALL fill_array(amin,amax,a,na)
+     ALLOCATE(powa_lin(nk,na),powa_1h(nk,na),powa_2h(nk,na),powa_full(nk,na),powa(nk,na))
 
-    !Set the angular arrays in degrees
-    thmin=0.01
-    thmax=10.
-    nth=128
+     !Set the ell range
+     lmin=1
+     lmax=1e5
+     nl=128
 
-    !Allocate arrays for theta and xi(theta)
-    CALL fill_table(log(thmin),log(thmax),theta,nth)
-    theta=exp(theta)
-    ALLOCATE(xi(3,nth))
+     !Allocate arrays for l and C(l)
+     CALL fill_array(log(lmin),log(lmax),ell,nl)
+     ell=exp(ell)
+     ALLOCATE(Cell(nl))
 
-    WRITE(*,*) 'HMx: Cross-correlation information'
-    WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
-    WRITE(*,*) 'HMx: Profile type 1: ', TRIM(halo_type(ip(1)))
-    WRITE(*,*) 'HMx: Profile type 2: ', TRIM(halo_type(ip(2)))
-    !WRITE(*,*) 'HMx: Kernel type 1: ', TRIM(kernel_type(ik(1)))
-    !WRITE(*,*) 'HMx: Kernel type 2: ', TRIM(kernel_type(ik(2)))
-    WRITE(*,*) 'HMx: Xcorr type 1: ', TRIM(xcorr_type(ix(1)))
-    WRITE(*,*) 'HMx: Xcorr type 2: ', TRIM(xcorr_type(ix(2)))
-    WRITE(*,*) 'HMx: P(k) minimum k [h/Mpc]:', REAL(kmin)
-    WRITE(*,*) 'HMx: P(k) maximum k [h/Mpc]:', REAL(kmax)
-    WRITE(*,*) 'HMx: minimum a:', REAL(amin)
-    WRITE(*,*) 'HMx: maximum a:', REAL(amax)
-    WRITE(*,*) 'HMx: minimum ell:', REAL(lmin)
-    WRITE(*,*) 'HMx: maximum ell:', REAL(lmax)
-    WRITE(*,*)     
-    
-    IF(imode==7) THEN
+     !Set the angular arrays in degrees
+     thmin=0.01
+     thmax=10.
+     nth=128
+
+     !Allocate arrays for theta and xi(theta)
+     CALL fill_array(log(thmin),log(thmax),theta,nth)
+     theta=exp(theta)
+     ALLOCATE(xi(3,nth))
+
+     WRITE(*,*) 'HMx: Cross-correlation information'
+     WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
+     WRITE(*,*) 'HMx: Profile type 1: ', TRIM(halo_type(ip(1)))
+     WRITE(*,*) 'HMx: Profile type 2: ', TRIM(halo_type(ip(2)))
+     !WRITE(*,*) 'HMx: Kernel type 1: ', TRIM(kernel_type(ik(1)))
+     !WRITE(*,*) 'HMx: Kernel type 2: ', TRIM(kernel_type(ik(2)))
+     WRITE(*,*) 'HMx: Xcorr type 1: ', TRIM(xcorr_type(ix(1)))
+     WRITE(*,*) 'HMx: Xcorr type 2: ', TRIM(xcorr_type(ix(2)))
+     WRITE(*,*) 'HMx: P(k) minimum k [h/Mpc]:', REAL(kmin)
+     WRITE(*,*) 'HMx: P(k) maximum k [h/Mpc]:', REAL(kmax)
+     WRITE(*,*) 'HMx: minimum a:', REAL(amin)
+     WRITE(*,*) 'HMx: maximum a:', REAL(amax)
+     WRITE(*,*) 'HMx: minimum ell:', REAL(lmin)
+     WRITE(*,*) 'HMx: maximum ell:', REAL(lmax)
+     WRITE(*,*)     
+
+     IF(imode==7) THEN
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL initialise_cosmology(cosm)
@@ -8266,15 +6751,15 @@ PROGRAM HMx_driver
         !WRITE(*,fmt='(A13)') '   ============'
         !WRITE(*,*)
 
-        !!$        !Fix the one-halo term P(k) to be a constant
-        !!$        DO j=1,na
-        !!$           DO i=1,nk
-        !!$              !IF(j==1) WRITE(*,*) i, k(i), powz(3,i,j)
-        !!$              powa(3,i,j)=powa(3,1,j)*(k(i)/k(1))**3
-        !!$              !powz(3,i,j)=(k(i)/k(1))**3
-        !!$              !IF(j==1) WRITE(*,*) i, k(i), powz(3,i,j)
-        !!$           END DO
-        !!$        END DO
+!!$        !Fix the one-halo term P(k) to be a constant
+!!$        DO j=1,na
+!!$           DO i=1,nk
+!!$              !IF(j==1) WRITE(*,*) i, k(i), powz(3,i,j)
+!!$              powa(3,i,j)=powa(3,1,j)*(k(i)/k(1))**3
+!!$              !powz(3,i,j)=(k(i)/k(1))**3
+!!$              !IF(j==1) WRITE(*,*) i, k(i), powz(3,i,j)
+!!$           END DO
+!!$        END DO
 
         !Output directory
         dir='data/'
@@ -8290,7 +6775,7 @@ PROGRAM HMx_driver
         !CALL write_projection_kernel(proj(2),cosm,output)
 
         !Set the distance range for the Limber integral
-        r1=0.d0 !100.d0
+        r1=0. !100.
         r2=maxdist(proj)!proj%rs
 
         !Write to screen
@@ -8305,37 +6790,37 @@ PROGRAM HMx_driver
         !Loop over all types of C(l) to create
         DO j=1,4
 
-          IF(ifull .AND. (j .NE. 4)) CYCLE
-          !IF(j==3) CYCLE !Skip the fucking one-halo term
+           IF(ifull .AND. (j .NE. 4)) CYCLE
+           !IF(j==3) CYCLE !Skip the fucking one-halo term
 
-          !Write information to screen
-          IF(j==1) THEN
+           !Write information to screen
+           IF(j==1) THEN
               WRITE(*,*) 'HMx: Doing linear'
               outfile=TRIM(dir)//'cl_linear.dat'
               powa=powa_lin
-          ELSE IF(j==2) THEN
+           ELSE IF(j==2) THEN
               WRITE(*,*) 'HMx: Doing 2-halo'
               outfile=TRIM(dir)//'cl_2halo.dat'
               powa=powa_2h
-          ELSE IF(j==3) THEN
+           ELSE IF(j==3) THEN
               WRITE(*,*) 'HMx: Doing 1-halo'
               outfile=TRIM(dir)//'cl_1halo.dat'
               powa=powa_1h
-          ELSE IF(j==4) THEN
+           ELSE IF(j==4) THEN
               WRITE(*,*) 'HMx: Doing full'
               outfile=TRIM(dir)//'cl_full.dat'
               powa=powa_full
-          END IF
+           END IF
 
-          WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
+           WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
 
-          !Actually calculate the C(ell)
-          CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
-          CALL write_Cell(ell,Cell,nl,outfile)
+           !Actually calculate the C(ell)
+           CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
+           CALL write_Cell(ell,Cell,nl,outfile)
 
-          IF(j==4) CALL Cell_contribution(r1,r2,k,a,powa,nk,na,proj,cosm)
+           IF(j==4) CALL Cell_contribution(r1,r2,k,a,powa,nk,na,proj,cosm)
 
-          IF(ixi) THEN
+           IF(ixi) THEN
 
               !Set xi output files
               IF(j==1) outfile=TRIM(dir)//'xi_linear.dat'
@@ -8348,13 +6833,13 @@ PROGRAM HMx_driver
               CALL calculate_xi(theta,xi,nth,ell,Cell,nl,NINT(lmax))
               CALL write_xi(theta,xi,nth,outfile)
 
-          END IF
+           END IF
 
         END DO
         WRITE(*,*) 'HMx: Done'
         WRITE(*,*)
 
-    ELSE IF(imode==8) THEN
+     ELSE IF(imode==8) THEN
 
         !Assess cross-correlation as a function of cosmology
 
@@ -8364,85 +6849,85 @@ PROGRAM HMx_driver
         ncos=5
         DO i=1,ncos
 
-          !cosm%sig8=sig8min+(sig8max-sig8min)*float(i-1)/float(ncos-1)
-          cosm%sig8=progression(sig8min,sig8max,i,ncos)
+           !cosm%sig8=sig8min+(sig8max-sig8min)*float(i-1)/float(ncos-1)
+           cosm%sig8=progression(sig8min,sig8max,i,ncos)
 
-          !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-          CALL initialise_cosmology(cosm)
-          CALL print_cosmology(cosm)
-          CALL initialise_distances(cosm)
-          !CALL write_distances(cosm)
+           !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+           CALL initialise_cosmology(cosm)
+           CALL print_cosmology(cosm)
+           CALL initialise_distances(cosm)
+           !CALL write_distances(cosm)
 
-          !Loop over redshifts
-          !DO j=1,na
-          !
-          !   z=redshift_a(a(j))
-          !   
-          !   !Initiliasation for the halomodel calcualtion
-          !   CALL halomod_init(mmin,mmax,z,lut,cosm)
-          !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-          !   !Write progress to screen
-          !   IF(j==1) THEN
-          !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
-          !      WRITE(*,fmt='(A13)') '   ============'
-          !   END IF
-          !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
-          !
-          !END DO
-          !WRITE(*,fmt='(A13)') '   ============'
-          !WRITE(*,*)
+           !Loop over redshifts
+           !DO j=1,na
+           !
+           !   z=redshift_a(a(j))
+           !   
+           !   !Initiliasation for the halomodel calcualtion
+           !   CALL halomod_init(mmin,mmax,z,lut,cosm)
+           !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
+           !   !Write progress to screen
+           !   IF(j==1) THEN
+           !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
+           !      WRITE(*,fmt='(A13)') '   ============'
+           !   END IF
+           !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
+           !
+           !END DO
+           !WRITE(*,fmt='(A13)') '   ============'
+           !WRITE(*,*)
 
-          CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
-          
-          !Fill out the projection kernels
-          CALL fill_projection_kernels(ix,proj,cosm)
-          CALL write_projection_kernels(proj,cosm)
+           CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
 
-          !Now do the C(l) calculations
-          !Set l range, note that using Limber and flat-sky for sensible results lmin to ~10
-          CALL fill_table(log(lmin),log(lmax),ell,nl)
-          ell=exp(ell)
-          IF(ALLOCATED(Cell)) DEALLOCATE(Cell)
-          ALLOCATE(Cell(nl))
+           !Fill out the projection kernels
+           CALL fill_projection_kernels(ix,proj,cosm)
+           CALL write_projection_kernels(proj,cosm)
 
-          !Write to screen
-          WRITE(*,*) 'HMx: Computing C(l)'
-          WRITE(*,*) 'HMx: ell min:', REAL(ell(1))
-          WRITE(*,*) 'HMx: ell max:', REAL(ell(nl))
-          WRITE(*,*) 'HMx: number of ell:', nl
-          WRITE(*,*)
+           !Now do the C(l) calculations
+           !Set l range, note that using Limber and flat-sky for sensible results lmin to ~10
+           CALL fill_array(log(lmin),log(lmax),ell,nl)
+           ell=exp(ell)
+           IF(ALLOCATED(Cell)) DEALLOCATE(Cell)
+           ALLOCATE(Cell(nl))
 
-          !Loop over all types of C(l) to create  
-          base=TRIM(dir)//'cosmology_'
-          DO j=1,4
+           !Write to screen
+           WRITE(*,*) 'HMx: Computing C(l)'
+           WRITE(*,*) 'HMx: ell min:', REAL(ell(1))
+           WRITE(*,*) 'HMx: ell max:', REAL(ell(nl))
+           WRITE(*,*) 'HMx: number of ell:', nl
+           WRITE(*,*)
+
+           !Loop over all types of C(l) to create  
+           base=TRIM(dir)//'cosmology_'
+           DO j=1,4
               IF(j==1) THEN
-                WRITE(*,*) 'HMx: Doing C(l) linear'
-                ext='_cl_linear.dat'
-                powa=powa_lin
+                 WRITE(*,*) 'HMx: Doing C(l) linear'
+                 ext='_cl_linear.dat'
+                 powa=powa_lin
               ELSE IF(j==2) THEN
-                WRITE(*,*) 'HMx: Doing C(l) 2-halo'
-                ext='_cl_2halo.dat'
-                powa=powa_2h
+                 WRITE(*,*) 'HMx: Doing C(l) 2-halo'
+                 ext='_cl_2halo.dat'
+                 powa=powa_2h
               ELSE IF(j==3) THEN
-                WRITE(*,*) 'HMx: Doing C(l) 1-halo'
-                ext='_cl_1halo.dat'
-                powa=powa_1h
+                 WRITE(*,*) 'HMx: Doing C(l) 1-halo'
+                 ext='_cl_1halo.dat'
+                 powa=powa_1h
               ELSE IF(j==4) THEN
-                WRITE(*,*) 'HMx: Doing C(l) full'
-                ext='_cl_full.dat'
-                powa=powa_full
+                 WRITE(*,*) 'HMx: Doing C(l) full'
+                 ext='_cl_full.dat'
+                 powa=powa_full
               END IF
               outfile=number_file(base,i,ext)
               !Actually calculate the C(ell)
-              CALL calculate_Cell(0.d0,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
+              CALL calculate_Cell(0.,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
-          END DO
-          WRITE(*,*) 'HMx: Done'
-          WRITE(*,*)
+           END DO
+           WRITE(*,*) 'HMx: Done'
+           WRITE(*,*)
 
         END DO
 
-    ELSE IF(imode==9) THEN
+     ELSE IF(imode==9) THEN
 
         !Break down cross-correlation in terms of mass
 
@@ -8459,71 +6944,71 @@ PROGRAM HMx_driver
         CALL write_projection_kernels(proj,cosm)
 
         DO i=0,6
-          IF(icumulative==0) THEN
+           IF(icumulative==0) THEN
               !Set the mass intervals
               IF(i==0) THEN
-                m1=mmin
-                m2=mmax
+                 m1=mmin
+                 m2=mmax
               ELSE IF(i==1) THEN
-                m1=mmin
-                m2=1d11
+                 m1=mmin
+                 m2=1e11
               ELSE IF(i==2) THEN
-                m1=1d11
-                m2=1d12
+                 m1=1e11
+                 m2=1e12
               ELSE IF(i==3) THEN
-                m1=1d12
-                m2=1d13
+                 m1=1e12
+                 m2=1e13
               ELSE IF(i==4) THEN
-                m1=1d13
-                m2=1d14
+                 m1=1e13
+                 m2=1e14
               ELSE IF(i==5) THEN
-                m1=1d14
-                m2=1d15
+                 m1=1e14
+                 m2=1e15
               ELSE IF(i==6) THEN
-                m1=1d15
-                m2=1d16
+                 m1=1e15
+                 m2=1e16
               END IF
-          ELSE IF(icumulative==1) THEN
+           ELSE IF(icumulative==1) THEN
               !Set the mass intervals
               IF(i==0) THEN
-                m1=mmin
-                m2=mmax
+                 m1=mmin
+                 m2=mmax
               ELSE IF(i==1) THEN
-                m1=mmin
-                m2=1d11
+                 m1=mmin
+                 m2=1e11
               ELSE IF(i==2) THEN
-                m1=mmin
-                m2=1d12
+                 m1=mmin
+                 m2=1e12
               ELSE IF(i==3) THEN
-                m1=mmin
-                m2=1d13
+                 m1=mmin
+                 m2=1e13
               ELSE IF(i==4) THEN
-                m1=mmin
-                m2=1d14
+                 m1=mmin
+                 m2=1e14
               ELSE IF(i==5) THEN
-                m1=mmin
-                m2=1d15
+                 m1=mmin
+                 m2=1e15
               ELSE IF(i==6) THEN
-                m1=mmin
-                m2=1d16
+                 m1=mmin
+                 m2=1e16
               END IF
-          ELSE
+           ELSE
               STOP 'HMx: Error, icumulative not set correctly.'
-          END IF
+           END IF
 
-          !Set the code to not 'correct' the two-halo power for missing
-          !mass when doing the calcultion binned in halo mass
-          IF(icumulative==0 .AND. i>1) ip2h=0
-          !IF(icumulative==1 .AND. i>0) ip2h=0
+           !Set the code to not 'correct' the two-halo power for missing
+           !mass when doing the calcultion binned in halo mass
+           IF(icumulative==0 .AND. i>1) ip2h=0
+           !IF(icumulative==1 .AND. i>0) ip2h=0
 
-          WRITE(*,fmt='(A16)') 'HMx: Mass range'
-          WRITE(*,fmt='(A16,I5)') 'HMx: Iteration:', i
-          WRITE(*,fmt='(A21,2ES15.7)') 'HMx: M_min [Msun/h]:', m1
-          WRITE(*,fmt='(A21,2ES15.7)') 'HMx: M_max [Msun/h]:', m2
-          WRITE(*,*)
+           WRITE(*,fmt='(A16)') 'HMx: Mass range'
+           WRITE(*,fmt='(A16,I5)') 'HMx: Iteration:', i
+           WRITE(*,fmt='(A21,2ES15.7)') 'HMx: M_min [Msun/h]:', m1
+           WRITE(*,fmt='(A21,2ES15.7)') 'HMx: M_max [Msun/h]:', m2
+           WRITE(*,*)
 
-          !Loop over redshifts
-          DO j=1,na
+           !Loop over redshifts
+           DO j=1,na
 
               z=redshift_a(a(j))
 
@@ -8533,67 +7018,67 @@ PROGRAM HMx_driver
 
               !Write progress to screen
               IF(j==1) THEN
-                WRITE(*,fmt='(A5,A7)') 'i', 'a'
-                WRITE(*,fmt='(A13)') '   ============'
+                 WRITE(*,fmt='(A5,A7)') 'i', 'a'
+                 WRITE(*,fmt='(A13)') '   ============'
               END IF
               WRITE(*,fmt='(I5,F8.3)') j, a(j)
 
-          END DO
-          WRITE(*,fmt='(A13)') '   ============'
-          WRITE(*,*)
+           END DO
+           WRITE(*,fmt='(A13)') '   ============'
+           WRITE(*,*)
 
-          IF(i==0) THEN
+           IF(i==0) THEN
               outfile=TRIM(dir)//'power'
-          ELSE
+           ELSE
               base=TRIM(dir)//'mass_'
               mid='_'
               ext='_power'
               outfile=number_file2(base,NINT(log10(m1)),mid,NINT(log10(m2)),ext)
-          END IF
-          WRITE(*,*) 'HMx: File: ', TRIM(outfile)
-          !CALL write_power_a(k,a,powa,nk,na,output)
+           END IF
+           WRITE(*,*) 'HMx: File: ', TRIM(outfile)
+           !CALL write_power_a(k,a,powa,nk,na,output)
 
-          !Loop over all types of C(l) to create
-          base=TRIM(dir)//'mass_'
-          mid='_' 
-          DO j=1,4
+           !Loop over all types of C(l) to create
+           base=TRIM(dir)//'mass_'
+           mid='_' 
+           DO j=1,4
 
               !Skip the 1-halo C(l) because it takes ages (2017/02/06)
               IF(j==3) CYCLE
-              
+
               !Set output files
               IF(j==1) THEN
-                powa=powa_lin
-                outfile=TRIM(dir)//'cl_linear.dat'
-                ext='_cl_linear.dat'
+                 powa=powa_lin
+                 outfile=TRIM(dir)//'cl_linear.dat'
+                 ext='_cl_linear.dat'
               ELSE IF(j==2) THEN
-                powa=powa_2h
-                outfile=TRIM(dir)//'cl_2halo.dat'
-                ext='_cl_2halo.dat'
+                 powa=powa_2h
+                 outfile=TRIM(dir)//'cl_2halo.dat'
+                 ext='_cl_2halo.dat'
               ELSE IF(j==3) THEN
-                powa=powa_1h
-                outfile=TRIM(dir)//'cl_1halo.dat'
-                ext='_cl_1halo.dat'
+                 powa=powa_1h
+                 outfile=TRIM(dir)//'cl_1halo.dat'
+                 ext='_cl_1halo.dat'
               ELSE IF(j==4) THEN
-                powa=powa_full
-                outfile=TRIM(dir)//'cl_full.dat'
-                ext='_cl_full.dat'
+                 powa=powa_full
+                 outfile=TRIM(dir)//'cl_full.dat'
+                 ext='_cl_full.dat'
               END IF
 
               IF(i>0) outfile=number_file2(base,NINT(log10(m1)),mid,NINT(log10(m2)),ext)
 
               WRITE(*,*) 'HMx: File: ', TRIM(outfile)
 
-              CALL calculate_Cell(0.d0,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
+              CALL calculate_Cell(0.,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
 
-          END DO
-          WRITE(*,*) 'HMx: Done'
-          WRITE(*,*)
+           END DO
+           WRITE(*,*) 'HMx: Done'
+           WRITE(*,*)
 
         END DO
 
-    ELSE IF(imode==10) THEN
+     ELSE IF(imode==10) THEN
 
         !Break down cross-correlation in terms of redshift
 
@@ -8642,65 +7127,65 @@ PROGRAM HMx_driver
         WRITE(*,*) 'HMx: number of ell:', nl
         WRITE(*,*)
 
-        zmin=0.d0
-        zmax=1.d0
+        zmin=0.
+        zmax=1.
         nz=8
 
         DO i=0,nz
 
-          IF(i==0) THEN
-              !z1=0.d0
-              !z2=3.99d0 !Just less than z=4 to avoid rounding error
-              r1=0.d0
+           IF(i==0) THEN
+              !z1=0.
+              !z2=3.99 !Just less than z=4 to avoid rounding error
+              r1=0.
               r2=maxdist(proj)
-          ELSE
+           ELSE
               IF(icumulative==0) THEN
-                !z1=zmin+(zmax-zmin)*float(i-1)/float(nz)
-                z1=progression(zmin,zmax,i,nz)
+                 !z1=zmin+(zmax-zmin)*float(i-1)/float(nz)
+                 z1=progression(zmin,zmax,i,nz)
               ELSE IF(icumulative==1) THEN
-                z1=zmin
+                 z1=zmin
               END IF
               z2=zmin+(zmax-zmin)*float(i)/float(nz)
               r1=cosmic_distance(z1,cosm)
               r2=cosmic_distance(z2,cosm)
-          END IF
+           END IF
 
-          WRITE(*,*) 'HMx:', i
-          IF(i>0) THEN
+           WRITE(*,*) 'HMx:', i
+           IF(i>0) THEN
               WRITE(*,*) 'HMx: z1', REAL(z1)
               WRITE(*,*) 'HMx: z2', REAL(z2)
-          END IF
-          WRITE(*,*) 'HMx: r1 [Mpc/h]', REAL(r1)
-          WRITE(*,*) 'HMx: r2 [Mpc/h]', REAL(r2)
+           END IF
+           WRITE(*,*) 'HMx: r1 [Mpc/h]', REAL(r1)
+           WRITE(*,*) 'HMx: r2 [Mpc/h]', REAL(r2)
 
-          !Loop over all types of C(l) to create
-          base=TRIM(dir)//'redshift_'
-          mid='_'
-          DO j=1,4
+           !Loop over all types of C(l) to create
+           base=TRIM(dir)//'redshift_'
+           mid='_'
+           DO j=1,4
 
               !Set output files
               IF(j==1) THEN
-                ext='_cl_linear.dat'
-                outfile=TRIM(dir)//'cl_linear.dat'
-                powa=powa_lin
+                 ext='_cl_linear.dat'
+                 outfile=TRIM(dir)//'cl_linear.dat'
+                 powa=powa_lin
               ELSE IF(j==2) THEN
-                ext='_cl_2halo.dat'
-                outfile=TRIM(dir)//'cl_2halo.dat'
-                powa=powa_2h
+                 ext='_cl_2halo.dat'
+                 outfile=TRIM(dir)//'cl_2halo.dat'
+                 powa=powa_2h
               ELSE IF(j==3) THEN
-                ext='_cl_1halo.dat'
-                outfile=TRIM(dir)//'cl_1halo.dat'
-                powa=powa_1h
+                 ext='_cl_1halo.dat'
+                 outfile=TRIM(dir)//'cl_1halo.dat'
+                 powa=powa_1h
               ELSE IF(j==4) THEN
-                ext='_cl_full.dat'
-                outfile=TRIM(dir)//'cl_full.dat'
-                powa=powa_full
+                 ext='_cl_full.dat'
+                 outfile=TRIM(dir)//'cl_full.dat'
+                 powa=powa_full
               END IF
-              
+
               IF(i>0 .AND. icumulative==0) THEN
-                outfile=number_file2(base,i-1,mid,i,ext)
+                 outfile=number_file2(base,i-1,mid,i,ext)
               ELSE IF(i>0 .AND. icumulative==1) THEN
-                outfile=number_file2(base,0,mid,i,ext)
+                 outfile=number_file2(base,0,mid,i,ext)
               END IF
               WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
 
@@ -8708,189 +7193,189 @@ PROGRAM HMx_driver
               CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
 
-          END DO
-          WRITE(*,*)
+           END DO
+           WRITE(*,*)
 
         END DO
 
         WRITE(*,*) 'HMx: Done'
         WRITE(*,*)
 
-    ELSE IF(imode==11) THEN
+     ELSE IF(imode==11) THEN
 
         STOP 'HMx: Error, breakdown in radius is not supported yet'
 
-    ELSE
+     ELSE
 
         STOP 'HMx: Error, you have specified the mode incorrectly'
 
-    END IF
+     END IF
 
   ELSE IF(imode==12) THEN
 
-    !Project triad
+     !Project triad
 
-    dir='data'
+     dir='data'
 
-    !Assigns the cosmological model
-    icosmo=0
-    CALL assign_cosmology(icosmo,cosm)
+     !Assigns the cosmological model
+     icosmo=0
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    !Initialise the lensing part of the calculation
-    CALL initialise_distances(cosm)
-    CALL write_distances(cosm)
+     !Initialise the lensing part of the calculation
+     CALL initialise_distances(cosm)
+     CALL write_distances(cosm)
 
-    !Set the ell range
-    lmin=100.
-    lmax=3000.
-    nl=64
+     !Set the ell range
+     lmin=100.
+     lmax=3000.
+     nl=64
 
-    !Allocate arrays for l and C(l)
-    CALL fill_table(log(lmin),log(lmax),ell,nl)
-    ell=exp(ell)
-    ALLOCATE(Cell(nl))
+     !Allocate arrays for l and C(l)
+     CALL fill_array(log(lmin),log(lmax),ell,nl)
+     ell=exp(ell)
+     ALLOCATE(Cell(nl))
 
-    WRITE(*,*) 'HMx: Cross-correlation information'
-    WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
-    WRITE(*,*) 'HMx: minimum ell:', REAL(lmin)
-    WRITE(*,*) 'HMx: maximum ell:', REAL(lmax)
-    WRITE(*,*) 'HMx: number of ell:', nl
-    WRITE(*,*)
+     WRITE(*,*) 'HMx: Cross-correlation information'
+     WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
+     WRITE(*,*) 'HMx: minimum ell:', REAL(lmin)
+     WRITE(*,*) 'HMx: maximum ell:', REAL(lmax)
+     WRITE(*,*) 'HMx: number of ell:', nl
+     WRITE(*,*)
 
-    !Loop over the triad
-    DO i=1,3
+     !Loop over the triad
+     DO i=1,3
 
         IF(i==1) THEN
-          !ix(1)=4 !CFHTLenS
-          ix(1)=5 !KiDS
-          ix(2)=3 !CMB
-          outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
+           !ix(1)=4 !CFHTLenS
+           ix(1)=5 !KiDS
+           ix(2)=3 !CMB
+           outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
         ELSE IF(i==2) THEN
-          ix(1)=3 !CMB
-          ix(2)=2 !y
-          outfile=TRIM(dir)//'/triad_Cl_CMB-y.dat'
+           ix(1)=3 !CMB
+           ix(2)=2 !y
+           outfile=TRIM(dir)//'/triad_Cl_CMB-y.dat'
         ELSE IF(i==3) THEN
-          ix(1)=2 !y
-          !ix(2)=4 !CFHTLenS
-          ix(2)=5 !KiDS
-          outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
+           ix(1)=2 !y
+           !ix(2)=4 !CFHTLenS
+           ix(2)=5 !KiDS
+           outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
         END IF
-        
+
         CALL xcorr(ix,ell,Cell,nl,cosm,.TRUE.)
         CALL write_Cell(ell,Cell,nl,outfile)
 
         WRITE(*,*) 'HMx: Done'
         WRITE(*,*)
 
-    END DO
+     END DO
 
   ELSE IF(imode==13) THEN
 
-    !Calculate the cross-correlation coefficient
+     !Calculate the cross-correlation coefficient
 
-    !Assign the cosmology
-    icosmo=-1
-    CALL assign_cosmology(icosmo,cosm)
-    
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
-    
-    !Initialise the lensing part of the calculation
-    CALL initialise_distances(cosm)
-    CALL write_distances(cosm)
+     !Assign the cosmology
+     icosmo=-1
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Set the ell range and allocate arrays for l and C(l)
-    lmin=1e0
-    lmax=1e5
-    nl=64 
-    CALL fill_table(log(lmin),log(lmax),ell,nl)
-    ell=exp(ell)
-    ALLOCATE(Cell(nl))
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    dir='data'
+     !Initialise the lensing part of the calculation
+     CALL initialise_distances(cosm)
+     CALL write_distances(cosm)
 
-    ixx=-1
-    CALL set_ix(ixx,ip)
+     !Set the ell range and allocate arrays for l and C(l)
+     lmin=1e0
+     lmax=1e5
+     nl=64 
+     CALL fill_array(log(lmin),log(lmax),ell,nl)
+     ell=exp(ell)
+     ALLOCATE(Cell(nl))
 
-    DO i=1,3
+     dir='data'
+
+     ixx=-1
+     CALL set_ix(ixx,ip)
+
+     DO i=1,3
         IF(i==1) THEN
-          ix(1)=ixx(1)
-          ix(2)=ixx(1)
-          outfile=TRIM(dir)//'/cl_first.dat'
+           ix(1)=ixx(1)
+           ix(2)=ixx(1)
+           outfile=TRIM(dir)//'/cl_first.dat'
         ELSE IF(i==2) THEN
-          ix(1)=ixx(2)
-          ix(2)=ixx(2)
-          outfile=TRIM(dir)//'/cl_second.dat'
+           ix(1)=ixx(2)
+           ix(2)=ixx(2)
+           outfile=TRIM(dir)//'/cl_second.dat'
         ELSE IF(i==3) THEN
-          ix(1)=ixx(1)
-          ix(2)=ixx(2)
-          outfile=TRIM(dir)//'/cl_full.dat'
+           ix(1)=ixx(1)
+           ix(2)=ixx(2)
+           outfile=TRIM(dir)//'/cl_full.dat'
         END IF
         CALL xcorr(ix,ell,Cell,nl,cosm,.TRUE.)
         CALL write_Cell(ell,Cell,nl,outfile)
-    END DO
+     END DO
 
   ELSE IF(imode==14) THEN
 
-    !Make power spectra as a function of parameter variations
+     !Make power spectra as a function of parameter variations
 
-    !Number of values to try for each parameter
-    m=9
+     !Number of values to try for each parameter
+     m=9
 
-    !Set number of k points and k range (log spaced)
-    nk=128
-    kmin=1.d-3
-    kmax=1.d1
-    CALL fill_table(log(kmin),log(kmax),k,nk)
-    k=exp(k)
-    ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+     !Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1.e-3
+     kmax=1.e1
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
-    !Set the redshift
-    z=0.
+     !Set the redshift
+     z=0.
 
-    !Assigns the cosmological model
-    icosmo=1
-    CALL assign_cosmology(icosmo,cosm)
+     !Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm)
 
-    !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-    CALL initialise_cosmology(cosm)
-    CALL print_cosmology(cosm)
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL initialise_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
-    !Initiliasation for the halomodel calcualtion
-    CALL halomod_init(mmin,mmax,z,lut,cosm)  
+     !Initiliasation for the halomodel calcualtion
+     CALL halomod_init(mmin,mmax,z,lut,cosm)  
 
-    !DMONLY
-    j1=-1
-    j2=-1
-    outfile='variations/DMONLY.dat'
-    CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
-    CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+     !DMONLY
+     j1=-1
+     j2=-1
+     outfile='variations/DMONLY.dat'
+     CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
+     CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
 
-    !Loop over parameters
-    DO ipa=1,cosm%np
-    !DO ipa=2,2
+     !Loop over parameters
+     DO ipa=1,cosm%np
+        !DO ipa=2,2
 
         cosm%param=cosm%param_defaults
 
         !Loop over parameter values
         DO i=1,m
 
-          !Set the parameter value that is being varied
-          IF(cosm%param_log(ipa)) THEN
+           !Set the parameter value that is being varied
+           IF(cosm%param_log(ipa)) THEN
               cosm%param(ipa)=progression(log(cosm%param_min(ipa)),log(cosm%param_max(ipa)),i,m)
               cosm%param(ipa)=exp(cosm%param(ipa))
-          ELSE
+           ELSE
               cosm%param(ipa)=progression(cosm%param_min(ipa),cosm%param_max(ipa),i,m)
-          END IF
-          
-          !Write out halo matter and pressure profile information
-          !All the string crap is in the loop for a reason
-          DO j=10,16
+           END IF
+
+           !Write out halo matter and pressure profile information
+           !All the string crap is in the loop for a reason
+           DO j=10,16
               base='variations/profile_mass_'
               ext='_param_'
               base=number_file(base,j,ext)
@@ -8899,65 +7384,65 @@ PROGRAM HMx_driver
               outfile=number_file2(base,ipa,mid,i,ext)
               mass=10.**j
               CALL write_halo_profiles(mass,z,lut,cosm,outfile)
-          END DO
+           END DO
 
-          !Write out halo mass fraction information
-          base='variations/mass_fractions_param_'
-          outfile=number_file2(base,ipa,mid,i,ext)
-          CALL write_mass_fractions(cosm,outfile)
+           !Write out halo mass fraction information
+           base='variations/mass_fractions_param_'
+           outfile=number_file2(base,ipa,mid,i,ext)
+           CALL write_mass_fractions(cosm,outfile)
 
-          !File base and extension
-          base='variations/power_param_'
-          mid='_value_'
+           !File base and extension
+           base='variations/power_param_'
+           mid='_value_'
 
-          !Do the calculation
-          DO j=1,9
+           !Do the calculation
+           DO j=1,9
 
               IF(j==1) THEN
-                !matter-matter
-                j1=0
-                j2=0
-                ext='_dd.dat'
+                 !matter-matter
+                 j1=0
+                 j2=0
+                 ext='_dd.dat'
               ELSE IF(j==2) THEN
-                !matter-pressure
-                j1=0
-                j2=6
-                ext='_dp.dat'
+                 !matter-pressure
+                 j1=0
+                 j2=6
+                 ext='_dp.dat'
               ELSE IF(j==3) THEN
-                !pressure-pressure
-                j1=6
-                j2=6
-                ext='_pp.dat'
+                 !pressure-pressure
+                 j1=6
+                 j2=6
+                 ext='_pp.dat'
               ELSE IF(j==4) THEN
-                !matter-CDM
-                j1=0
-                j2=1
-                ext='_dc.dat'
+                 !matter-CDM
+                 j1=0
+                 j2=1
+                 ext='_dc.dat'
               ELSE IF(j==5) THEN
-                !CDM-CDM
-                j1=1
-                j2=1
-                ext='_cc.dat'
+                 !CDM-CDM
+                 j1=1
+                 j2=1
+                 ext='_cc.dat'
               ELSE IF(j==6) THEN
-                !matter-gas
-                j1=0
-                j2=2
-                ext='_dg.dat'
+                 !matter-gas
+                 j1=0
+                 j2=2
+                 ext='_dg.dat'
               ELSE IF(j==7) THEN
-                !gas-gas
-                j1=2
-                j2=2
-                ext='_gg.dat'
+                 !gas-gas
+                 j1=2
+                 j2=2
+                 ext='_gg.dat'
               ELSE IF(j==8) THEN
-                !Matter-star
-                j1=0
-                j2=3
-                ext='_ds.dat'
+                 !Matter-star
+                 j1=0
+                 j2=3
+                 ext='_ds.dat'
               ELSE IF(j==9) THEN
-                !Star-star
-                j1=3
-                j2=3
-                ext='_ss.dat'
+                 !Star-star
+                 j1=3
+                 j2=3
+                 ext='_ss.dat'
               END IF
 
               !Set output file
@@ -8970,16 +7455,16 @@ PROGRAM HMx_driver
               CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
               CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
 
-          END DO
-          
+           END DO
+
         END DO
 
-    END DO
+     END DO
 
   ELSE
 
-    STOP 'HMx: Error, you have specified the mode incorrectly'
+     STOP 'HMx: Error, you have specified the mode incorrectly'
 
- END IF
+  END IF
 
 END PROGRAM HMx_driver
