@@ -15,6 +15,7 @@ end module HMx_setup
 function setup(options) result(result)
 	use HMx_setup
     use HMx
+    use array_operations
 	use cosmosis_modules
 	implicit none
 
@@ -58,10 +59,10 @@ function setup(options) result(result)
 
     call init_HMx()
     !Create k array (log spacing)
-    call fill_table(log(HMx_config%kmin), log(HMx_config%kmin), HMx_config%k, HMx_config%nk)
+    call fill_array(log(HMx_config%kmin), log(HMx_config%kmin), HMx_config%k, HMx_config%nk)
     HMx_config%k = exp(HMx_config%k)
     !Create a arrays
-    call fill_table(HMx_config%amin, HMx_config%amax, HMx_config%a, HMx_config%nz)
+    call fill_array(HMx_config%amin, HMx_config%amax, HMx_config%a, HMx_config%nz)
 	
     result = c_loc(HMx_config)
 
@@ -100,14 +101,14 @@ function execute(block, config) result(status)
         stop
     end if
 
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3d0, cosm%om_m)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.d0-cosm%om_m, cosm%om_v)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_b", 0.05d0, cosm%om_b)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_nu", 0.0d0, cosm%om_nu)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "h0", 0.7d0, cosm%h)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "sigma_8", 0.8d0, cosm%sig8)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96d0, cosm%n)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0d0, cosm%w)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, cosm%om_m)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-cosm%om_m, cosm%om_v)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_b", 0.05, cosm%om_b)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_nu", 0.0, cosm%om_nu)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "h0", 0.7, cosm%h)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "sigma_8", 0.8, cosm%sig8)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96, cosm%n)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, cosm%w)
 
     call initialise_cosmology(cosm)
     call print_cosmology(cosm)
