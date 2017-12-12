@@ -80,6 +80,7 @@ clean:
 	rm -f $(LIB_DIR)/HMx_cosmosis_interface.so
 	rm -f $(BUILD_DIR)/*.o
 	rm -f $(BUILD_DIR)/*.mod
+	rm -f $(SRC_DIR)/*.mod
 	rm -f $(DEBUG_BUILD_DIR)/*.o
 	rm -f $(DEBUG_BUILD_DIR)/*.mod
 	test -n "$(LIB_DIR)" && rm -rf $(LIB_DIR)/HMx_cosmosis_interface.so.dSYM/

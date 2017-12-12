@@ -234,7 +234,8 @@ CONTAINS
     DO i=na,1,-1
        z=redshift_a(a(i))
        CALL halomod_init(mmin,mmax,z,lut,cosm)
-       IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
+       !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
+       WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm)
     END DO
     IF(verbose) THEN
