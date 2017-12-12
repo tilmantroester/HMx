@@ -5,8 +5,9 @@ reset
 #Simply load up gnuplot (type gnuplot in the terminal) and then type "gnuplot>load 'plot.p'"
 #The plot should then be the non-linear spectrum at 16 redshifts
 
-if(print==0) set term aqua dashed
-if(print==1) set term post enh col sol; set output 'power_comparison.eps'
+if(!exists('print')){print=0}
+if(print==0){set term aqua dashed}
+if(print==1){set term post enh col sol; set output 'power_comparison.eps'}
 
 set log x
 set xrange [0.01:10.]
