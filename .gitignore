@@ -1,14 +1,10 @@
 # Fortran module binaries
 *.mod
-*.o
 
 # Build files
 build/
-debug_build/
 
 # Binaries
 bin/
 *.e
-
-lib/
 
