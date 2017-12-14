@@ -45,7 +45,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra as HMx parameters vary'
-     !WRITE(*,*) '15 - matter spectra as HMx parameters vary'
+     WRITE(*,*) '15 - Do all cosmo-OWLS models'
      READ(*,*) imode
      WRITE(*,*) '======================'
      WRITE(*,*)
@@ -150,54 +150,10 @@ PROGRAM HMx_driver
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,.TRUE.)
 
-  ELSE IF(imode==2) THEN
+  ELSE IF(imode==2 .OR. imode==15) THEN
 
      !Compare to cosmo-OWLS models
-
-     !Set OWLS model, or set to zero for defaults
-     iowl=4
-     IF(iowl==1) THEN
-        name='DMONLY'
-     ELSE IF(iowl==2) THEN
-        name='REF'
-        cosm%param(1)=2.
-        cosm%param(2)=1.4
-        cosm%param(3)=1.24
-        cosm%param(4)=1e13
-        cosm%param(5)=0.055
-     ELSE IF(iowl==3) THEN
-        name='NOCOOL'
-        cosm%param(1)=2.
-        cosm%param(2)=0.8
-        cosm%param(3)=1.1
-        cosm%param(4)=0.
-        cosm%param(5)=0.
-     ELSE IF(iowl==4) THEN
-        name='AGN'
-        cosm%param(1)=2.
-        cosm%param(2)=0.5
-        cosm%param(3)=1.18
-        cosm%param(4)=8e13
-        cosm%param(5)=0.0225
-     ELSE IF(iowl==5) THEN
-        name='AGN 8.5'
-        cosm%param(1)=2.
-        cosm%param(2)=-0.5
-        cosm%param(3)=1.26
-        cosm%param(4)=2d14
-        cosm%param(5)=0.0175
-     ELSE IF(iowl==6) THEN
-        name='AGN 8.7'
-        cosm%param(1)=2.
-        cosm%param(2)=-2.
-        cosm%param(3)=1.3
-        cosm%param(4)=1e15
-        cosm%param(5)=0.015
-     END IF
-
-     IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
-     CALL print_baryon_parameters(cosm)
-
+     
      !Set number of k points and k range (log spaced)
      nk=200
      kmin=1e-3
@@ -207,55 +163,113 @@ PROGRAM HMx_driver
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
      !Set the redshift
-     !na=1
      z=0.
-     !ALLOCATE(a(na))
-     !a(1)=scale_factor_z(z)
 
      !Assigns the cosmological model
      icosmo=1
      CALL assign_cosmology(icosmo,cosm)
+        
+     IF(imode==2) nowl=1
+     IF(imode==15) nowl=6
 
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     DO iowl=1,nowl
 
-     !Initiliasation for the halomodel calcualtion
-     CALL halomod_init(mmin,mmax,z,lut,cosm)
+        IF(iowl==1) THEN
+           name='DMONLY'
+           fname=name
+        ELSE IF(iowl==2) THEN
+           name='REF'
+           fname=name
+           cosm%param(1)=2.
+           cosm%param(2)=1.4
+           cosm%param(3)=1.24
+           cosm%param(4)=1e13
+           cosm%param(5)=0.055
+        ELSE IF(iowl==3) THEN
+           name='NOCOOL'
+           fname=name
+           cosm%param(1)=2.
+           cosm%param(2)=0.8
+           cosm%param(3)=1.1
+           cosm%param(4)=0.
+           cosm%param(5)=0.
+        ELSE IF(iowl==4) THEN
+           name='AGN'
+           fname=name
+           cosm%param(1)=2.
+           cosm%param(2)=0.5
+           cosm%param(3)=1.18
+           cosm%param(4)=8e13
+           cosm%param(5)=0.0225
+        ELSE IF(iowl==5) THEN
+           name='AGN 8.5'
+           fname='AGN8p5'
+           cosm%param(1)=2.
+           cosm%param(2)=-0.5
+           cosm%param(3)=1.26
+           cosm%param(4)=2d14
+           cosm%param(5)=0.0175
+        ELSE IF(iowl==6) THEN
+           name='AGN 8.7'
+           fname='AGN8p7'
+           cosm%param(1)=2.
+           cosm%param(2)=-2.
+           cosm%param(3)=1.3
+           cosm%param(4)=1e15
+           cosm%param(5)=0.015
+        END IF
 
-     !Runs the diagnostics
-     dir='diagnostics'
-     CALL halo_diagnostics(z,lut,cosm,dir)
-     CALL halo_definitions(lut,dir)
+        IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
+        CALL print_baryon_parameters(cosm)
 
-     !File base and extension
-     base='cosmo-OWLS/data/power_'
-     mid=''
-     ext='.dat'
+        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        CALL initialise_cosmology(cosm)
+        CALL print_cosmology(cosm)
 
-     !Dark-matter only
-     outfile='cosmo-OWLS/data/DMONLY.dat'
-     WRITE(*,fmt='(2I5,A30)') -1, -1, TRIM(outfile)
-     CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
-     CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+        !Initiliasation for the halomodel calcualtion
+        CALL halomod_init(mmin,mmax,z,lut,cosm)
 
-     !ip=-1
-     !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
-     !outfile='cosmo-OWLS/data/DMONLY.dat'
-     !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
+        !Runs the diagnostics
+        dir='diagnostics'
+        CALL halo_diagnostics(z,lut,cosm,dir)
+        CALL halo_definitions(lut,dir)
 
-     !Loop over matter types and do auto and cross-spectra
-     DO j1=0,6
-        DO j2=j1,6
+        IF(imode==2) THEN
+           !File base and extension
+           base='cosmo-OWLS/data/power_'
+           mid=''
+           ext='.dat'
+        ELSE IF(imode==15) THEN
+           base='cosmo-OWLS/data/power_'//TRIM(fname)//'_'
+           mid=''
+           ext='.dat'
+        END IF
 
-           !Fix output file and write to screen
-           outfile=number_file2(base,j1,mid,j2,ext)
-           WRITE(*,fmt='(2I5,A30)') j1, j2, TRIM(outfile)
+        !Dark-matter only
+        outfile='cosmo-OWLS/data/DMONLY.dat'
+        WRITE(*,*) -1, -1, TRIM(outfile)
+        CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
+        CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
 
-           CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
-           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+        !ip=-1
+        !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+        !outfile='cosmo-OWLS/data/DMONLY.dat'
+        !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
 
+        !Loop over matter types and do auto and cross-spectra
+        DO j1=0,6
+           DO j2=j1,6
+
+              !Fix output file and write to screen
+              outfile=number_file2(base,j1,mid,j2,ext)
+              WRITE(*,*) j1, j2, TRIM(outfile)
+
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm)
+              CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile)
+
+           END DO
         END DO
+
      END DO
 
   ELSE IF(imode==3) THEN
@@ -454,10 +468,8 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
      WRITE(*,*) 'HMx: Profile type 1: ', TRIM(halo_type(ip(1)))
      WRITE(*,*) 'HMx: Profile type 2: ', TRIM(halo_type(ip(2)))
-     !WRITE(*,*) 'HMx: Kernel type 1: ', TRIM(kernel_type(ik(1)))
-     !WRITE(*,*) 'HMx: Kernel type 2: ', TRIM(kernel_type(ik(2)))
-     WRITE(*,*) 'HMx: Xcorr type 1: ', TRIM(xcorr_type(ix(1)))
-     WRITE(*,*) 'HMx: Xcorr type 2: ', TRIM(xcorr_type(ix(2)))
+     WRITE(*,*) 'HMx: cross-correkation type 1: ', TRIM(xcorr_type(ix(1)))
+     WRITE(*,*) 'HMx: cross-correlation type 2: ', TRIM(xcorr_type(ix(2)))
      WRITE(*,*) 'HMx: P(k) minimum k [h/Mpc]:', REAL(kmin)
      WRITE(*,*) 'HMx: P(k) maximum k [h/Mpc]:', REAL(kmax)
      WRITE(*,*) 'HMx: minimum a:', REAL(amin)
