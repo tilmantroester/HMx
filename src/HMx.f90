@@ -74,9 +74,9 @@ MODULE HMx
   TYPE(tables) :: lut
   TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
-  CHARACTER(len=256) :: outfile, base, mid, ext, dir, name
+  CHARACTER(len=256) :: outfile, base, mid, ext, dir, name, fname
   CHARACTER(len=256) :: mode
-  INTEGER :: imode, icosmo, iowl
+  INTEGER :: imode, icosmo, iowl, nowl
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
@@ -130,7 +130,7 @@ MODULE HMx
   REAL, PARAMETER :: cm=0.01 !Centimetre in metres
   REAL, PARAMETER :: rad2deg=180./pi !Radians-to-degrees conversion
   REAL, PARAMETER :: neff=3.046 !Effective number of neutrinos
-  REAL, PARAMETER :: critical_density=2.775d11 !Critical density at z=0
+  REAL, PARAMETER :: critical_density=2.775d11 !Critical density at z=0 in (M_sun/h)/(Mpc/h)^3
 
   !Name parameters (cannot do PARAMETER with mixed length strings)
   CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)!, kernel_type(3)
@@ -239,18 +239,18 @@ CONTAINS
     ALLOCATE(powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
 
     !Do the halo-model calculation
-    IF(verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
     DO i=na,1,-1
        z=redshift_a(a(i))
        CALL halomod_init(mmin,mmax,z,lut,cosm)
        !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
+       IF(i==na) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
        WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm,compute_p_lin)
     END DO
-    IF(verbose) THEN
-       WRITE(*,*) 'CALCULATE_HMx: Done'
-       WRITE(*,*)
-    END IF
+    !IF(verbose) THEN
+    WRITE(*,*) 'CALCULATE_HMx: Done'
+    WRITE(*,*)
+    !END IF
 
   END SUBROUTINE calculate_HMx
 
@@ -3298,127 +3298,6 @@ CONTAINS
 
   END FUNCTION sigma_cb
 
-!!$  FUNCTION inttab(x,y,n,iorder)
-!!$
-!!$    !Integrates tables y(x)dx
-!!$    IMPLICIT NONE
-!!$    REAL :: inttab
-!!$    INTEGER, INTENT(IN) :: n
-!!$    REAL, INTENT(IN) :: x(n), y(n)
-!!$    REAL :: a, b, c, d, h
-!!$    REAL :: q1, q2, q3, qi, qf
-!!$    REAL :: x1, x2, x3, x4, y1, y2, y3, y4, xi, xf
-!!$    REAL :: sum
-!!$    INTEGER :: i, i1, i2, i3, i4
-!!$    INTEGER, INTENT(IN) :: iorder
-!!$
-!!$    sum=0.
-!!$
-!!$    IF(iorder==1) THEN
-!!$
-!!$       !Sums over all Trapezia (a+b)*h/2
-!!$       DO i=1,n-1
-!!$          a=y(i+1)
-!!$          b=y(i)
-!!$          h=x(i+1)-x(i)
-!!$          sum=sum+(a+b)*h/2.
-!!$       END DO
-!!$
-!!$    ELSE IF(iorder==2) THEN
-!!$
-!!$       DO i=1,n-2
-!!$
-!!$          x1=x(i)
-!!$          x2=x(i+1)
-!!$          x3=x(i+2)
-!!$
-!!$          y1=y(i)
-!!$          y2=y(i+1)
-!!$          y3=y(i+2)
-!!$
-!!$          CALL fix_quadratic(a,b,c,x1,y1,x2,y2,x3,y3)
-!!$
-!!$          q1=a*(x1**3.)/3.+b*(x1**2.)/2.+c*x1
-!!$          q2=a*(x2**3.)/3.+b*(x2**2.)/2.+c*x2
-!!$          q3=a*(x3**3.)/3.+b*(x3**2.)/2.+c*x3
-!!$
-!!$          !Takes value for first and last sections but averages over sections where you
-!!$          !have two independent estimates of the area
-!!$          IF(n==3) THEN
-!!$             sum=sum+q3-q1
-!!$          ELSE IF(i==1) THEN
-!!$             sum=sum+(q2-q1)+(q3-q2)/2.
-!!$          ELSE IF(i==n-2) THEN
-!!$             sum=sum+(q2-q1)/2.+(q3-q2)
-!!$          ELSE
-!!$             sum=sum+(q3-q1)/2.
-!!$          END IF
-!!$
-!!$       END DO
-!!$
-!!$    ELSE IF(iorder==3) THEN
-!!$
-!!$       DO i=1,n-1
-!!$
-!!$          !First choose the integers used for defining cubics for each section
-!!$          !First and last are different because the section does not lie in the *middle* of a cubic
-!!$
-!!$          IF(i==1) THEN
-!!$
-!!$             i1=1
-!!$             i2=2
-!!$             i3=3
-!!$             i4=4
-!!$
-!!$          ELSE IF(i==n-1) THEN
-!!$
-!!$             i1=n-3
-!!$             i2=n-2
-!!$             i3=n-1
-!!$             i4=n
-!!$
-!!$          ELSE
-!!$
-!!$             i1=i-1
-!!$             i2=i
-!!$             i3=i+1
-!!$             i4=i+2
-!!$
-!!$          END IF
-!!$
-!!$          x1=x(i1)
-!!$          x2=x(i2)
-!!$          x3=x(i3)
-!!$          x4=x(i4)
-!!$
-!!$          y1=y(i1)
-!!$          y2=y(i2)
-!!$          y3=y(i3)
-!!$          y4=y(i4)
-!!$
-!!$          CALL fix_cubic(a,b,c,d,x1,y1,x2,y2,x3,y3,x4,y4)
-!!$
-!!$          !These are the limits of the particular section of integral
-!!$          xi=x(i)
-!!$          xf=x(i+1)
-!!$
-!!$          qi=a*(xi**4.)/4.+b*(xi**3.)/3.+c*(xi**2.)/2.+d*xi
-!!$          qf=a*(xf**4.)/4.+b*(xf**3.)/3.+c*(xf**2.)/2.+d*xf
-!!$
-!!$          sum=sum+qf-qi
-!!$
-!!$       END DO
-!!$
-!!$    ELSE
-!!$
-!!$       STOP 'INTTAB: Error, order not specified correctly'
-!!$
-!!$    END IF
-!!$
-!!$    inttab=REAL(sum)
-!!$
-!!$  END FUNCTION inttab
-
   FUNCTION win_type(ik,itype,k,m,rv,rs,z,lut,cosm)
 
     IMPLICIT NONE
@@ -3855,7 +3734,7 @@ CONTAINS
        !Calculate the value of the density profile prefactor
        !also change units from cosmological to SI
        rho0=m*halo_boundgas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rb,irho_density)
-       rho0=rho0*msun/mpc**3 !OVERFLOW ERROR WITH REAL(4)
+       rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL(4) if you use mpc**3
 
        !Calculate the value of the temperature prefactor
        !f=p=pac=1.
@@ -3985,7 +3864,7 @@ CONTAINS
              !Calculate the value of the density profile prefactor
              !and change units from cosmological to SI
              rho0=m*halo_freegas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rf,irho_density)
-             rho0=rho0*msun/mpc**3 !OVERFLOW ERROR WITH REAL(4)
+             rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL(4) if you use mpc**3
 
              !Calculate the value of the temperature prefactor
              !beta=1.
