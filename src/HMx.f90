@@ -234,12 +234,8 @@ CONTAINS
        z=redshift_a(a(i))
        CALL halomod_init(mmin,mmax,z,lut,cosm)
        !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
-<<<<<<< HEAD
-       WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
-=======
        IF(i==na) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
        WRITE(*,fmt='(A15,I5,F10.2)') 'CALCULATE_HMx:', i, REAL(z)
->>>>>>> f7ec236... Latest changes
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm)
     END DO
     !IF(verbose) THEN
