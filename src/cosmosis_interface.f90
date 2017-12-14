@@ -8,6 +8,8 @@ module HMx_setup
         real(8) :: zmin, zmax, amin, amax
         integer :: nz
 
+        integer :: compute_p_lin
+
         integer, dimension(2) :: fields
 
         real(8), dimension(:), allocatable :: k, a
@@ -69,6 +71,8 @@ function setup(options) result(result)
         stop
     end if
 
+    status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
+
     call init_HMx()
     !Create k array (log spacing)
     call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
@@ -113,6 +117,21 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, cosmological_parameters_section, "sigma_8", 0.8, cosm%sig8)
     status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96, cosm%n)
     status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, cosm%w)
+
+    if(HMx_config%compute_p_lin == 0) then
+        deallocate(HMx_config%k, HMx_config%a)
+        status = datablock_get_double_grid(block, matter_power_lin_section, &
+                                        "k_h", HMx_config%k, &
+                                        "z", HMx_config%a, &
+                                        "p_k", pk_lin)
+        HMx_config%nk = size(HMx_config%k)
+        HMx_config%nz = size(HMx_config%a)
+        if(status /= 0) then
+            write(*,*) "Could not load load linear power spectrum."
+            stop
+        end if
+        HMx_config%a = 1.0/(1+HMx_config%a)
+    end if
 
     call initialise_cosmology(cosm)
     call print_cosmology(cosm)

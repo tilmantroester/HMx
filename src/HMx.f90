@@ -215,19 +215,28 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: k(:), a(:)
     INTEGER, INTENT(IN) :: nk, na, itype(2)
-    REAL, ALLOCATABLE, INTENT(OUT) :: powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
+    REAL, ALLOCATABLE, INTENT(INOUT) :: powa_lin(:,:)
+    REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
     TYPE(cosmology), INTENT(IN) :: cosm
+    LOGICAL :: compute_p_lin
     INTEGER :: i
     REAL :: z
     TYPE(tables) :: lut
 
-    IF(ALLOCATED(powa_lin))  DEALLOCATE(powa_lin)
+    IF(ALLOCATED(powa_lin)) THEN
+      WRITE(*,*) "Linear power spectrum provided."
+      compute_p_lin = .FALSE.
+    ELSE
+      ALLOCATE(powa_lin(nk,na))
+      compute_p_lin = .TRUE.
+    ENDIF
+
     IF(ALLOCATED(powa_2h))   DEALLOCATE(powa_2h)
     IF(ALLOCATED(powa_1h))   DEALLOCATE(powa_1h)
     IF(ALLOCATED(powa_full)) DEALLOCATE(powa_full)
 
     !Allocate power arrays
-    ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
+    ALLOCATE(powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
 
     !Do the halo-model calculation
     DO i=na,1,-1
@@ -235,8 +244,8 @@ CONTAINS
        CALL halomod_init(mmin,mmax,z,lut,cosm)
        !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
        IF(i==na) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
-       WRITE(*,fmt='(A15,I5,F10.2)') 'CALCULATE_HMx:', i, REAL(z)
-       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm)
+       WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
+       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm,compute_p_lin)
     END DO
     !IF(verbose) THEN
     WRITE(*,*) 'CALCULATE_HMx: Done'
@@ -641,16 +650,25 @@ CONTAINS
 
   END SUBROUTINE write_xi
 
-  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,lut,cosm)
+  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,lut,cosm,compute_p_lin_arg)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype1, itype2
     INTEGER, INTENT(IN) :: nk
     REAL, INTENT(IN) :: k(nk), z
-    REAL, INTENT(OUT) :: pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
+    REAL, INTENT(INOUT) :: pow_lin(nk)
+    REAL, INTENT(OUT) ::pow_2h(nk), pow_1h(nk), pow(nk)
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
+    LOGICAL, OPTIONAL, INTENT(IN) :: compute_p_lin_arg
     INTEGER :: i
+    LOGICAL :: compute_p_lin
+
+    IF(PRESENT(compute_p_lin_arg)) THEN
+      compute_p_lin = compute_p_lin_arg
+    ELSE
+      compute_p_lin = .TRUE.
+    END IF
 
     !Write to screen
     IF(verbose) THEN
@@ -665,10 +683,11 @@ CONTAINS
     !ADD OMP support properly. What is private and shared? CHECK THIS!
 !!$OMP PARALLEL DO DEFAULT(SHARED), private(k,plin, pfull,p1h,p2h)
     DO i=1,nk
-
-       !Get the linear power
-       plin=p_lin(k(i),z,cosm)
-       pow_lin(i)=plin
+       IF(compute_p_lin) THEN
+        !Get the linear power
+        plin=p_lin(k(i),z,cosm)
+        pow_lin(i)=plin
+       END IF
 
        !Do the halo model calculation
        CALL halomod(itype1,itype2,k(i),z,pow_2h(i),pow_1h(i),pow(i),plin,lut,cosm)
