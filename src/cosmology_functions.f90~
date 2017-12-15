@@ -1,0 +1,71 @@
+MODULE cosmology_functions
+
+  USE cosdef
+
+  IMPLICIT NONE
+
+CONTAINS
+
+  FUNCTION redshift_a(a)
+
+    IMPLICIT NONE
+    REAL :: redshift_a
+    REAL, INTENT(IN) :: a
+
+    IF(a==0.) STOP 'REDSHIFT_A: Error, routine called with a=0'
+
+    redshift_a=-1.+1./a
+
+  END FUNCTION redshift_a
+
+  FUNCTION scale_factor_z(z)
+
+    IMPLICIT NONE
+    REAL :: scale_factor_z
+    REAL, INTENT(IN) :: z
+
+    scale_factor_z=1./(1.+z)
+
+  END FUNCTION scale_factor_z
+
+  FUNCTION f_k(r,cosm)
+
+    !Curvature function
+    IMPLICIT NONE
+    REAL :: f_k
+    REAL, INTENT(IN) :: r
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    IF(cosm%k==0.) THEN
+       f_k=r
+    ELSE IF(cosm%k<0.) THEN
+       f_k=sinh(sqrt(-cosm%k)*r)/sqrt(-cosm%k)
+    ELSE IF(cosm%k>0.) THEN
+       f_k=sin(sqrt(cosm%k)*r)/sqrt(cosm%k)
+    ELSE
+       STOP 'F_K: Something went wrong'
+    END IF
+
+  END FUNCTION f_k
+
+  FUNCTION fdash_k(r,cosm)
+
+    !Derivative of curvature function
+    IMPLICIT NONE
+    REAL :: fdash_k
+    REAL, INTENT(IN) :: r
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    IF(cosm%k==0.) THEN
+       fdash_k=1.
+    ELSE IF(cosm%k<0.) THEN
+       fdash_k=cosh(sqrt(-cosm%k)*r)
+    ELSE IF(cosm%k>0.) THEN
+       fdash_k=cos(sqrt(cosm%k)*r)
+    ELSE
+       STOP 'F_K: Something went wrong'
+    END IF
+
+  END FUNCTION fdash_k
+
+END MODULE cosmology_functions

@@ -21,6 +21,7 @@ CONTAINS
        END FUNCTION f
     END INTERFACE
 
+    dold=0.
     dx=1. !Is this a good choice?
 
     DO i=1,n
@@ -29,9 +30,10 @@ CONTAINS
        dnew=(f(x+dx/2.)-f(x-dx/2.))/dx !New, using equal sided derivative
 
        IF(i>=imin .AND. ABS(dnew/dold-1.)<acc) THEN
-          derivative=dnew
+          !derivative=dnew
           EXIT
        ELSE IF(i==n) THEN
+          !derivative=dnew
           STOP 'DERIVATIVE: Error, maximum number of iterations exceeded'
        ELSE
           dold=dnew
@@ -39,6 +41,8 @@ CONTAINS
        END IF
 
     END DO
+
+    derivative=dnew
 
   END FUNCTION derivative
 
@@ -58,6 +62,7 @@ CONTAINS
        END FUNCTION f
     END INTERFACE
 
+    dold=0.
     dx=4.
     
     DO i=1,n
@@ -67,7 +72,7 @@ CONTAINS
        !WRITE(*,*) i, dx, dnew, dold
 
        IF(i>1 .AND. ABS(dnew/dold-1.)<acc) THEN
-          derivative_x=dnew
+          !derivative_x=dnew
           EXIT
        ELSE IF(i==n) THEN
           STOP 'DERIVATIVE_X: Error, maximum number of iterations exceeded'
@@ -77,6 +82,8 @@ CONTAINS
        END IF
        
     END DO
+
+    derivative_x=dnew
 
   END FUNCTION derivative_x
 
@@ -97,6 +104,7 @@ CONTAINS
     END INTERFACE
 
     dy=4.
+    dold=0.
     
     DO i=1,n
 
@@ -105,7 +113,7 @@ CONTAINS
        !WRITE(*,*) i, dx, dnew, dold
 
        IF(i>1 .AND. ABS(dnew/dold-1.)<acc) THEN
-          derivative_y=dnew
+          !derivative_y=dnew
           EXIT
        ELSE IF(i==n) THEN
           STOP 'DERIVATIVE_Y: Error, maximum number of iterations exceeded'
@@ -115,6 +123,8 @@ CONTAINS
        END IF
        
     END DO
+
+    derivative_y=dnew
 
   END FUNCTION derivative_y
 
@@ -195,11 +205,11 @@ CONTAINS
 
   END FUNCTION integrate_basic
 
-  FUNCTION integrate(a,b,f,acc,iorder)
+  FUNCTION integrate_old(a,b,f,acc,iorder)
 
     !Integrates between a and b until desired accuracy is reached
     IMPLICIT NONE
-    REAL :: integrate
+    REAL :: integrate_old
     REAL, INTENT(IN) :: a, b, acc
     INTEGER, INTENT(IN) :: iorder
     INTEGER :: i, j
@@ -218,7 +228,7 @@ CONTAINS
 
     IF(a==b) THEN
 
-       integrate=0.
+       integrate_old=0.
 
     ELSE
 
@@ -284,12 +294,12 @@ CONTAINS
           sum2=sum2*dx
 
           IF(j .NE. 1 .AND. ABS(-1.d0+sum2/sum1)<acc) THEN
-             integrate=REAL(sum2)
-             !WRITE(*,*) 'INTEGRATE: Order:', iorder
-             !WRITE(*,*) 'INTEGRATE: Nint:', n
+             !integrate_old=REAL(sum2)
+             !WRITE(*,*) 'INTEGRATE_OLD: Order:', iorder
+             !WRITE(*,*) 'INTEGRATE_OLD: Nint:', n
              EXIT
           ELSE IF(j==jmax) THEN
-             STOP 'INTEGRATE: Integration timed out'
+             STOP 'INTEGRATE_OLD: Integration timed out'
           ELSE
              sum1=sum2
              sum2=0.d0
@@ -297,16 +307,18 @@ CONTAINS
 
        END DO
 
+       integrate_old=REAL(sum2)
+
     END IF
 
-  END FUNCTION integrate
+  END FUNCTION integrate_old
 
-  FUNCTION integrate_store(a,b,f,acc,iorder)
+  FUNCTION integrate(a,b,f,acc,iorder)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL :: integrate_store
+    REAL :: integrate
     REAL, INTENT(IN) :: a, b, acc
     INTEGER, INTENT(IN) :: iorder
     INTEGER :: i, j
@@ -327,7 +339,7 @@ CONTAINS
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       integrate_store=0.
+       integrate=0.
 
     ELSE
 
@@ -372,18 +384,18 @@ CONTAINS
              ELSE IF(iorder==3) THEN         
                 sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
              ELSE
-                STOP 'INTEGRATE_STORE: Error, iorder specified incorrectly'
+                STOP 'INTEGRATE: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
           IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
              !jmin avoids spurious early convergence
-             integrate_store=REAL(sum_new)
-             !WRITE(*,*) 'INTEGRATE_STORE: Nint:', n
+             !integrate=REAL(sum_new)
+             !WRITE(*,*) 'INTEGRATE: Nint:', n
              EXIT
           ELSE IF(j==jmax) THEN
-             STOP 'INTEGRATE_STORE: Integration timed out'
+             STOP 'INTEGRATE: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
@@ -393,9 +405,11 @@ CONTAINS
 
        END DO
 
+       integrate=REAL(sum_new)
+
     END IF
 
-  END FUNCTION integrate_store
+  END FUNCTION integrate
 
   FUNCTION integrate_log(a,b,f,acc,iorder,ilog)
 
@@ -492,7 +506,7 @@ CONTAINS
           sum2=sum2*dx
 
           IF(j .NE. 1 .AND. ABS(-1.+sum2/sum1)<acc) THEN
-             integrate_log=REAL(sum2)
+             !integrate_log=REAL(sum2)
              !WRITE(*,*) 'INTEGRATE_LOG: Order:', iorder
              !WRITE(*,*) 'INTEGRATE_LOG: Nint:', n
              EXIT
@@ -504,6 +518,8 @@ CONTAINS
           END IF
 
        END DO
+
+       integrate_log=REAL(sum2)
 
     END IF
 
@@ -582,7 +598,7 @@ CONTAINS
           END DO
 
           IF(j .NE. 1 .AND. ABS(-1.+sum2/sum1)<acc) THEN
-             cubeint=REAL(sum2)
+             !cubeint=REAL(sum2)
              !WRITE(*,*) 'CUBEINT: Number of sections', nsec
              !WRITE(*,*) 'CUBEINT: Number of function points', nint
              EXIT
@@ -594,6 +610,8 @@ CONTAINS
           END IF
 
        END DO
+
+       cubeint=REAL(sum2)
 
     END IF
 
@@ -702,7 +720,7 @@ CONTAINS
           sum2=sum2*dy
 
           IF(j .NE. 1 .AND. ABS(-1.+sum2/sum1)<acc) THEN
-             integrate_jac=REAL(sum2)
+             !integrate_jac=REAL(sum2)
              !WRITE(*,*) 'INTEGRATE_JAC: Order:', iorder
              !WRITE(*,*) 'INTEGRATE_JAC: Nint:', n
              EXIT
@@ -714,6 +732,8 @@ CONTAINS
           END IF
 
        END DO
+
+       integrate_jac=REAL(sum2)
 
     END IF
 

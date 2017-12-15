@@ -23,15 +23,20 @@ BIN_DIR = bin
 _OBJ = constants.o \
 	   random_numbers.o \
 	   file_info.o \
+	   logical_operations.o \
 	   fix_polynomial.o \
 	   array_operations.o \
 	   table_integer.o \
 	   special_functions.o \
 	   interpolate.o \
+	   solve_equations.o \
 	   string_operations.o \
 	   calculus.o \
 	   calculus_table.o \
-	   HMx.o
+	   cosdef.o \
+	   cosmology_functions.o \
+	   HMx.o \
+	   Limber.o
 
 OBJ = $(addprefix $(BUILD_DIR)/,$(_OBJ))
 DEBUG_OBJ = $(addprefix $(DEBUG_BUILD_DIR)/,$(_OBJ))
@@ -49,7 +54,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.f90
 	$(make_dirs)
 	$(FC) -c -o $@ $< -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
-$(BIN_DIR)/HMx: $(OBJ) $(SRC_DIR)/hmx_driver.f90
+$(BIN_DIR)/HMx: $(OBJ) $(SRC_DIR)/HMx_driver.f90
 	@echo "\nBuilding executable.\n"
 	$(make_dirs)
 	$(FC) -o $@ $^ -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
@@ -58,7 +63,7 @@ $(DEBUG_BUILD_DIR)/%.o: $(SRC_DIR)/%.f90
 	$(make_dirs)
 	$(FC) -c -o $@ $< -J$(DEBUG_BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
-$(BIN_DIR)/HMx_debug: $(DEBUG_OBJ) $(SRC_DIR)/hmx_driver.f90
+$(BIN_DIR)/HMx_debug: $(DEBUG_OBJ) $(SRC_DIR)/HMx_driver.f90
 	@echo "\nBuilding debugging executable.\n"
 	$(FC) -o $@ $^ -J$(DEBUG_BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 

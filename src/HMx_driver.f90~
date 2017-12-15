@@ -2,7 +2,6 @@ PROGRAM HMx_driver
 
   USE HMx
   USE cosdef
-  USE Limber
   IMPLICIT NONE
 
   CALL init_HMx()
@@ -469,8 +468,8 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
      WRITE(*,*) 'HMx: Profile type 1: ', TRIM(halo_type(ip(1)))
      WRITE(*,*) 'HMx: Profile type 2: ', TRIM(halo_type(ip(2)))
-     !WRITE(*,*) 'HMx: cross-correlation type 1: ', TRIM(xcorr_type(ix(1)))
-     !WRITE(*,*) 'HMx: cross-correlation type 2: ', TRIM(xcorr_type(ix(2)))
+     WRITE(*,*) 'HMx: cross-correkation type 1: ', TRIM(xcorr_type(ix(1)))
+     WRITE(*,*) 'HMx: cross-correlation type 2: ', TRIM(xcorr_type(ix(2)))
      WRITE(*,*) 'HMx: P(k) minimum k [h/Mpc]:', REAL(kmin)
      WRITE(*,*) 'HMx: P(k) maximum k [h/Mpc]:', REAL(kmax)
      WRITE(*,*) 'HMx: minimum a:', REAL(amin)
