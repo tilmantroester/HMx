@@ -67,8 +67,8 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
 
      !Sets the redshift
      z=0.
@@ -108,8 +108,8 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
 
      !Set number of k points and k range (log spaced)
      nk=200
@@ -224,8 +224,8 @@ PROGRAM HMx_driver
         CALL print_baryon_parameters(cosm)
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        CALL initialise_cosmology(cosm)
-        CALL print_cosmology(cosm)
+        CALL initialise_cosmology(verbose,cosm)
+        IF(verbose) CALL print_cosmology(cosm)
 
         !Initiliasation for the halomodel calcualtion
         CALL halomod_init(mmin,mmax,z,lut,cosm)
@@ -280,8 +280,8 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
 
      !WRITE(*,*) 'Redshift:'
      !READ(*,*) z
@@ -336,8 +336,8 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halomodel calcualtion
      CALL halomod_init(mmin,mmax,z,lut,cosm)
@@ -482,11 +482,11 @@ PROGRAM HMx_driver
      IF(imode==7) THEN
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        CALL initialise_cosmology(cosm)
-        CALL print_cosmology(cosm)
+        CALL initialise_cosmology(verbose,cosm)
+        IF(verbose) CALL print_cosmology(cosm)
 
         !Initialise the lensing part of the calculation
-        CALL initialise_distances(cosm)
+        CALL initialise_distances(verbose,cosm)
         CALL write_distances(cosm)
 
         !Write out diagnostics
@@ -625,9 +625,9 @@ PROGRAM HMx_driver
            cosm%sig8=progression(sig8min,sig8max,i,ncos)
 
            !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-           CALL initialise_cosmology(cosm)
-           CALL print_cosmology(cosm)
-           CALL initialise_distances(cosm)
+           CALL initialise_cosmology(verbose,cosm)
+           IF(verbose) CALL print_cosmology(cosm)
+           CALL initialise_distances(verbose,cosm)
            !CALL write_distances(cosm)
 
            !Loop over redshifts
@@ -704,11 +704,11 @@ PROGRAM HMx_driver
         !Break down cross-correlation in terms of mass
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        CALL initialise_cosmology(cosm)
-        CALL print_cosmology(cosm)
+        CALL initialise_cosmology(verbose,cosm)
+        IF(verbose) CALL print_cosmology(cosm)
 
         !Initialise the lensing part of the calculation
-        CALL initialise_distances(cosm)
+        CALL initialise_distances(verbose,cosm)
         CALL write_distances(cosm)
 
         !Fill out the projection kernels
@@ -855,8 +855,8 @@ PROGRAM HMx_driver
         !Break down cross-correlation in terms of redshift
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        CALL initialise_cosmology(cosm)
-        CALL print_cosmology(cosm)
+        CALL initialise_cosmology(verbose,cosm)
+        IF(verbose) CALL print_cosmology(cosm)
 
         !Loop over redshifts
         !DO j=1,na
@@ -885,7 +885,7 @@ PROGRAM HMx_driver
         !CALL write_power_a(k,a,powa,nk,na,output)
 
         !Initialise the lensing part of the calculation
-        CALL initialise_distances(cosm)
+        CALL initialise_distances(verbose,cosm)
         CALL write_distances(cosm)
 
         !Fill out the projection kernels
@@ -994,11 +994,11 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
 
      !Initialise the lensing part of the calculation
-     CALL initialise_distances(cosm)
+     CALL initialise_distances(verbose,cosm)
      CALL write_distances(cosm)
 
      !Set the ell range
@@ -1054,11 +1054,11 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
 
      !Initialise the lensing part of the calculation
-     CALL initialise_distances(cosm)
+     CALL initialise_distances(verbose,cosm)
      CALL write_distances(cosm)
 
      !Set the ell range and allocate arrays for l and C(l)
@@ -1115,8 +1115,8 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL initialise_cosmology(cosm)
-     CALL print_cosmology(cosm)
+     CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halomodel calcualtion
      CALL halomod_init(mmin,mmax,z,lut,cosm)  

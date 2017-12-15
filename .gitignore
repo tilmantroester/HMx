@@ -10,5 +10,35 @@ debug_build/
 bin/
 *.e
 
+# Library
 lib/
 
+# Plots
+*.eps
+
+# Emacs backups
+src/*.f90~
+
+# Backup directories
+src/BACKUP/
+BACKUP/
+
+# Mead directories
+CFHTLenS/
+Limber/
+OLD/
+RCSLenS/
+cosmo-OWLS/
+data/
+definitions/
+diagnostics/
+lensing/
+matter/
+pressure/
+profiling/
+projection/
+variations/
+winint/
+
+# Library update script
+src/update_library.sh*
