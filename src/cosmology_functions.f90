@@ -5,8 +5,9 @@ MODULE cosmology_functions
   USE constants
 
   IMPLICIT NONE
-
   REAL, PARAMETER :: acc_cos=1e-4
+  INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
+  REAL, PARAMETER :: Lbox=400. !Simulation box size
 
 CONTAINS
 
@@ -707,8 +708,8 @@ CONTAINS
        !Avoids some issues if p_lin is called for very (absurdly) high k values
        !For some reason crashes can occur if this is the case
        p_lin=0.
-    !ELSE IF(ibox==1 .AND. k<2.*pi/Lbox) THEN
-    !   p_lin=0.
+    ELSE IF(ibox==1 .AND. k<2.*pi/Lbox) THEN
+       p_lin=0.
     ELSE
        !In this case look for the transfer function
        p_lin=(cosm%A**2)*(grow(z,cosm)**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))

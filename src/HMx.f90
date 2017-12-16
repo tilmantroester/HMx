@@ -13,65 +13,20 @@ MODULE HMx
   USE calculus_table
   USE cosmology_functions
   
-  !Parameter definitions
   IMPLICIT NONE
-  REAL :: plin
-  REAL, ALLOCATABLE :: k(:), a(:)
-  REAL, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
-  REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
-  REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
-  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa
-  INTEGER :: ip(2), ix(2), ixx(2)
-  REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
-  REAL :: z, z1, z2, r1, r2
-  TYPE(cosmology) :: cosm
-  TYPE(tables) :: lut
-  TYPE(projection) :: proj(2)
-  TYPE(lensing) :: lens
-  CHARACTER(len=256) :: outfile, base, mid, ext, dir, name, fname
-  CHARACTER(len=256) :: mode
-  INTEGER :: imode, icosmo, iowl, nowl
-  REAL :: sig8min, sig8max
-  INTEGER :: ncos
-  REAL :: m1, m2, mass
-
-  !Halo-model Parameters
   INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST)
-  LOGICAL :: verbose=.TRUE.
   INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation
-  REAL, PARAMETER :: mmin=1e7 !Minimum halo mass for the calculation
-  REAL, PARAMETER :: mmax=1e17 !Maximum halo mass for the calculation
-  INTEGER :: ip2h=2 !Method to 'correct' the 2-halo integral
+  INTEGER, PARAMETER :: ip2h=2 !Method to 'correct' the 2-halo integral
   INTEGER, PARAMETER :: ibias=1 !Bias order to go to
-  !INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
-  !REAL, PARAMETER :: Lbox=400. !Simulation box size
-  INTEGER, PARAMETER :: icumulative=1 !Do cumlative distributions for breakdown
-  LOGICAL, PARAMETER :: ixi=.FALSE. !Do correlation functions from C(l)
-  LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
   REAL, PARAMETER :: acc=1e-4 !Global integration-accuracy parameter
-  LOGICAL, PARAMETER :: void=.FALSE. !Do voids or not
-  !REAL, PARAMETER :: lcorr=0.5 !Set to zero for k=l/fk or 0.5 for k=(l+0.5)/fk
-
-  !Name parameters (cannot do PARAMETER with mixed length strings)
-  CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)
+  !LOGICAL, PARAMETER :: void=.FALSE. !Do voids or not
 
 CONTAINS
 
-  SUBROUTINE init_HMx()
+  SUBROUTINE init_HMx(cosm)
 
     IMPLICIT NONE
-
-    !Name cross-correlation field types
-    xcorr_type(1)='RCSLenS lensing'
-    xcorr_type(2)='Compton y'
-    xcorr_type(3)='CMB lensing'
-    xcorr_type(4)='CFHTLenS lensing'
-    xcorr_type(5)='KiDS lensing (z = 0.1 -> 0.9)'
-    xcorr_type(6)='KiDS lensing (z = 0.1 -> 0.3)'
-    xcorr_type(7)='KiDS lensing (z = 0.3 -> 0.5)'
-    xcorr_type(8)='KiDS lensing (z = 0.5 -> 0.7)'
-    xcorr_type(9)='KiDS lensing (z = 0.7 -> 0.9)'
-    xcorr_type(10)='Gravitational waves'
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     !Names of variable parameters
     cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
@@ -111,21 +66,53 @@ CONTAINS
     cosm%param_log(4)=.TRUE.
     cosm%param_log(5)=.FALSE.
 
-    !Name halo types
-    halo_type(-1)='DMONLY'
-    halo_type(0)='Matter'
-    halo_type(1)='CDM'
-    halo_type(2)='Gas'
-    halo_type(3)='Star'
-    halo_type(4)='Bound gas'
-    halo_type(5)='Free gas'
-    halo_type(6)='Pressure'
-    halo_type(7)='Void'
-    halo_type(8)='Compensated void'
-
   END SUBROUTINE init_HMx
 
-  SUBROUTINE calculate_HMx(itype,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
+  FUNCTION xcorr_type(ix)
+
+    !Name cross-correlation field types
+    IMPLICIT NONE
+    CHARACTER(len=256) :: xcorr_type
+    INTEGER, INTENT(IN) :: ix
+
+    xcorr_type=''
+    IF(ix==1)  xcorr_type='RCSLenS lensing'
+    IF(ix==2)  xcorr_type='Compton y'
+    IF(ix==3)  xcorr_type='CMB lensing'
+    IF(ix==4)  xcorr_type='CFHTLenS lensing'
+    IF(ix==5)  xcorr_type='KiDS lensing (z = 0.1 -> 0.9)'
+    IF(ix==6)  xcorr_type='KiDS lensing (z = 0.1 -> 0.3)'
+    IF(ix==7)  xcorr_type='KiDS lensing (z = 0.3 -> 0.5)'
+    IF(ix==8)  xcorr_type='KiDS lensing (z = 0.5 -> 0.7)'
+    IF(ix==9)  xcorr_type='KiDS lensing (z = 0.7 -> 0.9)'
+    IF(ix==10) xcorr_type='Gravitational waves'
+    IF(xcorr_type=='') STOP 'XCORR_TYPE: Error, ix not specified correctly'
+    
+  END FUNCTION xcorr_type
+
+  FUNCTION halo_type(i)
+
+    IMPLICIT NONE
+    CHARACTER(len=256) :: halo_type
+    INTEGER :: i
+
+    !Name halo types
+    halo_type=''
+    IF(i==-1) halo_type='DMONLY'
+    IF(i==0)  halo_type='Matter'
+    IF(i==1)  halo_type='CDM'
+    IF(i==2)  halo_type='Gas'
+    IF(i==3)  halo_type='Star'
+    IF(i==4)  halo_type='Bound gas'
+    IF(i==5)  halo_type='Free gas'
+    IF(i==6)  halo_type='Pressure'
+    IF(i==7)  halo_type='Void'
+    IF(i==8)  halo_type='Compensated void'
+    IF(halo_type=='') STOP 'HALO_TYPE: Error, i not specified correctly'
+    
+  END FUNCTION halo_type
+
+  SUBROUTINE calculate_HMx(itype,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
     IMPLICIT NONE
     REAL, INTENT(IN) :: k(:), a(:)
@@ -133,10 +120,15 @@ CONTAINS
     REAL, ALLOCATABLE, INTENT(INOUT) :: powa_lin(:,:)
     REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
     TYPE(cosmology), INTENT(IN) :: cosm
+    LOGICAL, INTENT(IN) :: verbose
+    REAL, INTENT(IN) :: mmin, mmax
     LOGICAL :: compute_p_lin
     INTEGER :: i
     REAL :: z
     TYPE(tables) :: lut
+    LOGICAL :: verbose2
+
+    verbose2=verbose
 
     IF(ALLOCATED(powa_lin)) THEN
       WRITE(*,*) "Linear power spectrum provided."
@@ -156,20 +148,21 @@ CONTAINS
     !Do the halo-model calculation
     DO i=na,1,-1
        z=redshift_a(a(i))
-       CALL halomod_init(mmin,mmax,z,lut,cosm)
+       CALL halomod_init(mmin,mmax,z,lut,cosm,verbose2)
        !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
        IF(i==na) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
        WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
-       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm,compute_p_lin)
+       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm,verbose2,compute_p_lin)
+       verbose2=.FALSE.
     END DO
-    !IF(verbose) THEN
-    WRITE(*,*) 'CALCULATE_HMx: Done'
-    WRITE(*,*)
-    !END IF
+    IF(verbose) THEN
+       WRITE(*,*) 'CALCULATE_HMx: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE calculate_HMx
 
-  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,lut,cosm,compute_p_lin_arg)
+  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,lut,cosm,verbose,compute_p_lin_arg)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype1, itype2
@@ -180,7 +173,9 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     LOGICAL, OPTIONAL, INTENT(IN) :: compute_p_lin_arg
+    LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
+    REAL :: plin
     LOGICAL :: compute_p_lin
 
     IF(PRESENT(compute_p_lin_arg)) THEN
@@ -221,12 +216,13 @@ CONTAINS
 
   END SUBROUTINE calculate_halomod
 
-  SUBROUTINE write_power(k,pow_lin,pow_2h,pow_1h,pow,nk,output)
+  SUBROUTINE write_power(k,pow_lin,pow_2h,pow_1h,pow,nk,output,verbose)
 
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: output
     INTEGER, INTENT(IN) :: nk
     REAL, INTENT(IN) :: k(nk), pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
+    LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
 
     IF(verbose) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
@@ -385,6 +381,7 @@ CONTAINS
     TYPE(tables), INTENT(IN) :: lut
     CHARACTER(len=256), INTENT(IN) :: dir
     CHARACTER(len=256) :: fradius, fmass, fconc
+    INTEGER :: i
 
     WRITE(*,*) 'HALO_DEFINITIONS: Outputting diagnostics'
 
@@ -633,12 +630,13 @@ CONTAINS
 
   END FUNCTION As
 
-  FUNCTION fdamp(z,cosm)
+  FUNCTION fdamp(z,lut,cosm)
 
     IMPLICIT NONE
     REAL ::fdamp
     REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(tables), INTENT(IN) :: lut
     REAL :: crap
 
     !To prevent compile-time warnings
@@ -698,22 +696,20 @@ CONTAINS
     !This subroutine writes out the physical parameters at some redshift 
     !(e.g. Delta_v) rather than the model parameters
 
-    IF(verbose) THEN
-       WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
-       WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Halo-model parameters at your redshift'
-       WRITE(*,*) '==========================='
-       WRITE(*,fmt='(A10,F10.5)') 'z:', z
-       WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(z,cosm)
-       WRITE(*,fmt='(A10,F10.5)') 'dc:', delta_c(z,cosm)
-       WRITE(*,fmt='(A10,F10.5)') 'eta:', eta(z,cosm)
-       WRITE(*,fmt='(A10,F10.5)') 'k*:', kstar(lut,cosm)
-       WRITE(*,fmt='(A10,F10.5)') 'A:', As(cosm)
-       WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(z,cosm)
-       WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_transition(lut,cosm)
-       WRITE(*,*) '==========================='
-       WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Done'
-       WRITE(*,*)
-    END IF
+    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
+    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Halo-model parameters at your redshift'
+    WRITE(*,*) '==========================='
+    WRITE(*,fmt='(A10,F10.5)') 'z:', z
+    WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(z,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'dc:', delta_c(z,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'eta:', eta(z,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'k*:', kstar(lut,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'A:', As(cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(z,lut,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_transition(lut,cosm)
+    WRITE(*,*) '==========================='
+    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Done'
+    WRITE(*,*)
 
   END SUBROUTINE print_halomodel_parameters
 
@@ -804,16 +800,17 @@ CONTAINS
 
   END SUBROUTINE deallocate_LUT
 
-  SUBROUTINE halomod_init(mmin,mmax,z,lut,cosm)
+  SUBROUTINE halomod_init(mmin,mmax,z,lut,cosm,verbose)
 
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
     REAL, INTENT(IN) :: mmin, mmax
+    LOGICAL, INTENT(IN) :: verbose
+    TYPE(tables), INTENT(OUT) :: lut !Or is this just OUT?
+    TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i
     REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc
-    TYPE(cosmology) :: cosm
-    TYPE(tables) :: lut
-
+    
     INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
 
     !Halo-model initialisation routine
@@ -832,6 +829,7 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: sig8(z):', REAL(lut%sig8z)
     END IF
 
+    !Remove this if LUT is INTENT(OUT)
     IF(ALLOCATED(lut%rr)) CALL deallocate_LUT(lut)
 
     CALL allocate_LUT(lut,n)
@@ -927,9 +925,9 @@ CONTAINS
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r500c,lut%c500c,lut%m500c,500.,rhoc,lut%n)
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r200c,lut%c200c,lut%m200c,200.,rhoc,lut%n)
 
-    CALL print_halomodel_parameters(z,lut,cosm)
+    IF(verbose) CALL print_halomodel_parameters(z,lut,cosm)
 
-    IF(verbose) verbose=.FALSE.
+    !IF(verbose) verbose=.FALSE.
 
   END SUBROUTINE halomod_init
 
@@ -1257,9 +1255,10 @@ CONTAINS
     END IF
 
     !If we are worrying about voids
-    IF(void) THEN
-       pfull=pfull+p_1v(k,lut)
-    END IF
+    !IF(void) THEN
+    !   STOP 'HALOMOD: Extreme caution, parameter void is defined twice'
+    !   pfull=pfull+p_1v(k,lut)
+    !END IF
 
   END SUBROUTINE halomod
 
@@ -1347,7 +1346,7 @@ CONTAINS
     ELSE IF(imead==1) THEN
 
        sigv=lut%sigv
-       frac=fdamp(z,cosm)
+       frac=fdamp(z,lut,cosm)
 
        IF(frac==0.) THEN
           p_2h=plin
@@ -1863,7 +1862,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ik, itype
     REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL :: rho0, T0, r, alpha
+    REAL :: rho0, T0, r, alpha, gamma
     REAL :: rmin, rmax, rb
     INTEGER :: irho_density, irho_pressure
 
@@ -1879,6 +1878,8 @@ CONTAINS
        rmin=0.
        rmax=rv
        rb=rs
+       !gamma=cosm%param(3)
+       !STOP 'WIN_BOUNDGAS: Caution, gamma not being varied in KS profile'
     ELSE IF(imod==2) THEN
        irho_density=6 !Set cored isothermal profile with beta=2/3 
        irho_pressure=irho_density !okay to use density for pressure because temperature is constant
@@ -1886,7 +1887,7 @@ CONTAINS
        rmax=rv
        rb=rs
     ELSE        
-       STOP 'WIN_BOUNDGAD: Error, imod not specified correctly'
+       STOP 'WIN_BOUNDGAS: Error, imod not specified correctly'
     END IF
 
     IF(itype==1) THEN
@@ -2246,8 +2247,8 @@ CONTAINS
           rho=exp(-0.5*(r/rs)**2.)
        ELSE IF(irho==11 .OR. irho==12 .OR. irho==13) THEN
           !Komatsu & Seljak (2001) profile
-          !gamma=1.18 !Recommended by Rabold (2017)
-          gamma=cosm%param(3)
+          gamma=1.18 !Recommended by Rabold (2017)
+          !gamma=cosm%param(3)
           y=r/rs
           rho=(log(1.+y)/y)
           IF(irho==11) THEN

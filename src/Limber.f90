@@ -27,7 +27,7 @@ CONTAINS
        IF(ix(i)==-1) THEN
           WRITE(*,fmt='(A20,I3)') 'SET_IX: Choose field: ', i
           WRITE(*,*) '========================='
-          DO j=1,SIZE(xcorr_type)
+          DO j=1,10!SIZE(xcorr_type)
              WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
           END DO
           READ(*,*) ix(i)
@@ -65,13 +65,13 @@ CONTAINS
 
   END SUBROUTINE set_ix
 
-  SUBROUTINE xcorr(ix,ell,Cell,nl,cosm,verbose)
+  SUBROUTINE xcorr(ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
 
     !Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2)
     INTEGER, INTENT(IN) :: nl
-    REAL, INTENT(IN) :: ell(nl)
+    REAL, INTENT(IN) :: ell(nl), mmin, mmax
     REAL, INTENT(OUT) :: Cell(nl)
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL, ALLOCATABLE :: a(:), k(:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa(:,:)
@@ -138,7 +138,7 @@ CONTAINS
     !WRITE(*,fmt='(A13)') '   ============'
     !WRITE(*,*)
 
-    CALL calculate_HMx(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,cosm)
+    CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,cosm,verbose)
 
     !Fill out the projection kernels
     CALL fill_projection_kernels(ix,proj,cosm)
