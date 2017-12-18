@@ -1,18 +1,23 @@
 module HMx_setup
+    use cosdef
+
     implicit none
 
     type HMx_setup_config
         real(8) :: kmin, kmax
         integer :: nk
 
-        real(8) :: zmin, zmax, amin, amax
+        real(8) :: zmin, zmax, amin, amax, mmin, mmax
         integer :: nz
 
         integer :: compute_p_lin
 
         integer, dimension(2) :: fields
 
+        type(cosmology) :: cosm
+
         real(8), dimension(:), allocatable :: k, a
+        logical :: verbose
     end type HMx_setup_config
 end module HMx_setup
 
@@ -71,9 +76,14 @@ function setup(options) result(result)
         stop
     end if
 
+    status = datablock_get_double_default(options, option_section, "mmin", 1e7, HMx_config%mmin)
+    status = datablock_get_double_default(options, option_section, "mmax", 1e17, HMx_config%mmax)
+
     status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
 
-    call init_HMx()
+    HMx_config%verbose = .true.
+
+    call init_HMx(HMx_config%cosm)
     !Create k array (log spacing)
     call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
     HMx_config%k = exp(HMx_config%k)
@@ -87,7 +97,7 @@ end function setup
 function execute(block, config) result(status)
     use cosmosis_modules
     use HMx_setup
-    use HMx, only : cosm, initialise_cosmology, print_cosmology, calculate_HMx
+    use HMx, only : initialise_cosmology, print_cosmology, calculate_HMx
     use cosdef
     use constants
 
@@ -105,18 +115,18 @@ function execute(block, config) result(status)
 
     call c_f_pointer(config, HMx_config)
 
-    cosm%wa=0.
-    cosm%T_cmb=2.72
-    cosm%z_cmb=1100.
+    HMx_config%cosm%wa=0.
+    HMx_config%cosm%T_cmb=2.72
+    HMx_config%cosm%z_cmb=1100.
 
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, cosm%om_m)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-cosm%om_m, cosm%om_v)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_b", 0.05, cosm%om_b)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_nu", 0.0, cosm%om_nu)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "h0", 0.7, cosm%h)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "sigma_8", 0.8, cosm%sig8)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96, cosm%n)
-    status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, cosm%w)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, HMx_config%cosm%om_m)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_b", 0.05, HMx_config%cosm%om_b)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "omega_nu", 0.0, HMx_config%cosm%om_nu)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "h0", 0.7, HMx_config%cosm%h)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "sigma_8", 0.8, HMx_config%cosm%sig8)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96, HMx_config%cosm%n)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, HMx_config%cosm%w)
 
     if(HMx_config%compute_p_lin == 0) then
         deallocate(HMx_config%k, HMx_config%a)
@@ -133,14 +143,15 @@ function execute(block, config) result(status)
         HMx_config%a = 1.0/(1+HMx_config%a)
     end if
 
-    call initialise_cosmology(cosm)
-    call print_cosmology(cosm)
+    call initialise_cosmology(HMx_config%verbose, HMx_config%cosm)
+    call print_cosmology(HMx_config%cosm)
 
     call calculate_HMx(HMx_config%fields, &
+                       HMx_config%mmin, HMx_config%mmax, &
                        HMx_config%k, HMx_config%nk, &
                        HMx_config%a, HMx_config%nz, &
                        pk_lin, pk_2h, pk_1h, pk_full, &
-                       cosm)
+                       HMx_config%cosm, HMx_config%verbose)
 
     ! Remove the k^3/2pi^2 factor
     forall (i=1:HMx_config%nk) pk_full(i,:) = pk_full(i,:)*2*pi**2/HMx_config%k(i)**3
