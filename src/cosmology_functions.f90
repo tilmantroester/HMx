@@ -444,6 +444,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: verbose
     REAL :: sigi    
     
+    cosm%name = ""
     !Derived cosmological parameters
     cosm%om_r=2.5e-5*(1.+0.227*neff)/cosm%h**2
     cosm%om_m=cosm%om_m-cosm%om_r !Maintain flatness
