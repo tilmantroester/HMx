@@ -347,6 +347,7 @@ CONTAINS
     WRITE(*,*) 'HALO_DIAGNOSTICS: Outputting diagnostics'
 
     outfile=TRIM(dir)//'/mass_fractions.dat'
+    WRITE(*,*) 'HALO_DIAGNOSTICS: ', TRIM(outfile)
     CALL write_mass_fractions(cosm,outfile)
 
     DO m=m1,m2
@@ -356,6 +357,7 @@ CONTAINS
        base=TRIM(dir)//'/halo_profile_m'
        ext='.dat'
        outfile=number_file(base,m,ext)
+       WRITE(*,*) 'HALO_DIAGNOSTICS: ', TRIM(outfile)
        CALL write_halo_profiles(mass,z,lut,cosm,outfile)
 
        !base=TRIM(dir)//'/halo_profile_m'
@@ -366,6 +368,7 @@ CONTAINS
        base=TRIM(dir)//'/halo_window_m'
        ext='.dat'
        outfile=number_file(base,m,ext)
+       WRITE(*,*) 'HALO_DIAGNOSTICS: ', TRIM(outfile)
        CALL write_halo_transforms(mass,z,lut,cosm,outfile)
 
     END DO
@@ -383,11 +386,15 @@ CONTAINS
     CHARACTER(len=256) :: fradius, fmass, fconc
     INTEGER :: i
 
-    WRITE(*,*) 'HALO_DEFINITIONS: Outputting diagnostics'
+    WRITE(*,*) 'HALO_DEFINITIONS: Outputting definitions'
 
     fradius=TRIM(dir)//'/radius.dat'
     fmass=TRIM(dir)//'/mass.dat'
     fconc=TRIM(dir)//'/concentration.dat'
+
+    WRITE(*,*) 'HALO_DEFINITIONS: ', TRIM(fradius)
+    WRITE(*,*) 'HALO_DEFINITIONS: ', TRIM(fmass)
+    WRITE(*,*) 'HALO_DEFINITIONS: ', TRIM(fconc)
 
     OPEN(7,file=fradius)
     OPEN(8,file=fmass)

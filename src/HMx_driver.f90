@@ -30,7 +30,7 @@ PROGRAM HMx_driver
   REAL, PARAMETER :: mmin=1e7 !Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17 !Maximum halo mass for the calculation
   !INTEGER :: ip2h=2 !Method to 'correct' the 2-halo integral
-  INTEGER, PARAMETER :: icumulative=1 !Do cumlative distributions for breakdown
+  LOGICAL, PARAMETER :: icumulative=.TRUE. !Do cumlative distributions for breakdown
   LOGICAL, PARAMETER :: ixi=.FALSE. !Do correlation functions from C(l)
   LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
   LOGICAL, PARAMETER :: void=.FALSE. !Do voids or not
@@ -79,7 +79,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra as HMx parameters vary'
-     WRITE(*,*) '15 - Do all cosmo-OWLS models'
+     WRITE(*,*) '15 - Do 3D spectra for all cosmo-OWLS models'
      READ(*,*) imode
      WRITE(*,*) '======================'
      WRITE(*,*)
@@ -204,12 +204,13 @@ PROGRAM HMx_driver
      icosmo=1
      CALL assign_cosmology(icosmo,cosm)
         
-     IF(imode==2) nowl=1
+     IF(imode==2)  nowl=1
      IF(imode==15) nowl=6
 
      DO iowl=1,nowl
 
         IF(iowl==1) THEN
+           !This is not used if imode==2
            name='DMONLY'
            fname=name
         ELSE IF(iowl==2) THEN
@@ -265,9 +266,11 @@ PROGRAM HMx_driver
         CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
 
         !Runs the diagnostics
-        dir='diagnostics'
-        CALL halo_diagnostics(z,lut,cosm,dir)
-        CALL halo_definitions(lut,dir)
+        IF(imode==2) THEN           
+           dir='diagnostics'
+           CALL halo_diagnostics(z,lut,cosm,dir)
+           CALL halo_definitions(lut,dir)
+        END IF
 
         IF(imode==2) THEN
            !File base and extension
@@ -352,7 +355,7 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==5) THEN
 
-     !Compare to cosmo-OWLS models for pressure
+     !Create spectra for 'all matter' and 'pressure' and their cross
 
      !Set number of k points and k range (log spaced)
      nk=200
@@ -382,7 +385,7 @@ PROGRAM HMx_driver
      CALL halo_definitions(lut,dir)
 
      !File base and extension
-     base='pressure/power_'
+     base='data/power_'
      ext='.dat'
 
      !Number of different spectra
@@ -395,19 +398,19 @@ PROGRAM HMx_driver
            !DMONLY
            j1=-1
            j2=-1
-           outfile='pressure/DMONLY.dat'
+           outfile='data/power.dat'
         ELSE IF(j==1) THEN
-           !Matter x matter
+           !Matter-matter
            j1=0
            j2=0
            outfile='dd'
         ELSE IF(j==2) THEN
-           !Matter x pressure
+           !Matter-pressure
            j1=0
            j2=6
            outfile='dp'
         ELSE IF(j==3) THEN
-           !Pressure x pressure
+           !Pressure-pressure
            j1=6
            j2=6
            outfile='pp'
@@ -427,6 +430,7 @@ PROGRAM HMx_driver
      !n(z) normalisation check
 
      WRITE(*,*) 'HMx: Checking n(z) functions'
+     WRITE(*,*)
 
      !inz(1)=-1
      !inz(2)=0
@@ -441,6 +445,7 @@ PROGRAM HMx_driver
         IF(i==6) nz=8
         IF(i==7) nz=9
         WRITE(*,*) 'HMx: n(z) number:', nz
+        WRITE(*,*)
         CALL get_nz(nz,lens)
         WRITE(*,*) 'HMx: n(z) integral (linear):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,1)
         WRITE(*,*) 'HMx: n(z) integral (quadratic):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,2)
@@ -735,7 +740,7 @@ PROGRAM HMx_driver
 
      ELSE IF(imode==9) THEN
 
-        !Break down cross-correlation in terms of mass
+        !Breakdown cross-correlation in terms of mass
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL initialise_cosmology(verbose,cosm)
@@ -750,7 +755,7 @@ PROGRAM HMx_driver
         CALL write_projection_kernels(proj,cosm)
 
         DO i=0,6
-           IF(icumulative==0) THEN
+           IF(icumulative .EQV. .FALSE.) THEN
               !Set the mass intervals
               IF(i==0) THEN
                  m1=mmin
@@ -774,7 +779,7 @@ PROGRAM HMx_driver
                  m1=1e15
                  m2=1e16
               END IF
-           ELSE IF(icumulative==1) THEN
+           ELSE
               !Set the mass intervals
               IF(i==0) THEN
                  m1=mmin
@@ -798,15 +803,13 @@ PROGRAM HMx_driver
                  m1=mmin
                  m2=1e16
               END IF
-           ELSE
-              STOP 'HMx: Error, icumulative not set correctly.'
            END IF
 
            !Set the code to not 'correct' the two-halo power for missing
            !mass when doing the calcultion binned in halo mass
            !IF(icumulative==0 .AND. i>1) ip2h=0
            !IF(icumulative==1 .AND. i>0) ip2h=0
-           STOP 'HMx: Extrem caution here, need to set ip2h=0, but defined as parameter in HMx.f90'
+           STOP 'HMx: Extreme caution here, need to set ip2h=0, but defined as parameter in HMx.f90'
 
            WRITE(*,fmt='(A16)') 'HMx: Mass range'
            WRITE(*,fmt='(A16,I5)') 'HMx: Iteration:', i
@@ -946,10 +949,10 @@ PROGRAM HMx_driver
               r1=0.
               r2=maxdist(proj)
            ELSE
-              IF(icumulative==0) THEN
+              IF(icumulative .EQV. .FALSE.) THEN
                  !z1=zmin+(zmax-zmin)*float(i-1)/float(nz)
                  z1=progression(zmin,zmax,i,nz)
-              ELSE IF(icumulative==1) THEN
+              ELSE
                  z1=zmin
               END IF
               z2=zmin+(zmax-zmin)*float(i)/float(nz)
@@ -989,9 +992,9 @@ PROGRAM HMx_driver
                  powa=powa_full
               END IF
 
-              IF(i>0 .AND. icumulative==0) THEN
+              IF(i>0 .AND. (icumulative .EQV. .FALSE.)) THEN
                  outfile=number_file2(base,i-1,mid,i,ext)
-              ELSE IF(i>0 .AND. icumulative==1) THEN
+              ELSE IF(i>0 .AND. icumulative) THEN
                  outfile=number_file2(base,0,mid,i,ext)
               END IF
               WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
@@ -1259,8 +1262,8 @@ PROGRAM HMx_driver
               WRITE(*,fmt='(4I5,A50)') ipa, i, j1, j2, TRIM(outfile)
 
               !Do the halo-model calculation and write to file
-              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
-              CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
+              CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
 
            END DO
 

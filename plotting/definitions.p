@@ -1,12 +1,22 @@
 unset multiplot
 reset
 
-if(print==0) set term aqua
+if(!exists('thing')){thing='radius'; print 'Set variable *thing* to change what is plotted'}
 
-if(thing eq 'radius') {set title 'Radius'; file='definitions/radius.dat'; vmin=5e-3; vmax=1e2; xlab='R_v / (h^{-1} Mpc)'; ylab='R_i / (h^{-1} Mpc)'; ylab2='R_i / R_v'; rmin=0.5; rmax=1.3; outfile='radius.eps'; set format x '10^{%T}'; set format y '10^{%T}'}
-if(thing eq 'mass') {set title 'Mass'; file='definitions/mass.dat'; vmin=1e8; vmax=1e17; xlab='M_v / (h^{-1} M_{sun})'; ylab='M_i / (h^{-1} M_{sun})'; ylab2='M_i / M_v'; rmin=0.5; rmax=1.2; outfile='mass.eps'; set format x '10^{%T}'; set format y '10^{%T}'}
-if(thing eq 'concentration') {set title 'Concentration'; file='definitions/concentration.dat'; vmin=2; vmax=50; xlab='c_v'; ylab='c_i'; ylab2='c_i / c_v'; rmin=0.5; rmax=1.3; outfile='concentration.eps'; set format x; set format y}
+if(thing eq 'radius') {set title 'Radius'; file='diagnostics/radius.dat'}
+if(thing eq 'radius') {vmin=5e-3; vmax=1e1; xlab='R_v / (h^{-1} Mpc)'; ylab='R_i / (h^{-1} Mpc)'; ylab2='R_i / R_v'; rmin=0.5; rmax=1.3}
+if(thing eq 'radius') {outfile='radius.eps'; set format x '10^{%T}'; set format y '10^{%T}'}
 
+if(thing eq 'mass') {set title 'Mass'; file='diagnostics/mass.dat'}
+if(thing eq 'mass') {vmin=1e8; vmax=1e17; xlab='M_v / (h^{-1} M_{sun})'; ylab='M_i / (h^{-1} M_{sun})'; ylab2='M_i / M_v'; rmin=0.5; rmax=1.2}
+if(thing eq 'mass') {outfile='mass.eps'; set format x '10^{%T}'; set format y '10^{%T}'}
+
+if(thing eq 'concentration') {set title 'Concentration'; file='diagnostics/concentration.dat'}
+if(thing eq 'concentration') {vmin=2; vmax=50; xlab='c_v'; ylab='c_i'; ylab2='c_i / c_v'; rmin=0.5; rmax=1.3}
+if(thing eq 'concentration') {outfile='concentration.eps'; set format x; set format y}
+
+if(!exists('print')) {print=0}
+if(print==0) {set term aqua}
 if(print==1) set term post enh col sol; set output outfile
 
 set lmargin 10

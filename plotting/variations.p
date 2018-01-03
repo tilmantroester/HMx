@@ -23,12 +23,14 @@ if(param==2){pname='{/Symbol b}';       min=0.0;   max=2.0;   ilog=0; coll='pink
 if(param==3){pname='{/Symbol G}';       min=1.10;  max=1.26;  ilog=0; coll='orange'}
 if(param==4){pname='M_B / M_{'.sun.'}'; min=1e13;  max=1e15;  ilog=1; coll='light-green'}
 if(param==5){pname='A_*';               min=0.015; max=0.055; ilog=0; coll='gold'}
+print 'Comparison for parameter (set with *param*): '.param.''
 
 #Output figure
 if(!exists("type")){type='matter'}
 if(type eq 'matter'){outfile(i)=sprintf('variations_matter_param_%i.eps',i)}
 if(type eq 'pressure'){outfile(i)=sprintf('variations_pressure_param_%i.eps',i)}
 if(print==1){set output outfile(param); print 'Output: ', outfile(param)}
+print 'Type of comparison (set with *type*): '.type.''
 
 #Number of different values of the parameter
 n=9
@@ -52,6 +54,7 @@ simulation_titles="'DMONLY' 'REF' 'NO COOL' 'AGN' 'AGN 8.5' 'AGN 8.7'"
 simulation(n,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',n,sim,type1,type2)
 sim_name=word(simulation_names,sim)
 sim_title=word(simulation_titles,sim)
+print 'Comparing to simulation (set with *isim*): '.sim_title.''
 dmsim='DMONLY'
 mesh=800
 dsim='overdensity_grid'

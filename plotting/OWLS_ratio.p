@@ -20,7 +20,7 @@ mod=word(simulation_names,sim)
 tit=word(simulation_names,sim)
 
 print ''
-print 'Comparing to model: ', mod
+print 'Comparing to simulation: ', mod
 print ''
 
 #All different fields

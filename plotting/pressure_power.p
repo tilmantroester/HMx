@@ -2,21 +2,23 @@ unset multiplot
 reset
 
 if(print==0) set term aqua dashed
-if(print==1) set term post enh col dashed dl .5 font ',10'; set output 'power_pressure.eps'
+if(print==1) set term post enh col dashed dl .5 font ',10'; set output 'pressure_power.eps'
 
 #Mesh size
 N=800
 
 data(N,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',N,sim,type1,type2)
-hmpk(i,j)=sprintf('pressure/power_%s%s.dat',i,j)
-dmonly='pressure/DMONLY.dat'
+hmpk(i,j)=sprintf('data/power_%s%s.dat',i,j)
+dmonly='data/power.dat'
 
-#All different simualtions
+#Different simualtions
 models='DMONLY REF NOCOOL_UVB AGN AGN_Theat_8p5 AGN_Theat_8p7'
 titles="'DMONLY' 'REF' 'NO COOL' 'AGN' 'AGN 8.5' 'AGN 8.7'"
 
+#Set the simulation here
 m=2
 mod=word(models,m)
+print 'Comparing to simulation: '.mod.''
 
 #All different fields
 things="'overdensity_grid' 'overdensity_grid_DM' 'overdensity_grid_gas' overdensity_grid_stars' 'pressure_grid'"
@@ -45,7 +47,7 @@ kmax=1e1
 set log x
 set xrange [kmin:kmax]
 
-set title 'Halo model power spectra for matter and pressure fields: '.word(titles,m).''
+set title 'Halo model power spectra for matter and pressure fields compared to simulation: '.word(titles,m).''
 
 #Columns for simulation power
 c=2
