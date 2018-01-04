@@ -38,6 +38,7 @@ PROGRAM HMx_driver
   !Name parameters (cannot do PARAMETER with mixed length strings)
   !CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)
 
+  !Sets the values for the variable baryon parameters
   CALL init_HMx(cosm)
 
   CALL get_command_argument(1,mode)
@@ -112,17 +113,8 @@ PROGRAM HMx_driver
      !Do the halo-model calculation
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
 
-     !na=1
-     !ALLOCATE(a(na))
-     !a=scale_factor_z(z)
-     !a=1.
-
-     !ip=-1
-     !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
-
-     !Write out the answer
+     !Write out the results
      outfile='data/power.dat'
-     !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Write the one-void term if necessary
@@ -159,25 +151,6 @@ PROGRAM HMx_driver
      CALL fill_array(zmin,zmax,a,nz)
      a=1./(1.+a)
      na=nz
-
-     !Instead could set an a-range
-     !amin=scale_factor(cosm%z_cmb)
-     !amax=1.
-     !na=16
-     !CALL fill_array(amin,amax,a,na)
-
-     !Allocate power arrays
-     !ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
-
-     !Do the halo-model calculation
-     !WRITE(*,*) 'HMx: Doing calculation'
-     !DO j=na,1,-1
-     !   z=redshift_a(a(j))
-     !   CALL halomod_init(mmin,mmax,z,lut,cosm)
-     !   WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', j, REAL(z)
-     !   CALL calculate_halomod(-1,-1,k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-     !END DO
-     !WRITE(*,*)
 
      ip=-1
      CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
@@ -288,11 +261,6 @@ PROGRAM HMx_driver
         WRITE(*,*) -1, -1, TRIM(outfile)
         CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
         CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
-
-        !ip=-1
-        !CALL calculate_halomod(ip,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm)
-        !outfile='cosmo-OWLS/data/DMONLY.dat'
-        !CALL write_power(k,powa_lin(:,1),powa_2h(:,1),powa_1h(:,1),powa_full(:,1),nk,outfile)
 
         !Loop over matter types and do auto and cross-spectra
         DO j1=0,6
@@ -432,9 +400,6 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx: Checking n(z) functions'
      WRITE(*,*)
 
-     !inz(1)=-1
-     !inz(2)=0
-
      nnz=7
      DO i=1,nnz
         IF(i==1) nz=1
@@ -500,9 +465,11 @@ PROGRAM HMx_driver
      nth=128
 
      !Allocate arrays for theta and xi(theta)
-     CALL fill_array(log(thmin),log(thmax),theta,nth)
-     theta=exp(theta)
-     ALLOCATE(xi(3,nth))
+     IF(ixi) THEN
+        CALL fill_array(log(thmin),log(thmax),theta,nth)
+        theta=exp(theta)
+        ALLOCATE(xi(3,nth))
+     END IF
 
      WRITE(*,*) 'HMx: Cross-correlation information'
      WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
@@ -536,32 +503,6 @@ PROGRAM HMx_driver
 
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
-        !Loop over scale factors
-        !DO j=na,1,-1
-        !
-        !   z=-1+1./a(j)
-        !   
-        !   !Initiliasation for the halomodel calcualtion
-        !   CALL halomod_init(mmin,mmax,z,lut,cosm)
-        !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-        !
-        !   IF(z==0.) THEN
-        !      dir='diagnostics'
-        !      CALL halo_diagnostics(z,lut,cosm,dir)
-        !      CALL halo_definitions(lut,dir)
-        !   END IF
-
-        !  !Write progress to screen
-        !  IF(j==na) THEN
-        !     WRITE(*,fmt='(A5,A7)') 'i', 'a'
-        !     WRITE(*,fmt='(A13)') '   ============'
-        !  END IF
-        !  WRITE(*,fmt='(I5,F8.3)') j, a(j)
-
-        !END DO
-        !WRITE(*,fmt='(A13)') '   ============'
-        !WRITE(*,*)
-
 !!$        !Fix the one-halo term P(k) to be a constant
 !!$        DO j=1,na
 !!$           DO i=1,nk
@@ -580,10 +521,6 @@ PROGRAM HMx_driver
         !Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
         CALL write_projection_kernels(proj,cosm)
-        !output='projection/kernel1.dat'
-        !CALL write_projection_kernel(proj(1),cosm,output)
-        !output='projection/kernel2.dat'
-        !CALL write_projection_kernel(proj(2),cosm,output)
 
         !Set the distance range for the Limber integral
         r1=0. !100.
@@ -667,26 +604,6 @@ PROGRAM HMx_driver
            CALL initialise_cosmology(verbose,cosm)
            IF(verbose) CALL print_cosmology(cosm)
            CALL initialise_distances(verbose,cosm)
-           !CALL write_distances(cosm)
-
-           !Loop over redshifts
-           !DO j=1,na
-           !
-           !   z=redshift_a(a(j))
-           !   
-           !   !Initiliasation for the halomodel calcualtion
-           !   CALL halomod_init(mmin,mmax,z,lut,cosm)
-           !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-           !   !Write progress to screen
-           !   IF(j==1) THEN
-           !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
-           !      WRITE(*,fmt='(A13)') '   ============'
-           !   END IF
-           !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
-           !
-           !END DO
-           !WRITE(*,fmt='(A13)') '   ============'
-           !WRITE(*,*)
 
            CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
@@ -708,7 +625,8 @@ PROGRAM HMx_driver
            WRITE(*,*) 'HMx: number of ell:', nl
            WRITE(*,*)
 
-           !Loop over all types of C(l) to create  
+           !Loop over all types of C(l) to create
+           dir='data/'
            base=TRIM(dir)//'cosmology_'
            DO j=1,4
               IF(j==1) THEN
@@ -727,9 +645,10 @@ PROGRAM HMx_driver
                  WRITE(*,*) 'HMx: Doing C(l) full'
                  ext='_cl_full.dat'
                  powa=powa_full
-              END IF
+              END IF           
               outfile=number_file(base,i,ext)
-              !Actually calculate the C(ell)
+              WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
+              !Actually calculate the C(l)
               CALL calculate_Cell(0.,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
            END DO
@@ -809,7 +728,7 @@ PROGRAM HMx_driver
            !mass when doing the calcultion binned in halo mass
            !IF(icumulative==0 .AND. i>1) ip2h=0
            !IF(icumulative==1 .AND. i>0) ip2h=0
-           STOP 'HMx: Extreme caution here, need to set ip2h=0, but defined as parameter in HMx.f90'
+           STOP 'HMx: Extreme caution here, need to set ip2h=0, but it is defined as parameter in HMx.f90'
 
            WRITE(*,fmt='(A16)') 'HMx: Mass range'
            WRITE(*,fmt='(A16,I5)') 'HMx: Iteration:', i
@@ -896,31 +815,7 @@ PROGRAM HMx_driver
         CALL initialise_cosmology(verbose,cosm)
         IF(verbose) CALL print_cosmology(cosm)
 
-        !Loop over redshifts
-        !DO j=1,na
-        !
-        !   !z=-1.+1./a(j)
-        !   z=redshift_a(a(j))
-        !
-        !   !Initiliasation for the halomodel calcualtion
-        !   CALL halomod_init(mmin,mmax,z,lut,cosm)
-        !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm)
-        !
-        !   !Write progress to screen
-        !   IF(j==1) THEN
-        !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
-        !      WRITE(*,fmt='(A13)') '   ============'
-        !   END IF
-        !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
-        !
-        !END DO
-        !WRITE(*,fmt='(A13)') '   ============'
-        !WRITE(*,*)
-
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
-
-        !output=TRIM(base)//'power'
-        !CALL write_power_a(k,a,powa,nk,na,output)
 
         !Initialise the lensing part of the calculation
         CALL initialise_distances(verbose,cosm)
@@ -938,19 +833,16 @@ PROGRAM HMx_driver
         WRITE(*,*)
 
         zmin=0.
-        zmax=1.
+        zmax=4.
         nz=8
 
         DO i=0,nz
 
            IF(i==0) THEN
-              !z1=0.
-              !z2=3.99 !Just less than z=4 to avoid rounding error
               r1=0.
               r2=maxdist(proj)
            ELSE
               IF(icumulative .EQV. .FALSE.) THEN
-                 !z1=zmin+(zmax-zmin)*float(i-1)/float(nz)
                  z1=progression(zmin,zmax,i,nz)
               ELSE
                  z1=zmin
@@ -962,13 +854,14 @@ PROGRAM HMx_driver
 
            WRITE(*,*) 'HMx:', i
            IF(i>0) THEN
-              WRITE(*,*) 'HMx: z1', REAL(z1)
-              WRITE(*,*) 'HMx: z2', REAL(z2)
+              WRITE(*,*) 'HMx: z1:', REAL(z1)
+              WRITE(*,*) 'HMx: z2:', REAL(z2)
            END IF
-           WRITE(*,*) 'HMx: r1 [Mpc/h]', REAL(r1)
-           WRITE(*,*) 'HMx: r2 [Mpc/h]', REAL(r2)
+           WRITE(*,*) 'HMx: r1 [Mpc/h]:', REAL(r1)
+           WRITE(*,*) 'HMx: r2 [Mpc/h]:', REAL(r2)
 
            !Loop over all types of C(l) to create
+           dir='data/'
            base=TRIM(dir)//'redshift_'
            mid='_'
            DO j=1,4
@@ -1000,6 +893,7 @@ PROGRAM HMx_driver
               WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
 
               !This crashes for the low r2 values for some reason
+              STOP 'This crashes for the low r2 values for some reason - should debug'
               CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
 

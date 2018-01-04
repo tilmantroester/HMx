@@ -38,28 +38,12 @@ CONTAINS
        IF(ix(i)==2) THEN
           !Compton y
           ip(i)=6 !Profile type: 6 - Pressure
-          !ik(i)=2 !Kernel type: 2 - y
-          !inz(i)=-1 !n(z) distribution - NOT used here
        ELSE IF(ix(i)==10) THEN
           !Gravitational waves
           ip(i)=-1 !Profile type: -1 DMONLY
-          !ik(i)=3 !Kernel type: 3 gravity waves
-          !inz(i)=-1 !n(z) distribution - NOT used here
        ELSE
-          !Gravitational lensing
-          !ip(i)=-1 !Profile type: -1 - DMONLY
-          ip(i)=0 !Profile type: 0 - Matter
-          !ik(i)=1 !Kernel type: 1 - Lensing
-          !IF(ix(i)==1) inz(i)=1 !n(z): 1 - RCSLenS
-          !IF(ix(i)==3) inz(i)=0 !n(z): 0 - CMB
-          !IF(ix(i)==4) inz(i)=7 !n(z): 7 - CFHTLenS
-          !IF(ix(i)==5) inz(i)=2 !n(z): 2 - KiDS 0.1 -> 0.9
-          !IF(ix(i)==6) inz(i)=3 !n(z): 2 - KiDS 0.1 -> 0.3
-          !IF(ix(i)==7) inz(i)=4 !n(z): 2 - KiDS 0.3 -> 0.5
-          !IF(ix(i)==8) inz(i)=5 !n(z): 2 - KiDS 0.5 -> 0.7
-          !IF(ix(i)==9) inz(i)=6 !n(z): 2 - KiDS 0.7 -> 0.9
-          !ELSE
-          !    STOP 'SET_IX: inx specified incorrectly'
+          !Gravitational lensing (should be set to 0 eventually)
+          ip(i)=-1 !Profile type: 0 - Matter
        END IF
     END DO
 
@@ -118,26 +102,6 @@ CONTAINS
 
     CALL set_ix(ix,ip)
 
-    !Loop over scale factors
-    !DO j=na,1,-1
-    !
-    !   z=-1+1./a(j)
-    !
-    !   !Initiliasation for the halomodel calcualtion
-    !   CALL halomod_init(mmin,mmax,z,lut,cosm)
-    !   CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow(:,j),lut,cosm)
-    !
-    !   !Write progress to screen
-    !   IF(j==na .AND. verbose) THEN
-    !      WRITE(*,fmt='(A5,A7)') 'i', 'a'
-    !      WRITE(*,fmt='(A13)') '   ============'
-    !   END IF
-    !   WRITE(*,fmt='(I5,F8.3)') j, a(j)
-    !
-    !END DO
-    !WRITE(*,fmt='(A13)') '   ============'
-    !WRITE(*,*)
-
     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,cosm,verbose)
 
     !Fill out the projection kernels
@@ -178,7 +142,6 @@ CONTAINS
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix(2)
     TYPE(cosmology), INTENT(IN) :: cosm
-    !TYPE(lensing), INTENT(IN) :: lens
     TYPE(projection) :: proj(2)
     INTEGER :: nk, i
 
@@ -190,32 +153,13 @@ CONTAINS
 
     !Loop over the two kernels
     DO i=1,nk
-       !Fill out the projection kernels
-       !Repetition is a bit ugly, but probably cannot be avoided because the size
-       !of the projection X and r_X arrays will be different in general
-       !IF(i==1) THEN
-       !   IF(ik(i)==1) CALL fill_lensing_kernel(inz(i),proj%r_x1,proj%x1,proj%nx1,lens,cosm)
-       !   IF(ik(i)==2 .OR. ik(i)==3) CALL fill_kernel(ik(i),proj%r_x1,proj%x1,proj%nx1,cosm)
-       !ELSE IF(i==2) THEN
-       !   IF(ik(i)==1) CALL fill_lensing_kernel(inz(i),proj%r_x2,proj%x2,proj%nx2,lens,cosm)
-       !   IF(ik(i)==2 .OR. ik(i)==3) CALL fill_kernel(ik(i),proj%r_x2,proj%x2,proj%nx2,cosm)
-       !END IF
        CALL fill_projection_kernel(ix(i),proj(i),cosm)
     END DO
 
     !In case the autospectrum is being considered
     IF(nk==1) THEN
-       !proj%nx2=proj%nx1
-       !IF(ALLOCATED(proj%r_x2)) DEALLOCATE(proj%r_x2)
-       !IF(ALLOCATED(proj%x2))   DEALLOCATE(proj%x2)
-       !ALLOCATE(proj%r_x2(proj%nx2),proj%x2(proj%nx2))
-       !proj%r_x2=proj%r_x1
-       !proj%x2=proj%x1
        proj(2)=proj(1)
     END IF
-
-    !Get the maximum distance to be considered for the Limber integral
-    !CALL maxdist(proj,cosm)
 
   END SUBROUTINE fill_projection_kernels
 
@@ -227,7 +171,7 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(lensing) :: lens
 
-    IF(ix==2 .OR. ix==3) THEN
+    IF(ix==2 .OR. ix==10) THEN
        CALL fill_kernel(ix,proj,cosm)
     ELSE
        CALL fill_lensing_kernel(ix,proj,lens,cosm)
@@ -251,17 +195,14 @@ CONTAINS
 
     LOGICAL, PARAMETER :: verbose=.FALSE.
 
-    !Note that using Limber and flat-sky for sensible results limits lmin to ~10
+    !Note that using Limber and flat-sky for sensible results limits lmin to ell~10
 
     !Create log tables to speed up 2D find routine in find_pkz
-    !WRITE(*,*) 'Cocker'
     logk=log(k)
     loga=log(a)
     DO j=1,na
        logpow(:,j)=log((2.*pi**2)*pow(:,j)/k**3)
     END DO
-    !WRITE(*,*) 'Cocker'
-    !WRITE(*,*)
 
     !Write some useful things to the screen
     IF(verbose) THEN
@@ -277,9 +218,7 @@ CONTAINS
     !Finally do the integration
     IF(verbose) WRITE(*,*) 'CALCULATE CELL: Doing calculation'
     DO i=1,nl
-       !WRITE(*,*) i, ell(i)
        Cell(i)=integrate_Limber(ell(i),r1,r2,logk,loga,logpow,nk,na,acc_Limber,3,proj,cosm)
-       !WRITE(*,*) i, ell(i), Cell(i)
     END DO
     IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_CELL: Done'
@@ -487,8 +426,6 @@ CONTAINS
     TYPE(lensing) :: lens
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(projection), INTENT(OUT) :: proj
-    !REAL, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
-    !INTEGER, INTENT(OUT) :: nx_out
     REAL :: zmin, zmax, rmax, r
     CHARACTER(len=256) :: output
     INTEGER :: i
@@ -496,16 +433,6 @@ CONTAINS
     !Parameters
     REAL, PARAMETER :: rmin=0. !Minimum distance in integral    
     INTEGER, PARAMETER :: nx=128 !Number of entries in X(r) table
-
-    !IF(inz==-1) THEN
-    !   WRITE(*,*) 'FILL_LENSING_KERNEL: Choose n(z)'
-    !   WRITE(*,*) '================================'
-    !   WRITE(*,*) '0 - Fixed source plane'
-    !   WRITE(*,*) '1 - Realistic n(z) distribution'
-    !   READ(*,*) inz
-    !   WRITE(*,*) '================================'
-    !   WRITE(*,*)
-    !END IF
 
     IF(ix==2 .OR. ix==10) STOP 'FILL_LENSING_KERNEL: Error, trying to do this for a non-lensing ix'
 
@@ -583,7 +510,7 @@ CONTAINS
           !To avoid division by zero
           lens%q(i)=1.
        ELSE
-          IF(ix==7) THEN
+          IF(ix==3) THEN
              !q(r) for a fixed source plane
              lens%q(i)=f_k(rmax-r,cosm)/f_k(rmax,cosm)
           ELSE

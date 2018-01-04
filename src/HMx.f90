@@ -117,8 +117,8 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: k(:), a(:)
     INTEGER, INTENT(IN) :: nk, na, itype(2)
-    REAL, ALLOCATABLE, INTENT(INOUT) :: powa_lin(:,:)
-    REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
+    !REAL, ALLOCATABLE, INTENT(INOUT) :: powa_lin(:,:) !Mead - commented out
+    REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:), powa_lin(:,:) !Mead - added powa_lin here instead
     TYPE(cosmology), INTENT(IN) :: cosm
     LOGICAL, INTENT(IN) :: verbose
     REAL, INTENT(IN) :: mmin, mmax
@@ -128,22 +128,26 @@ CONTAINS
     TYPE(tables) :: lut
     LOGICAL :: verbose2
 
-    verbose2=verbose
+    !Mead - fixed this to always be false to avoid splurge of stuff printed to screen
+    verbose2=.FALSE.
 
+    !Tilman - added this
     IF(ALLOCATED(powa_lin)) THEN
-      WRITE(*,*) "Linear power spectrum provided."
-      compute_p_lin = .FALSE.
+       WRITE(*,*) 'Linear power spectrum provided.'
+       compute_p_lin = .FALSE.
     ELSE
-      ALLOCATE(powa_lin(nk,na))
-      compute_p_lin = .TRUE.
-    ENDIF
+       !ALLOCATE(powa_lin(nk,na)) !Mead - commented out
+       compute_p_lin = .TRUE.
+    END IF
+    !Tilman - End
 
+    IF(ALLOCATED(powa_lin))  DEALLOCATE(powa_lin)
     IF(ALLOCATED(powa_2h))   DEALLOCATE(powa_2h)
     IF(ALLOCATED(powa_1h))   DEALLOCATE(powa_1h)
     IF(ALLOCATED(powa_full)) DEALLOCATE(powa_full)
 
     !Allocate power arrays
-    ALLOCATE(powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
+    ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
 
     !Do the halo-model calculation
     DO i=na,1,-1
@@ -151,7 +155,7 @@ CONTAINS
        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose2)
        !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
        IF(i==na) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
-       WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
+       IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z) !Mead - re-added verbose dependence
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm,verbose2,compute_p_lin)
        verbose2=.FALSE.
     END DO
@@ -178,11 +182,14 @@ CONTAINS
     REAL :: plin
     LOGICAL :: compute_p_lin
 
+    !Tilman - added this
     IF(PRESENT(compute_p_lin_arg)) THEN
-      compute_p_lin = compute_p_lin_arg
+       compute_p_lin = compute_p_lin_arg
     ELSE
-      compute_p_lin = .TRUE.
+       compute_p_lin = .TRUE.
     END IF
+    !compute_p_lin = .TRUE. !Mead - added this to make things work!!!
+    !Tilman - done
 
     !Write to screen
     IF(verbose) THEN
@@ -194,14 +201,17 @@ CONTAINS
     END IF
 
     !Loop over k values
-    !ADD OMP support properly. What is private and shared? CHECK THIS!
+    !ADD OMP support properly. What is private and what is shared? CHECK THIS!
 !!$OMP PARALLEL DO DEFAULT(SHARED), private(k,plin, pfull,p1h,p2h)
     DO i=1,nk
+
+       !Tilman - added this
        IF(compute_p_lin) THEN
-        !Get the linear power
-        plin=p_lin(k(i),z,cosm)
-        pow_lin(i)=plin
+          !Get the linear power
+          plin=p_lin(k(i),z,cosm)
+          pow_lin(i)=plin
        END IF
+       !Tilman - done
 
        !Do the halo model calculation
        CALL halomod(itype1,itype2,k(i),z,pow_2h(i),pow_1h(i),pow(i),plin,lut,cosm)

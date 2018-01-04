@@ -66,11 +66,11 @@ CONTAINS
        ELSE
           STOP 'FIND: Error, method not specified correctly'
        END IF
-       
+
     ELSE IF(x>xtab(n)) THEN
 
        !Do a linear interpolation beyond the table boundary
-       
+
        x1=xtab(n-1)
        x2=xtab(n)
 
@@ -109,7 +109,7 @@ CONTAINS
        ELSE
 
           i=select_table_integer(x,xtab,n,ifind)
-          
+
           x1=xtab(i)
           x2=xtab(i+1)
 
@@ -163,7 +163,7 @@ CONTAINS
           ELSE
              STOP 'FIND: Error, method not specified correctly'
           END IF
-             
+
        ELSE
 
           i=select_table_integer(x,xtab,n,ifind)
@@ -254,7 +254,7 @@ CONTAINS
 
   END FUNCTION find
 
-   FUNCTION find2d(x,xin,y,yin,fin,nx,ny,iorder,ifind,imeth)
+  FUNCTION find2d(x,xin,y,yin,fin,nx,ny,iorder,ifind,imeth)
 
     !A 2D interpolation routine to find value f(x,y) at position x, y
     IMPLICIT NONE
@@ -306,7 +306,12 @@ CONTAINS
     IF(ytab(1)>ytab(ny)) STOP 'FIND2D: y table in wrong order'
 
     IF((x<xtab(1) .OR. x>xtab(nx)) .AND. (y>ytab(ny) .OR. y<ytab(1))) THEN
-       WRITE(*,*) 'FIND2D: point', x, y
+       WRITE(*,*) 'FIND2D: point xmin:', xtab(1)
+       WRITE(*,*) 'FIND2D: point xmax:', xtab(nx)
+       WRITE(*,*) 'FIND2D: point x:', x
+       WRITE(*,*) 'FIND2D: point ymin:', ytab(1)
+       WRITE(*,*) 'FIND2D: point ymax:', ytab(ny)
+       WRITE(*,*) 'FIND2D: point y:', y
        STOP 'FIND2D: Desired point is outside x AND y table range'
     END IF
 
@@ -668,11 +673,11 @@ CONTAINS
 
     !Could be more efficient, but probably not worth the hassle
     !It does 'find integer' every time
-    
+
     DO i=1,n2
        y2(i)=find(x2(i),x1,y1,n1,iorder,ifind,imeth)
     END DO
-    
+
   END SUBROUTINE interpolate_array
 
 END MODULE interpolate

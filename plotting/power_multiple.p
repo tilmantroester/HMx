@@ -1,6 +1,7 @@
 reset
 
-if(print==0) set term aqua dashed
+if(!exists('print')) {print=0}
+if(print==0) {set term aqua dashed}
 
 #This gnuplot script plots the output file 'power.dat' that is spat out of HMcode.
 #Simply load up gnuplot (type gnuplot in the terminal) and then type "gnuplot>load 'plot.p'"
@@ -11,7 +12,9 @@ if(print==0) set term aqua dashed
 #1 - Two-halo
 #2 - One-halo
 #3 - Full
-itype=3
+if(!exists('itype')) {itype=3}
+print('Set power type using *itype*')
+print('itype = '.itype.'')
 
 #File types
 file_linear='data/power_linear.dat'
@@ -65,6 +68,9 @@ if(itype==0){file=file_linear; tits='Linear power'}
 if(itype==1){file=file_2halo;  tits='Two-halo power'}
 if(itype==2){file=file_1halo;  tits='One-halo power'}
 if(itype==3){file=file_full;   tits='Full halo-model power'}
+print('File: '.file.'')
+print('Title: '.tits.'')
+print('')
 
 #Actual plot
 set title tits
