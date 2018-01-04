@@ -443,7 +443,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: verbose
     REAL :: sigi    
     
-    cosm%name = ""
+    cosm%name = ''
     !Derived cosmological parameters
     cosm%om_r=2.5e-5*(1.+0.227*neff)/cosm%h**2
     cosm%om_m=cosm%om_m-cosm%om_r !Maintain flatness
@@ -462,28 +462,36 @@ CONTAINS
     !Fill the tables of g(z)
     CALL fill_growtab(verbose,cosm)
 
-    !Set the normalisation to 1 initially
-    cosm%A=1.
+    IF(cosm%external_plin) THEN
 
-    !Calculate the initial sigma_8 value (will not be correct)
-    sigi=sigma(8.,zero,cosm)
+       STOP 'INITIALISE_COSMOLOGY: External plin not supported yet!'
+       
+    ELSE
 
-    IF(verbose) WRITE(*,*) 'INITIALISE_COSMOLOGY: Initial sigma_8:', REAL(sigi)
+       !Set the normalisation to 1 initially
+       cosm%A=1.
 
-    !Reset the normalisation to give the correct sigma8
-    cosm%A=cosm%sig8/sigi
-    !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
+       !Calculate the initial sigma_8 value (will not be correct)
+       sigi=sigma(8.,zero,cosm)
 
-    !Recalculate sigma8, should be correct this time
-    sigi=sigma(8.,zero,cosm)
+       IF(verbose) WRITE(*,*) 'INITIALISE_COSMOLOGY: Initial sigma_8:', REAL(sigi)
 
-    !Write to screen
-    IF(verbose) THEN
-       WRITE(*,*) 'INITIALISE_COSMOLOGY: Normalisation factor:', REAL(cosm%A)
-       WRITE(*,*) 'INITIALISE_COSMOLOGY: Target sigma_8:', REAL(cosm%sig8)
-       WRITE(*,*) 'INITIALISE_COSMOLOGY: Final sigma_8 (calculated):', REAL(sigi)
-       WRITE(*,*) 'INITIALISE_COSMOLOGY: Complete'
-       WRITE(*,*)
+       !Reset the normalisation to give the correct sigma8
+       cosm%A=cosm%sig8/sigi
+       !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
+
+       !Recalculate sigma8, should be correct this time
+       sigi=sigma(8.,zero,cosm)
+
+       !Write to screen
+       IF(verbose) THEN
+          WRITE(*,*) 'INITIALISE_COSMOLOGY: Normalisation factor:', REAL(cosm%A)
+          WRITE(*,*) 'INITIALISE_COSMOLOGY: Target sigma_8:', REAL(cosm%sig8)
+          WRITE(*,*) 'INITIALISE_COSMOLOGY: Final sigma_8 (calculated):', REAL(sigi)
+          WRITE(*,*) 'INITIALISE_COSMOLOGY: Complete'
+          WRITE(*,*)
+       END IF
+
     END IF
 
     !Fill tables of r vs. sigma(r)
