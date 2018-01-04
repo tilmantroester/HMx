@@ -33,7 +33,6 @@ PROGRAM HMx_driver
   LOGICAL, PARAMETER :: icumulative=.TRUE. !Do cumlative distributions for breakdown
   LOGICAL, PARAMETER :: ixi=.FALSE. !Do correlation functions from C(l)
   LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
-  LOGICAL, PARAMETER :: void=.FALSE. !Do voids or not
 
   !Name parameters (cannot do PARAMETER with mixed length strings)
   !CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)
@@ -118,11 +117,10 @@ PROGRAM HMx_driver
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Write the one-void term if necessary
-     IF(void) THEN
-        STOP 'CAREFUL: Voids no longer supported'
+     IF(lut%void) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
-           WRITE(8,*) k(i), p_1v(k(i),lut)!,cosm)
+           WRITE(8,*) k(i), p_1v(k(i),lut)
         END DO
         CLOSE(8)
      END IF
@@ -327,8 +325,8 @@ PROGRAM HMx_driver
 
      !Set number of k points and k range (log spaced)
      nk=200
-     kmin=1.e-3
-     kmax=1.e2
+     kmin=1e-3
+     kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
@@ -433,7 +431,7 @@ PROGRAM HMx_driver
      !Set the k range
      kmin=1e-3
      kmax=1e2
-     nk=200
+     nk=128
 
      !Set the z range
      !amin=scale_factor_z(cosm%z_cmb) !Problems with one-halo term if amin is less than 0.1
@@ -451,7 +449,7 @@ PROGRAM HMx_driver
 
      !Set the ell range
      lmin=1
-     lmax=1e5
+     lmax=1e5 !Problems if this is pushed up to 10^5
      nl=128
 
      !Allocate arrays for l and C(l)
@@ -460,12 +458,11 @@ PROGRAM HMx_driver
      ALLOCATE(Cell(nl))
 
      !Set the angular arrays in degrees
-     thmin=0.01
-     thmax=10.
-     nth=128
-
      !Allocate arrays for theta and xi(theta)
      IF(ixi) THEN
+        thmin=0.01
+        thmax=10.
+        nth=128
         CALL fill_array(log(thmin),log(thmax),theta,nth)
         theta=exp(theta)
         ALLOCATE(xi(3,nth))
@@ -726,10 +723,10 @@ PROGRAM HMx_driver
 
            !Set the code to not 'correct' the two-halo power for missing
            !mass when doing the calcultion binned in halo mass
-           !IF(icumulative==0 .AND. i>1) ip2h=0
-           !IF(icumulative==1 .AND. i>0) ip2h=0
-           STOP 'HMx: Extreme caution here, need to set ip2h=0, but it is defined as parameter in HMx.f90'
-
+           !STOP 'HMx: Extreme caution here, need to set ip2h=0, but it is defined as parameter in HMx.f90'
+           !IF((icumulative .EQV. .FALSE.) .AND. i>1) lut%ip2h=0
+           IF((icumulative .EQV. .TRUE.) .AND. i>0) lut%ip2h=0
+           
            WRITE(*,fmt='(A16)') 'HMx: Mass range'
            WRITE(*,fmt='(A16,I5)') 'HMx: Iteration:', i
            WRITE(*,fmt='(A21,2ES15.7)') 'HMx: M_min [Msun/h]:', m1
@@ -756,6 +753,7 @@ PROGRAM HMx_driver
            WRITE(*,fmt='(A13)') '   ============'
            WRITE(*,*)
 
+           dir='data/'
            IF(i==0) THEN
               outfile=TRIM(dir)//'power'
            ELSE
@@ -833,7 +831,7 @@ PROGRAM HMx_driver
         WRITE(*,*)
 
         zmin=0.
-        zmax=4.
+        zmax=1.
         nz=8
 
         DO i=0,nz
@@ -893,7 +891,8 @@ PROGRAM HMx_driver
               WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
 
               !This crashes for the low r2 values for some reason
-              STOP 'This crashes for the low r2 values for some reason - should debug'
+              !Only a problem if lmax ~ 10^5
+              !STOP 'This crashes for the low r2 values for high ell for some reason - should debug'
               CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
 
@@ -995,7 +994,7 @@ PROGRAM HMx_driver
 
      !Set the ell range and allocate arrays for l and C(l)
      lmin=1e0
-     lmax=1e5
+     lmax=1e4 !Errors if this is increased to 10^5
      nl=64 
      CALL fill_array(log(lmin),log(lmax),ell,nl)
      ell=exp(ell)

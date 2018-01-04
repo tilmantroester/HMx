@@ -27,7 +27,9 @@ MODULE cosdef
      REAL, ALLOCATABLE :: log_m(:)
      REAL :: sigv, sigv100, c3, knl, rnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
+     INTEGER :: ip2h, ibias
      INTEGER :: n
+     LOGICAL :: void !Do voids or not
   END TYPE tables
 
   !Projection quantities that need to be calculated only once

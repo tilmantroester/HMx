@@ -14,12 +14,9 @@ MODULE HMx
   USE cosmology_functions
   
   IMPLICIT NONE
-  INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST)
-  INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation
-  INTEGER, PARAMETER :: ip2h=2 !Method to 'correct' the 2-halo integral
-  INTEGER, PARAMETER :: ibias=1 !Bias order to go to
+  INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST) !Move to 'tables' type eventually 
+  INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation !Move to 'tables' type eventually 
   REAL, PARAMETER :: acc=1e-4 !Global integration-accuracy parameter
-  !LOGICAL, PARAMETER :: void=.FALSE. !Do voids or not
 
 CONTAINS
 
@@ -821,6 +818,8 @@ CONTAINS
 
   SUBROUTINE halomod_init(mmin,mmax,z,lut,cosm,verbose)
 
+    !Halo-model initialisation routine
+    !The computes other tables necessary for the one-halo integral
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
     REAL, INTENT(IN) :: mmin, mmax
@@ -830,10 +829,21 @@ CONTAINS
     INTEGER :: i
     REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc
     
-    INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
+    INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table  
 
-    !Halo-model initialisation routine
-    !The computes other tables necessary for the one-halo integral
+    !Set method to correct for missing integrand in two-halo term
+    !0 - Do nothing
+    !1 - Add value of integral assuming that W(k)=1
+    !2 - Put the missing part of the integrand as a delta function at nu1
+    lut%ip2h=2
+
+    !Order to go to in bias
+    !1 - First order
+    !2 - Second order
+    lut%ibias=1
+
+    !Do voids or not
+    lut%void=.FALSE.
 
     !Find value of sigma_v
     lut%sigv=sqrt(dispint(0.,z,acc,cosm)/3.)
@@ -1274,10 +1284,10 @@ CONTAINS
     END IF
 
     !If we are worrying about voids
-    !IF(void) THEN
-    !   STOP 'HALOMOD: Extreme caution, parameter void is defined twice'
-    !   pfull=pfull+p_1v(k,lut)
-    !END IF
+    IF(lut%void) THEN
+       STOP 'HALOMOD: Extreme caution, parameter void is defined twice'
+       pfull=pfull+p_1v(k,lut)
+    END IF
 
   END SUBROUTINE halomod
 
@@ -1306,7 +1316,7 @@ CONTAINS
 
        ALLOCATE(integrand11(lut%n),integrand12(lut%n))
 
-       IF(ibias==2) THEN
+       IF(lut%ibias==2) THEN
           !Only necessary for second-order bias integral
           ALLOCATE(integrand21(lut%n),integrand22(lut%n))
        END IF
@@ -1320,7 +1330,7 @@ CONTAINS
           integrand11(i)=gnu(nu)*bnu(nu)*wk(1,i)/m
           integrand12(i)=gnu(nu)*bnu(nu)*wk(2,i)/m
 
-          IF(ibias==2) THEN
+          IF(lut%ibias==2) THEN
              !Second-order bias term
              integrand21(i)=gnu(nu)*b2nu(nu)*wk(1,i)/m
              integrand22(i)=gnu(nu)*b2nu(nu)*wk(2,i)/m
@@ -1332,13 +1342,13 @@ CONTAINS
        sum11=integrate_table(lut%nu,integrand11,lut%n,1,lut%n,3)
        sum12=integrate_table(lut%nu,integrand12,lut%n,1,lut%n,3)
 
-       IF(ip2h==0) THEN
+       IF(lut%ip2h==0) THEN
           !Do nothing in this case
-       ELSE IF(ip2h==1) THEN
+       ELSE IF(lut%ip2h==1) THEN
           !Add on the value of integral b(nu)*g(nu) assuming w=1
           sum11=sum11+lut%gbmin*halo_fraction(ih(1),m,cosm)/rhom
           sum12=sum12+lut%gbmin*halo_fraction(ih(2),m,cosm)/rhom
-       ELSE IF(ip2h==2) THEN
+       ELSE IF(lut%ip2h==2) THEN
           !Put the missing part of the integrand as a delta function at nu1
           m0=lut%m(1)
           wk1=wk(1,1)
@@ -1351,7 +1361,7 @@ CONTAINS
 
        p_2h=plin*sum11*sum12*(rhom**2)
 
-       IF(ibias==2) THEN
+       IF(lut%ibias==2) THEN
           !Second order bias correction
           !This needs to have the property that \int f(nu)b2(nu) du = 0
           !This means it is hard to check that the normalisation is correct
@@ -2313,7 +2323,6 @@ CONTAINS
     REAL, INTENT(IN) :: k, rmin, rmax, rv, rs
     INTEGER, INTENT(IN) :: irho
 
-    !REAL, PARAMETER :: acc=1d-4
     INTEGER, PARAMETER :: iorder=3 !Integration order
     INTEGER, PARAMETER :: imeth=3 !Integration method
     !imeth = 1 - normal integration
