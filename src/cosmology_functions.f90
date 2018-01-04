@@ -126,7 +126,6 @@ CONTAINS
 
   FUNCTION X_de(a,cosm)
 
-    !USE cosdef
     IMPLICIT NONE
     REAL :: X_de
     REAL, INTENT(IN) :: a
@@ -140,7 +139,6 @@ CONTAINS
   FUNCTION w_de(a,cosm)
 
     !w(a) for DE models
-    !USE cosdef
     IMPLICIT NONE
     REAL :: w_de
     REAL, INTENT(IN) :: a
@@ -406,6 +404,7 @@ CONTAINS
     cosm%wa=0.
     cosm%T_cmb=2.72
     cosm%z_cmb=1100.
+    cosm%external_plin=.FALSE.
 
     IF(icosmo==0) THEN
        !Boring - do nothing
@@ -700,20 +699,31 @@ CONTAINS
     IMPLICIT NONE
     REAL :: p_lin
     REAL, INTENT (IN) :: k, z
-    TYPE(cosmology), INTENT(IN) :: cosm 
+    TYPE(cosmology), INTENT(IN) :: cosm
+    
+    REAL, PARAMETER :: kmax=1e8
 
     IF(k==0.) THEN
-       !If p_lin happens to be foolishly called for 0 mode (which should never happen, but might in integrals)
+       !If p_lin happens to be foolishly called for 0 mode
+       !This call should never happen, but may in integrals
        p_lin=0.
-    ELSE IF(k>1.e8) THEN
+    ELSE IF(k>kmax) THEN
        !Avoids some issues if p_lin is called for very (absurdly) high k values
        !For some reason crashes can occur if this is the case
        p_lin=0.
     ELSE IF(ibox==1 .AND. k<2.*pi/Lbox) THEN
+       !If investigating effects caused by a finite box size
        p_lin=0.
     ELSE
-       !In this case look for the transfer function
-       p_lin=(cosm%A**2)*(grow(z,cosm)**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))
+       IF(cosm%external_plin) THEN
+          STOP 'P_LIN: External P_lin(k) not currently supported'
+          p_lin=exp(find(log(k),cosm%logk_logplin,cosm%logplin,cosm%nplin,3,3,2))
+       ELSE
+          !In this case get the power from the transfer function
+          p_lin=(cosm%A**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))
+       END IF
+       !'Grow' the power from z=0 to the redshift of interest
+       p_lin=p_lin*grow(z,cosm)**2
     END IF
 
   END FUNCTION p_lin
@@ -742,7 +752,7 @@ CONTAINS
     !otherwise sigma(R) looks for the result in the tables
     !IF(ALLOCATED(cosm%r_sigma)) DEALLOCATE(cosm%r_sigma)
     !IF(ALLOCATED(cosm%sigma)) DEALLOCATE(cosm%sigma)
-    IF(ALLOCATED(cosm%logr_sigma)) DEALLOCATE(cosm%logr_sigma)
+    IF(ALLOCATED(cosm%logr_logsigma)) DEALLOCATE(cosm%logr_logsigma)
     IF(ALLOCATED(cosm%logsigma)) DEALLOCATE(cosm%logsigma)
 
     cosm%nsig=nsig
@@ -769,9 +779,9 @@ CONTAINS
     END DO
 
     !Must be allocated after the sigtab calulation above
-    ALLOCATE(cosm%logr_sigma(nsig),cosm%logsigma(nsig))
+    ALLOCATE(cosm%logr_logsigma(nsig),cosm%logsigma(nsig))
 
-    cosm%logr_sigma=log(rtab)
+    cosm%logr_logsigma=log(rtab)
     cosm%logsigma=log(sigtab)
 
     DEALLOCATE(rtab,sigtab)
@@ -1187,7 +1197,6 @@ CONTAINS
 
   FUNCTION sigma_cb(r,z,cosm)
 
-    !USE cosdef
     IMPLICIT NONE
     REAL :: sigma_cb
     REAL, INTENT(IN) :: r, z
@@ -1197,14 +1206,13 @@ CONTAINS
     !In this version sigma_cold=sigma
 
     !sigma_cb=grow(z,cosm)*exp(find(log(r),log(cosm%r_sigma),log(cosm%sigma),cosm%nsig,3,3,2))
-    sigma_cb=grow(z,cosm)*exp(find(log(r),cosm%logr_sigma,cosm%logsigma,cosm%nsig,3,3,2))
+    sigma_cb=grow(z,cosm)*exp(find(log(r),cosm%logr_logsigma,cosm%logsigma,cosm%nsig,3,3,2))
 
   END FUNCTION sigma_cb
 
    FUNCTION grow(z,cosm)
 
     !Scale-independent growth function | g(z=0)=1
-    !USE cosdef
     IMPLICIT NONE
     REAL :: grow
     REAL, INTENT(IN) :: z
@@ -1470,7 +1478,6 @@ CONTAINS
   SUBROUTINE fill_growtab(verbose,cosm)
 
     !Fills a table of the growth function vs. a
-    !USE cosdef
     IMPLICIT NONE
     LOGICAL, INTENT(IN) :: verbose
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -1660,7 +1667,6 @@ CONTAINS
 
   FUNCTION fd(d,v,k,a,cosm)
 
-    !USE cosdef
     IMPLICIT NONE
     REAL :: fd
     REAL, INTENT(IN) :: d, v, k, a
@@ -1682,7 +1688,6 @@ CONTAINS
 
   FUNCTION fv(d,v,k,a,cosm)
 
-    !USE cosdef
     IMPLICIT NONE
     REAL :: fv
     REAL, INTENT(IN) :: d, v, k, a

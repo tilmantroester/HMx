@@ -25,6 +25,7 @@ CONTAINS
 
   SUBROUTINE init_HMx(cosm)
 
+    !Sets values for the baryon parameters. Probably a poor choice of subroutine name.
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -70,7 +71,7 @@ CONTAINS
 
   FUNCTION xcorr_type(ix)
 
-    !Name cross-correlation field types
+    !Names for cross-correlation field types
     IMPLICIT NONE
     CHARACTER(len=256) :: xcorr_type
     INTEGER, INTENT(IN) :: ix
@@ -92,11 +93,11 @@ CONTAINS
 
   FUNCTION halo_type(i)
 
+    !Name halo types
     IMPLICIT NONE
     CHARACTER(len=256) :: halo_type
     INTEGER :: i
-
-    !Name halo types
+    
     halo_type=''
     IF(i==-1) halo_type='DMONLY'
     IF(i==0)  halo_type='Matter'
@@ -147,6 +148,7 @@ CONTAINS
     IF(ALLOCATED(powa_full)) DEALLOCATE(powa_full)
 
     !Allocate power arrays
+    !Mead - re-added powa_lin to be allocated here
     ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
 
     !Do the halo-model calculation
@@ -2112,7 +2114,6 @@ CONTAINS
     !Calculates the normalised spherical Fourier Transform of the density profile
     !Note that this means win_norm(k->0)=1
     !and that win must be between 0 and 1
-    !USE cosdef
     IMPLICIT NONE
     REAL :: win_norm
     REAL, INTENT(IN) :: rmin, rmax, k, rv, rs
