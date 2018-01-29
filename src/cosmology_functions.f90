@@ -716,7 +716,7 @@ CONTAINS
        p_lin=0.
     ELSE
        IF(cosm%external_plin) THEN
-          p_lin=exp(find(log(k),cosm%logk_logplin,cosm%logplin,cosm%nplin,3,3,2))*k**3/(2*pi**2)*cosm%A**2
+          p_lin=cosm%A**2*exp(find(log(k),cosm%logk_logplin,cosm%logplin,cosm%nplin,3,3,2))
        ELSE
           !In this case get the power from the transfer function
           p_lin=(cosm%A**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))

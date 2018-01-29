@@ -141,7 +141,7 @@ function execute(block, config) result(status)
         HMx_config%cosm%external_plin = .true.
         HMx_config%cosm%nplin = size(k_plin)
         allocate(HMx_config%cosm%logk_logplin, source=log(k_plin))
-        allocate(HMx_config%cosm%logplin, source=log(pk_lin(:,1)))
+        allocate(HMx_config%cosm%logplin, source=log(pk_lin(:,1)*k_plin**3/(2*pi**2)))
     else
         HMx_config%cosm%external_plin = .false.
     end if
