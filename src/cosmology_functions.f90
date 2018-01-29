@@ -462,36 +462,28 @@ CONTAINS
     !Fill the tables of g(z)
     CALL fill_growtab(verbose,cosm)
 
-    IF(cosm%external_plin) THEN
+    !Set the normalisation to 1 initially
+    cosm%A=1.
 
-       STOP 'INITIALISE_COSMOLOGY: External plin not supported yet!'
-       
-    ELSE
+    !Calculate the initial sigma_8 value (will not be correct)
+    sigi=sigma(8.,zero,cosm)
 
-       !Set the normalisation to 1 initially
-       cosm%A=1.
+    IF(verbose) WRITE(*,*) 'INITIALISE_COSMOLOGY: Initial sigma_8:', REAL(sigi)
 
-       !Calculate the initial sigma_8 value (will not be correct)
-       sigi=sigma(8.,zero,cosm)
+    !Reset the normalisation to give the correct sigma8
+    cosm%A=cosm%sig8/sigi
+    !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
 
-       IF(verbose) WRITE(*,*) 'INITIALISE_COSMOLOGY: Initial sigma_8:', REAL(sigi)
+    !Recalculate sigma8, should be correct this time
+    sigi=sigma(8.,zero,cosm)
 
-       !Reset the normalisation to give the correct sigma8
-       cosm%A=cosm%sig8/sigi
-       !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
-
-       !Recalculate sigma8, should be correct this time
-       sigi=sigma(8.,zero,cosm)
-
-       !Write to screen
-       IF(verbose) THEN
-          WRITE(*,*) 'INITIALISE_COSMOLOGY: Normalisation factor:', REAL(cosm%A)
-          WRITE(*,*) 'INITIALISE_COSMOLOGY: Target sigma_8:', REAL(cosm%sig8)
-          WRITE(*,*) 'INITIALISE_COSMOLOGY: Final sigma_8 (calculated):', REAL(sigi)
-          WRITE(*,*) 'INITIALISE_COSMOLOGY: Complete'
-          WRITE(*,*)
-       END IF
-
+    !Write to screen
+    IF(verbose) THEN
+      WRITE(*,*) 'INITIALISE_COSMOLOGY: Normalisation factor:', REAL(cosm%A)
+      WRITE(*,*) 'INITIALISE_COSMOLOGY: Target sigma_8:', REAL(cosm%sig8)
+      WRITE(*,*) 'INITIALISE_COSMOLOGY: Final sigma_8 (calculated):', REAL(sigi)
+      WRITE(*,*) 'INITIALISE_COSMOLOGY: Complete'
+      WRITE(*,*)
     END IF
 
     !Fill tables of r vs. sigma(r)
@@ -724,8 +716,7 @@ CONTAINS
        p_lin=0.
     ELSE
        IF(cosm%external_plin) THEN
-          STOP 'P_LIN: External P_lin(k) not currently supported'
-          p_lin=exp(find(log(k),cosm%logk_logplin,cosm%logplin,cosm%nplin,3,3,2))
+          p_lin=exp(find(log(k),cosm%logk_logplin,cosm%logplin,cosm%nplin,3,3,2))*k**3/(2*pi**2)*cosm%A**2
        ELSE
           !In this case get the power from the transfer function
           p_lin=(cosm%A**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))

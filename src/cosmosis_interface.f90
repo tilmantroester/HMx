@@ -111,6 +111,7 @@ function execute(block, config) result(status)
     type(HMx_setup_config), pointer :: HMx_config
     integer :: i
     integer, dimension(:) :: fields(2)
+    real(8), dimension(:), allocatable :: k_plin, z_plin
     real(8), dimension(:,:), allocatable :: pk_lin, pk_1h, pk_2h, pk_full
 
     call c_f_pointer(config, HMx_config)
@@ -129,18 +130,20 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, HMx_config%cosm%w)
 
     if(HMx_config%compute_p_lin == 0) then
-        deallocate(HMx_config%k, HMx_config%a)
         status = datablock_get_double_grid(block, matter_power_lin_section, &
-                                        "k_h", HMx_config%k, &
-                                        "z", HMx_config%a, &
+                                        "k_h", k_plin, &
+                                        "z", z_plin, &
                                         "p_k", pk_lin)
-        HMx_config%nk = size(HMx_config%k)
-        HMx_config%nz = size(HMx_config%a)
         if(status /= 0) then
             write(*,*) "Could not load load linear power spectrum."
             stop
         end if
-        HMx_config%a = 1.0/(1+HMx_config%a)
+        HMx_config%cosm%external_plin = .true.
+        HMx_config%cosm%nplin = size(k_plin)
+        allocate(HMx_config%cosm%logk_logplin, source=log(k_plin))
+        allocate(HMx_config%cosm%logplin, source=log(pk_lin(:,1)))
+    else
+        HMx_config%cosm%external_plin = .false.
     end if
 
     call initialise_cosmology(HMx_config%verbose, HMx_config%cosm)
