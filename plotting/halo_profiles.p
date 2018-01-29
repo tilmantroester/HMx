@@ -23,7 +23,7 @@ rhomin=1e-3
 rhomax=3e1
 set log y
 set yrange [rhomin:rhomax]
-set ylabel '4{/Symbol p} r^2 {/Symbol r}(r) / M' offset 2
+set ylabel '4{/Symbol p} r^2 {/Symbol r}(r) / M    [h Mpc^{-1}]' offset 2
 set mytics 10
 
 tits(m)=sprintf('M = 10^{%i} h^{-1} M_{'.msun.'}',m)

@@ -23,7 +23,7 @@ set xlabel 'r / h^{-1} Mpc'
 
 if(ilog==0) {set yrange [*:*]}#{set yrange [0:3.5]}
 if(ilog==1) {set log y; set yrange [1e-4:1e1]; set format y '10^{%T}'; set mytics 10}
-set ylabel '4{/Symbol p}r^2 P_e(r,M) / (eV cm^{-3})'
+set ylabel '4{/Symbol p}r^2 P_e(r,M) / (eV cm^{-3} h^{-2} Mpc^2)'
 
 tits(m)=sprintf('M = 10^{%i} h^{-1} M_{'.sun.'}',m)
 file(m)=sprintf('diagnostics/halo_profile_m%i.dat',m)

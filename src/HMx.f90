@@ -1809,7 +1809,8 @@ CONTAINS
     REAL, INTENT(IN) :: k, m, rv, rs, z
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
-    LOGICAL, PARAMETER :: use_UPP=.FALSE.
+    
+    LOGICAL, PARAMETER :: use_UPP=.TRUE. !Use UPP or not
 
     IF(use_UPP) THEN
        !This overrides everything and just makes a UPP
@@ -1829,11 +1830,9 @@ CONTAINS
     REAL, INTENT(IN) :: k, m, rv, rs, z
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut  
-    INTEGER :: irho
     REAL :: r500c, rmin, rmax, a, r, alphap, b, m500c, E
 
-    !Set UPP profile
-    irho=14
+    INTEGER, PARAMETER :: irho=14 !Set UPP profile 
 
     !Get r500 for UPP
     r500c=exp(find(log(m),log(lut%m),log(lut%r500c),lut%n,3,3,2))
@@ -1871,9 +1870,8 @@ CONTAINS
     !WRITE(*,*) 'r500c [Mpc/h]:', r500c
     !WRITE(*,*)
 
-    !Pre-factors from equation 4.1 in Ma et al. (2015)
+    !Pre-factors from equation 4.1 in Ma et al. (2015) [eV cm^-3]
     UPP=UPP*((m500c/2.1e14)**(alphap+2./3.))*(E**(8./3.))*3.37
-    !win_pressure_bound=win_pressure_bound*eV*0.01**(-3) !Convert from eV cm^-3 to J m^-3
 
     !Is pressure comoving or not?
     !win_pressure_bound=win_pressure_bound/(1.+z)**2.
