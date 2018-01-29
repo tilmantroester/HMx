@@ -1,6 +1,6 @@
   MODULE Limber
 
-  USE cosdef
+  !USE cosdef
   USE constants
   USE array_operations
   USE interpolate
@@ -11,6 +11,21 @@
 
   REAL, PARAMETER :: lcorr=0.5
   REAL, PARAMETER :: acc_Limber=1e-4
+
+  !Projection quantities that need to be calculated only once
+  !These relate to the Limber integrals
+  TYPE projection    
+     REAL, ALLOCATABLE :: X(:), r_X(:)
+     INTEGER :: nX
+  END TYPE projection
+
+  !Quantities that are necessary for lensing specifically
+  !Possibly this could usefully be merged with the projection type
+  TYPE lensing
+     REAL, ALLOCATABLE :: q(:), r_q(:)
+     REAL, ALLOCATABLE :: nz(:), z_nz(:)
+     INTEGER :: nq, nnz
+  END TYPE lensing
   
 CONTAINS
 

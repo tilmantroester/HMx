@@ -1,7 +1,7 @@
 PROGRAM HMx_driver
 
   USE HMx
-  USE cosdef
+  !USE cosdef
   USE Limber
 
   !Parameter definitions

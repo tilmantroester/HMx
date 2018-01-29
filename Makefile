@@ -33,7 +33,6 @@ _OBJ = constants.o \
 	   string_operations.o \
 	   calculus.o \
 	   calculus_table.o \
-	   cosdef.o \
 	   cosmology_functions.o \
 	   HMx.o \
 	   Limber.o

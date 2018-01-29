@@ -1,7 +1,7 @@
 MODULE HMx
 
   !Module usage statements
-  USE cosdef
+  !USE cosdef
   USE constants
   USE array_operations
   USE file_info
@@ -17,6 +17,19 @@ MODULE HMx
   INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST) !Move to 'tables' type eventually 
   INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation !Move to 'tables' type eventually 
   REAL, PARAMETER :: acc=1e-4 !Global integration-accuracy parameter
+
+  !Halo-model stuff that needs to be recalculated for each new z
+  TYPE tables     
+     REAL, ALLOCATABLE :: c(:), rv(:), nu(:), sig(:), zc(:), m(:), rr(:), sigf(:)
+     REAL, ALLOCATABLE :: r500(:), m500(:), c500(:), r200(:), m200(:), c200(:)
+     REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
+     REAL, ALLOCATABLE :: log_m(:)
+     REAL :: sigv, sigv100, c3, knl, rnl, neff, sig8z
+     REAL :: gmin, gmax, gbmin, gbmax
+     INTEGER :: ip2h, ibias
+     INTEGER :: n
+     LOGICAL :: void !Do voids or not
+  END TYPE tables
 
 CONTAINS
 

@@ -1,6 +1,6 @@
 MODULE cosmology_functions
 
-  USE cosdef
+  !USE cosdef
   USE interpolate
   USE constants
 
@@ -8,6 +8,25 @@ MODULE cosmology_functions
   REAL, PARAMETER :: acc_cos=1e-4
   INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
   REAL, PARAMETER :: Lbox=400. !Simulation box size
+
+  !Contains cosmological parameters that need only be calculated once
+  TYPE cosmology     
+     REAL :: om_m, om_b, om_v, om_c, h, n, sig8, w, wa, om_nu
+     REAL :: om, k, z_cmb, om_r, T_cmb
+     REAL :: A
+     REAL, ALLOCATABLE :: logsigma(:), logr_logsigma(:)
+     REAL, ALLOCATABLE :: growth(:), a_growth(:)
+     REAL, ALLOCATABLE :: r(:), a_r(:)
+     REAL, ALLOCATABLE :: logplin(:), logk_logplin(:) !Added for input linear Pk
+     INTEGER :: nsig, ng, nr, nplin
+     CHARACTER(len=256) :: name
+     LOGICAL :: external_plin
+     !Varying baryon parameters
+     INTEGER :: np=5
+     REAL :: param(5), param_defaults(5), param_min(5), param_max(5)
+     CHARACTER(len=256) :: param_names(5)
+     LOGICAL :: param_log(5)
+  END TYPE cosmology
 
 CONTAINS
 
