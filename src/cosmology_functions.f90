@@ -19,7 +19,7 @@ MODULE cosmology_functions
      REAL, ALLOCATABLE :: r(:), a_r(:)
      REAL, ALLOCATABLE :: logplin(:), logk_logplin(:) !Added for input linear Pk
      INTEGER :: nsig, ng, nr, nplin
-     CHARACTER(len=256) :: name
+     CHARACTER(len=256) :: name = ""
      LOGICAL :: external_plin
      !Varying baryon parameters
      !INTEGER :: np=5
