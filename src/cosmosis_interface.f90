@@ -1,6 +1,5 @@
 module HMx_setup
-    use cosdef
-
+    use cosmology_functions, only: cosmology
     implicit none
 
     type HMx_setup_config
@@ -83,7 +82,6 @@ function setup(options) result(result)
 
     HMx_config%verbose = .true.
 
-    call init_HMx(HMx_config%cosm)
     !Create k array (log spacing)
     call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
     HMx_config%k = exp(HMx_config%k)
@@ -98,7 +96,6 @@ function execute(block, config) result(status)
     use cosmosis_modules
     use HMx_setup
     use HMx, only : initialise_cosmology, print_cosmology, calculate_HMx
-    use cosdef
     use constants
 
     implicit none
@@ -120,6 +117,7 @@ function execute(block, config) result(status)
     HMx_config%cosm%T_cmb=2.72
     HMx_config%cosm%z_cmb=1100.
 
+    ! Cosmology parameters
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, HMx_config%cosm%om_m)
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v)
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_b", 0.05, HMx_config%cosm%om_b)
@@ -129,6 +127,13 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96, HMx_config%cosm%n)
     status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, HMx_config%cosm%w)
 
+    ! Baryon parameters
+    status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
+    status = datablock_get_double_default(block, halo_model_parameters_section, "Dc", 0.0, HMx_config%cosm%Dc)
+    status = datablock_get_double_default(block, halo_model_parameters_section, "Gamma", 1.18, HMx_config%cosm%Gamma)
+    status = datablock_get_double_default(block, halo_model_parameters_section, "M0", 12e14, HMx_config%cosm%M0)
+    status = datablock_get_double_default(block, halo_model_parameters_section, "Astar", 0.02, HMx_config%cosm%Astar)
+    
     if(HMx_config%compute_p_lin == 0) then
         status = datablock_get_double_grid(block, matter_power_lin_section, &
                                         "k_h", k_plin, &
