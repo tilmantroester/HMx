@@ -17,6 +17,7 @@ MODULE HMx
   INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST) !Move to 'tables' type eventually 
   INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation !Move to 'tables' type eventually 
   REAL, PARAMETER :: acc=1e-4 !Global integration-accuracy parameter
+  REAL, PARAMETER :: null=0.d0
 
   !Halo-model stuff that needs to be recalculated for each new z
   TYPE tables     
@@ -33,51 +34,58 @@ MODULE HMx
 
 CONTAINS
 
-  SUBROUTINE init_HMx(cosm)
-
-    !Sets values for the baryon parameters. Probably a poor choice of subroutine name.
-    IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-
-    !Names of variable parameters
-    cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
-    cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
-    cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
-    cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
-    cosm%param_names(5)='A_*' !Prefactor for stellar fraction
-
-    !Set default values for variable parameters
-    cosm%param(1)=1.
-    cosm%param(2)=0.
-    cosm%param(3)=1.18
-    cosm%param(4)=1.2d14
-    cosm%param(5)=0.02
-
-    !Set some default parameters
-    cosm%param_defaults=cosm%param
-
-    !Minimum parameter values in variation
-    cosm%param_min(1)=0.4
-    cosm%param_min(2)=0.
-    cosm%param_min(3)=1.10
-    cosm%param_min(4)=1e13
-    cosm%param_min(5)=0.015
-
-    !Maximum parameter values in variation
-    cosm%param_max(1)=2.
-    cosm%param_max(2)=2.
-    cosm%param_max(3)=1.26
-    cosm%param_max(4)=1e15
-    cosm%param_max(5)=0.055
-
-    !Should the range be explored in log?
-    cosm%param_log(1)=.FALSE.
-    cosm%param_log(2)=.FALSE.
-    cosm%param_log(3)=.FALSE.
-    cosm%param_log(4)=.TRUE.
-    cosm%param_log(5)=.FALSE.
-
-  END SUBROUTINE init_HMx
+!!$  SUBROUTINE init_HMx(cosm)
+!!$
+!!$    !Sets values for the baryon parameters. Probably a poor choice of subroutine name.
+!!$    IMPLICIT NONE
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$
+!!$    !Names of variable parameters
+!!$    !cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
+!!$    !cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
+!!$    !cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
+!!$    !cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
+!!$    !cosm%param_names(5)='A_*' !Prefactor for stellar fraction
+!!$
+!!$    !Set default values for variable parameters
+!!$    !cosm%param(1)=1.
+!!$    !cosm%param(2)=0.
+!!$    !cosm%param(3)=1.18
+!!$    !cosm%param(4)=1.2d14
+!!$    !cosm%param(5)=0.02
+!!$
+!!$    !Set default values for variable parameters
+!!$    cosm%alpha=1.
+!!$    cosm%Dc=0.
+!!$    cosm%Gamma=1.18
+!!$    cosm%M0=1.2e14
+!!$    cosm%Astar=0.02
+!!$
+!!$    !Set some default parameters
+!!$    !cosm%param_defaults=cosm%param
+!!$
+!!$    !Minimum parameter values in variation
+!!$    !cosm%param_min(1)=0.4
+!!$    !cosm%param_min(2)=0.
+!!$    !cosm%param_min(3)=1.10
+!!$    !cosm%param_min(4)=1e13
+!!$    !cosm%param_min(5)=0.015
+!!$
+!!$    !Maximum parameter values in variation
+!!$    !cosm%param_max(1)=2.
+!!$    !cosm%param_max(2)=2.
+!!$    !cosm%param_max(3)=1.26
+!!$    !cosm%param_max(4)=1e15
+!!$    !cosm%param_max(5)=0.055
+!!$
+!!$    !Should the range be explored in log?
+!!$    !cosm%param_log(1)=.FALSE.
+!!$    !cosm%param_log(2)=.FALSE.
+!!$    !cosm%param_log(3)=.FALSE.
+!!$    !cosm%param_log(4)=.TRUE.
+!!$    !cosm%param_log(5)=.FALSE.
+!!$
+!!$  END SUBROUTINE init_HMx
 
   FUNCTION xcorr_type(ix)
 
@@ -1623,10 +1631,10 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_void=rho(r,rmin,rmax,rv,rs,irho)
-       win_void=win_void/normalisation(rmin,rmax,rv,rs,irho)
+       win_void=rho(r,rmin,rmax,rv,rs,null,null,irho)
+       win_void=win_void/normalisation(rmin,rmax,rv,rs,null,null,irho)
     ELSE       
-       win_void=m*win_norm(k,rmin,rmax,rv,rs,irho)/comoving_matter_density(cosm)
+       win_void=m*win_norm(k,rmin,rmax,rv,rs,null,null,irho)/comoving_matter_density(cosm)
     END IF
 
   END FUNCTION win_void
@@ -1657,10 +1665,10 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_compensated_void=rho(r,rmin,rmax,rv,rs,irho)
-       win_compensated_void=win_compensated_void/normalisation(rmin,rmax,rv,rs,irho)
+       win_compensated_void=rho(r,rmin,rmax,rv,rs,null,null,irho)
+       win_compensated_void=win_compensated_void/normalisation(rmin,rmax,rv,rs,null,null,irho)
     ELSE       
-       win_compensated_void=m*win_norm(k,rmin,rmax,rv,rs,irho)/comoving_matter_density(cosm)
+       win_compensated_void=m*win_norm(k,rmin,rmax,rv,rs,null,null,irho)/comoving_matter_density(cosm)
     END IF
 
   END FUNCTION win_compensated_void
@@ -1699,11 +1707,11 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_DMONLY=rho(r,rmin,rmax,rv,rs,irho)
-       win_DMONLY=win_DMONLY/normalisation(rmin,rmax,rv,rs,irho)
+       win_DMONLY=rho(r,rmin,rmax,rv,rs,null,null,irho)
+       win_DMONLY=win_DMONLY/normalisation(rmin,rmax,rv,rs,null,null,irho)
     ELSE IF(ik==1) THEN
        !Properly normalise and convert to overdensity
-       win_DMONLY=m*win_norm(k,rmin,rmax,rv,rs,irho)/comoving_matter_density(cosm)
+       win_DMONLY=m*win_norm(k,rmin,rmax,rv,rs,null,null,irho)/comoving_matter_density(cosm)
     ELSE
        STOP 'WIN_DMONLY: ik not specified correctly'
     END IF
@@ -1733,7 +1741,7 @@ CONTAINS
        !NFW with increase concentation
        irho=5
        !dc=1.
-       dc=cosm%param(2)*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b
+       dc=cosm%Dc*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b
        rss=1./(1./rs+dc/rv)
     ELSE
        STOP 'WIN_CDM: Error, imod specified incorrectly'
@@ -1744,11 +1752,11 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_CDM=rho(r,rmin,rmax,rv,rss,irho)
-       win_CDM=win_CDM/normalisation(rmin,rmax,rv,rss,irho)
+       win_CDM=rho(r,rmin,rmax,rv,rss,null,null,irho)
+       win_CDM=win_CDM/normalisation(rmin,rmax,rv,rss,null,null,irho)
     ELSE IF(ik==1) THEN
        !Properly normalise and convert to overdensity
-       win_CDM=m*win_norm(k,rmin,rmax,rv,rss,irho)/comoving_matter_density(cosm)
+       win_CDM=m*win_norm(k,rmin,rmax,rv,rss,null,null,irho)/comoving_matter_density(cosm)
     ELSE
        STOP 'WIN_CDM: ik not specified correctly'
     END IF
@@ -1800,11 +1808,11 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_star=rho(r,rmin,rmax,rv,rstar,irho)
-       win_star=win_star/normalisation(rmin,rmax,rv,rstar,irho)
+       win_star=rho(r,rmin,rmax,rv,rstar,null,null,irho)
+       win_star=win_star/normalisation(rmin,rmax,rv,rstar,null,null,irho)
     ELSE IF(ik==1) THEN
        !Properly normalise and convert to overdensity
-       win_star=m*win_norm(k,rmin,rmax,rv,rstar,irho)/comoving_matter_density(cosm)
+       win_star=m*win_norm(k,rmin,rmax,rv,rstar,null,null,irho)/comoving_matter_density(cosm)
     ELSE
        STOP 'WIN_STAR: ik not specified correctly'
     END IF
@@ -1823,7 +1831,7 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     
-    LOGICAL, PARAMETER :: use_UPP=.TRUE. !Use UPP or not
+    LOGICAL, PARAMETER :: use_UPP=.FALSE. !Use UPP or not
 
     IF(use_UPP) THEN
        !This overrides everything and just makes a UPP
@@ -1859,10 +1867,10 @@ CONTAINS
     IF(ik==0) THEN
        r=k
        !win_pressure_bound=rho(a*r,a*rmax,a*r500c,a*rs,irho)
-       UPP=rho(r,rmin,rmax,r500c,rs,irho)
+       UPP=rho(r,rmin,rmax,r500c,rs,null,null,irho)
     ELSE IF(ik==1) THEN
        !win_pressure_bound=winint(k/a,a*rmax,a*r500c,a*rs,irho)
-       UPP=winint(k,rmin,rmax,r500c,rs,irho)
+       UPP=winint(k,rmin,rmax,r500c,rs,null,null,irho)
     ELSE
        STOP 'WIN_PRESSURE_BOUND: Error, ik not specified correctly'
     END IF
@@ -1918,7 +1926,7 @@ CONTAINS
        rmin=0.
        rmax=rv
        rb=rs
-       !gamma=cosm%param(3)
+       Gamma=cosm%Gamma
        !STOP 'WIN_BOUNDGAS: Caution, gamma not being varied in KS profile'
     ELSE IF(imod==2) THEN
        irho_density=6 !Set cored isothermal profile with beta=2/3 
@@ -1926,6 +1934,7 @@ CONTAINS
        rmin=0.
        rmax=rv
        rb=rs
+       Gamma=0. !Should probably set this to something
     ELSE        
        STOP 'WIN_BOUNDGAS: Error, imod not specified correctly'
     END IF
@@ -1935,11 +1944,11 @@ CONTAINS
        !Density profile of bound gas
        IF(ik==0) THEN
           r=k
-          win_boundgas=rho(r,rmin,rmax,rv,rb,irho_density)
-          win_boundgas=win_boundgas/normalisation(rmin,rmax,rv,rb,irho_density)
+          win_boundgas=rho(r,rmin,rmax,rv,rb,Gamma,null,irho_density)
+          win_boundgas=win_boundgas/normalisation(rmin,rmax,rv,rb,Gamma,null,irho_density)
        ELSE IF(ik==1) THEN
           !Properly normalise and convert to overdensity
-          win_boundgas=m*win_norm(k,rmin,rmax,rv,rb,irho_density)/comoving_matter_density(cosm)
+          win_boundgas=m*win_norm(k,rmin,rmax,rv,rb,Gamma,null,irho_density)/comoving_matter_density(cosm)
        ELSE
           STOP 'WIN_BOUNDGAS: ik not specified correctly'
        END IF
@@ -1951,24 +1960,24 @@ CONTAINS
        !Pressure profile of bound gas
        IF(ik==0) THEN
           r=k
-          win_boundgas=rho(r,rmin,rmax,rv,rb,irho_pressure)
+          win_boundgas=rho(r,rmin,rmax,rv,rb,Gamma,null,irho_pressure)
        ELSE IF(ik==1) THEN
           !The pressure window is T(r) x rho(r), we want unnormalised, so multiply by normalisation
-          win_boundgas=win_norm(k,rmin,rmax,rv,rb,irho_pressure)*normalisation(rmin,rmax,rv,rb,irho_pressure) 
+          win_boundgas=win_norm(k,rmin,rmax,rv,rb,Gamma,null,irho_pressure)*normalisation(rmin,rmax,rv,rb,Gamma,null,irho_pressure) 
        ELSE
           STOP 'WIN_BOUNDGAS: Error, ik not specified correctly'
        END IF
 
        !Calculate the value of the density profile prefactor
        !also change units from cosmological to SI
-       rho0=m*halo_boundgas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rb,irho_density)
+       rho0=m*halo_boundgas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rb,Gamma,null,irho_density)
        rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL(4) if you use mpc**3
 
        !Calculate the value of the temperature prefactor
        !f=p=pac=1.
        !IF(variation) fac=param(1) !Fudge factor (turbulence?)
-       alpha=cosm%param(1)
-       T0=alpha*virial_temperature(m,rv)
+       !alpha=cosm%param(1)
+       T0=cosm%alpha*virial_temperature(m,rv)
 
        !Get the units correct
        win_boundgas=win_boundgas*rho0*T0*kb/(mp*mue)
@@ -2054,11 +2063,11 @@ CONTAINS
           !Density profile of free gas
           IF(ik==0) THEN
              r=k
-             win_freegas=rho(r,rmin,rmax,rv,rf,irho_density)
-             win_freegas=win_freegas/normalisation(rmin,rmax,rv,rf,irho_density)
+             win_freegas=rho(r,rmin,rmax,rv,rf,null,null,irho_density)
+             win_freegas=win_freegas/normalisation(rmin,rmax,rv,rf,null,null,irho_density)
           ELSE IF(ik==1) THEN
              !Properly normalise and convert to overdensity
-             win_freegas=m*win_norm(k,rmin,rmax,rv,rf,irho_density)/comoving_matter_density(cosm)
+             win_freegas=m*win_norm(k,rmin,rmax,rv,rf,null,null,irho_density)/comoving_matter_density(cosm)
           ELSE
              STOP 'WIN_FREEGAS: ik not specified correctly'
           END IF
@@ -2082,21 +2091,19 @@ CONTAINS
              !Pressure profile of free gas
              IF(ik==0) THEN
                 r=k
-                win_freegas=rho(r,rmin,rmax,rv,rf,irho_pressure)
+                win_freegas=rho(r,rmin,rmax,rv,rf,null,null,irho_pressure)
              ELSE IF(ik==1) THEN  
-                win_freegas=win_norm(k,rmin,rmax,rv,rf,irho_pressure)*normalisation(rmin,rmax,rv,rf,irho_pressure)              
+                win_freegas=win_norm(k,rmin,rmax,rv,rf,null,null,irho_pressure)*normalisation(rmin,rmax,rv,rf,null,null,irho_pressure)              
              ELSE
                 STOP 'WIN_PRESSURE_FREE: Error, ik not specified correctly'
              END IF
 
              !Calculate the value of the density profile prefactor
              !and change units from cosmological to SI
-             rho0=m*halo_freegas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rf,irho_density)
+             rho0=m*halo_freegas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rf,null,null,irho_density)
              rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL(4) if you use mpc**3
 
              !Calculate the value of the temperature prefactor
-             !beta=1.
-             !beta=param(2)
              T0=virial_temperature(m,rv)
 
              !Pre factors to convert from Temp x density -> pressure (Temp x n_e)          
@@ -2130,14 +2137,14 @@ CONTAINS
 
   END FUNCTION virial_temperature
 
-  FUNCTION win_norm(k,rmin,rmax,rv,rs,irho)
+  FUNCTION win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)
 
     !Calculates the normalised spherical Fourier Transform of the density profile
     !Note that this means win_norm(k->0)=1
     !and that win must be between 0 and 1
     IMPLICIT NONE
     REAL :: win_norm
-    REAL, INTENT(IN) :: rmin, rmax, k, rv, rs
+    REAL, INTENT(IN) :: rmin, rmax, k, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
 
     IF(k==0.) THEN
@@ -2165,7 +2172,7 @@ CONTAINS
           win_norm=wk_isothermal_2(k*rmax,k*rmin)
        ELSE
           !Numerical integral over the density profile (slower)
-          win_norm=winint(k,rmin,rmax,rv,rs,irho)/normalisation(rmin,rmax,rv,rs,irho)
+          win_norm=winint(k,rmin,rmax,rv,rs,p1,p2,irho)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
        END IF
 
     END IF
@@ -2193,7 +2200,7 @@ CONTAINS
 
   END FUNCTION rhor2at0
 
-  FUNCTION rho(r,rmin,rmax,rv,rs,irho)
+  FUNCTION rho(r,rmin,rmax,rv,rs,p1,p2,irho)
 
     !This is an UNNORMALISED halo profile of some sort (density, temperature, ...)
 
@@ -2219,10 +2226,10 @@ CONTAINS
 
     IMPLICIT NONE
     REAL :: rho
-    REAL, INTENT(IN) :: r, rmin, rmax, rv, rs
+    REAL, INTENT(IN) :: r, rmin, rmax, rv, rs, p1, p2 !Standard profile parameters
     INTEGER, INTENT(IN) :: irho
-    REAL :: y, ct, t, c, gamma, rt, A
-    REAL :: P0, c500, alpha, beta, r500
+    REAL :: y, ct, t, c, Gamma, rt, A !Derived parameters
+    REAL :: P0, c500, alpha, beta, r500 !UPP parameters
     REAL :: f1, f2
 
     IF(r<rmin .OR. r>rmax) THEN
@@ -2286,19 +2293,19 @@ CONTAINS
           rho=exp(-0.5*(r/rs)**2.)
        ELSE IF(irho==11 .OR. irho==12 .OR. irho==13) THEN
           !Komatsu & Seljak (2001) profile
-          gamma=1.18 !Recommended by Rabold (2017)
-          !gamma=cosm%param(3)
+          !Gamma=1.18 !Recommended by Rabold (2017)
+          Gamma=p1
           y=r/rs
           rho=(log(1.+y)/y)
           IF(irho==11) THEN
              !KS density profile
-             rho=rho**(1./(gamma-1.))
+             rho=rho**(1./(Gamma-1.))
           ELSE IF(irho==12) THEN
              !KS temperature profile
              rho=rho
           ELSE IF(irho==13) THEN
              !KS pressure profile
-             rho=rho**(gamma/(gamma-1.))
+             rho=rho**(Gamma/(Gamma-1.))
           END IF
        ELSE IF(irho==14) THEN
           !UPP is in terms of r500c, not rv
@@ -2326,12 +2333,12 @@ CONTAINS
 
   END FUNCTION rho
 
-  FUNCTION winint(k,rmin,rmax,rv,rs,irho)
+  FUNCTION winint(k,rmin,rmax,rv,rs,p1,p2,irho)
 
     !Calculates W(k,M)
     IMPLICIT NONE
     REAL :: winint
-    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs
+    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
 
     INTEGER, PARAMETER :: iorder=3 !Integration order
@@ -2350,12 +2357,12 @@ CONTAINS
     !The hybrid method seems not to be faster for practical calculations here
 
     IF(imeth==1) THEN
-       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,irho,iorder,acc)
+       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
     ELSE IF(imeth==2 .OR. imeth==4 .OR. imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
        IF(rmin .NE. 0.) STOP 'WININT: This cannot cope with rmin to rmax - probably could be fixed quickly'
-       winint=winint_bumps(k,rmax,rv,rs,irho,iorder,acc,imeth)
+       winint=winint_bumps(k,rmax,rv,rs,p1,p2,irho,iorder,acc,imeth)
     ELSE IF(imeth==3) THEN
-       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,irho,iorder,acc)
+       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
     ELSE
        STOP 'WININT: Error, imeth not specified correctly'
     END IF
@@ -2404,12 +2411,12 @@ CONTAINS
 !!$    
 !!$  END SUBROUTINE winint_diagnostics
 
-  FUNCTION winint_normal(a,b,k,rmin,rmax,rv,rs,irho,iorder,acc)
+  FUNCTION winint_normal(a,b,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
 
     !Integration routine using 'normal' method to calculate the normalised halo FT
     IMPLICIT NONE
     REAL :: winint_normal
-    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs
+    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
     INTEGER, INTENT(IN) :: iorder
     REAL, INTENT(IN) :: acc
@@ -2474,7 +2481,7 @@ CONTAINS
              !Now get r and do the function evaluations
              !r=a+(b-a)*DBLE(i-1)/DBLE(n-1)
              r=progression(a,b,i,n)
-             sum=sum+weight*winint_integrand(r,rmin,rmax,rv,rs,irho)*sinc(r*k)
+             sum=sum+weight*winint_integrand(r,rmin,rmax,rv,rs,p1,p2,irho)*sinc(r*k)
 
           END DO
 
@@ -2497,13 +2504,14 @@ CONTAINS
 
   END FUNCTION winint_normal
 
-  FUNCTION winint_store(a,b,k,rmin,rmax,rv,rs,irho,iorder,acc)
+  FUNCTION winint_store(a,b,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
     REAL :: winint_store
-    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, acc
+    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
+    REAL, INTENT(IN) :: acc
     INTEGER, INTENT(IN) :: iorder, irho
     REAL, INTENT(IN) :: a, b
     INTEGER :: i, j, n
@@ -2539,8 +2547,8 @@ CONTAINS
           IF(j==1) THEN
 
              !The first go is just the trapezium of the end points
-             f1=winint_integrand(a,rmin,rmax,rv,rs,irho)*sinc(a*k)
-             f2=winint_integrand(b,rmin,rmax,rv,rs,irho)*sinc(b*k)
+             f1=winint_integrand(a,rmin,rmax,rv,rs,p1,p2,irho)*sinc(a*k)
+             f2=winint_integrand(b,rmin,rmax,rv,rs,p1,p2,irho)*sinc(b*k)
              sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
@@ -2549,7 +2557,7 @@ CONTAINS
              !Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=progression(a,b,i,n)
-                fx=winint_integrand(x,rmin,rmax,rv,rs,irho)*sinc(x*k)
+                fx=winint_integrand(x,rmin,rmax,rv,rs,p1,p2,irho)*sinc(x*k)
                 sum_2n=sum_2n+fx
              END DO
 
@@ -2586,12 +2594,12 @@ CONTAINS
 
   END FUNCTION winint_store
 
-  FUNCTION winint_bumps(k,rmax,rv,rs,irho,iorder,acc,imeth)
+  FUNCTION winint_bumps(k,rmax,rv,rs,p1,p2,irho,iorder,acc,imeth)
 
     !Integration routine to calculate the normalised halo FT
     IMPLICIT NONE
     REAL :: winint_bumps
-    REAL, INTENT(IN) :: k, rmax, rv, rs
+    REAL, INTENT(IN) :: k, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
     INTEGER, INTENT(IN) :: iorder, imeth
     REAL, INTENT(IN) :: acc
@@ -2636,20 +2644,20 @@ CONTAINS
 
        !Now do the integration along a section
        IF(imeth==2) THEN
-          w=winint_normal(r1,r2,k,rmin,rmax,rv,rs,irho,iorder,acc)
+          w=winint_normal(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
        ELSE IF(k==0. .OR. imeth==4 .OR. (imeth==7 .AND. n<=nlim)) THEN
-          w=winint_store(r1,r2,k,rmin,rmax,rv,rs,irho,iorder,acc)
+          w=winint_store(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
        ELSE IF(imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
           IF(i==0 .OR. i==n) THEN
              !First piece done 'normally' because otherwise /0 occurs in cubic
              !Last piece will not generally be over one full oscillation
-             w=winint_store(r1,r2,k,rmin,rmax,rv,rs,irho,iorder,acc)
+             w=winint_store(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
           ELSE
              IF(imeth==5) THEN
                 !Linear approximation to integral between nodes - see notes
                 !All results from the analytic integral of a linear polynomial vs. one sine oscillation
                 rn=pi*(2*i+1)/(2.*k)
-                w=(2./k**2)*winint_integrand(rn,rmin,rmax,rv,rs,irho)*((-1.)**i)/rn !Note there is no sinc here
+                w=(2./k**2)*winint_integrand(rn,rmin,rmax,rv,rs,p1,p2,irho)*((-1.)**i)/rn !Note there is no sinc here
              ELSE IF(imeth==6 .OR. (imeth==7 .AND. n>nlim)) THEN
                 !Cubic approximation to integral between nodes - see notes
                 !All results from the analytic integral of a cubic polynomial vs. one sine oscillation
@@ -2657,10 +2665,10 @@ CONTAINS
                 x2=r1+1.*(r2-r1)/3. !Middle
                 x3=r1+2.*(r2-r1)/3. !Middle
                 x4=r2 !End
-                y1=winint_integrand(x1,rmin,rmax,rv,rs,irho)/x1 !Note there is no sinc here
-                y2=winint_integrand(x2,rmin,rmax,rv,rs,irho)/x2 !Note there is no sinc here
-                y3=winint_integrand(x3,rmin,rmax,rv,rs,irho)/x3 !Note there is no sinc here
-                y4=winint_integrand(x4,rmin,rmax,rv,rs,irho)/x4 !Note there is no sinc here
+                y1=winint_integrand(x1,rmin,rmax,rv,rs,p1,p2,irho)/x1 !Note there is no sinc here
+                y2=winint_integrand(x2,rmin,rmax,rv,rs,p1,p2,irho)/x2 !Note there is no sinc here
+                y3=winint_integrand(x3,rmin,rmax,rv,rs,p1,p2,irho)/x3 !Note there is no sinc here
+                y4=winint_integrand(x4,rmin,rmax,rv,rs,p1,p2,irho)/x4 !Note there is no sinc here
                 CALL fix_cubic(a3,a2,a1,a0,x1,y1,x2,y2,x3,y3,x4,y4)
                 w=-6.*a3*(r2+r1)-4.*a2
                 w=w+(k**2)*(a3*(r2**3+r1**3)+a2*(r2**2+r1**2)+a1*(r2+r1)+2.*a0)
@@ -2687,13 +2695,13 @@ CONTAINS
 
   END FUNCTION winint_bumps
 
-  FUNCTION winint_integrand(r,rmin,rmax,rv,rs,irho)
+  FUNCTION winint_integrand(r,rmin,rmax,rv,rs,p1,p2,irho)
 
     !The integrand for the W(k) integral
     !Note that the sinc function is not included
     IMPLICIT NONE
     REAL :: winint_integrand
-    REAL, INTENT(IN) :: r, rmin, rmax, rv, rs
+    REAL, INTENT(IN) :: r, rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
     !REAL, PARAMETER :: rmin=0.
     !REAL, PARAMETER :: rmax=1d8 !Some large number
@@ -2701,7 +2709,7 @@ CONTAINS
     IF(r==0.) THEN
        winint_integrand=4.*pi*rhor2at0(irho)
     ELSE
-       winint_integrand=4.*pi*(r**2)*rho(r,rmin,rmax,rv,rs,irho)
+       winint_integrand=4.*pi*(r**2)*rho(r,rmin,rmax,rv,rs,p1,p2,irho)
     END IF
 
   END FUNCTION winint_integrand
@@ -2732,11 +2740,11 @@ CONTAINS
     winnfw=p1+p2-p3
     rmin=0.
     rmax=rv
-    winnfw=4.*pi*winnfw*(rs**3.)/normalisation(rmin,rmax,rv,rs,4)
+    winnfw=4.*pi*winnfw*(rs**3.)/normalisation(rmin,rmax,rv,rs,null,null,4)
 
   END FUNCTION winnfw
 
-  FUNCTION normalisation(rmin,rmax,rv,rs,irho)
+  FUNCTION normalisation(rmin,rmax,rv,rs,p1,p2,irho)
 
     !This calculates the normalisation of a halo of concentration c
     !See your notes for details of what this means!
@@ -2755,7 +2763,7 @@ CONTAINS
 
     IMPLICIT NONE
     REAL :: normalisation
-    REAL, INTENT(IN) :: rmin, rmax, rv, rs
+    REAL, INTENT(IN) :: rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
     REAL :: cmax, k
 
@@ -2790,7 +2798,7 @@ CONTAINS
     ELSE
        !Otherwise need to do the integral numerically
        k=0. !k=0 gives normalisation
-       normalisation=winint(k,rmin,rmax,rv,rs,irho)
+       normalisation=winint(k,rmin,rmax,rv,rs,p1,p2,irho)
     END IF
 
   END FUNCTION normalisation
@@ -3109,9 +3117,9 @@ CONTAINS
     ELSE IF(imod==2) THEN
        !From Schneider (2015)
        !m0=1.2d14
-       m0=cosm%param(4)
+       M0=cosm%M0
        beta=0.6
-       halo_boundgas_fraction=(cosm%om_b/cosm%om_m)/(1.+(m0/m)**beta)
+       halo_boundgas_fraction=(cosm%om_b/cosm%om_m)/(1.+(M0/m)**beta)
     ELSE IF(imod==3) THEN
        !Universal baryon fraction model (account for stellar contribution)
        halo_boundgas_fraction=cosm%om_b/cosm%om_m-halo_star_fraction(m,cosm)
@@ -3138,13 +3146,13 @@ CONTAINS
     INTEGER, PARAMETER :: imod=3
 
     !To prevent compile-time warning
-    crap=cosm%A
+    !crap=cosm%A
 
     IF(imod==1 .OR. imod==3) THEN
        !Fedeli (2014)
        !A=0.02
        !IF(variation) A=param(5)
-       A=cosm%param(5)
+       A=cosm%Astar
        m0=5.e12
        sigma=1.2
        halo_star_fraction=A*exp(-((log10(m/m0))**2)/(2.*sigma**2))
@@ -3164,24 +3172,24 @@ CONTAINS
 
   END FUNCTION halo_star_fraction
 
-  SUBROUTINE print_baryon_parameters(cosm)!param,param_names,n)
-
-    IMPLICIT NONE
-    !REAL, INTENT(IN) :: param(n)
-    !CHARACTER(len=256), INTENT(IN) :: param_names(n)
-    !INTEGER, INTENT(IN) :: n
-    INTEGER :: i
-    TYPE(cosmology), INTENT(IN) :: cosm
-
-    WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Writing to screen'
-    WRITE(*,*) '=========================================='
-    DO i=1,cosm%np
-       WRITE(*,*) i, TRIM(cosm%param_names(i)), ':', cosm%param(i)
-    END DO
-    WRITE(*,*) '=========================================='
-    WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Done'
-    WRITE(*,*)
-
-  END SUBROUTINE print_baryon_parameters
+!!$  SUBROUTINE print_baryon_parameters(cosm)!param,param_names,n)
+!!$
+!!$    IMPLICIT NONE
+!!$    !REAL, INTENT(IN) :: param(n)
+!!$    !CHARACTER(len=256), INTENT(IN) :: param_names(n)
+!!$    !INTEGER, INTENT(IN) :: n
+!!$    INTEGER :: i
+!!$    TYPE(cosmology), INTENT(IN) :: cosm
+!!$
+!!$    WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Writing to screen'
+!!$    WRITE(*,*) '=========================================='
+!!$    DO i=1,cosm%np
+!!$       WRITE(*,*) i, TRIM(cosm%param_names(i)), ':', cosm%param(i)
+!!$    END DO
+!!$    WRITE(*,*) '=========================================='
+!!$    WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Done'
+!!$    WRITE(*,*)
+!!$
+!!$  END SUBROUTINE print_baryon_parameters
 
 END MODULE HMx

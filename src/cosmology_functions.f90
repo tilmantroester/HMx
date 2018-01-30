@@ -22,10 +22,11 @@ MODULE cosmology_functions
      CHARACTER(len=256) :: name
      LOGICAL :: external_plin
      !Varying baryon parameters
-     INTEGER :: np=5
-     REAL :: param(5), param_defaults(5), param_min(5), param_max(5)
-     CHARACTER(len=256) :: param_names(5)
-     LOGICAL :: param_log(5)
+     !INTEGER :: np=5
+     !REAL :: param(5), param_defaults(5), param_min(5), param_max(5)
+     REAL :: alpha, Dc, Gamma, M0, Astar
+     !CHARACTER(len=256) :: param_names(5)
+     !LOGICAL :: param_log(5)
   END TYPE cosmology
 
 CONTAINS
@@ -363,12 +364,13 @@ CONTAINS
 
   END FUNCTION cosmic_distance
 
-   SUBROUTINE print_cosmology(cosm)
+  SUBROUTINE print_cosmology(cosm)
 
     IMPLICIT NONE
     TYPE(cosmology) :: cosm
 
     WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
+    WRITE(*,*) '===================================='
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', cosm%om_m
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_b:', cosm%om_b
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%om_c
@@ -379,8 +381,13 @@ CONTAINS
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sig8:', cosm%sig8
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n:', cosm%n
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%om
-    ! WRITE(*,fmt='(A11,A15,F10.5)') 'COSMOLOGY:', 'k / (Mpc/h)^-2:', cosm%k
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', cosm%z_cmb
+    WRITE(*,*) '===================================='
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Dc:', cosm%Dc
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
+    WRITE(*,*) '===================================='
     WRITE(*,*)
 
   END SUBROUTINE print_cosmology
@@ -411,7 +418,7 @@ CONTAINS
 
     cosm%name=names(icosmo)
 
-    !Boring defaults
+    !Boring default cosmology
     cosm%om_m=0.3
     cosm%om_b=0.05
     cosm%om_v=1.-cosm%om_m
@@ -424,6 +431,13 @@ CONTAINS
     cosm%T_cmb=2.72
     cosm%z_cmb=1100.
     cosm%external_plin=.FALSE.
+
+    !Default values of baryon parameters
+    cosm%alpha=1.
+    cosm%Dc=0.
+    cosm%Gamma=1.18
+    cosm%M0=1.2e14
+    cosm%Astar=0.02
 
     IF(icosmo==0) THEN
        !Boring - do nothing
@@ -462,7 +476,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: verbose
     REAL :: sigi    
     
-    cosm%name = ''
+    !cosm%name = ''
     !Derived cosmological parameters
     cosm%om_r=2.5e-5*(1.+0.227*neff)/cosm%h**2
     cosm%om_m=cosm%om_m-cosm%om_r !Maintain flatness

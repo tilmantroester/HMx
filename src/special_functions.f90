@@ -52,9 +52,9 @@ CONTAINS
 
     !Taylor expansion used for low x to avoid cancellation problems
     IF(x<dx) THEN
-       wk_tophat=1.-(x**2)/10.
+       wk_tophat=1.-x**2/10.
     ELSE
-       wk_tophat=3.*(sin(x)-x*cos(x))/(x**3)
+       wk_tophat=3.*(sin(x)-x*cos(x))/x**3
     END IF
 
   END FUNCTION wk_tophat

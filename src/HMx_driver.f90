@@ -1,7 +1,6 @@
 PROGRAM HMx_driver
 
   USE HMx
-  !USE cosdef
   USE Limber
 
   !Parameter definitions
@@ -25,6 +24,10 @@ PROGRAM HMx_driver
   INTEGER :: ncos
   REAL :: m1, m2, mass
 
+  !Baryon stuff
+  REAL :: param_min, param_max, param
+  LOGICAL :: ilog
+
   !Halo-model Parameters
   LOGICAL, PARAMETER :: verbose=.TRUE.
   REAL, PARAMETER :: mmin=1e7 !Minimum halo mass for the calculation
@@ -33,12 +36,12 @@ PROGRAM HMx_driver
   LOGICAL, PARAMETER :: icumulative=.TRUE. !Do cumlative distributions for breakdown
   LOGICAL, PARAMETER :: ixi=.FALSE. !Do correlation functions from C(l)
   LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
-
+ 
   !Name parameters (cannot do PARAMETER with mixed length strings)
   !CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)
 
   !Sets the values for the variable baryon parameters
-  CALL init_HMx(cosm)
+  !CALL init_HMx(cosm)
 
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
@@ -78,7 +81,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '11 - Breakdown correlations in halo radius'
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
-     WRITE(*,*) '14 - 3D spectra as HMx parameters vary'
+     WRITE(*,*) '14 - 3D spectra as baryon parameters vary'
      WRITE(*,*) '15 - Do 3D spectra for all cosmo-OWLS models'
      READ(*,*) imode
      WRITE(*,*) '======================'
@@ -170,15 +173,15 @@ PROGRAM HMx_driver
 
      !Set the redshift
      z=0.
-
-     !Assigns the cosmological model
-     icosmo=1
-     CALL assign_cosmology(icosmo,cosm)
         
      IF(imode==2)  nowl=1
      IF(imode==15) nowl=6
 
      DO iowl=1,nowl
+
+        !Assigns the cosmological model
+        icosmo=1
+        CALL assign_cosmology(icosmo,cosm)
 
         IF(iowl==1) THEN
            !This is not used if imode==2
@@ -187,47 +190,72 @@ PROGRAM HMx_driver
         ELSE IF(iowl==2) THEN
            name='REF'
            fname=name
-           cosm%param(1)=2.
-           cosm%param(2)=1.4
-           cosm%param(3)=1.24
-           cosm%param(4)=1e13
-           cosm%param(5)=0.055
+           !cosm%param(1)=2.
+           !cosm%param(2)=1.4
+           !cosm%param(3)=1.24
+           !cosm%param(4)=1e13
+           !cosm%param(5)=0.055
+           cosm%alpha=2.
+           cosm%Dc=1.4
+           cosm%Gamma=1.24
+           cosm%M0=1e13
+           cosm%Astar=0.055
         ELSE IF(iowl==3) THEN
            name='NOCOOL'
            fname=name
-           cosm%param(1)=2.
-           cosm%param(2)=0.8
-           cosm%param(3)=1.1
-           cosm%param(4)=0.
-           cosm%param(5)=0.
+           !cosm%param(1)=2.
+           !cosm%param(2)=0.8
+           !cosm%param(3)=1.1
+           !cosm%param(4)=0.
+           !cosm%param(5)=0.
+           cosm%alpha=2.
+           cosm%Dc=0.8
+           cosm%Gamma=1.1
+           cosm%M0=0.
+           cosm%Astar=0.
         ELSE IF(iowl==4) THEN
            name='AGN'
            fname=name
-           cosm%param(1)=2.
-           cosm%param(2)=0.5
-           cosm%param(3)=1.18
-           cosm%param(4)=8e13
-           cosm%param(5)=0.0225
+           !cosm%param(1)=2.
+           !cosm%param(2)=0.5
+           !cosm%param(3)=1.18
+           !cosm%param(4)=8e13
+           !cosm%param(5)=0.0225
+           cosm%alpha=2.
+           cosm%Dc=0.5
+           cosm%Gamma=1.18
+           cosm%M0=8e13
+           cosm%Astar=0.0225
         ELSE IF(iowl==5) THEN
            name='AGN 8.5'
            fname='AGN8p5'
-           cosm%param(1)=2.
-           cosm%param(2)=-0.5
-           cosm%param(3)=1.26
-           cosm%param(4)=2d14
-           cosm%param(5)=0.0175
+           !cosm%param(1)=2.
+           !cosm%param(2)=-0.5
+           !cosm%param(3)=1.26
+           !cosm%param(4)=2d14
+           !cosm%param(5)=0.0175
+           cosm%alpha=2.
+           cosm%Dc=-0.5
+           cosm%Gamma=1.26
+           cosm%M0=2d14
+           cosm%Astar=0.0175
         ELSE IF(iowl==6) THEN
            name='AGN 8.7'
            fname='AGN8p7'
-           cosm%param(1)=2.
-           cosm%param(2)=-2.
-           cosm%param(3)=1.3
-           cosm%param(4)=1e15
-           cosm%param(5)=0.015
+           !cosm%param(1)=2.
+           !cosm%param(2)=-2.
+           !cosm%param(3)=1.3
+           !cosm%param(4)=1e15
+           !cosm%param(5)=0.015
+           cosm%alpha=2.
+           cosm%Dc=-2.
+           cosm%Gamma=1.3
+           cosm%M0=1e15
+           cosm%Astar=0.015
         END IF
 
         IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
-        CALL print_baryon_parameters(cosm)
+        !CALL print_baryon_parameters(cosm)
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL initialise_cosmology(verbose,cosm)
@@ -1060,21 +1088,47 @@ PROGRAM HMx_driver
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Loop over parameters
-     DO ipa=1,cosm%np
-        !DO ipa=2,2
+     DO ipa=1,5
 
-        cosm%param=cosm%param_defaults
+        !Set maximum and minimum parameter values and linear or log range
+        IF(ipa==1) THEN
+           param_min=0.4
+           param_max=2.
+           ilog=.FALSE.
+        ELSE IF(ipa==2) THEN
+           param_min=0.
+           param_max=2.
+           ilog=.FALSE.
+        ELSE IF(ipa==3) THEN
+           param_min=1.10
+           param_max=1.26
+           ilog=.FALSE.
+        ELSE IF(ipa==4) THEN
+           param_min=1e13
+           param_max=1e15
+           ilog=.TRUE.
+        ELSE IF(ipa==5) THEN
+           param_min=0.015
+           param_max=0.055
+           ilog=.FALSE.
+        END IF
 
         !Loop over parameter values
         DO i=1,m
 
            !Set the parameter value that is being varied
-           IF(cosm%param_log(ipa)) THEN
-              cosm%param(ipa)=progression(log(cosm%param_min(ipa)),log(cosm%param_max(ipa)),i,m)
-              cosm%param(ipa)=exp(cosm%param(ipa))
+           IF(ilog) THEN
+              !param=exp(progression(log(param_min),log(param_max),i,m))
+              param=progression_log(param_min,param_max,i,m)
            ELSE
-              cosm%param(ipa)=progression(cosm%param_min(ipa),cosm%param_max(ipa),i,m)
+              param=progression(param_min,param_max,i,m)
            END IF
+
+           IF(ipa==1) cosm%alpha=param
+           IF(ipa==2) cosm%Dc=param
+           IF(ipa==3) cosm%Gamma=param
+           IF(ipa==4) cosm%M0=param
+           IF(ipa==5) cosm%Astar=param
 
            !Write out halo matter and pressure profile information
            !All the string crap is in the loop for a reason

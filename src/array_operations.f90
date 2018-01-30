@@ -23,14 +23,13 @@ CONTAINS
 
   SUBROUTINE amputate(arr,n_old,n_new)
 
+    !Chop an array down to a smaller size
     IMPLICIT NONE
     REAL, ALLOCATABLE, INTENT(INOUT) :: arr(:)
     REAL, ALLOCATABLE :: hold(:)
     INTEGER, INTENT(IN) :: n_new
     INTEGER, INTENT(IN) :: n_old
-    INTEGER :: i
-
-    !Chop an array down to a smaller size
+    INTEGER :: i    
 
     IF(n_old<n_new) STOP 'AMPUTATE: Error, new array should be smaller than the old one'
 
@@ -357,6 +356,17 @@ CONTAINS
     progression=xmin+(xmax-xmin)*REAL(i-1)/REAL(n-1)
     
   END FUNCTION progression
+
+  FUNCTION progression_log(xmin,xmax,i,n)
+
+    IMPLICIT NONE
+    REAL :: progression_log
+    REAL, INTENT(IN) :: xmin, xmax
+    INTEGER, INTENT(IN) :: i, n
+
+    progression_log=exp(progression(log(xmin),log(xmax),i,n))
+    
+  END FUNCTION progression_log
 
   FUNCTION progression8(xmin,xmax,i,n)
 
