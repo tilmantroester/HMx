@@ -330,10 +330,10 @@ CONTAINS
        !   WRITE(*,*) 'WRITE_POWER_A: Writing 2-halo power to ', TRIM(output_2halo)
        !   WRITE(*,*) 'WRITE_POWER_A: Writing 1-halo power to ', TRIM(output_1halo)
        !   WRITE(*,*) 'WRITE_POWER_A: Writing full power to ',   TRIM(output_full)
-       WRITE(*,*) 'WRITE_POWER_A: The top row of the file contains the redshifts '
-       WRITE(*,*) 'WRITE_POWER_A: The first entry in the file is hashes - #####'
-       WRITE(*,*) 'WRITE_POWER_A: Subsequent rows first contain ''k''...'
-       WRITE(*,*) 'WRITE_POWER_A: ...and then the halo-model power for each scale factor'
+       WRITE(*,*) 'WRITE_POWER_A: The first entry of the file is hashes - #####'
+       WRITE(*,*) 'WRITE_POWER_A: The remainder of the first row are the scale factors - a'
+       WRITE(*,*) 'WRITE_POWER_A: The remainder of the first column are the wave numbers - k'
+       WRITE(*,*) 'WRITE_POWER_A: Each row then gives the power at that k and a'
        WRITE(*,*) 'WRITE_POWER_A: Output:', TRIM(output)
     END IF
 

@@ -24,11 +24,11 @@ print 'Comparing to simulation: ', mod
 print ''
 
 #All different fields
-thing0='overdensity_grid'
-thing1='overdensity_grid_DM'
-thing2='overdensity_grid_gas'
-thing3='overdensity_grid_stars'
-thing4='pressure_grid'
+thing0='all'
+thing1='dm'
+thing2='gas'
+thing3='stars'
+thing4='pressure'
 
 #Set colours
 col0=0
@@ -53,9 +53,7 @@ set log x
 set xrange [kmin:kmax]
 
 rmin=2e-3
-rmax=1.5e0
-#rmin=0.5
-#rmax=1.5
+rmax=1.5
 set log y
 set yrange [rmin:rmax]
 set ylabel 'P_{OWL}/P_{DMONLY}'
@@ -68,14 +66,11 @@ set key bottom right
 
 #Columns for simulation power
 c=2
-L=3
+L=4
 
 #Columns for halo-model power
 d=5
 M=5
-
-pfac=1e2
-fm=6.242e11
 
 set multiplot layout 1,2
 
@@ -103,19 +98,23 @@ plot 1 w l lt -1 noti,\
      '<paste '.hmpk(0,2).' '.dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col3 noti,\
      '<paste '.hmpk(0,3).' '.dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col4 noti
 
-rmin=1e-4
+p1=1.
+p2=p1**2
+
+rmin=1e-9
 rmax=2.
 set yrange [rmin:rmax]
+set format y '10^{%T}'
 
 plot 1 w l lt -1 noti,\
      NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
      '<paste '.data(mod,thing0,thing0).' '.data(mod0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col1 noti,\
-     '<paste '.data(mod,thing4,thing4).' '.data(mod0,thing0,thing0).'' u 1:(((pfac*fm)**2)*column(c)/column(c+L)) w p pt 7 lc col5 noti,\
-     '<paste '.data(mod,thing0,thing4).' '.data(mod0,thing0,thing0).'' u 1:(pfac*fm*column(c)/column(c+L)) w p pt 7 lc col5 noti,\
+     '<paste '.data(mod,thing4,thing4).' '.data(mod0,thing0,thing0).'' u 1:(p1*column(c)/column(c+L)) w p pt 7 lc col5 noti,\
+     '<paste '.data(mod,thing0,thing4).' '.data(mod0,thing0,thing0).'' u 1:(p2*column(c)/column(c+L)) w p pt 7 lc col5 noti,\
      '<paste '.hmpk(0,0).' '.dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'All matter',\
-     '<paste '.hmpk(6,6).' '.dmonly.'' u 1:((pfac**2)*column(d)/column(d+M)) w l lw 3 dt 1 lc col5 ti 'Pressure',\
-     '<paste '.hmpk(0,6).' '.dmonly.'' u 1:(pfac*column(d)/column(d+M)) w l lw 3 dt 2 lc col5 noti
+     '<paste '.hmpk(6,6).' '.dmonly.'' u 1:(p1*column(d)/column(d+M)) w l lw 3 dt 1 lc col5 ti 'Pressure',\
+     '<paste '.hmpk(0,6).' '.dmonly.'' u 1:(p2*column(d)/column(d+M)) w l lw 3 dt 2 lc col5 noti
 
 unset multiplot
 

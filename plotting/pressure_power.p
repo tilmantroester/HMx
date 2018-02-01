@@ -9,7 +9,7 @@ if(print==1) {set term post enh col dashed dl .5 font ',10'; set output 'pressur
 N=800
 
 #field(N,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power_fields/N%i/%s_%s_%s_power.dat',N,sim,type1,type2)
-field(N,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power_data/N%i/%s_%s_%s_power.dat',N,sim,type1,type2)
+field(N,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',N,sim,type1,type2)
 hmpk(i,j)=sprintf('data/power_%s%s.dat',i,j)
 dmonly='data/power.dat'
 

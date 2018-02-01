@@ -38,8 +38,7 @@ n=9
 if(!exists("isim")){sim=4}
 simulation_names='DMONLY REF NOCOOL_UVB AGN AGN_Theat_8p5 AGN_Theat_8p7'
 simulation_titles="'DMONLY' 'REF' 'NO COOL' 'AGN' 'AGN 8.5' 'AGN 8.7'"
-#simulation(n,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',n,sim,type1,type2)
-simulation(n,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power_data/N%i/%s_%s_%s_power.dat',n,sim,type1,type2)
+simulation(n,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',n,sim,type1,type2)
 sim_name=word(simulation_names,sim)
 sim_title=word(simulation_titles,sim)
 print 'Comparing to simulation (set with *isim*): '.sim_title.''
@@ -89,9 +88,14 @@ kmin=0.01
 kmax=10.
 klab='k / h Mpc^{-1}'
 
-#power axis range
-pmin=1e-10
-pmax=1e3
+#density power axis range
+d_pmin=1e-5
+d_pmax=1e3
+plab='{/Symbol D}_{i,j}^2(k)'
+
+#density power axis range
+p_pmin=1e-10
+p_pmax=1e3
 plab='{/Symbol D}_{i,j}^2(k)'
 
 #Density ratio axis
@@ -99,7 +103,7 @@ d_ratio_min=5e-3
 d_ratio_max=2.
 
 #Pressure ratio axis
-p_ratio_min=1e-9
+p_ratio_min=1e-8
 p_ratio_max=2.
 
 ###
@@ -110,8 +114,8 @@ rhomax=1e1
 rholab='4{/Symbol p} r^2 {/Symbol r}(r) / M [Mpc/h]^{-1}'
 
 #Pressure profile axis
-premin=1e-3
-premax=100
+premin=1e-4
+premax=1e2
 prelab='4{/Symbol p} r^2 P(r) [eV (Mpc/h)^{-1}]'
 
 #Axis range for halo profiles
@@ -201,7 +205,7 @@ if(type eq 'matter'){
 
 set multiplot
 
-### Power spectrum plots ###  - Top left
+### Density: Power spectrum plots ###  - Top left
 
 set tmargin at screen power_top
 set bmargin at screen power_bottom
@@ -216,7 +220,7 @@ set xrange [kmin:kmax]
 set log y
 set ylabel plab
 set format y '10^{%T}'
-set yrange[pmin*dy:pmax/dy]
+set yrange[d_pmin*dy:d_pmax/dy]
 
 set key top left
 
@@ -235,7 +239,7 @@ unset label
 
 ### ###
 
-### Power spectrum ratio ###
+### Density: Power spectrum ratio ###
 
 set tmargin at screen ratio_top
 set bmargin at screen ratio_bottom
@@ -265,7 +269,7 @@ unset label
 
 ### ###
 
-### Density profiles ###  - Top right
+### Density: Density profiles ###  - Top right
 
 set xrange[rmin:rmax/dx]
 set xlabel rlab
@@ -318,7 +322,7 @@ unset label
 
 ### ###
 
-### Halo mass fractions ### - bottom right
+### Density: Halo mass fractions ### - bottom right
 
 set tmargin at screen mfrac_top
 set bmargin at screen mfrac_bottom
@@ -357,7 +361,7 @@ if(type eq 'pressure'){
 
 set multiplot
 
-### Power spectrum plots ### - Top left
+### Pressure: power spectrum plots ### - Top left
 
 set tmargin at screen power_top
 set bmargin at screen power_bottom
@@ -372,7 +376,7 @@ set xrange [kmin:kmax]
 set log y
 set ylabel plab
 set format y '10^{%T}'
-set yrange[pmin*dy:pmax/dy]
+set yrange[p_pmin*dy:p_pmax/dy]
 
 set label ddlab at graph 0.03,0.45
 set label dplab at graph 0.03,0.25
@@ -389,7 +393,7 @@ unset label
 
 ### ###
 
-### Power spectrum ratio ### - bottom left
+### Pressure: power spectrum ratio ### - bottom left
 
 set tmargin at screen ratio_top
 set bmargin at screen ratio_bottom
@@ -415,7 +419,7 @@ unset label
 
 ### ###
 
-### Density profiles ### - Top right
+### Pressure: density profiles ### - Top right
 
 set xrange[rmin:rmax/dx]
 set xlabel ''
@@ -468,7 +472,7 @@ unset label
 
 ### ###
 
-### Pressure profiles ### - Bottom right
+### Pressure: pressure profiles ### - Bottom right
 
 set xrange[rmin:rmax/dx]
 set xlabel rlab

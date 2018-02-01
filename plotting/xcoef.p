@@ -34,8 +34,7 @@ plot Cl_11 u 1:3 w l lw 3 ti 'Autospectra: field 1',\
      Cl_12 u 1:3 w l lw 3 ti 'Cross spectra'
 
 set xlabel ''.ell.''
-
-set format x
+set format x '10^{%T}'
 
 rmin=0.
 rmax=1.05

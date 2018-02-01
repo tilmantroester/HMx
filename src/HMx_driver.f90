@@ -34,7 +34,7 @@ PROGRAM HMx_driver
   REAL, PARAMETER :: mmax=1e17 !Maximum halo mass for the calculation
   !INTEGER :: ip2h=2 !Method to 'correct' the 2-halo integral
   LOGICAL, PARAMETER :: icumulative=.TRUE. !Do cumlative distributions for breakdown
-  LOGICAL, PARAMETER :: ixi=.FALSE. !Do correlation functions from C(l)
+  LOGICAL, PARAMETER :: ixi=.TRUE. !Do correlation functions from C(l)
   LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
  
   !Name parameters (cannot do PARAMETER with mixed length strings)
@@ -477,7 +477,7 @@ PROGRAM HMx_driver
 
      !Set the ell range
      lmin=1
-     lmax=1e5 !Problems if this is pushed up to 10^5
+     lmax=1e4 !Problems if this is pushed up to 10^5
      nl=128
 
      !Allocate arrays for l and C(l)

@@ -11,11 +11,13 @@ ell='{/cmmi10 \140}'
 
 icumulative=1
 
+ellmin=1
+ellmax=1e4
 set log x
 if(print==0){set xlabel 'l'}
 if(print==1){set xlabel ell}
 set mxtics 10
-set xrange [1:1e5]
+set xrange [*:*]
 set format x '10^{%T}'
 
 set log y

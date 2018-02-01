@@ -6,9 +6,9 @@ if(print==1) set term post enh col dashed dl .5 font ',10'; set output 'ratio_pr
 
 set size square
 
-N=400
+N=800
 
-data(N,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power_data/N%i/%s_%s_%s_power.dat',N,sim,type1,type2)
+data(N,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',N,sim,type1,type2)
 hmpk(i,j)=sprintf('data/power_%s%s.dat',i,j)
 dmonly='data/power.dat'
 
@@ -54,14 +54,18 @@ fac=1.e-4
 #set lmargin 10
 #set rmargin 2
 
+kmin=1e-2
+kmax=1e1
 set xlabel 'k / (h Mpc^{-1})'
 set format x
 set log x
-set xrange [1e-2:1e1]
+set xrange [kmin:kmax]
 
+rmin=1e-5
+rmax=1e1
 set log y
 #set yrange [1e-3:1e1]
-set yrange [1e-5:1e1]
+set yrange [*:*]
 set ylabel 'P_{ij,OWL}/P_{DMONLY}'
 set format y '10^{%T}'
 set mytics 10

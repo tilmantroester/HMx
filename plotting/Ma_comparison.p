@@ -11,10 +11,12 @@ if(print==1) ell='{/cmmi10 \140}'
 
 #if(print==0) set xlabel 'l'
 #if(print==1) set xlabel ''.ell.''
+ellmin=1
+ellmax=1e4
 set xlabel ''.ell.''
 set log x
 set format x '10^{%T}'
-set xrange [1e0:1e5]
+set xrange [ellmin:ellmax]
 set mxtics 10
 
 #if(print==0) set ylabel 'l(l+1)C_{y{/Symbol k}}(l) / 2{/Symbol p}'

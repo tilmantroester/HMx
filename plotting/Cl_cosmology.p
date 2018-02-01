@@ -21,9 +21,11 @@ unset key
 set lmargin 10
 set rmargin 2
 
+ellmin=1
+ellmax=1e4
 set log x
 set mxtics 10
-set xrange [1e0:1e5]
+set xrange [*:*]
 
 set cblabel plab
 set cbrange [pmin:pmax]

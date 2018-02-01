@@ -22,10 +22,10 @@ mod5='AGN_Theat_8p7'
 mod='AGN'
 
 #All different fields
-thing0='overdensity_grid'
-thing1='overdensity_grid_DM'
-thing2='overdensity_grid_gas'
-thing3='overdensity_grid_stars'
+thing0='all'
+thing1='dm'
+thing2='gas'
+thing3='stars'
 
 #Set colours
 col0=0
@@ -47,13 +47,15 @@ cf2=cf**2
 
 kmin=1e-2
 kmax=1e1
-set xlabel 'k / (h Mpc^{-1})'
+set xlabel 'k / h Mpc^{-1}'
 set format x
 set log x
 set xrange [kmin:kmax]
 
+pmin=1e-5
+pmax=1e3
 set log y
-set yrange [1e-3:1.e3]
+set yrange [pmin:pmax]
 set format y '10^{%T}'
 set ylabel '{/Symbol D}^2(k)'
 set mytics 10

@@ -10,10 +10,12 @@ cl(m1,m2)=sprintf('data/mass_%i_%i_cl_full.dat',m1,m2)
 
 icumulative=1
 
+ellmin=1
+ellmax=1e4
 set log x
 set xlabel ''.ell.''
 set mxtics 10
-set xrange [1:1e5]
+set xrange [*:*]
 set format x '10^{%T}'
 
 set log y
