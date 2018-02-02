@@ -15,6 +15,7 @@ lib/
 
 # Plots
 *.eps
+plotting/*.p~
 
 # Emacs backups
 src/*.f90~

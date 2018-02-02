@@ -397,25 +397,29 @@ CONTAINS
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(INOUT) :: icosmo
-    CHARACTER(len=256) :: names(0:2)
+    CHARACTER(len=256) :: names(0:3)
+    INTEGER :: i
 
     names(0)='Boring'
-    names(1)='WMAP9 (OWLS version)'
+    names(1)='WMAP9 (OWLS version; xxxx.xxxxx; or is this WMAP7?)'
     names(2)='Planck 2013 (OWLS version)'
+    names(3)='WMAP9 (BAHAMAS version: 1712.02411)'
 
     IF(icosmo==-1) THEN
        WRITE(*,*) 'ASSIGN_COSMOLOGY: Choose cosmological model'
        WRITE(*,*) '==========================================='
-       !DO i=0,SIZE(names)-1
-       !   WRITE(*,*) i, '- ', TRIM(names(i))
-       !END DO
-       WRITE(*,*) '0 - Boring'
-       WRITE(*,*) '1 - WMAP9 (OWLS version)'
-       WRITE(*,*) '2 - Planck 2013 (OWLS version)'
+       DO i=0,SIZE(names)-1
+          WRITE(*,*) i, '- ', TRIM(names(i))
+       END DO
+       !WRITE(*,*) '0 - Boring'
+       !WRITE(*,*) '1 - WMAP9 (OWLS version; xxxx.xxxxx; or is this WMAP7?)'
+       !WRITE(*,*) '2 - Planck 2013 (OWLS version)'
+       !WRITE(*,*) '3 - WMAP9 (BAHAMAS version: 1712.02411)'
        READ(*,*) icosmo
        WRITE(*,*) '==========================================='
     END IF
 
+    !Set the name of the cosmological model
     cosm%name=names(icosmo)
 
     !Boring default cosmology
@@ -460,6 +464,16 @@ CONTAINS
        cosm%h=0.6711
        cosm%n=0.9624
        cosm%sig8=0.834
+    ELSE IF(icosmo==3) THEN
+       !BAHAMAS - WMAP9 (1712.02411)
+       cosm%h=0.7
+       cosm%om_c=0.2330
+       cosm%om_b=0.0463
+       cosm%om_m=cosm%om_c+cosm%om_b
+       cosm%om_v=1.-cosm%om_m       
+       cosm%om_nu=0.
+       cosm%n=0.9720
+       cosm%sig8=0.8211
     ELSE
        STOP 'ASSIGN_COSMOLOGY: Error, icosmo not specified correctly'
     END IF
