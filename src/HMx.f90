@@ -1727,7 +1727,7 @@ CONTAINS
     REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
-    REAL :: rss, dc, r, rmin, rmax
+    REAL :: rss, dc, r, rmin, rmax, c
 
     !Set the model
     !1 - NFW
@@ -1741,9 +1741,9 @@ CONTAINS
     ELSE IF(imod==2) THEN
        !NFW with increase concentation
        irho=5
-       !dc=1.
-       dc=cosm%Dc*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b
-       rss=1./(1./rs+dc/rv)
+       dc=cosm%Dc*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b !Change in halo concentration
+       c=rv/rs !Old concentration: c
+       rss=rv/(c+dc) !New scale radius calculated from new concentration: c + dc
     ELSE
        STOP 'WIN_CDM: Error, imod specified incorrectly'
     END IF
