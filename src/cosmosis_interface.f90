@@ -33,7 +33,8 @@ function setup(options) result(result)
 	type(c_ptr) :: result
     !Variables
 	integer(cosmosis_status) :: status
-	type(HMx_setup_config), pointer :: HMx_config
+    type(HMx_setup_config), pointer :: HMx_config
+    integer :: verbose
 	
 	allocate(HMx_config)
 
@@ -79,8 +80,8 @@ function setup(options) result(result)
     status = datablock_get_double_default(options, option_section, "mmax", 1e17, HMx_config%mmax)
 
     status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
-
-    HMx_config%verbose = .true.
+    status = datablock_get_int_default(options, option_section, "verbose", 1, verbose)
+    HMx_config%verbose = verbose > 0
 
     !Create k array (log spacing)
     call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
@@ -108,8 +109,10 @@ function execute(block, config) result(status)
     type(HMx_setup_config), pointer :: HMx_config
     integer :: i
     integer, dimension(:) :: fields(2)
+    real(8) :: log10_M0
     real(8), dimension(:), allocatable :: k_plin, z_plin
     real(8), dimension(:,:), allocatable :: pk_lin, pk_1h, pk_2h, pk_full
+    character(len=256) :: pk_section
 
     call c_f_pointer(config, HMx_config)
 
@@ -131,9 +134,11 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Dc", 0.0, HMx_config%cosm%Dc)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Gamma", 1.18, HMx_config%cosm%Gamma)
-    status = datablock_get_double_default(block, halo_model_parameters_section, "M0", 12e14, HMx_config%cosm%M0)
+    status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", 14.08, log10_M0)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Astar", 0.02, HMx_config%cosm%Astar)
     
+    HMx_config%cosm%M0 = 10**log10_M0
+
     if(HMx_config%compute_p_lin == 0) then
         status = datablock_get_double_grid(block, matter_power_lin_section, &
                                         "k_h", k_plin, &
@@ -152,7 +157,9 @@ function execute(block, config) result(status)
     end if
 
     call initialise_cosmology(HMx_config%verbose, HMx_config%cosm)
-    call print_cosmology(HMx_config%cosm)
+    if(HMx_config%verbose) then
+        call print_cosmology(HMx_config%cosm)
+    end if
 
     call calculate_HMx(HMx_config%fields, &
                        HMx_config%mmin, HMx_config%mmax, &
@@ -166,19 +173,33 @@ function execute(block, config) result(status)
     
     ! Write power spectra to relevant section
     if(all(HMx_config%fields == (0, 0))) then
-        status = datablock_put_double_grid(block, matter_power_nl_section, &
-                                        "k_h", HMx_config%k, &
-                                        "z", 1.0/HMx_config%a-1.0, &
-                                        "p_k", pk_full)
+        pk_section = "matter_matter_power_spectrum"
+    else if(all(HMx_config%fields == (1, 1))) then
+        pk_section = "dm_dm_power_spectrum"
+    else if(all(HMx_config%fields == (2, 2))) then
+        pk_section = "gas_gas_power_spectrum"
+    else if(all(HMx_config%fields == (3, 3))) then
+        pk_section = "stars_stars_power_spectrum"
+    else if(all(HMx_config%fields == (6, 6))) then
+        pk_section = "pressure_pressure_power_spectrum"
+    else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 1)) then
+        pk_section = "matter_dm_power_spectrum"
+    else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 2)) then
+        pk_section = "matter_gas_power_spectrum"
+    else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 3)) then
+        pk_section = "matter_stars_power_spectrum"
     else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 6)) then
-        status = datablock_put_double_grid(block, "pressure_matter", &
-                                        "k_h", HMx_config%k, &
-                                        "z", 1.0/HMx_config%a-1, &
-                                        "p_k", pk_full)
+        pk_section = "matter_pressure_power_spectrum"
     else
         write(*,*) "Unsupported combination of fields:", HMx_config%fields
         stop
     end if
+
+    status = datablock_put_double_grid(block, pk_section, &
+                                        "k_h", HMx_config%k, &
+                                        "z", 1.0/HMx_config%a-1.0, &
+                                        "p_k", pk_full)
+    
     if(status /= 0) then
         write(*,*) "Failed to write NL power spectrum to datablock."
     end if
