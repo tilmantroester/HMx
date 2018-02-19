@@ -109,6 +109,7 @@ function execute(block, config) result(status)
     type(HMx_setup_config), pointer :: HMx_config
     integer :: i
     integer, dimension(:) :: fields(2)
+    real(8) :: log10_M0
     real(8), dimension(:), allocatable :: k_plin, z_plin
     real(8), dimension(:,:), allocatable :: pk_lin, pk_1h, pk_2h, pk_full
     character(len=256) :: pk_section
@@ -133,9 +134,11 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Dc", 0.0, HMx_config%cosm%Dc)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Gamma", 1.18, HMx_config%cosm%Gamma)
-    status = datablock_get_double_default(block, halo_model_parameters_section, "M0", 12e14, HMx_config%cosm%M0)
+    status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", 14.08, log10_M0)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Astar", 0.02, HMx_config%cosm%Astar)
     
+    HMx_config%cosm%M0 = 10**log10_M0
+
     if(HMx_config%compute_p_lin == 0) then
         status = datablock_get_double_grid(block, matter_power_lin_section, &
                                         "k_h", k_plin, &
