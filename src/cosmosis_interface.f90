@@ -171,6 +171,20 @@ function execute(block, config) result(status)
     ! Write power spectra to relevant section
     if(all(HMx_config%fields == (0, 0))) then
         pk_section = "matter_matter_power_spectrum"
+    else if(all(HMx_config%fields == (1, 1))) then
+        pk_section = "dm_dm_power_spectrum"
+    else if(all(HMx_config%fields == (2, 2))) then
+        pk_section = "gas_gas_power_spectrum"
+    else if(all(HMx_config%fields == (3, 3))) then
+        pk_section = "stars_stars_power_spectrum"
+    else if(all(HMx_config%fields == (6, 6))) then
+        pk_section = "pressure_pressure_power_spectrum"
+    else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 1)) then
+        pk_section = "matter_dm_power_spectrum"
+    else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 2)) then
+        pk_section = "matter_gas_power_spectrum"
+    else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 3)) then
+        pk_section = "matter_stars_power_spectrum"
     else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 6)) then
         pk_section = "matter_pressure_power_spectrum"
     else
