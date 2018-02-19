@@ -1,6 +1,5 @@
 MODULE cosmology_functions
 
-  !USE cosdef
   USE interpolate
   USE constants
 

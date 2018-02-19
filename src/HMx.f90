@@ -850,7 +850,8 @@ CONTAINS
     INTEGER :: i
     REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc
     
-    INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table  
+    INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
+    REAL, PARAMETER :: large_nu=10. !Value for nu such that there are no haloes larger
 
     !Set method to correct for missing integrand in two-halo term
     !0 - Do nothing
@@ -922,14 +923,14 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: maximum nu:', REAL(lut%nu(lut%n))
        WRITE(*,*) 'HALOMOD_INIT: minimum R_v [Mpc/h]:', REAL(lut%rv(1))
        WRITE(*,*) 'HALOMOD_INIT: maximum R_v [Mpc/h]:', REAL(lut%rv(lut%n))
-       WRITE(*,*) 'HALOMOD_INIT: minimum M [Msun/h]:', REAL(lut%m(1))
-       WRITE(*,*) 'HALOMOD_INIT: maximum M [Msun/h]:', REAL(lut%m(lut%n))
+       WRITE(*,*) 'HALOMOD_INIT: minimum log10(M/[Msun/h]):', REAL(log10(lut%m(1)))
+       WRITE(*,*) 'HALOMOD_INIT: maximum log10(M/[Msun/h]):', REAL(log10(lut%m(lut%n)))
     END IF
 
-    lut%gmin=1.-integrate(lut%nu(1),10.,gnu,acc,3)
-    lut%gmax=integrate(lut%nu(lut%n),10.,gnu,acc,3)
-    lut%gbmin=1.-integrate(lut%nu(1),10.,gnubnu,acc,3)
-    lut%gbmax=integrate(lut%nu(lut%n),10.,gnubnu,acc,3)
+    lut%gmin=1.-integrate(lut%nu(1),large_nu,gnu,acc,3)
+    lut%gmax=integrate(lut%nu(lut%n),large_nu,gnu,acc,3)
+    lut%gbmin=1.-integrate(lut%nu(1),large_nu,gnubnu,acc,3)
+    lut%gbmax=integrate(lut%nu(lut%n),large_nu,gnubnu,acc,3)
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at low end:', REAL(lut%gmin)
        WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at high end:', REAL(lut%gmax)
@@ -960,8 +961,8 @@ CONTAINS
 
     A0=one_halo_amplitude(z,lut,cosm)
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: A0 [Mpc/h]^3:', REAL(A0)
-       WRITE(*,*) 'HALOMOD_INIT: M* [Msun/h]:', REAL(A0*comoving_matter_density(cosm))
+       WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [Mpc/h]^3:', REAL(A0)
+       WRITE(*,*) 'HALOMOD_INIT: log10(M*/[Msun/h]):', REAL(log10(A0*comoving_matter_density(cosm)))
        WRITE(*,*) 'HALOMOD_INIT: Done'
        WRITE(*,*)
     END IF
@@ -2826,9 +2827,8 @@ CONTAINS
     IMPLICIT NONE
     REAL :: bps
     REAL, INTENT(IN) :: nu
-    REAL :: dc
 
-    dc=1.686
+    REAL, PARAMETER :: dc=1.686
 
     bps=1.+(nu**2-1.)/dc
 
@@ -2840,11 +2840,10 @@ CONTAINS
     IMPLICIT NONE
     REAL :: bst
     REAL, INTENT(IN) :: nu
-    REAL :: p, q, dc
 
-    p=0.3
-    q=0.707
-    dc=1.686
+    REAL, PARAMETER :: p=0.3
+    REAL, PARAMETER :: q=0.707
+    REAL, PARAMETER :: dc=1.686
 
     bst=1.+(q*(nu**2)-1.+2.*p/(1.+(q*nu**2)**p))/dc
 
