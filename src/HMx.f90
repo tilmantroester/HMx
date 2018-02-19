@@ -174,7 +174,7 @@ CONTAINS
        z=redshift_a(a(i))
        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose2)
        !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
-       IF(i==na) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
+       IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
        IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z) !Mead - re-added verbose dependence
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm,verbose2,compute_p_lin)
        verbose2=.FALSE.
