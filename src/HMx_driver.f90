@@ -1091,6 +1091,19 @@ PROGRAM HMx_driver
      !Loop over parameters
      DO ipa=1,5
 
+        !DO NOT DELETE - needs to be here to restore default cosmology
+        !Reassigns the cosmological model
+        CALL assign_cosmology(icosmo,cosm)
+
+        !DO NOT DELETE - needs to be here to restore default cosmology
+        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        CALL initialise_cosmology(verbose,cosm)
+        IF(verbose) CALL print_cosmology(cosm)
+
+        !DO NOT DELETE - needs to be here to restore default cosmology
+        !Initiliasation for the halo-model calcualtion
+        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose) 
+        
         !Set maximum and minimum parameter values and linear or log range
         IF(ipa==1) THEN
            !alpha - virial temperature pre factor
@@ -1135,6 +1148,10 @@ PROGRAM HMx_driver
            IF(ipa==3) cosm%Gamma=param
            IF(ipa==4) cosm%M0=param
            IF(ipa==5) cosm%Astar=param
+
+           !DO NOT DELETE THIS
+           !It is only used to print values to the screen later
+           IF(ilog) param=log10(param)
 
            !Write out halo matter and pressure profile information
            !All the string crap is in the loop for a reason
@@ -1212,7 +1229,7 @@ PROGRAM HMx_driver
               outfile=number_file2(base,ipa,mid,i,ext)
 
               !Write progress to screen
-              WRITE(*,fmt='(4I5,A50)') ipa, i, j1, j2, TRIM(outfile)
+              WRITE(*,fmt='(4I5,F14.7,A50)') ipa, i, j1, j2, param, TRIM(outfile)
 
               !Do the halo-model calculation and write to file
               CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
