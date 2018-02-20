@@ -32,10 +32,11 @@ PROGRAM HMx_driver
   LOGICAL, PARAMETER :: verbose=.TRUE.
   REAL, PARAMETER :: mmin=1e7 !Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17 !Maximum halo mass for the calculation
-  !INTEGER :: ip2h=2 !Method to 'correct' the 2-halo integral
+
+  !Output choices
   LOGICAL, PARAMETER :: icumulative=.TRUE. !Do cumlative distributions for breakdown
   LOGICAL, PARAMETER :: ixi=.TRUE. !Do correlation functions from C(l)
-  LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations
+  LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
  
   !Name parameters (cannot do PARAMETER with mixed length strings)
   !CHARACTER(len=256) :: halo_type(-1:8), xcorr_type(10)
@@ -1077,7 +1078,7 @@ PROGRAM HMx_driver
      CALL initialise_cosmology(verbose,cosm)
      IF(verbose) CALL print_cosmology(cosm)
 
-     !Initiliasation for the halomodel calcualtion
+     !Initiliasation for the halo-model calcualtion
      CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)  
 
      !DMONLY
@@ -1092,24 +1093,29 @@ PROGRAM HMx_driver
 
         !Set maximum and minimum parameter values and linear or log range
         IF(ipa==1) THEN
-           param_min=0.4
-           param_max=2.
+           !alpha - virial temperature pre factor
+           param_min=0.1
+           param_max=1.1
            ilog=.FALSE.
         ELSE IF(ipa==2) THEN
-           param_min=0.
-           param_max=2.
+           !Delta c - concentration change due to gas presence
+           param_min=-3.
+           param_max=3.
            ilog=.FALSE.
         ELSE IF(ipa==3) THEN
-           param_min=1.10
-           param_max=1.26
+           !Gamma - KS polytropic index
+           param_min=1.15
+           param_max=1.25
            ilog=.FALSE.
         ELSE IF(ipa==4) THEN
+           !log10(M0) - bound gas transition
            param_min=1e13
            param_max=1e15
            ilog=.TRUE.
         ELSE IF(ipa==5) THEN
-           param_min=0.015
-           param_max=0.055
+           !A* - Stellar mass fraction
+           param_min=0.01
+           param_max=0.03
            ilog=.FALSE.
         END IF
 

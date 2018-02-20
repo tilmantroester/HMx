@@ -18,11 +18,11 @@ UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat'
 
 #Fix the parameter to plot
 if(!exists("param")){param=1}
-if(param==1){pname='{/Symbol a}';       min=0.4;   max=2.0;   ilog=0; coll='light-blue'}
-if(param==2){pname='{/Symbol b}';       min=0.0;   max=2.0;   ilog=0; coll='pink'}
-if(param==3){pname='{/Symbol G}';       min=1.10;  max=1.26;  ilog=0; coll='orange'}
+if(param==1){pname='{/Symbol a}';       min=0.1;   max=1.1;   ilog=0; coll='light-blue'}
+if(param==2){pname='{/Symbol D}c';      min=-3.0;  max=3.0;   ilog=0; coll='pink'}
+if(param==3){pname='{/Symbol G}';       min=1.15;  max=1.25;  ilog=0; coll='orange'}
 if(param==4){pname='M_B / M_{'.sun.'}'; min=1e13;  max=1e15;  ilog=1; coll='light-green'}
-if(param==5){pname='A_*';               min=0.015; max=0.055; ilog=0; coll='gold'}
+if(param==5){pname='A_*';               min=0.01;  max=0.03;  ilog=0; coll='gold'}
 print 'Comparison for parameter (set with *param*): '.param.''
 
 #Output figure
@@ -93,7 +93,7 @@ d_pmin=1e-5
 d_pmax=1e3
 plab='{/Symbol D}_{i,j}^2(k)'
 
-#density power axis range
+#pressure power axis range
 p_pmin=1e-10
 p_pmax=1e3
 plab='{/Symbol D}_{i,j}^2(k)'
@@ -103,7 +103,7 @@ d_ratio_min=5e-3
 d_ratio_max=2.
 
 #Pressure ratio axis
-p_ratio_min=1e-8
+p_ratio_min=1e-9
 p_ratio_max=2.
 
 ###

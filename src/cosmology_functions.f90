@@ -436,10 +436,10 @@ CONTAINS
     cosm%external_plin=.FALSE.
 
     !Default values of baryon parameters
-    cosm%alpha=1.
+    cosm%alpha=0.5
     cosm%Dc=0.
-    cosm%Gamma=1.18
-    cosm%M0=1.2e14
+    cosm%Gamma=1.2
+    cosm%M0=1e14
     cosm%Astar=0.02
 
     IF(icosmo==0) THEN

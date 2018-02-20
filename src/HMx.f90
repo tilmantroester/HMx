@@ -2002,7 +2002,7 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL :: rf, rmin, rmax, r, A, gamma, rho0, T0
     INTEGER :: irho_density, irho_pressure
-    LOGICAL :: imatch_pressure
+    LOGICAL :: match_pressure
 
     !Set the model
     !1 - Isothermal model (out to 2rv)
@@ -2010,7 +2010,9 @@ CONTAINS
     !3 - Isothermal shell that connects pressure and density to boundgas at rv
     INTEGER, PARAMETER :: imod=3
 
-    imatch_pressure=.FALSE.
+    !Enable to force the pressure to be matched at the virial radius
+    !This is enabled by default for some halo gas/pressure models
+    match_pressure=.FALSE.
 
     IF(halo_freegas_fraction(m,cosm)==0.) THEN
 
@@ -2053,7 +2055,7 @@ CONTAINS
           rmax=rv+halo_freegas_fraction(m,cosm)/(4.*pi*A) !This ensures density continuity and mass conservation
           gamma=5.
           IF(rmax>gamma*rv) rmax=gamma*rv !This needs to be set otherwise get huge decrement in gas power at large scales
-          imatch_pressure=.TRUE. !Match the pressure at the boundary
+          match_pressure=.TRUE. !Match the pressure at the boundary
           !!
        ELSE
           STOP 'WIN_FREEGAS: Error, imod_freegas specified incorrectly'
@@ -2077,7 +2079,7 @@ CONTAINS
 
        ELSE IF(itype==2) THEN
 
-          IF(imatch_pressure) THEN
+          IF(match_pressure) THEN
 
              r=k
              IF(r>rmin .AND. r<rmax) THEN
