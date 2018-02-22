@@ -316,9 +316,11 @@ CONTAINS
              integrate_distance=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
+             integrate_distance=0.d0
              STOP 'INTEGRATE_DISTANCE: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             integrate_distance=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -994,9 +996,11 @@ CONTAINS
              sigint0=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
+             sigint0=0.d0
              STOP 'SIGINT0: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             sigint0=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1114,9 +1118,11 @@ CONTAINS
              sigint1=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
+             sigint1=0.d0
              STOP 'SIGINT1: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             sigint1=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1226,9 +1232,11 @@ CONTAINS
              !WRITE(*,*) 'INTEGRATE_STORE: Nint:', n
              EXIT
           ELSE IF(j==jmax) THEN
+             sigint2=0.d0
              STOP 'SIGINT2: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             sigint2=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1356,9 +1364,11 @@ CONTAINS
              growint=exp(REAL(sum_new))
              EXIT
           ELSE IF(j==jmax) THEN
+             growint=0.d0
              STOP 'GROWINT: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             growint=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1475,9 +1485,11 @@ CONTAINS
              dispint=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
+             dispint=0.
              STOP 'DISPINT: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             dispint=0.
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.

@@ -912,9 +912,11 @@ CONTAINS
              integrate_q=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
+             integrate_q=0.d0
              STOP 'INTEGRATE_Q: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             integrate_q=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1035,9 +1037,11 @@ CONTAINS
              integrate_Limber=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
+             integrate_Limber=0.d0
              STOP 'INTEGRATE_LIMBER: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             integrate_Limber=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.

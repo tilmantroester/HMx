@@ -73,7 +73,7 @@ Ls=4
 m1=13
 m2=14
 m3=15
-mlab(m)=sprintf('10^{%i} h^{-1} M_{'.sun.'}',m)
+mlab(m)=sprintf('10^{%i} M_{'.sun.'} / h',m)
 mlabx=0.3
 mlaby=0.94
 

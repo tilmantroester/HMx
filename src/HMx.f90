@@ -17,7 +17,7 @@ MODULE HMx
   INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST) !Move to 'tables' type eventually 
   INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation !Move to 'tables' type eventually 
   REAL, PARAMETER :: acc=1e-4 !Global integration-accuracy parameter
-  REAL, PARAMETER :: null=0.d0
+  REAL, PARAMETER :: null=0.d0 !Useful for passing nothing to a function
 
   !Halo-model stuff that needs to be recalculated for each new z
   TYPE tables     
@@ -33,59 +33,6 @@ MODULE HMx
   END TYPE tables
 
 CONTAINS
-
-!!$  SUBROUTINE init_HMx(cosm)
-!!$
-!!$    !Sets values for the baryon parameters. Probably a poor choice of subroutine name.
-!!$    IMPLICIT NONE
-!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
-!!$
-!!$    !Names of variable parameters
-!!$    !cosm%param_names(1)='alpha' !alpha in virial temperature (turbulence?)
-!!$    !cosm%param_names(2)='Dc' !Change in NFW concentration due to gas
-!!$    !cosm%param_names(3)='Gamma' !Gamma in Komatsu-Seljak profile
-!!$    !cosm%param_names(4)='M_B' !Halo mass at which free and unbound gas are equal
-!!$    !cosm%param_names(5)='A_*' !Prefactor for stellar fraction
-!!$
-!!$    !Set default values for variable parameters
-!!$    !cosm%param(1)=1.
-!!$    !cosm%param(2)=0.
-!!$    !cosm%param(3)=1.18
-!!$    !cosm%param(4)=1.2d14
-!!$    !cosm%param(5)=0.02
-!!$
-!!$    !Set default values for variable parameters
-!!$    cosm%alpha=1.
-!!$    cosm%Dc=0.
-!!$    cosm%Gamma=1.18
-!!$    cosm%M0=1.2e14
-!!$    cosm%Astar=0.02
-!!$
-!!$    !Set some default parameters
-!!$    !cosm%param_defaults=cosm%param
-!!$
-!!$    !Minimum parameter values in variation
-!!$    !cosm%param_min(1)=0.4
-!!$    !cosm%param_min(2)=0.
-!!$    !cosm%param_min(3)=1.10
-!!$    !cosm%param_min(4)=1e13
-!!$    !cosm%param_min(5)=0.015
-!!$
-!!$    !Maximum parameter values in variation
-!!$    !cosm%param_max(1)=2.
-!!$    !cosm%param_max(2)=2.
-!!$    !cosm%param_max(3)=1.26
-!!$    !cosm%param_max(4)=1e15
-!!$    !cosm%param_max(5)=0.055
-!!$
-!!$    !Should the range be explored in log?
-!!$    !cosm%param_log(1)=.FALSE.
-!!$    !cosm%param_log(2)=.FALSE.
-!!$    !cosm%param_log(3)=.FALSE.
-!!$    !cosm%param_log(4)=.TRUE.
-!!$    !cosm%param_log(5)=.FALSE.
-!!$
-!!$  END SUBROUTINE init_HMx
 
   FUNCTION xcorr_type(ix)
 
@@ -1911,7 +1858,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ik, itype
     REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL :: rho0, T0, r, alpha, gamma
+    REAL :: rho0, T0, r, gamma
     REAL :: rmin, rmax, rb
     INTEGER :: irho_density, irho_pressure
 
@@ -2234,6 +2181,10 @@ CONTAINS
     REAL :: y, ct, t, c, Gamma, rt, A !Derived parameters
     REAL :: P0, c500, alpha, beta, r500 !UPP parameters
     REAL :: f1, f2
+    REAL :: crap
+
+    !To stop compile-time warnings
+    crap=p2
 
     IF(r<rmin .OR. r>rmax) THEN
        !The profile is considered to be zero outside this region
@@ -2432,6 +2383,8 @@ CONTAINS
     INTEGER, PARAMETER :: jmax=30
     INTEGER, PARAMETER :: ninit=2
 
+    winold=0.
+
     IF(a==b) THEN
 
        winint_normal=0.
@@ -2583,9 +2536,11 @@ CONTAINS
              winint_store=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
+             winint_store=0.d0
              STOP 'WININT_STORE: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
+             winint_store=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -3138,16 +3093,12 @@ CONTAINS
     REAL, INTENT(IN) :: m
     TYPE(cosmology), INTENT(IN) :: cosm
     REAL :: m0, sigma, A, min
-    REAL :: crap
 
     !Set the model
     !1 - Fedeli (2014)
     !2 - Constant stellar fraction
     !3 - Fedeli (2014) but saturates at high mass
     INTEGER, PARAMETER :: imod=3
-
-    !To prevent compile-time warning
-    !crap=cosm%A
 
     IF(imod==1 .OR. imod==3) THEN
        !Fedeli (2014)

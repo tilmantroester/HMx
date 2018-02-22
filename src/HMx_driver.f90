@@ -1088,19 +1088,22 @@ PROGRAM HMx_driver
      CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
+     !Prevents warning
+     ilog=.FALSE.
+
      !Loop over parameters
      DO ipa=1,5
 
-        !DO NOT DELETE - needs to be here to restore default cosmology
+        !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Reassigns the cosmological model
         CALL assign_cosmology(icosmo,cosm)
 
-        !DO NOT DELETE - needs to be here to restore default cosmology
+        !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL initialise_cosmology(verbose,cosm)
         IF(verbose) CALL print_cosmology(cosm)
 
-        !DO NOT DELETE - needs to be here to restore default cosmology
+        !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Initiliasation for the halo-model calcualtion
         CALL halomod_init(mmin,mmax,z,lut,cosm,verbose) 
         
