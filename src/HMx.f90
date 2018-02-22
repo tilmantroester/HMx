@@ -20,10 +20,10 @@ MODULE HMx
   INTEGER, PARAMETER :: imf=2
 
   !Choose halo-model calculation
-  !-1 - Basic halo-model with linear two-halo term
-  ! 0 - Standard halo-model calculation (bias and halo profiles in two-halo term)
-  ! 1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
-  INTEGER, PARAMETER :: imead=0
+  !0 - Standard halo-model calculation (bias and halo profiles in two-halo term)
+  !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
+  !2 - Basic halo-model with linear two-halo term
+  INTEGER, PARAMETER :: ihm=0
 
   !Global integration-accuracy parameter
   REAL, PARAMETER :: acc=1e-4
@@ -503,13 +503,13 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Virialised overdensity
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        !Delta_v=200.
        Delta_v=Dv_brynor(z,cosm)
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        Delta_v=418.*(omega_m(z,cosm)**(-0.352))
     ELSE
-       STOP 'Error, imead defined incorrectly'
+       STOP 'Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION Delta_v
@@ -547,14 +547,14 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Linear collapse density
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        !Nakamura & Suto (1997) fitting formula for LCDM
        delta_c=1.686*(1.+0.0123*log10(omega_m(z,cosm)))
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        delta_c=1.59+0.0314*log(sigma_cb(8.,z,cosm))
        delta_c=delta_c*(1.+0.0123*log10(omega_m(z,cosm)))
     ELSE
-       STOP 'Error, imead defined incorrectly'
+       STOP 'Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION delta_c
@@ -566,13 +566,13 @@ CONTAINS
     REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        eta=0.
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        !The first parameter here is 'eta_0' in Mead et al. (2015; arXiv 1505.07833)
        eta=0.603-0.3*(sigma_cb(8.,z,cosm))
     ELSE
-       STOP 'Error, imead defined incorrectly'
+       STOP 'Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION eta
@@ -588,14 +588,14 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        !Set to zero for the standard Poisson one-halo term
        kstar=0.
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        !One-halo cut-off wavenumber
        kstar=0.584*(lut%sigv)**(-1)
     ELSE
-       STOP 'Error, imead defined incorrectly'
+       STOP 'Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION kstar
@@ -611,14 +611,14 @@ CONTAINS
     crap=cosm%A
 
     !Halo concentration pre-factor
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        !Set to 4 for the standard Bullock value
        As=4.
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        !This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833)
        As=3.13
     ELSE
-       STOP 'Error, imead defined incorrectly'
+       STOP 'Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION As
@@ -637,17 +637,17 @@ CONTAINS
     crap=z
 
     !Linear theory damping factor
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        !Set to 0 for the standard linear theory two halo term
        fdamp=0.
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        !fdamp=0.188*sigma_cb(8.,z,cosm)**4.29
        fdamp=0.0095*lut%sigv100**1.37
        !Catches extreme values of fdamp that occur for ridiculous cosmologies
        IF(fdamp<1.e-3) fdamp=0.
        IF(fdamp>0.99)  fdamp=0.99
     ELSE
-       STOP 'Error, imead defined incorrectly'
+       STOP 'Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION fdamp
@@ -663,14 +663,14 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        !Set to 1 for the standard halo model addition of one- and two-halo terms
        alpha_transition=1.
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        !This uses the top-hat defined neff
        alpha_transition=3.24*1.85**lut%neff
     ELSE
-       STOP 'Error, imead defined incorrectly'
+       STOP 'Error, ihm defined incorrectly'
     END IF
 
     !Catches values of alpha that are crazy
@@ -1084,7 +1084,7 @@ CONTAINS
        lut%c(i)=A*(1.+zf)/(1.+z)
 
        !Dolag2004 prescription for adding DE dependence
-       IF(imead==1) THEN
+       IF(ihm==1) THEN
 
           !IF((cosm%w .NE. -1.) .OR. (cosm%wa .NE. 0)) THEN
 
@@ -1230,9 +1230,9 @@ CONTAINS
        !Get the one-halo term
        p1h=p_1h(wk,k,z,lut,cosm)
 
-       !Only if imead=-1 do we need to recalcualte the window
+       !Only if ihm=-1 do we need to recalcualte the window
        !functions for the two-halo term with k=0 fixed
-       IF(imead==-1) THEN
+       IF(ihm==2) THEN
           DO j=1,2
              DO i=1,lut%n
                 m=lut%m(i)
@@ -1254,9 +1254,9 @@ CONTAINS
     END IF
 
     !Construct the 'full' halo-model power spectrum
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
        pfull=p2h+p1h
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
        alp=alpha_transition(lut,cosm)
        pfull=(p2h**alp+p1h**alp)**(1./alp)
     END IF
@@ -1290,7 +1290,7 @@ CONTAINS
 
     rhom=comoving_matter_density(cosm)
 
-    IF(imead==0 .OR. imead==-1) THEN
+    IF(ihm==0 .OR. ihm==2) THEN
 
        ALLOCATE(integrand11(lut%n),integrand12(lut%n))
 
@@ -1350,7 +1350,7 @@ CONTAINS
           p_2h=p_2h+(plin**2)*sum21*sum22*(rhom**2)
        END IF
 
-    ELSE IF(imead==1) THEN
+    ELSE IF(ihm==1) THEN
 
        sigv=lut%sigv
        frac=fdamp(z,lut,cosm)
@@ -1400,7 +1400,7 @@ CONTAINS
 
     DEALLOCATE(integrand)
 
-    IF(imead==1) THEN
+    IF(ihm==1) THEN
 
        !Damping of the 1-halo term at very large scales
        ks=kstar(lut,cosm)

@@ -53,13 +53,13 @@ PROGRAM HMx_driver
 
   !HMx developed by Alexander Mead
   WRITE(*,*)
-  WRITE(*,*) 'HMx: Welcome to HMx'
-  IF(imead==-1) THEN
-     WRITE(*,*) 'HMx: Doing basic halo-model calculation (Two-halo term is linear)'
-  ELSE IF(imead==0) THEN
+  WRITE(*,*) 'HMx: Welcome to HMx' 
+  IF(ihm==0) THEN
      WRITE(*,*) 'HMx: Doing standard halo-model calculation (Seljak 2000)'
-  ELSE IF(imead==1) THEN
+  ELSE IF(ihm==1) THEN
      WRITE(*,*) 'HMx: Doing accurate halo-model calculation (Mead et al. 2015)'
+  ELSE IF(ihm==2) THEN
+     WRITE(*,*) 'HMx: Doing basic halo-model calculation (Two-halo term is linear)'
   ELSE
      STOP 'HMx: imead specified incorrectly'
   END IF
