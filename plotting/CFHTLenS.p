@@ -6,7 +6,7 @@ if(print==1) set term post enh col; set output 'CFHTLenS.eps'
 types="'linear' '2halo' '1halo' 'full'"
 xi(type)=sprintf('data/xi_%s.dat',type)
 
-data='CFHTLenS/corr.txt'
+data='/Users/Mead/Physics/CFHTLenS/corr.txt'
 
 xip_col='red'
 xim_col='orange'

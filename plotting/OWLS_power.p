@@ -4,11 +4,12 @@ reset
 if(print==0) set term aqua dashed
 if(print==1) set term post enh col dashed dl .5 font ',10'; set output 'allpower.eps'
 
-#set size square
-
-data(sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N400/%s_%s_%s_power.dat',sim,type1,type2)
-hmpk(i,j)=sprintf('cosmo-OWLS/data/power_%i%i.dat',i,j)
-dmonly='cosmo-OWLS/data/DMONLY.dat'
+#File names
+data(sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N800/%s_%s_%s_power.dat',sim,type1,type2)
+#hmpk(i,j)=sprintf('cosmo-OWLS/data/power_%i%i.dat',i,j)
+hmpk(i,j)=sprintf('data/power_%i%i.dat',i,j)
+#dmonly='cosmo-OWLS/data/DMONLY.dat'
+dmonly='data/power.dat'
 
 #All different simualtions
 mod0='DMONLY'
