@@ -274,7 +274,7 @@ PROGRAM HMx_driver
 
         IF(imode==2) THEN
            !File base and extension
-           base='cosmo-OWLS/data/power_'
+           base='data/power_'
            mid=''
            ext='.dat'
         ELSE IF(imode==15) THEN
@@ -284,7 +284,11 @@ PROGRAM HMx_driver
         END IF
 
         !Dark-matter only
-        outfile='cosmo-OWLS/data/DMONLY.dat'
+        IF(imode==2) THEN
+           outfile='data/power.dat'
+        ELSE IF(imode==15) THEN
+           outfile='cosmo-OWLS/data/DMONLY.dat'
+        END IF
         WRITE(*,*) -1, -1, TRIM(outfile)
         CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
         CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)

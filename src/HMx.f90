@@ -1,7 +1,6 @@
 MODULE HMx
 
   !Module usage statements
-  !USE cosdef
   USE constants
   USE array_operations
   USE file_info
@@ -14,10 +13,20 @@ MODULE HMx
   USE cosmology_functions
   
   IMPLICIT NONE
-  INTEGER, PARAMETER :: imf=2 !Set mass function (1 - PS, 2 - ST) !Move to 'tables' type eventually 
-  INTEGER, PARAMETER :: imead=0 !Set to do Mead et al. (2015,2016) accurate calculation !Move to 'tables' type eventually 
-  REAL, PARAMETER :: acc=1e-4 !Global integration-accuracy parameter
-  REAL, PARAMETER :: null=0.d0 !Useful for passing nothing to a function
+
+  !Choose mass function
+  !1 - Press & Schecter (1974)
+  !2 - Sheth & Tormen (1999)
+  INTEGER, PARAMETER :: imf=2
+
+  !Choose halo-model calculation
+  !-1 - Basic halo-model with linear two-halo term
+  ! 0 - Standard halo-model calculation (bias and halo profiles in two-halo term)
+  ! 1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
+  INTEGER, PARAMETER :: imead=0
+
+  !Global integration-accuracy parameter
+  REAL, PARAMETER :: acc=1e-4
 
   !Halo-model stuff that needs to be recalculated for each new z
   TYPE tables     
@@ -1579,10 +1588,10 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_void=rho(r,rmin,rmax,rv,rs,null,null,irho)
-       win_void=win_void/normalisation(rmin,rmax,rv,rs,null,null,irho)
+       win_void=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_void=win_void/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE       
-       win_void=m*win_norm(k,rmin,rmax,rv,rs,null,null,irho)/comoving_matter_density(cosm)
+       win_void=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
     END IF
 
   END FUNCTION win_void
@@ -1613,10 +1622,10 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_compensated_void=rho(r,rmin,rmax,rv,rs,null,null,irho)
-       win_compensated_void=win_compensated_void/normalisation(rmin,rmax,rv,rs,null,null,irho)
+       win_compensated_void=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_compensated_void=win_compensated_void/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE       
-       win_compensated_void=m*win_norm(k,rmin,rmax,rv,rs,null,null,irho)/comoving_matter_density(cosm)
+       win_compensated_void=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
     END IF
 
   END FUNCTION win_compensated_void
@@ -1655,11 +1664,11 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_DMONLY=rho(r,rmin,rmax,rv,rs,null,null,irho)
-       win_DMONLY=win_DMONLY/normalisation(rmin,rmax,rv,rs,null,null,irho)
+       win_DMONLY=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_DMONLY=win_DMONLY/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE IF(ik==1) THEN
        !Properly normalise and convert to overdensity
-       win_DMONLY=m*win_norm(k,rmin,rmax,rv,rs,null,null,irho)/comoving_matter_density(cosm)
+       win_DMONLY=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
     ELSE
        STOP 'WIN_DMONLY: ik not specified correctly'
     END IF
@@ -1700,11 +1709,11 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_CDM=rho(r,rmin,rmax,rv,rss,null,null,irho)
-       win_CDM=win_CDM/normalisation(rmin,rmax,rv,rss,null,null,irho)
+       win_CDM=rho(r,rmin,rmax,rv,rss,zero,zero,irho)
+       win_CDM=win_CDM/normalisation(rmin,rmax,rv,rss,zero,zero,irho)
     ELSE IF(ik==1) THEN
        !Properly normalise and convert to overdensity
-       win_CDM=m*win_norm(k,rmin,rmax,rv,rss,null,null,irho)/comoving_matter_density(cosm)
+       win_CDM=m*win_norm(k,rmin,rmax,rv,rss,zero,zero,irho)/comoving_matter_density(cosm)
     ELSE
        STOP 'WIN_CDM: ik not specified correctly'
     END IF
@@ -1756,11 +1765,11 @@ CONTAINS
 
     IF(ik==0) THEN
        r=k
-       win_star=rho(r,rmin,rmax,rv,rstar,null,null,irho)
-       win_star=win_star/normalisation(rmin,rmax,rv,rstar,null,null,irho)
+       win_star=rho(r,rmin,rmax,rv,rstar,zero,zero,irho)
+       win_star=win_star/normalisation(rmin,rmax,rv,rstar,zero,zero,irho)
     ELSE IF(ik==1) THEN
        !Properly normalise and convert to overdensity
-       win_star=m*win_norm(k,rmin,rmax,rv,rstar,null,null,irho)/comoving_matter_density(cosm)
+       win_star=m*win_norm(k,rmin,rmax,rv,rstar,zero,zero,irho)/comoving_matter_density(cosm)
     ELSE
        STOP 'WIN_STAR: ik not specified correctly'
     END IF
@@ -1815,10 +1824,10 @@ CONTAINS
     IF(ik==0) THEN
        r=k
        !win_pressure_bound=rho(a*r,a*rmax,a*r500c,a*rs,irho)
-       UPP=rho(r,rmin,rmax,r500c,rs,null,null,irho)
+       UPP=rho(r,rmin,rmax,r500c,rs,zero,zero,irho)
     ELSE IF(ik==1) THEN
        !win_pressure_bound=winint(k/a,a*rmax,a*r500c,a*rs,irho)
-       UPP=winint(k,rmin,rmax,r500c,rs,null,null,irho)
+       UPP=winint(k,rmin,rmax,r500c,rs,zero,zero,irho)
     ELSE
        STOP 'WIN_PRESSURE_BOUND: Error, ik not specified correctly'
     END IF
@@ -1892,11 +1901,11 @@ CONTAINS
        !Density profile of bound gas
        IF(ik==0) THEN
           r=k
-          win_boundgas=rho(r,rmin,rmax,rv,rb,Gamma,null,irho_density)
-          win_boundgas=win_boundgas/normalisation(rmin,rmax,rv,rb,Gamma,null,irho_density)
+          win_boundgas=rho(r,rmin,rmax,rv,rb,Gamma,zero,irho_density)
+          win_boundgas=win_boundgas/normalisation(rmin,rmax,rv,rb,Gamma,zero,irho_density)
        ELSE IF(ik==1) THEN
           !Properly normalise and convert to overdensity
-          win_boundgas=m*win_norm(k,rmin,rmax,rv,rb,Gamma,null,irho_density)/comoving_matter_density(cosm)
+          win_boundgas=m*win_norm(k,rmin,rmax,rv,rb,Gamma,zero,irho_density)/comoving_matter_density(cosm)
        ELSE
           STOP 'WIN_BOUNDGAS: ik not specified correctly'
        END IF
@@ -1908,17 +1917,17 @@ CONTAINS
        !Pressure profile of bound gas
        IF(ik==0) THEN
           r=k
-          win_boundgas=rho(r,rmin,rmax,rv,rb,Gamma,null,irho_pressure)
+          win_boundgas=rho(r,rmin,rmax,rv,rb,Gamma,zero,irho_pressure)
        ELSE IF(ik==1) THEN
           !The pressure window is T(r) x rho(r), we want unnormalised, so multiply by normalisation
-          win_boundgas=win_norm(k,rmin,rmax,rv,rb,Gamma,null,irho_pressure)*normalisation(rmin,rmax,rv,rb,Gamma,null,irho_pressure) 
+          win_boundgas=win_norm(k,rmin,rmax,rv,rb,Gamma,zero,irho_pressure)*normalisation(rmin,rmax,rv,rb,Gamma,zero,irho_pressure) 
        ELSE
           STOP 'WIN_BOUNDGAS: Error, ik not specified correctly'
        END IF
 
        !Calculate the value of the density profile prefactor
        !also change units from cosmological to SI
-       rho0=m*halo_boundgas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rb,Gamma,null,irho_density)
+       rho0=m*halo_boundgas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rb,Gamma,zero,irho_density)
        rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL(4) if you use mpc**3
 
        !Calculate the value of the temperature prefactor
@@ -2013,11 +2022,11 @@ CONTAINS
           !Density profile of free gas
           IF(ik==0) THEN
              r=k
-             win_freegas=rho(r,rmin,rmax,rv,rf,null,null,irho_density)
-             win_freegas=win_freegas/normalisation(rmin,rmax,rv,rf,null,null,irho_density)
+             win_freegas=rho(r,rmin,rmax,rv,rf,zero,zero,irho_density)
+             win_freegas=win_freegas/normalisation(rmin,rmax,rv,rf,zero,zero,irho_density)
           ELSE IF(ik==1) THEN
              !Properly normalise and convert to overdensity
-             win_freegas=m*win_norm(k,rmin,rmax,rv,rf,null,null,irho_density)/comoving_matter_density(cosm)
+             win_freegas=m*win_norm(k,rmin,rmax,rv,rf,zero,zero,irho_density)/comoving_matter_density(cosm)
           ELSE
              STOP 'WIN_FREEGAS: ik not specified correctly'
           END IF
@@ -2041,16 +2050,16 @@ CONTAINS
              !Pressure profile of free gas
              IF(ik==0) THEN
                 r=k
-                win_freegas=rho(r,rmin,rmax,rv,rf,null,null,irho_pressure)
+                win_freegas=rho(r,rmin,rmax,rv,rf,zero,zero,irho_pressure)
              ELSE IF(ik==1) THEN  
-                win_freegas=win_norm(k,rmin,rmax,rv,rf,null,null,irho_pressure)*normalisation(rmin,rmax,rv,rf,null,null,irho_pressure)              
+                win_freegas=win_norm(k,rmin,rmax,rv,rf,zero,zero,irho_pressure)*normalisation(rmin,rmax,rv,rf,zero,zero,irho_pressure)              
              ELSE
                 STOP 'WIN_PRESSURE_FREE: Error, ik not specified correctly'
              END IF
 
              !Calculate the value of the density profile prefactor
              !and change units from cosmological to SI
-             rho0=m*halo_freegas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rf,null,null,irho_density)
+             rho0=m*halo_freegas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rf,zero,zero,irho_density)
              rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL(4) if you use mpc**3
 
              !Calculate the value of the temperature prefactor
@@ -2698,7 +2707,7 @@ CONTAINS
     winnfw=p1+p2-p3
     rmin=0.
     rmax=rv
-    winnfw=4.*pi*winnfw*(rs**3.)/normalisation(rmin,rmax,rv,rs,null,null,4)
+    winnfw=4.*pi*winnfw*(rs**3.)/normalisation(rmin,rmax,rv,rs,zero,zero,4)
 
   END FUNCTION winnfw
 
