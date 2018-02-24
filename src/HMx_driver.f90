@@ -19,7 +19,7 @@ PROGRAM HMx_driver
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: outfile, base, mid, ext, dir, name, fname
   CHARACTER(len=256) :: mode
-  INTEGER :: imode, icosmo, iowl, nowl
+  INTEGER :: imode, icosmo, iowl, owl1, owl2
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
@@ -60,6 +60,8 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx: Doing accurate halo-model calculation (Mead et al. 2015)'
   ELSE IF(ihm==2) THEN
      WRITE(*,*) 'HMx: Doing basic halo-model calculation (Two-halo term is linear)'
+  ELSE IF(ihm==3) THEN
+     WRITE(*,*) 'HMx: Doing standard halo-model calculation but with Mead et al. (2015) transition'
   ELSE
      STOP 'HMx: imead specified incorrectly'
   END IF
@@ -70,7 +72,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '======================'
      WRITE(*,*) ' 0 - Matter power spectrum at z = 0'
      WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
-     WRITE(*,*) ' 2 - Comparison with cosmo-OWLS'
+     WRITE(*,*) ' 2 - Produce all components cross and auto spectra'
      WRITE(*,*) ' 3 - Run diagnostics'
      WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
      WRITE(*,*) ' 5 - Pressure field comparison'
@@ -175,10 +177,15 @@ PROGRAM HMx_driver
      !Set the redshift
      z=0.
         
-     IF(imode==2)  nowl=1
-     IF(imode==15) nowl=6
+     IF(imode==2)  THEN
+        owl1=1
+        owl2=1
+     ELSE IF(imode==15) THEN
+        owl1=2
+        owl2=6
+     END IF
 
-     DO iowl=1,nowl
+     DO iowl=owl1,owl2
 
         !Assigns the cosmological model
         icosmo=1
@@ -191,11 +198,7 @@ PROGRAM HMx_driver
         ELSE IF(iowl==2) THEN
            name='REF'
            fname=name
-           !cosm%param(1)=2.
-           !cosm%param(2)=1.4
-           !cosm%param(3)=1.24
-           !cosm%param(4)=1e13
-           !cosm%param(5)=0.055
+           !From my fitting by eye
            cosm%alpha=2.
            cosm%Dc=1.4
            cosm%Gamma=1.24
@@ -204,11 +207,7 @@ PROGRAM HMx_driver
         ELSE IF(iowl==3) THEN
            name='NOCOOL'
            fname=name
-           !cosm%param(1)=2.
-           !cosm%param(2)=0.8
-           !cosm%param(3)=1.1
-           !cosm%param(4)=0.
-           !cosm%param(5)=0.
+           !From my fitting by eye
            cosm%alpha=2.
            cosm%Dc=0.8
            cosm%Gamma=1.1
@@ -217,46 +216,49 @@ PROGRAM HMx_driver
         ELSE IF(iowl==4) THEN
            name='AGN'
            fname=name
-           !cosm%param(1)=2.
-           !cosm%param(2)=0.5
-           !cosm%param(3)=1.18
-           !cosm%param(4)=8e13
-           !cosm%param(5)=0.0225
-           cosm%alpha=2.
-           cosm%Dc=0.5
-           cosm%Gamma=1.18
-           cosm%M0=8e13
-           cosm%Astar=0.0225
+           !From my fitting by eye
+           !cosm%alpha=2.
+           !cosm%Dc=0.5
+           !cosm%Gamma=1.18
+           !cosm%M0=8e13
+           !cosm%Astar=0.0225
+           !From Tilman's preliminary results
+           cosm%alpha=0.52
+           cosm%Dc=0.
+           cosm%Gamma=1.17
+           cosm%M0=1.047e14
+           cosm%Astar=0.02
         ELSE IF(iowl==5) THEN
            name='AGN 8.5'
            fname='AGN8p5'
-           !cosm%param(1)=2.
-           !cosm%param(2)=-0.5
-           !cosm%param(3)=1.26
-           !cosm%param(4)=2d14
-           !cosm%param(5)=0.0175
-           cosm%alpha=2.
-           cosm%Dc=-0.5
-           cosm%Gamma=1.26
-           cosm%M0=2d14
-           cosm%Astar=0.0175
+           !cosm%alpha=2.
+           !cosm%Dc=-0.5
+           !cosm%Gamma=1.26
+           !cosm%M0=2d14
+           !cosm%Astar=0.0175
+           !From Tilman's preliminary results
+           cosm%alpha=0.56
+           cosm%Dc=0.
+           cosm%Gamma=1.19
+           cosm%M0=3.548e14
+           cosm%Astar=0.01
         ELSE IF(iowl==6) THEN
            name='AGN 8.7'
            fname='AGN8p7'
-           !cosm%param(1)=2.
-           !cosm%param(2)=-2.
-           !cosm%param(3)=1.3
-           !cosm%param(4)=1e15
-           !cosm%param(5)=0.015
-           cosm%alpha=2.
-           cosm%Dc=-2.
-           cosm%Gamma=1.3
-           cosm%M0=1e15
-           cosm%Astar=0.015
+           !cosm%alpha=2.
+           !cosm%Dc=-2.
+           !cosm%Gamma=1.3
+           !cosm%M0=1e15
+           !cosm%Astar=0.015
+           !From Tilman's preliminary results
+           cosm%alpha=0.53
+           cosm%Dc=0.
+           cosm%Gamma=1.21
+           cosm%M0=7.586e14
+           cosm%Astar=0.01
         END IF
 
         IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
-        !CALL print_baryon_parameters(cosm)
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL initialise_cosmology(verbose,cosm)
@@ -1128,7 +1130,7 @@ PROGRAM HMx_driver
            param_max=1.25
            ilog=.FALSE.
         ELSE IF(ipa==4) THEN
-           !log10(M0) - bound gas transition
+           !M0 - bound gas transition
            param_min=1e13
            param_max=1e15
            ilog=.TRUE.

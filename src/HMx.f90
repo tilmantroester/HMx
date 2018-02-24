@@ -20,10 +20,11 @@ MODULE HMx
   INTEGER, PARAMETER :: imf=2
 
   !Choose halo-model calculation
-  !0 - Standard halo-model calculation (bias and halo profiles in two-halo term)
+  !0 - Standard halo-model calculation (with bias and halo profiles in two-halo term)
   !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
   !2 - Basic halo-model with linear two-halo term
-  INTEGER, PARAMETER :: ihm=0
+  !3 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition
+  INTEGER, PARAMETER :: ihm=3
 
   !Global integration-accuracy parameter
   REAL, PARAMETER :: acc=1e-4
@@ -34,7 +35,7 @@ MODULE HMx
      REAL, ALLOCATABLE :: r500(:), m500(:), c500(:), r200(:), m200(:), c200(:)
      REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
      REAL, ALLOCATABLE :: log_m(:)
-     REAL :: sigv, sigv100, c3, knl, rnl, neff, sig8z
+     REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
      INTEGER :: ip2h, ibias
      INTEGER :: n
@@ -503,7 +504,7 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Virialised overdensity
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
        !Delta_v=200.
        Delta_v=Dv_brynor(z,cosm)
     ELSE IF(ihm==1) THEN
@@ -547,7 +548,7 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Linear collapse density
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
        !Nakamura & Suto (1997) fitting formula for LCDM
        delta_c=1.686*(1.+0.0123*log10(omega_m(z,cosm)))
     ELSE IF(ihm==1) THEN
@@ -566,7 +567,7 @@ CONTAINS
     REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
        eta=0.
     ELSE IF(ihm==1) THEN
        !The first parameter here is 'eta_0' in Mead et al. (2015; arXiv 1505.07833)
@@ -588,7 +589,7 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
        !Set to zero for the standard Poisson one-halo term
        kstar=0.
     ELSE IF(ihm==1) THEN
@@ -611,7 +612,7 @@ CONTAINS
     crap=cosm%A
 
     !Halo concentration pre-factor
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
        !Set to 4 for the standard Bullock value
        As=4.
     ELSE IF(ihm==1) THEN
@@ -637,7 +638,7 @@ CONTAINS
     crap=z
 
     !Linear theory damping factor
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
        !Set to 0 for the standard linear theory two halo term
        fdamp=0.
     ELSE IF(ihm==1) THEN
@@ -669,6 +670,9 @@ CONTAINS
     ELSE IF(ihm==1) THEN
        !This uses the top-hat defined neff
        alpha_transition=3.24*1.85**lut%neff
+    ELSE IF(ihm==3) THEN
+       !Specially for HMx, exponentiated Mead et al. (2015) result
+       alpha_transition=(3.24*1.85**lut%neff)**2.5
     ELSE
        STOP 'Error, ihm defined incorrectly'
     END IF
@@ -687,7 +691,7 @@ CONTAINS
     TYPE(tables), INTENT(IN) :: lut
 
     !This subroutine writes out the physical parameters at some redshift 
-    !(e.g. Delta_v) rather than the model parameters
+    !(e.g., Delta_v) rather than the model parameters
 
     WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
     WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Halo-model parameters at your redshift'
@@ -804,7 +808,8 @@ CONTAINS
     TYPE(tables), INTENT(OUT) :: lut !Or is this just OUT?
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i
-    REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc
+    REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc, frac
+    REAL, ALLOCATABLE :: integrand(:)
     
     INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
     REAL, PARAMETER :: large_nu=10. !Value for nu such that there are no haloes larger
@@ -815,7 +820,7 @@ CONTAINS
     !2 - Put the missing part of the integrand as a delta function at nu1
     lut%ip2h=2
 
-    !Order to go to in bias
+    !Order to go to in halo bias
     !1 - First order
     !2 - Second order
     lut%ibias=1
@@ -875,6 +880,7 @@ CONTAINS
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: virial radius tables filled'
        WRITE(*,*) 'HALOMOD_INIT: Delta_v:', REAL(Dv)
+       WRITE(*,*) 'HALOMOD_INIT: delta_c:', REAL(dc)
        WRITE(*,*) 'HALOMOD_INIT: minimum nu:', REAL(lut%nu(1))
        WRITE(*,*) 'HALOMOD_INIT: maximum nu:', REAL(lut%nu(lut%n))
        WRITE(*,*) 'HALOMOD_INIT: minimum R_v [Mpc/h]:', REAL(lut%rv(1))
@@ -894,12 +900,25 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: missing g(nu)b(nu) at high end:', REAL(lut%gbmax)
     END IF
 
+    !Calculate the total stellar mass fraction
+    IF(verbose) THEN
+       ALLOCATE(integrand(n))
+       DO i=1,n
+          integrand(i)=halo_fraction(3,lut%m(i),cosm)*gnu(lut%nu(i))
+       END DO
+       frac=integrate_table(lut%nu,integrand,n,1,n,3)
+       WRITE(*,*) 'HALOMOD_INIT: total stellar mass fraction:', frac
+    END IF
+
     !Find non-linear radius and scale
     lut%rnl=r_nl(lut)
+    lut%mnl=mass_r(lut%rnl,cosm)
     lut%knl=1./lut%rnl
 
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: non-linear radius [Mpc/h]:', REAL(lut%rnl)
+       WRITE(*,*) 'HALOMOD_INIT: non-linear halo mass [log10(M*/[Msun/h])]:', REAL(log10(lut%mnl))
+       WRITE(*,*) 'HALOMOD_INIT: non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(lut%mnl,z,cosm))
+       WRITE(*,*) 'HALOMOD_INIT: non-linear Lagrangian radius [Mpc/h]:', REAL(lut%rnl)
        WRITE(*,*) 'HALOMOD_INIT: non-linear wavenumber [h/Mpc]:', REAL(lut%knl)
     END IF
 
@@ -918,7 +937,7 @@ CONTAINS
     A0=one_halo_amplitude(z,lut,cosm)
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [Mpc/h]^3:', REAL(A0)
-       WRITE(*,*) 'HALOMOD_INIT: log10(M*/[Msun/h]):', REAL(log10(A0*comoving_matter_density(cosm)))
+       WRITE(*,*) 'HALOMOD_INIT: one-halo mass amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
        WRITE(*,*) 'HALOMOD_INIT: Done'
        WRITE(*,*)
     END IF
@@ -1044,6 +1063,18 @@ CONTAINS
 
   END FUNCTION radius_m
 
+  FUNCTION virial_radius(m,z,cosm)
+
+    !The comoving halo virial radius 
+    IMPLICIT NONE
+    REAL :: virial_radius
+    REAL, INTENT(IN) :: m, z
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    virial_radius=(3.*m/(4.*pi*comoving_matter_density(cosm)*Delta_v(z,cosm)))**(1./3.)
+
+  END FUNCTION virial_radius
+
   FUNCTION effective_index(lut,cosm)
 
     !Power spectrum slope a the non-linear scale
@@ -1086,11 +1117,8 @@ CONTAINS
        !Dolag2004 prescription for adding DE dependence
        IF(ihm==1) THEN
 
-          !IF((cosm%w .NE. -1.) .OR. (cosm%wa .NE. 0)) THEN
-
           !The redshift considered to be infinite
           zinf=10.
-          !ainf=1./(1.+zinf)
           ainf=scale_factor_z(zinf)
 
           !Save the growth function in the current cosmology
@@ -1230,7 +1258,7 @@ CONTAINS
        !Get the one-halo term
        p1h=p_1h(wk,k,z,lut,cosm)
 
-       !Only if ihm=-1 do we need to recalcualte the window
+       !Only if ihm==2 do we need to recalcualte the window
        !functions for the two-halo term with k=0 fixed
        IF(ihm==2) THEN
           DO j=1,2
@@ -1256,9 +1284,16 @@ CONTAINS
     !Construct the 'full' halo-model power spectrum
     IF(ihm==0 .OR. ihm==2) THEN
        pfull=p2h+p1h
-    ELSE IF(ihm==1) THEN
-       alp=alpha_transition(lut,cosm)
-       pfull=(p2h**alp+p1h**alp)**(1./alp)
+    ELSE IF(ihm==1 .OR. ihm==3) THEN
+       !For some cross spectra the one-halo term (at least!) can be negative!!
+       IF(ih1==ih2) THEN
+          !Only do this for the auto spectra
+          !Is this justified?
+          alp=alpha_transition(lut,cosm)
+          pfull=(p2h**alp+p1h**alp)**(1./alp)
+       ELSE
+          pfull=p2h+p1h
+       END IF
     END IF
 
     !If we are worrying about voids
@@ -1290,7 +1325,7 @@ CONTAINS
 
     rhom=comoving_matter_density(cosm)
 
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
 
        ALLOCATE(integrand11(lut%n),integrand12(lut%n))
 
@@ -2304,8 +2339,11 @@ CONTAINS
     REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
 
-    INTEGER, PARAMETER :: iorder=3 !Integration order
-    INTEGER, PARAMETER :: imeth=3 !Integration method
+    !Integration order
+    INTEGER, PARAMETER :: iorder=3
+
+    !Integration method
+    INTEGER, PARAMETER :: imeth=3 
     !imeth = 1 - normal integration
     !imeth = 2 - bumps with normal integration
     !imeth = 3 - storage integration
@@ -2838,16 +2876,15 @@ CONTAINS
     IMPLICIT NONE
     REAL :: b2ps
     REAL, INTENT(IN) :: nu
-    REAL :: p, q, dc
-    REAL :: eps1, eps2, E1, E2, a2
+    REAL :: eps1, eps2, E1, E2
+
+    REAL, PARAMETER :: a2=-17./21.
+    REAL, PARAMETER :: p=0.0
+    REAL, PARAMETER :: q=1.0
+    REAL, PARAMETER :: dc=1.686
 
     STOP 'B2PS: Check this very carefully'
     !I just took the ST form and set p=0 and q=1
-
-    a2=-17./21.
-    p=0.0
-    q=1.0
-    dc=1.686
 
     eps1=(q*nu**2-1.)/dc
     eps2=(q*nu**2)*(q*nu**2-3.)/dc**2
@@ -2864,15 +2901,14 @@ CONTAINS
     IMPLICIT NONE
     REAL :: b2st
     REAL, INTENT(IN) :: nu
-    REAL :: p, q, dc
-    REAL :: eps1, eps2, E1, E2, a2
+    REAL :: eps1, eps2, E1, E2
 
     !Notation follows from Cooray & Sheth (2002) pp 25-26
 
-    a2=-17./21.
-    p=0.3
-    q=0.707
-    dc=1.686
+    REAL, PARAMETER :: a2=-17./21.
+    REAL, PARAMETER :: p=0.3
+    REAL, PARAMETER :: q=0.707
+    REAL, PARAMETER :: dc=1.686
 
     eps1=(q*nu**2-1.)/dc
     eps2=(q*nu**2)*(q*nu**2-3.)/dc**2
@@ -2907,7 +2943,8 @@ CONTAINS
     REAL :: gps
     REAL, INTENT(IN) :: nu
 
-    REAL, PARAMETER :: A=0.7978846
+    !REAL, PARAMETER :: A=0.7978846
+    REAL, PARAMETER :: A=sqrt(2./pi)
 
     gps=A*exp(-(nu**2)/2.)
 
@@ -2925,10 +2962,6 @@ CONTAINS
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
     REAL, PARAMETER :: A=0.21616
-
-    !p=0.3
-    !q=0.707
-    !A=0.21616
 
     gst=A*(1.+((q*nu*nu)**(-p)))*exp(-q*nu*nu/2.)
 
@@ -2972,16 +3005,7 @@ CONTAINS
     REAL :: wk_isothermal_2
     REAL, INTENT(IN) :: x, y
 
-    REAL, PARAMETER :: dx=1e-3
-
-    !Taylor expansion used for low |x| to avoid cancellation problems
-
-    !IF(ABS(x)<ABS(dx)) THEN
-    !   !Taylor series at low x
-    !   wk_isothermal_2=1.-(x**2)/18.
-    !ELSE
     wk_isothermal_2=(Si(x)-Si(y))/(x-y)
-    !END IF
 
   END FUNCTION wk_isothermal_2
 
@@ -3132,25 +3156,5 @@ CONTAINS
     END IF
 
   END FUNCTION halo_star_fraction
-
-!!$  SUBROUTINE print_baryon_parameters(cosm)!param,param_names,n)
-!!$
-!!$    IMPLICIT NONE
-!!$    !REAL, INTENT(IN) :: param(n)
-!!$    !CHARACTER(len=256), INTENT(IN) :: param_names(n)
-!!$    !INTEGER, INTENT(IN) :: n
-!!$    INTEGER :: i
-!!$    TYPE(cosmology), INTENT(IN) :: cosm
-!!$
-!!$    WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Writing to screen'
-!!$    WRITE(*,*) '=========================================='
-!!$    DO i=1,cosm%np
-!!$       WRITE(*,*) i, TRIM(cosm%param_names(i)), ':', cosm%param(i)
-!!$    END DO
-!!$    WRITE(*,*) '=========================================='
-!!$    WRITE(*,*) 'PRINT_BARYON_PARAMETERS: Done'
-!!$    WRITE(*,*)
-!!$
-!!$  END SUBROUTINE print_baryon_parameters
 
 END MODULE HMx

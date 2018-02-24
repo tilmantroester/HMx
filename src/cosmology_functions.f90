@@ -30,6 +30,93 @@ MODULE cosmology_functions
 
 CONTAINS
 
+   SUBROUTINE assign_cosmology(icosmo,cosm)
+
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER, INTENT(INOUT) :: icosmo
+    CHARACTER(len=256) :: names(0:3)
+    INTEGER :: i
+
+    names(0)='Boring'
+    names(1)='WMAP7 (cosmo-OWLS version; 1312.5462)'
+    names(2)='Planck 2013 (cosmo-OWLS version; 1312.5462)'
+    names(3)='WMAP9 (BAHAMAS version: 1712.02411)'
+
+    IF(icosmo==-1) THEN
+       WRITE(*,*) 'ASSIGN_COSMOLOGY: Choose cosmological model'
+       WRITE(*,*) '==========================================='
+       DO i=0,SIZE(names)-1
+          WRITE(*,*) i, '- ', TRIM(names(i))
+       END DO
+       READ(*,*) icosmo
+       WRITE(*,*) '==========================================='
+    END IF
+
+    !Set the name of the cosmological model
+    cosm%name=names(icosmo)
+
+    !Boring default cosmology
+    cosm%om_m=0.3
+    cosm%om_b=0.05
+    cosm%om_v=1.-cosm%om_m
+    cosm%om_nu=0.
+    cosm%h=0.7
+    cosm%sig8=0.8
+    cosm%n=0.96
+    cosm%w=-1.
+    cosm%wa=0.
+    cosm%T_cmb=2.72
+    cosm%z_cmb=1100.
+    cosm%external_plin=.FALSE.
+
+    !Default values of baryon parameters
+    cosm%alpha=0.52
+    cosm%Dc=0.
+    cosm%Gamma=1.17
+    cosm%M0=1e14
+    cosm%Astar=0.02
+
+    IF(icosmo==0) THEN
+       !Boring - do nothing
+    ELSE IF(icosmo==1) THEN
+       !cosmo-OWLS - WMAP7 (1312.5462)
+       cosm%om_m=0.272
+       cosm%om_b=0.0455
+       cosm%om_v=1.-cosm%om_m
+       cosm%om_nu=0.
+       cosm%h=0.704
+       cosm%sig8=0.81
+       !cosm%sig8=0.797
+       !cosm%sig8=0.823
+       cosm%n=0.967
+    ELSE IF(icosmo==2) THEN
+       !cosmo-OWLS - Planck 2013 (1312.5462)
+       cosm%om_m=0.3175
+       cosm%om_b=0.0490
+       cosm%om_v=1.-cosm%om_m
+       cosm%h=0.6711
+       cosm%n=0.9624
+       cosm%sig8=0.834
+    ELSE IF(icosmo==3) THEN
+       !BAHAMAS - WMAP9 (1712.02411)
+       cosm%h=0.7
+       cosm%om_c=0.2330
+       cosm%om_b=0.0463
+       cosm%om_m=cosm%om_c+cosm%om_b
+       cosm%om_v=1.-cosm%om_m       
+       cosm%om_nu=0.
+       cosm%n=0.9720
+       cosm%sig8=0.8211
+    ELSE
+       STOP 'ASSIGN_COSMOLOGY: Error, icosmo not specified correctly'
+    END IF
+
+    WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology assigned'
+    WRITE(*,*)
+
+  END SUBROUTINE assign_cosmology
+
   FUNCTION comoving_critical_density(z,cosm)
 
     !Comoving critical density in (Msun/h) / (Mpc/h)^3
@@ -386,103 +473,14 @@ CONTAINS
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Dc:', cosm%Dc
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
+    IF(cosm%M0 .NE. 0.) THEN
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
+    END IF
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
     WRITE(*,*) '===================================='
     WRITE(*,*)
 
   END SUBROUTINE print_cosmology
-
-  SUBROUTINE assign_cosmology(icosmo,cosm)
-
-    IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    INTEGER, INTENT(INOUT) :: icosmo
-    CHARACTER(len=256) :: names(0:3)
-    INTEGER :: i
-
-    names(0)='Boring'
-    names(1)='WMAP9 (OWLS version; xxxx.xxxxx; or is this WMAP7?)'
-    names(2)='Planck 2013 (OWLS version)'
-    names(3)='WMAP9 (BAHAMAS version: 1712.02411)'
-
-    IF(icosmo==-1) THEN
-       WRITE(*,*) 'ASSIGN_COSMOLOGY: Choose cosmological model'
-       WRITE(*,*) '==========================================='
-       DO i=0,SIZE(names)-1
-          WRITE(*,*) i, '- ', TRIM(names(i))
-       END DO
-       !WRITE(*,*) '0 - Boring'
-       !WRITE(*,*) '1 - WMAP9 (OWLS version; xxxx.xxxxx; or is this WMAP7?)'
-       !WRITE(*,*) '2 - Planck 2013 (OWLS version)'
-       !WRITE(*,*) '3 - WMAP9 (BAHAMAS version: 1712.02411)'
-       READ(*,*) icosmo
-       WRITE(*,*) '==========================================='
-    END IF
-
-    !Set the name of the cosmological model
-    cosm%name=names(icosmo)
-
-    !Boring default cosmology
-    cosm%om_m=0.3
-    cosm%om_b=0.05
-    cosm%om_v=1.-cosm%om_m
-    cosm%om_nu=0.
-    cosm%h=0.7
-    cosm%sig8=0.8
-    cosm%n=0.96
-    cosm%w=-1.
-    cosm%wa=0.
-    cosm%T_cmb=2.72
-    cosm%z_cmb=1100.
-    cosm%external_plin=.FALSE.
-
-    !Default values of baryon parameters
-    cosm%alpha=0.5
-    cosm%Dc=0.
-    cosm%Gamma=1.2
-    cosm%M0=1e14
-    cosm%Astar=0.02
-
-    IF(icosmo==0) THEN
-       !Boring - do nothing
-    ELSE IF(icosmo==1) THEN
-       !OWLS - WMAP9
-       cosm%om_m=0.272
-       cosm%om_b=0.0455
-       cosm%om_v=1.-cosm%om_m
-       cosm%om_nu=0.
-       cosm%h=0.704
-       cosm%sig8=0.81
-       !cosm%sig8=0.797
-       !cosm%sig8=0.823
-       cosm%n=0.967
-    ELSE IF(icosmo==2) THEN
-       !OWLS - Planck 2013
-       cosm%om_m=0.3175
-       cosm%om_b=0.0490
-       cosm%om_v=1.-cosm%om_m
-       cosm%h=0.6711
-       cosm%n=0.9624
-       cosm%sig8=0.834
-    ELSE IF(icosmo==3) THEN
-       !BAHAMAS - WMAP9 (1712.02411)
-       cosm%h=0.7
-       cosm%om_c=0.2330
-       cosm%om_b=0.0463
-       cosm%om_m=cosm%om_c+cosm%om_b
-       cosm%om_v=1.-cosm%om_m       
-       cosm%om_nu=0.
-       cosm%n=0.9720
-       cosm%sig8=0.8211
-    ELSE
-       STOP 'ASSIGN_COSMOLOGY: Error, icosmo not specified correctly'
-    END IF
-
-    WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology assigned'
-    WRITE(*,*)
-
-  END SUBROUTINE assign_cosmology
 
   SUBROUTINE initialise_cosmology(verbose,cosm)
 
