@@ -12,6 +12,7 @@ if(print==0) {set term aqua dashed}
 #1 - Two-halo
 #2 - One-halo
 #3 - Full
+print('')
 if(!exists('itype')) {itype=3}
 print('Set power type using *itype*')
 print('itype = '.itype.'')

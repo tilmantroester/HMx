@@ -14,17 +14,18 @@ MODULE HMx
   
   IMPLICIT NONE
 
-  !Choose mass function
+  !Choose mass and bias functions
   !1 - Press & Schecter (1974)
   !2 - Sheth & Tormen (1999)
-  INTEGER, PARAMETER :: imf=2
+  !3 - Tinker et al. (2008 and 2010)
+  INTEGER, PARAMETER :: imf=3
 
   !Choose halo-model calculation
-  !0 - Standard halo-model calculation (with bias and halo profiles in two-halo term)
+  !0 - Standard halo-model calculation (Seljak 2000)
   !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
   !2 - Basic halo-model with linear two-halo term
   !3 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition
-  INTEGER, PARAMETER :: ihm=3
+  INTEGER, PARAMETER :: ihm=2
 
   !Global integration-accuracy parameter
   REAL, PARAMETER :: acc=1e-4
@@ -105,7 +106,7 @@ CONTAINS
     LOGICAL :: verbose2
 
     !Mead - fixed this to always be false to avoid splurge of stuff printed to screen
-    verbose2=.FALSE.
+    verbose2=verbose
 
     !Tilman - added this
     IF(ALLOCATED(powa_lin)) THEN
@@ -504,10 +505,14 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Virialised overdensity
-    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
-       !Delta_v=200.
+    IF(ihm==0 .OR. ihm==3) THEN
+       !From Bryan & Norman (1998)
        Delta_v=Dv_brynor(z,cosm)
+    ELSE IF(ihm==2) THEN
+       !Fixed value
+       Delta_v=200.
     ELSE IF(ihm==1) THEN
+       !From Mead et al. (2015)
        Delta_v=418.*(omega_m(z,cosm)**(-0.352))
     ELSE
        STOP 'Error, ihm defined incorrectly'
@@ -548,10 +553,14 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Linear collapse density
-    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
+    IF(ihm==0 .OR. ihm==3) THEN
        !Nakamura & Suto (1997) fitting formula for LCDM
        delta_c=1.686*(1.+0.0123*log10(omega_m(z,cosm)))
+    ELSE IF(ihm==2) THEN
+       !Fixed value
+       delta_c=1.686
     ELSE IF(ihm==1) THEN
+       !From Mead et al. (2015)
        delta_c=1.59+0.0314*log(sigma_cb(8.,z,cosm))
        delta_c=delta_c*(1.+0.0123*log10(omega_m(z,cosm)))
     ELSE
@@ -805,7 +814,7 @@ CONTAINS
     REAL, INTENT(IN) :: z
     REAL, INTENT(IN) :: mmin, mmax
     LOGICAL, INTENT(IN) :: verbose
-    TYPE(tables), INTENT(OUT) :: lut !Or is this just OUT?
+    TYPE(tables), INTENT(OUT) :: lut
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i
     REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc, frac
@@ -889,10 +898,10 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: maximum log10(M/[Msun/h]):', REAL(log10(lut%m(lut%n)))
     END IF
 
-    lut%gmin=1.-integrate(lut%nu(1),large_nu,gnu,acc,3)
-    lut%gmax=integrate(lut%nu(lut%n),large_nu,gnu,acc,3)
-    lut%gbmin=1.-integrate(lut%nu(1),large_nu,gnubnu,acc,3)
-    lut%gbmax=integrate(lut%nu(lut%n),large_nu,gnubnu,acc,3)
+    lut%gmin=1.-integrate(lut%nu(1),large_nu,g_nu,acc,3)
+    lut%gmax=integrate(lut%nu(lut%n),large_nu,g_nu,acc,3)
+    lut%gbmin=1.-integrate(lut%nu(1),large_nu,gb_nu,acc,3)
+    lut%gbmax=integrate(lut%nu(lut%n),large_nu,gb_nu,acc,3)
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at low end:', REAL(lut%gmin)
        WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at high end:', REAL(lut%gmax)
@@ -904,7 +913,7 @@ CONTAINS
     IF(verbose) THEN
        ALLOCATE(integrand(n))
        DO i=1,n
-          integrand(i)=halo_fraction(3,lut%m(i),cosm)*gnu(lut%nu(i))
+          integrand(i)=halo_fraction(3,lut%m(i),cosm)*g_nu(lut%nu(i))
        END DO
        frac=integrate_table(lut%nu,integrand,n,1,n,3)
        WRITE(*,*) 'HALOMOD_INIT: total stellar mass fraction:', frac
@@ -916,7 +925,7 @@ CONTAINS
     lut%knl=1./lut%rnl
 
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: non-linear halo mass [log10(M*/[Msun/h])]:', REAL(log10(lut%mnl))
+       WRITE(*,*) 'HALOMOD_INIT: non-linear mass [log10(M*/[Msun/h])]:', REAL(log10(lut%mnl))
        WRITE(*,*) 'HALOMOD_INIT: non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(lut%mnl,z,cosm))
        WRITE(*,*) 'HALOMOD_INIT: non-linear Lagrangian radius [Mpc/h]:', REAL(lut%rnl)
        WRITE(*,*) 'HALOMOD_INIT: non-linear wavenumber [h/Mpc]:', REAL(lut%knl)
@@ -937,7 +946,7 @@ CONTAINS
     A0=one_halo_amplitude(z,lut,cosm)
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [Mpc/h]^3:', REAL(A0)
-       WRITE(*,*) 'HALOMOD_INIT: one-halo mass amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
+       WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
        WRITE(*,*) 'HALOMOD_INIT: Done'
        WRITE(*,*)
     END IF
@@ -1340,13 +1349,13 @@ CONTAINS
           nu=lut%nu(i)
 
           !Linear bias term
-          integrand11(i)=gnu(nu)*bnu(nu)*wk(1,i)/m
-          integrand12(i)=gnu(nu)*bnu(nu)*wk(2,i)/m
+          integrand11(i)=g_nu(nu)*b_nu(nu)*wk(1,i)/m
+          integrand12(i)=g_nu(nu)*b_nu(nu)*wk(2,i)/m
 
           IF(lut%ibias==2) THEN
              !Second-order bias term
-             integrand21(i)=gnu(nu)*b2nu(nu)*wk(1,i)/m
-             integrand22(i)=gnu(nu)*b2nu(nu)*wk(2,i)/m
+             integrand21(i)=g_nu(nu)*b2_nu(nu)*wk(1,i)/m
+             integrand22(i)=g_nu(nu)*b2_nu(nu)*wk(2,i)/m
           END IF
 
        END DO
@@ -1424,7 +1433,7 @@ CONTAINS
 
     !Calculates the value of the integrand at all nu values!
     DO i=1,lut%n
-       g=gnu(lut%nu(i))
+       g=g_nu(lut%nu(i))
        m=lut%m(i)
        integrand(i)=g*wk(1,i)*wk(2,i)/m
     END DO
@@ -1510,7 +1519,7 @@ CONTAINS
        END IF
 
        IF(simple .EQV. .FALSE.) THEN
-          integrand(i)=gnu(nu)*wk**2/V
+          integrand(i)=g_nu(nu)*wk**2/V
        END IF
 
     END DO
@@ -2808,73 +2817,99 @@ CONTAINS
 
   END FUNCTION normalisation
 
-  FUNCTION bnu(nu)
+  FUNCTION b_nu(nu)
 
     !Bias function selection!
     IMPLICIT NONE
-    REAL :: bnu
+    REAL :: b_nu
     REAL, INTENT(IN) :: nu    
 
     IF(imf==1) THEN
-       bnu=bps(nu)
+       b_nu=b_ps(nu)
     ELSE IF(imf==2) THEN
-       bnu=bst(nu)
+       b_nu=b_st(nu)
+    ELSE IF(imf==3) THEN
+       b_nu=b_Tinker(nu)
     ELSE
-       STOP 'BNU: Error, imf not specified correctly'
+       STOP 'B_NU: Error, imf not specified correctly'
     END IF
 
-  END FUNCTION bnu
+  END FUNCTION b_nu
 
-  FUNCTION bps(nu)
+  FUNCTION b_ps(nu)
 
-    !Press Scheter bias
+    !Press & Scheter (1974) bias
     IMPLICIT NONE
-    REAL :: bps
+    REAL :: b_ps
     REAL, INTENT(IN) :: nu
 
     REAL, PARAMETER :: dc=1.686
 
-    bps=1.+(nu**2-1.)/dc
+    b_ps=1.+(nu**2-1.)/dc
 
-  END FUNCTION bps
+  END FUNCTION b_ps
 
-  FUNCTION bst(nu)
+  FUNCTION b_st(nu)
 
-    !Sheth Tormen bias
+    !Sheth, Mo & Tormen (2001) bias
     IMPLICIT NONE
-    REAL :: bst
+    REAL :: b_st
     REAL, INTENT(IN) :: nu
 
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
     REAL, PARAMETER :: dc=1.686
 
-    bst=1.+(q*(nu**2)-1.+2.*p/(1.+(q*nu**2)**p))/dc
+    b_st=1.+(q*(nu**2)-1.+2.*p/(1.+(q*nu**2)**p))/dc
 
-  END FUNCTION bst
+  END FUNCTION b_st
 
-  FUNCTION b2nu(nu)
+  FUNCTION b_Tinker(nu)
+
+    !Tinker et al. (2010; 1001.3162) halo bias
+    IMPLICIT NONE
+    REAL :: b_Tinker
+    REAL, INTENT(IN) :: nu
+
+    !Delta_v=200,m and delta_c=1.686 are hard-coded
+    REAL, PARAMETER :: Delta_v=200.
+    REAL, PARAMETER :: delta_c=1.686
+    REAL, PARAMETER :: y=log10(Delta_v) !This is the Delta_v dependence
+    REAL, PARAMETER :: bigA=1.0+0.24*y*exp(-(4./y)**4)
+    REAL, PARAMETER :: a=0.44*y-0.88
+    REAL, PARAMETER :: bigB=0.183
+    REAL, PARAMETER :: b=1.5
+    REAL, PARAMETER :: bigC=0.019+0.107*y+0.19*exp(-(4./y)**4)
+    REAL, PARAMETER :: c=2.4
+    
+    b_Tinker=1.-bigA*(nu**a)/(nu**a+delta_c**a)+bigB*nu**b+bigC*nu**c
+    
+  END FUNCTION b_Tinker
+
+  FUNCTION b2_nu(nu)
 
     !Bias function selection!
     IMPLICIT NONE
-    REAL :: b2nu
+    REAL :: b2_nu
     REAL, INTENT(IN) :: nu    
 
     IF(imf==1) THEN
-       b2nu=b2ps(nu)
+       b2_nu=b2_ps(nu)
     ELSE IF(imf==2) THEN
-       b2nu=b2st(nu)
+       b2_nu=b2_st(nu)
+    ELSE IF(imf==3) THEN
+       STOP 'B2_NU: Error, second-order bias not specified for Tinker mass function'
     ELSE
-       STOP 'B2NU: Error, imf not specified correctly'
+       STOP 'B2_NU: Error, imf not specified correctly'
     END IF
 
-  END FUNCTION b2nu
+  END FUNCTION b2_nu
 
-  FUNCTION b2ps(nu)
+  FUNCTION b2_ps(nu)
 
-    !Press & Schechter second order bias
+    !Press & Schechter (1974) second order bias
     IMPLICIT NONE
-    REAL :: b2ps
+    REAL :: b2_ps
     REAL, INTENT(IN) :: nu
     REAL :: eps1, eps2, E1, E2
 
@@ -2883,7 +2918,7 @@ CONTAINS
     REAL, PARAMETER :: q=1.0
     REAL, PARAMETER :: dc=1.686
 
-    STOP 'B2PS: Check this very carefully'
+    STOP 'B2_PS: Check this very carefully'
     !I just took the ST form and set p=0 and q=1
 
     eps1=(q*nu**2-1.)/dc
@@ -2891,15 +2926,15 @@ CONTAINS
     E1=(2.*p)/(dc*(1.+(q*nu**2)**p))
     E2=((1.+2.*p)/dc+2.*eps1)*E1
 
-    b2ps=2.*(1.+a2)*(eps1+E1)+eps2+E2
+    b2_ps=2.*(1.+a2)*(eps1+E1)+eps2+E2
 
-  END FUNCTION b2ps
+  END FUNCTION b2_ps
 
-  FUNCTION b2st(nu)
+  FUNCTION b2_st(nu)
 
-    !Sheth & Tormen second-order bias
+    !Sheth, Mo & Tormen (2001) second-order bias
     IMPLICIT NONE
-    REAL :: b2st
+    REAL :: b2_st
     REAL, INTENT(IN) :: nu
     REAL :: eps1, eps2, E1, E2
 
@@ -2915,68 +2950,89 @@ CONTAINS
     E1=(2.*p)/(dc*(1.+(q*nu**2)**p))
     E2=((1.+2.*p)/dc+2.*eps1)*E1
 
-    b2st=2.*(1.+a2)*(eps1+E1)+eps2+E2
+    b2_st=2.*(1.+a2)*(eps1+E1)+eps2+E2
 
-  END FUNCTION b2st
+  END FUNCTION b2_st
 
-  FUNCTION gnu(nu)
+  FUNCTION g_nu(nu)
 
     !Mass function
     IMPLICIT NONE
-    REAL :: gnu
+    REAL :: g_nu
     REAL, INTENT(IN) :: nu
 
     IF(imf==1) THEN
-       gnu=gps(nu)
+       g_nu=g_ps(nu)
     ELSE IF(imf==2) THEN
-       gnu=gst(nu)
+       g_nu=g_st(nu)
+    ELSE IF(imf==3) THEN
+       g_nu=g_Tinker(nu)
     ELSE
-       STOP 'GNU: Error, imf specified incorrectly'
+       STOP 'G_NU: Error, imf specified incorrectly'
     END IF
 
-  END FUNCTION gnu
+  END FUNCTION g_nu
 
-  FUNCTION gps(nu)
+  FUNCTION g_ps(nu)
 
-    !Press Scheter mass function!
+    !Press & Scheter (1974) mass function!
     IMPLICIT NONE
-    REAL :: gps
+    REAL :: g_ps
     REAL, INTENT(IN) :: nu
 
     !REAL, PARAMETER :: A=0.7978846
     REAL, PARAMETER :: A=sqrt(2./pi)
 
-    gps=A*exp(-(nu**2)/2.)
+    g_ps=A*exp(-(nu**2)/2.)
 
-  END FUNCTION gps
+  END FUNCTION g_ps
 
-  FUNCTION gst(nu)
+  FUNCTION g_st(nu)
 
-    !Sheth Tormen mass function!
+    !Sheth & Tormen (1999) mass function!
     !Note I use nu=dc/sigma(M) and this Sheth & Tormen (1999) use nu=(dc/sigma)^2
     !This accounts for some small differences
     IMPLICIT NONE
-    REAL :: gst
+    REAL :: g_st
     REAL, INTENT(IN) :: nu
 
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
     REAL, PARAMETER :: A=0.21616
 
-    gst=A*(1.+((q*nu*nu)**(-p)))*exp(-q*nu*nu/2.)
+    g_st=A*(1.+((q*nu*nu)**(-p)))*exp(-q*nu*nu/2.)
 
-  END FUNCTION gst
+  END FUNCTION g_st
 
-  FUNCTION gnubnu(nu)
+  FUNCTION g_Tinker(nu)
+
+    !Tinker et al. (2010; 1001.3162) mass function (also 2008; xxxx.xxxx)
+    IMPLICIT NONE
+    REAL :: g_Tinker
+    REAL, INTENT(IN) :: nu
+
+    !Hard-coded z=0. and Delta_v=200.
+    REAL, PARAMETER :: z=0.
+    REAL, PARAMETER :: alpha=0.368
+    REAL, PARAMETER :: beta=0.589*(1.+z)**0.20
+    REAL, PARAMETER :: gamma=0.864**(1.+z)**(-0.01)
+    REAL, PARAMETER :: phi=-0.729*(1.+z)**(-0.08)
+    REAL, PARAMETER :: eta=-0.243*(1.+z)**0.27
+
+    g_Tinker=alpha*(1.+(beta*nu)**(-2.*phi))*nu**(2.*eta)*exp(-0.5*gamma*nu**2)
+    
+  END FUNCTION g_Tinker
+
+  FUNCTION gb_nu(nu)
 
     !g(nu) times b(nu)
     IMPLICIT NONE
-    REAL :: gnubnu
+    REAL :: gb_nu
     REAL, INTENT(IN) :: nu
 
-    gnubnu=gnu(nu)*bnu(nu)
+    gb_nu=g_nu(nu)*b_nu(nu)
 
-  END FUNCTION gnubnu
+  END FUNCTION gb_nu
 
   FUNCTION wk_isothermal(x)
 

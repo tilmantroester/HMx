@@ -142,9 +142,10 @@ PROGRAM HMx_driver
      IF(verbose) CALL print_cosmology(cosm)
 
      !Set number of k points and k range (log spaced)
+     !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
      nk=200
      kmin=1e-3
-     kmax=1e2
+     kmax=1e4
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
@@ -156,6 +157,7 @@ PROGRAM HMx_driver
      a=1./(1.+a)
      na=nz
 
+     !ip = -1 sets the DMONLY profiles
      ip=-1
      CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 

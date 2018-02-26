@@ -17,8 +17,9 @@ set yrange [1e-4:1e3]
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 
-com='power_HMcode.txt'
-#com='power_base.txt'
+#com='power_HMcode_Mead.txt'
+com='power_HMcode_standard.txt'
+
 new='data/power_full.dat'
 p1h='data/power_1halo.dat'
 p2h='data/power_2halo.dat'
@@ -65,6 +66,7 @@ plot 1 w l ls -1 noti,\
      1.-dy  w l lw 1 lc -1 dt 2 ti '1%',\
      1.+dy  w l lw 1 lc -1 dt 2 noti,\
      for[i=1:nz] '<paste '.new.' '.com.'' u 1:(column(i+1)/column(i+1+17)) w l lw 2 dt 1 lc rgb col_green(i) noti
+     #for[i=1:nz] '<paste '.new.' '.com.'' u 1:(column(i+1)/column(35-i)) w l lw 2 dt 1 lc rgb col_green(i) noti
 
 unset multiplot
 
