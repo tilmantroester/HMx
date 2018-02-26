@@ -14,18 +14,23 @@ MODULE HMx
   
   IMPLICIT NONE
 
+  !Choose halo-model calculation
+  !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
+  !2 - Basic halo-model with linear two-halo term
+  !3 - Standard halo-model calculation (Seljak 2000)
+  !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition
+  !5 - Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed
+  INTEGER, PARAMETER :: ihm=4
+
   !Choose mass and bias functions
   !1 - Press & Schecter (1974)
   !2 - Sheth & Tormen (1999)
   !3 - Tinker et al. (2008 and 2010)
   INTEGER, PARAMETER :: imf=2
 
-  !Choose halo-model calculation
-  !0 - Standard halo-model calculation (Seljak 2000)
-  !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
-  !2 - Basic halo-model with linear two-halo term
-  !3 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition
-  INTEGER, PARAMETER :: ihm=0
+  !Choose concentration-mass relation
+  !1 - Bullock et al. (2001)
+  INTEGER, PARAMETER :: iconc=1
 
   !Global integration-accuracy parameter
   REAL, PARAMETER :: acc=1e-4
@@ -479,11 +484,6 @@ CONTAINS
     !c=2.*c !To mimic baryonic contraction, or some such bullshit
     rs=rv/c
 
-    !Max and min k*rv and number of points
-    !xmin=1d-1
-    !xmax=1d2
-    !n=201
-
     rhobar=comoving_matter_density(cosm)
 
     OPEN(7,file=outfile)
@@ -505,10 +505,10 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Virialised overdensity
-    IF(ihm==0 .OR. ihm==3) THEN
+    IF(ihm==3 .OR. ihm==4) THEN
        !From Bryan & Norman (1998)
        Delta_v=Dv_brynor(z,cosm)
-    ELSE IF(ihm==2) THEN
+    ELSE IF(ihm==2 .OR. ihm==5) THEN
        !Fixed value
        Delta_v=200.
     ELSE IF(ihm==1) THEN
@@ -553,10 +553,10 @@ CONTAINS
     TYPE(cosmology), INTENT(IN) :: cosm
 
     !Linear collapse density
-    IF(ihm==0 .OR. ihm==3) THEN
+    IF(ihm==3 .OR. ihm==4) THEN
        !Nakamura & Suto (1997) fitting formula for LCDM
        delta_c=1.686*(1.+0.0123*log10(omega_m(z,cosm)))
-    ELSE IF(ihm==2) THEN
+    ELSE IF(ihm==2 .OR. ihm==5) THEN
        !Fixed value
        delta_c=1.686
     ELSE IF(ihm==1) THEN
@@ -576,7 +576,7 @@ CONTAINS
     REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(IN) :: cosm
 
-    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
+    IF(ihm==2 .OR. ihm==3 .OR. ihm==4 .OR. ihm==5) THEN
        eta=0.
     ELSE IF(ihm==1) THEN
        !The first parameter here is 'eta_0' in Mead et al. (2015; arXiv 1505.07833)
@@ -598,7 +598,7 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
+    IF(ihm==2 .OR. ihm==3 .OR. ihm==4 .OR. ihm==5) THEN
        !Set to zero for the standard Poisson one-halo term
        kstar=0.
     ELSE IF(ihm==1) THEN
@@ -621,7 +621,7 @@ CONTAINS
     crap=cosm%A
 
     !Halo concentration pre-factor
-    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
+    IF(ihm==2 .OR. ihm==3 .OR. ihm==4 .OR. ihm==5) THEN
        !Set to 4 for the standard Bullock value
        As=4.
     ELSE IF(ihm==1) THEN
@@ -647,7 +647,7 @@ CONTAINS
     crap=z
 
     !Linear theory damping factor
-    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
+    IF(ihm==2 .OR. ihm==3 .OR. ihm==4 .OR. ihm==5) THEN
        !Set to 0 for the standard linear theory two halo term
        fdamp=0.
     ELSE IF(ihm==1) THEN
@@ -673,7 +673,7 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(ihm==0 .OR. ihm==2) THEN
+    IF(ihm==5 .OR. ihm==2 .OR. ihm==4) THEN
        !Set to 1 for the standard halo model addition of one- and two-halo terms
        alpha_transition=1.
     ELSE IF(ihm==1) THEN
@@ -823,6 +823,22 @@ CONTAINS
     INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
     REAL, PARAMETER :: large_nu=10. !Value for nu such that there are no haloes larger
 
+    IF(verbose) THEN
+       IF(ihm==1) THEN
+          WRITE(*,*) 'HALOMOD_INIT: Doing accurate halo-model calculation (Mead et al. 2015)'
+       ELSE IF(ihm==2) THEN
+          WRITE(*,*) 'HALOMOD_INIT: Doing basic halo-model calculation (Two-halo term is linear)'
+       ELSE IF(ihm==3) THEN
+          WRITE(*,*) 'HALOMOD_INIT: Doing standard halo-model calculation (Seljak 2000)'          
+       ELSE IF(ihm==4) THEN
+          WRITE(*,*) 'HALOMOD_INIT: Doing standard halo-model calculation but with Mead et al. (2015) transition'          
+       ELSE IF(ihm==5) THEN
+          WRITE(*,*) 'HALOMOD_INIT: Doing standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed'
+       ELSE
+          STOP 'HALOMOD_INIT: ihm specified incorrectly'
+       END IF
+    END IF
+
     !Set method to correct for missing integrand in two-halo term
     !0 - Do nothing
     !1 - Add value of integral assuming that W(k)=1
@@ -935,7 +951,8 @@ CONTAINS
 
     IF(verbose) WRITE(*,*) 'HALOMOD_INIT: n_eff:', REAL(lut%neff)
 
-    CALL conc_bull(z,cosm,lut)
+    CALL halo_concentration(z,cosm,lut)
+    !CALL conc_bull(z,cosm,lut)
 
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: halo concentration tables filled'
@@ -1102,9 +1119,24 @@ CONTAINS
 
   END FUNCTION effective_index
 
-  SUBROUTINE conc_bull(z,cosm,lut)
+  SUBROUTINE halo_concentration(z,cosm,lut)
 
-    !Calculates the Bullock et al. (2001) mass-concentration relation
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: z
+    TYPE(cosmology) :: cosm
+    TYPE(tables) :: lut
+    
+    IF(iconc==1) THEN
+       CALL conc_Bullock(z,cosm,lut)
+    ELSE
+       STOP 'Error, iconc specified incorrectly'
+    END IF
+    
+  END SUBROUTINE halo_concentration
+  
+  SUBROUTINE conc_Bullock(z,cosm,lut)
+
+    !Calculates the Bullock et al. (2001; xxx.xxxx) mass-concentration relation
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
     TYPE(cosmology) :: cosm, cos_lcdm
@@ -1151,7 +1183,7 @@ CONTAINS
 
     END DO
 
-  END SUBROUTINE conc_bull
+  END SUBROUTINE conc_Bullock
 
   SUBROUTINE zcoll_bull(z,cosm,lut)
 
@@ -1267,7 +1299,7 @@ CONTAINS
        !Get the one-halo term
        p1h=p_1h(wk,k,z,lut,cosm)
 
-       !Only if ihm==2 do we need to recalcualte the window
+       !Only for the basic calculation with linear theory do we need to recalcualte the window
        !functions for the two-halo term with k=0 fixed
        IF(ihm==2) THEN
           DO j=1,2
@@ -1291,19 +1323,18 @@ CONTAINS
     END IF
 
     !Construct the 'full' halo-model power spectrum
-    IF(ihm==0 .OR. ihm==2) THEN
-       pfull=p2h+p1h
-    ELSE IF(ihm==1 .OR. ihm==3) THEN
-       !For some cross spectra the one-halo term (at least!) can be negative!!
-       IF(ih1==ih2) THEN
-          !Only do this for the auto spectra
-          !Is this justified?
-          alp=alpha_transition(lut,cosm)
-          pfull=(p2h**alp+p1h**alp)**(1./alp)
-       ELSE
-          pfull=p2h+p1h
-       END IF
-    END IF
+    !IF(ihm==2 .OR. ihm==3 .OR. ihm==5) THEN
+    !   pfull=p2h+p1h
+    !ELSE IF(ihm==1 .OR. ihm==4) THEN
+       !IF(ih1==ih2) THEN
+       !   !Only do this for the auto spectra
+       !   !Is this justified?
+    alp=alpha_transition(lut,cosm)
+    pfull=(p2h**alp+p1h**alp)**(1./alp)
+       !ELSE
+       !   pfull=p2h+p1h
+       !END IF
+    !END IF
 
     !If we are worrying about voids
     IF(lut%void) THEN
@@ -1334,7 +1365,7 @@ CONTAINS
 
     rhom=comoving_matter_density(cosm)
 
-    IF(ihm==0 .OR. ihm==2 .OR. ihm==3) THEN
+    IF(ihm==2 .OR. ihm==3 .OR. ihm==4 .OR. ihm==5) THEN
 
        ALLOCATE(integrand11(lut%n),integrand12(lut%n))
 

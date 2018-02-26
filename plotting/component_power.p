@@ -52,7 +52,7 @@ set title 'Power: '.type1.' x '.type2.''
 
 unset key
 
-plot owl(mod,type1,type2) u 1:2 w p lc -1,\
+plot owl(mod,type1,type2) u 1:2 w p lc 1,\
      hmpk(i1,i2) u 1:3 w l lc -1 dt 2 lw 3,\
      hmpk(i1,i2) u 1:4 w l lc -1 dt 3 lw 3,\
      hmpk(i1,i2) u 1:5 w l lc -1 dt 1 lw 3

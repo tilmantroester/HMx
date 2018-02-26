@@ -51,22 +51,10 @@ PROGRAM HMx_driver
      READ(mode,*) imode
   END IF
 
-  !HMx developed by Alexander Mead
-  WRITE(*,*)
-  WRITE(*,*) 'HMx: Welcome to HMx' 
-  IF(ihm==0) THEN
-     WRITE(*,*) 'HMx: Doing standard halo-model calculation (Seljak 2000)'
-  ELSE IF(ihm==1) THEN
-     WRITE(*,*) 'HMx: Doing accurate halo-model calculation (Mead et al. 2015)'
-  ELSE IF(ihm==2) THEN
-     WRITE(*,*) 'HMx: Doing basic halo-model calculation (Two-halo term is linear)'
-  ELSE IF(ihm==3) THEN
-     WRITE(*,*) 'HMx: Doing standard halo-model calculation but with Mead et al. (2015) transition'
-  ELSE
-     STOP 'HMx: imead specified incorrectly'
-  END IF
+  !Initial space
   WRITE(*,*)
 
+  !HMx developed by Alexander Mead
   IF(imode==-1) THEN
      WRITE(*,*) 'HMx: Choose what to do'
      WRITE(*,*) '======================'
@@ -300,6 +288,10 @@ PROGRAM HMx_driver
         !Loop over matter types and do auto and cross-spectra
         DO j1=0,6
            DO j2=j1,6
+
+              !Skip this for the bound- and free-gas spectra
+              IF(j1==4 .OR. j1==5) CYCLE
+              IF(j2==4 .OR. j2==5) CYCLE
 
               !Fix output file and write to screen
               outfile=number_file2(base,j1,mid,j2,ext)
