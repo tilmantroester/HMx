@@ -18,14 +18,14 @@ MODULE HMx
   !1 - Press & Schecter (1974)
   !2 - Sheth & Tormen (1999)
   !3 - Tinker et al. (2008 and 2010)
-  INTEGER, PARAMETER :: imf=3
+  INTEGER, PARAMETER :: imf=2
 
   !Choose halo-model calculation
   !0 - Standard halo-model calculation (Seljak 2000)
   !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
   !2 - Basic halo-model with linear two-halo term
   !3 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition
-  INTEGER, PARAMETER :: ihm=2
+  INTEGER, PARAMETER :: ihm=0
 
   !Global integration-accuracy parameter
   REAL, PARAMETER :: acc=1e-4
@@ -2872,7 +2872,7 @@ CONTAINS
     REAL, INTENT(IN) :: nu
 
     !Delta_v=200,m and delta_c=1.686 are hard-coded
-    REAL, PARAMETER :: Delta_v=200.
+    REAL, PARAMETER :: Delta_v=337.2
     REAL, PARAMETER :: delta_c=1.686
     REAL, PARAMETER :: y=log10(Delta_v) !This is the Delta_v dependence
     REAL, PARAMETER :: bigA=1.0+0.24*y*exp(-(4./y)**4)
@@ -3004,20 +3004,58 @@ CONTAINS
 
   END FUNCTION g_st
 
+!!$  FUNCTION g_Tinker(nu)
+!!$
+!!$    !Tinker et al. (2010; 1001.3162) mass function (also 2008; xxxx.xxxx)
+!!$    IMPLICIT NONE
+!!$    REAL :: g_Tinker
+!!$    REAL, INTENT(IN) :: nu
+!!$
+!!$    !Hard-coded z=0. and Delta_v=200.
+!!$    REAL, PARAMETER :: z=0.
+!!$    REAL, PARAMETER :: alpha=0.368
+!!$    REAL, PARAMETER :: beta=0.589*(1.+z)**0.20
+!!$    REAL, PARAMETER :: gamma=0.864**(1.+z)**(-0.01)
+!!$    REAL, PARAMETER :: phi=-0.729*(1.+z)**(-0.08)
+!!$    REAL, PARAMETER :: eta=-0.243*(1.+z)**0.27
+!!$
+!!$    g_Tinker=alpha*(1.+(beta*nu)**(-2.*phi))*nu**(2.*eta)*exp(-0.5*gamma*nu**2)
+!!$    
+!!$  END FUNCTION g_Tinker
+
   FUNCTION g_Tinker(nu)
 
     !Tinker et al. (2010; 1001.3162) mass function (also 2008; xxxx.xxxx)
     IMPLICIT NONE
     REAL :: g_Tinker
     REAL, INTENT(IN) :: nu
+    REAL :: alpha, beta, gamma, phi, eta
 
-    !Hard-coded z=0. and Delta_v=200.
+    !Hard-coded z=0.
     REAL, PARAMETER :: z=0.
-    REAL, PARAMETER :: alpha=0.368
-    REAL, PARAMETER :: beta=0.589*(1.+z)**0.20
-    REAL, PARAMETER :: gamma=0.864**(1.+z)**(-0.01)
-    REAL, PARAMETER :: phi=-0.729*(1.+z)**(-0.08)
-    REAL, PARAMETER :: eta=-0.243*(1.+z)**0.27
+    REAL, PARAMETER :: Dv=337.2
+
+    !Parameter arrays from Tinker (2010)
+    INTEGER, PARAMETER :: n=9 !Number of entries in above lists
+    REAL, PARAMETER :: Delta_v(n)=[200.,300.,400.,600.,800.,1200.,1600.,2400.,3200.]
+    REAL, PARAMETER :: alpha0(n)=[0.368,0.363,0.385,0.389,0.393,0.365,0.379,0.355,0.327]
+    REAL, PARAMETER :: beta0(n)=[0.589,0.585,0.544,0.543,0.564,0.623,0.637,0.673,0.702]
+    REAL, PARAMETER :: gamma0(n)=[0.864,0.922,0.987,1.09,1.20,1.34,1.50,1.68,1.81]
+    REAL, PARAMETER :: phi0(n)=[-0.729,-0.789,-0.910,-1.05,-1.20,-1.26,-1.45,-1.50,-1.49]
+    REAL, PARAMETER :: eta0(n)=[-0.243,-0.261,-0.261,-0.273,-0.278,-0.301,-0.301,-0.319,-0.336]    
+
+    !Delta_v dependence
+    alpha=find(Dv,Delta_v,alpha0,n,3,3,2)
+    beta=find(Dv,Delta_v,beta0,n,3,3,2)
+    gamma=find(Dv,Delta_v,gamma0,n,3,3,2)
+    phi=find(Dv,Delta_v,phi0,n,3,3,2)
+    eta=find(Dv,Delta_v,eta0,n,3,3,2)
+
+    !Redshift dependence
+    beta=beta*(1.+z)**0.20
+    gamma=gamma**(1.+z)**(-0.01)
+    phi=phi*(1.+z)**(-0.08)
+    eta=eta*(1.+z)**0.27
 
     g_Tinker=alpha*(1.+(beta*nu)**(-2.*phi))*nu**(2.*eta)*exp(-0.5*gamma*nu**2)
     
