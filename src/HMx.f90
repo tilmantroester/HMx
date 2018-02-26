@@ -3036,7 +3036,7 @@ CONTAINS
     REAL, PARAMETER :: Dv=337.2
 
     !Parameter arrays from Tinker (2010)
-    INTEGER, PARAMETER :: n=9 !Number of entries in above lists
+    INTEGER, PARAMETER :: n=9 !Number of entries in parameter lists
     REAL, PARAMETER :: Delta_v(n)=[200.,300.,400.,600.,800.,1200.,1600.,2400.,3200.]
     REAL, PARAMETER :: alpha0(n)=[0.368,0.363,0.385,0.389,0.393,0.365,0.379,0.355,0.327]
     REAL, PARAMETER :: beta0(n)=[0.589,0.585,0.544,0.543,0.564,0.623,0.637,0.673,0.702]
@@ -3057,6 +3057,7 @@ CONTAINS
     phi=phi*(1.+z)**(-0.08)
     eta=eta*(1.+z)**0.27
 
+    !The actual mass function
     g_Tinker=alpha*(1.+(beta*nu)**(-2.*phi))*nu**(2.*eta)*exp(-0.5*gamma*nu**2)
     
   END FUNCTION g_Tinker
