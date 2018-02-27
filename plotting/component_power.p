@@ -24,7 +24,7 @@ set ylabel '{/Symbol D}_{i,j}^2(k)'
 #type1='stars'
 #type2='stars'
 
-if(!exists('mod')){mod='AGN'}
+if(!exists('mod'))  {mod='AGN'}
 if(!exists('type1')){type1='all'}
 if(!exists('type2')){type2='all'}
 
