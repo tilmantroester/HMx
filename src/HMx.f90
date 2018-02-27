@@ -2118,10 +2118,9 @@ CONTAINS
           ELSE
              rmax=5.*rv
           END IF
-          !rmax=((beta+3.)*halo_freegas_fraction(m,cosm)*m/(4.*pi)+rv**(beta+3.))**(1./(beta+3.))
           p1=beta
        ELSE IF(imod==6) THEN
-          !Delta-function model
+          !Delta-function model (this is very stupid, as it is basically the most incorrect you can be)
           irho_density=0
           irho_pressure=0
        ELSE

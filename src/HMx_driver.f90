@@ -17,7 +17,7 @@ PROGRAM HMx_driver
   TYPE(tables) :: lut
   TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
-  CHARACTER(len=256) :: outfile, base, mid, ext, dir, name, fname
+  CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
   CHARACTER(len=256) :: mode
   INTEGER :: imode, icosmo, iowl, owl1, owl2
   REAL :: sig8min, sig8max
@@ -73,7 +73,8 @@ PROGRAM HMx_driver
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra as baryon parameters vary'
-     WRITE(*,*) '15 - Do 3D spectra for all cosmo-OWLS models'
+     WRITE(*,*) '15 - Do 3D spectra for cosmo-OWLS models'
+     WRITE(*,*) '16 - Do 3D spectra for BAHAMAS models'
      READ(*,*) imode
      WRITE(*,*) '======================'
      WRITE(*,*)
@@ -152,40 +153,63 @@ PROGRAM HMx_driver
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
 
-  ELSE IF(imode==2 .OR. imode==15) THEN
+  ELSE IF(imode==2 .OR. imode==15 .OR. imode==16) THEN
 
      !Compare to cosmo-OWLS models
-     
-     !Set number of k points and k range (log spaced)
-     nk=200
-     kmin=1e-3
-     kmax=1e2
-     CALL fill_array(log(kmin),log(kmax),k,nk)
-     k=exp(k)
-     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
-     !Set the redshift
-     z=0.
-        
      IF(imode==2)  THEN
-        owl1=1
-        owl2=1
+
+        !Only do one 'model' here
+        n=1
+     
+        !Set number of k points and k range (log spaced)
+        nk=200
+        kmin=1e-3
+        kmax=1e2
+        CALL fill_array(log(kmin),log(kmax),k,nk)
+        k=exp(k)
+        
      ELSE IF(imode==15) THEN
-        owl1=2
-        owl2=6
+
+        !Do from REF, NOCOOL, AGN, AGN 8.5, AGN 8.7
+        n=5
+
+        !Set the redshift
+        z=0.
+
+        !Simulation P(k) location
+        infile='/Users/Mead/Physics/cosmo-OWLS/power/N800/DMONLY_all_all_power.dat'
+
+        !Get the k values from the simulation measured P(k)
+        CALL get_k_values(infile,k,nk)
+
+     ELSE IF(imode==16) THEN
+        
+        !Do AGN, AGN-lo and AGN-hi
+        n=3
+
+        !Set the redshift
+        z=0.
+
+        !Simulation P(k) location
+        infile='/Users/Mead/Physics/BAHAMAS/power/M512/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+
+        !Get the k values from the simulation measured P(k)
+        CALL get_k_values(infile,k,nk)
+        
      END IF
 
-     DO iowl=owl1,owl2
+     !Allocate the arrays for P(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     DO iowl=1,n
 
         !Assigns the cosmological model
-        icosmo=1
+        IF(imode==2 .OR. imode==15) icosmo=1
+        IF(imode==16) icosmo=3
         CALL assign_cosmology(icosmo,cosm)
 
-        IF(iowl==1) THEN
-           !This is not used if imode==2
-           name='DMONLY'
-           fname=name
-        ELSE IF(iowl==2) THEN
+        IF(imode==15 .AND. iowl==1) THEN
            name='REF'
            fname=name
            !From my fitting by eye
@@ -194,7 +218,7 @@ PROGRAM HMx_driver
            cosm%Gamma=1.24
            cosm%M0=1e13
            cosm%Astar=0.055
-        ELSE IF(iowl==3) THEN
+        ELSE IF(imode==15 .AND. iowl==2) THEN
            name='NOCOOL'
            fname=name
            !From my fitting by eye
@@ -203,7 +227,7 @@ PROGRAM HMx_driver
            cosm%Gamma=1.1
            cosm%M0=0.
            cosm%Astar=0.
-        ELSE IF(iowl==4) THEN
+        ELSE IF(imode==15 .AND. iowl==3) THEN
            name='AGN'
            fname=name
            !From my fitting by eye
@@ -218,7 +242,7 @@ PROGRAM HMx_driver
            cosm%Gamma=1.17
            cosm%M0=1.047e14
            cosm%Astar=0.02
-        ELSE IF(iowl==5) THEN
+        ELSE IF(imode==15 .AND. iowl==4) THEN
            name='AGN 8.5'
            fname='AGN8p5'
            !cosm%alpha=2.
@@ -232,7 +256,7 @@ PROGRAM HMx_driver
            cosm%Gamma=1.19
            cosm%M0=3.548e14
            cosm%Astar=0.01
-        ELSE IF(iowl==6) THEN
+        ELSE IF(imode==15 .AND. iowl==5) THEN
            name='AGN 8.7'
            fname='AGN8p7'
            !cosm%alpha=2.
@@ -248,7 +272,19 @@ PROGRAM HMx_driver
            cosm%Astar=0.01
         END IF
 
-        IF(iowl .NE. 0) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
+        IF(imode==16 .AND. iowl==1) THEN
+           name='AGN'
+           fname='AGN'
+        ELSE IF(imode==16 .AND. iowl==2) THEN
+           name='AGN low'
+           fname='AGN-lo'
+        ELSE IF(imode==16 .AND. iowl==3) THEN
+           name='AGN high'
+           fname='AGN-hi'
+        END IF
+
+        IF(imode==15) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
+        IF(imode==16) WRITE(*,*) 'Comparing to BAHAMAS model: ', TRIM(name)
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL initialise_cosmology(verbose,cosm)
@@ -273,13 +309,19 @@ PROGRAM HMx_driver
            base='cosmo-OWLS/data/power_'//TRIM(fname)//'_'
            mid=''
            ext='.dat'
+        ELSE IF(imode==16) THEN
+           base='BAHAMAS/data/power_'//TRIM(fname)//'_'
+           mid=''
+           ext='.dat'
         END IF
 
         !Dark-matter only
         IF(imode==2) THEN
            outfile='data/power.dat'
         ELSE IF(imode==15) THEN
-           outfile='cosmo-OWLS/data/DMONLY.dat'
+           outfile='cosmo-OWLS/data/power_DMONLY_00.dat'
+        ELSE IF(imode==16) THEN
+           outfile='BAHAMAS/data/power_DMONLY_00.dat'
         END IF
         WRITE(*,*) -1, -1, TRIM(outfile)
         CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
@@ -289,7 +331,7 @@ PROGRAM HMx_driver
         DO j1=0,6
            DO j2=j1,6
 
-              !Skip this for the bound- and free-gas spectra
+              !Skip for the bound- and free-gas spectra
               IF(j1==4 .OR. j1==5) CYCLE
               IF(j2==4 .OR. j2==5) CYCLE
 
@@ -297,6 +339,7 @@ PROGRAM HMx_driver
               outfile=number_file2(base,j1,mid,j2,ext)
               WRITE(*,*) j1, j2, TRIM(outfile)
 
+              !Do the calculation and write P(k) to disk
               CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
               CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
 
@@ -1249,5 +1292,29 @@ PROGRAM HMx_driver
      STOP 'HMx: Error, you have specified the mode incorrectly'
 
   END IF
+
+CONTAINS
+
+  SUBROUTINE get_k_values(infile,k,nk)
+
+    IMPLICIT NONE
+    CHARACTER(len=256), INTENT(IN) :: infile
+    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
+    INTEGER, INTENT(OUT) :: nk
+
+    !Get the number of k values
+    nk=file_length(infile)
+
+    !Allocate the array in k
+    ALLOCATE(k(nk))
+
+    !Read in the k values
+    OPEN(7,file=infile)
+    DO i=1,nk
+       READ(7,*) k(i)
+    END DO
+    CLOSE(7)
+    
+  END SUBROUTINE get_k_values
 
 END PROGRAM HMx_driver
