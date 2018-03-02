@@ -3,6 +3,7 @@ unset multiplot
 
 cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
+if(!exists('print')){print=0}
 if(print==0){set term aqua dashed; msun='sun'}
 if(print==1){set term post enh col font ',10' fontfile cmsy; set output 'halo_profiles.eps'; msun='{/cmsy10 \014}'}
 
@@ -11,7 +12,7 @@ file(m)=sprintf('diagnostics/halo_profile_m%i.dat',m)
 #Power for y-axis 4*pi * r**pow * rho(r)
 #pow==2 is good for linear x axis
 #pow==3 is good for log x axis
-pow=2
+if(!exists('pow')){pow=2}
 
 #This is the range in the Fedeli paper
 #set xrange [1e-2:1e1]
@@ -19,7 +20,8 @@ pow=2
 #set xrange [0:4]
 rmin=1e-2
 rmax=5
-set log x
+if(pow==2) {unset log x}
+if(pow==3) {set log x}
 set xrange [rmin:rmax]
 set xlabel 'r / h^{-1} Mpc'
 

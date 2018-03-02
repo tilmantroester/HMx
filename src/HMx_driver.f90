@@ -161,6 +161,9 @@ PROGRAM HMx_driver
 
         !Only do one 'model' here
         n=1
+
+        !Set the redshift
+        z=0.
      
         !Set number of k points and k range (log spaced)
         nk=200

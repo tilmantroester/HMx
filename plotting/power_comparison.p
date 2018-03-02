@@ -21,8 +21,8 @@ set yrange [pmin:pmax]
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 
-com='power_HMcode_Mead.txt'
-#com='power_HMcode_standard.txt'
+#com='power_HMcode_Mead.txt'
+com='power_HMcode_standard.txt'
 
 new='data/power_full.dat'
 p1h='data/power_1halo.dat'

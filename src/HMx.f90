@@ -18,7 +18,7 @@ MODULE HMx
   !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
   !2 - Basic halo-model with linear two-halo term
   !3 - Standard halo-model calculation (Seljak 2000)
-  !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition
+  !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition and one-halo damping
   !5 - Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed
   INTEGER, PARAMETER :: ihm=4
 
@@ -422,7 +422,6 @@ CONTAINS
     DO i=1,n
        m=exp(progression(log(mmin),log(mmax),i,n))
        WRITE(7,*) m, (halo_fraction(j,m,cosm), j=1,5)
-       !halo_fraction(1,m,cosm), halo_fraction(2,m,cosm), halo_fraction(3,m,cosm), halo_fraction(4,m,cosm), halo_fraction(5,m,cosm)
     END DO
     CLOSE(7)
 
@@ -497,54 +496,6 @@ CONTAINS
 
   END SUBROUTINE write_halo_transforms
 
-  FUNCTION Delta_v(z,cosm)
-
-    IMPLICIT NONE
-    REAL :: Delta_v
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
-
-    !Virialised overdensity
-    IF(ihm==3 .OR. ihm==4) THEN
-       !From Bryan & Norman (1998)
-       Delta_v=Dv_brynor(z,cosm)
-    ELSE IF(ihm==2 .OR. ihm==5) THEN
-       !Fixed value
-       Delta_v=200.
-    ELSE IF(ihm==1) THEN
-       !From Mead et al. (2015)
-       Delta_v=418.*(omega_m(z,cosm)**(-0.352))
-    ELSE
-       STOP 'Error, ihm defined incorrectly'
-    END IF
-
-  END FUNCTION Delta_v
-
-  FUNCTION Dv_brynor(z,cosm)
-
-    !Bryan & Norman (1998) spherical over-density calculation
-    IMPLICIT NONE
-    REAL :: Dv_brynor
-    REAL :: x, om_m
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
-
-    om_m=omega_m(z,cosm)
-    x=om_m-1.
-
-    IF(cosm%om_v==0.) THEN
-       STOP 'Dv_BRYNOR: Should not be in here'
-       !Open model results
-       Dv_brynor=177.65+60.*x-32.*x**2
-       Dv_brynor=dv_brynor/om_m
-    ELSE
-       !LCDM results
-       Dv_brynor=177.65+82.*x-39.*x**2
-       Dv_brynor=dv_brynor/om_m
-    END IF
-
-  END FUNCTION Dv_brynor
-
   FUNCTION delta_c(z,cosm)
 
     IMPLICIT NONE
@@ -554,8 +505,8 @@ CONTAINS
 
     !Linear collapse density
     IF(ihm==3 .OR. ihm==4) THEN
-       !Nakamura & Suto (1997) fitting formula for LCDM
-       delta_c=1.686*(1.+0.0123*log10(omega_m(z,cosm)))
+       !From Nakamura & Suto (1997)
+       delta_c=dc_NakamuraSuto(z,cosm)
     ELSE IF(ihm==2 .OR. ihm==5) THEN
        !Fixed value
        delta_c=1.686
@@ -568,6 +519,29 @@ CONTAINS
     END IF
 
   END FUNCTION delta_c
+
+  FUNCTION Delta_v(z,cosm)
+
+    IMPLICIT NONE
+    REAL :: Delta_v
+    REAL, INTENT(IN) :: z
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    !Virialised overdensity
+    IF(ihm==3 .OR. ihm==4) THEN
+       !From Bryan & Norman (1998)
+       Delta_v=Dv_BryanNorman(z,cosm)
+    ELSE IF(ihm==2 .OR. ihm==5) THEN
+       !Fixed value
+       Delta_v=200.
+    ELSE IF(ihm==1) THEN
+       !From Mead et al. (2015)
+       Delta_v=418.*(omega_m(z,cosm)**(-0.352))
+    ELSE
+       STOP 'Error, ihm defined incorrectly'
+    END IF
+
+  END FUNCTION Delta_v
 
   FUNCTION eta(z,cosm)
 
@@ -598,10 +572,10 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(ihm==2 .OR. ihm==3 .OR. ihm==4 .OR. ihm==5) THEN
+    IF(ihm==2 .OR. ihm==3 .OR. ihm==5) THEN
        !Set to zero for the standard Poisson one-halo term
        kstar=0.
-    ELSE IF(ihm==1) THEN
+    ELSE IF(ihm==1 .OR. ihm==4) THEN
        !One-halo cut-off wavenumber
        kstar=0.584*(lut%sigv)**(-1)
     ELSE
@@ -1299,7 +1273,7 @@ CONTAINS
        !Get the one-halo term
        p1h=p_1h(wk,k,z,lut,cosm)
 
-       !Only for the basic calculation with linear theory do we need to recalcualte the window
+       !Only for the basic calculation with linear theory do we need to recalculate the window
        !functions for the two-halo term with k=0 fixed
        IF(ihm==2) THEN
           DO j=1,2
@@ -1322,19 +1296,9 @@ CONTAINS
 
     END IF
 
-    !Construct the 'full' halo-model power spectrum
-    !IF(ihm==2 .OR. ihm==3 .OR. ihm==5) THEN
-    !   pfull=p2h+p1h
-    !ELSE IF(ihm==1 .OR. ihm==4) THEN
-       !IF(ih1==ih2) THEN
-       !   !Only do this for the auto spectra
-       !   !Is this justified?
+    !Alpha is set to one sometimes, which is just the standard halo-model sum of terms
     alp=alpha_transition(lut,cosm)
     pfull=(p2h**alp+p1h**alp)**(1./alp)
-       !ELSE
-       !   pfull=p2h+p1h
-       !END IF
-    !END IF
 
     !If we are worrying about voids
     IF(lut%void) THEN
@@ -1397,12 +1361,13 @@ CONTAINS
 
        IF(lut%ip2h==0) THEN
           !Do nothing in this case
+          !There will be large errors if any signal is from low-mass haloes
        ELSE IF(lut%ip2h==1) THEN
           !Add on the value of integral b(nu)*g(nu) assuming w=1
           sum11=sum11+lut%gbmin*halo_fraction(ih(1),m,cosm)/rhom
           sum12=sum12+lut%gbmin*halo_fraction(ih(2),m,cosm)/rhom
        ELSE IF(lut%ip2h==2) THEN
-          !Put the missing part of the integrand as a delta function at nu1
+          !Put the missing part of the integrand as a delta function at the low-mass limit of the integral
           m0=lut%m(1)
           wk1=wk(1,1)
           wk2=wk(2,1)
@@ -1456,6 +1421,12 @@ CONTAINS
     REAL, ALLOCATABLE :: integrand(:)
     INTEGER :: i
 
+    !One-halo term damping method
+    !0 - No damping
+    !1 - Mead et al. (2015)
+    !2 - k^4 at large scales
+    INTEGER, PARAMETER :: idamp=2
+
     ALLOCATE(integrand(lut%n))
     integrand=0.
 
@@ -1475,23 +1446,27 @@ CONTAINS
 
     DEALLOCATE(integrand)
 
-    IF(ihm==1) THEN
+    !Damping of the 1-halo term at very large scales
+    !Actually, maybe this should be ~ k^4 at large scales
+    ks=kstar(lut,cosm)       
 
-       !Damping of the 1-halo term at very large scales
-       ks=kstar(lut,cosm)
+    IF(ks>0.) THEN
 
-       !Prevents problems if k/ks is very large
-
-       IF(ks>0.) THEN
-
+       IF(idamp==0) THEN
+          !Do nothing in this case
+       ELSE IF(idamp==1) THEN
           IF((k/ks)**2>7.) THEN
+             !Prevents problems if k/ks is very large
              fac=0.
           ELSE
              fac=exp(-((k/ks)**2))
           END IF
-
           p_1h=p_1h*(1.-fac)
-
+       ELSE IF(idamp==2) THEN
+          fac=1./(1.+(ks/k)**4)
+          p_1h=p_1h*fac
+       ELSE
+          STOP 'P_1H: Error, idamp not specified correctly'          
        END IF
 
     END IF
@@ -1602,7 +1577,7 @@ CONTAINS
        !Pressure
        win_type=win_pressure(ik,k,m,rv,rs,z,lut,cosm)
     ELSE IF(itype==7) THEN
-       !Compensated void
+       !Void
        win_type=win_void(ik,k,m,rv,rs,cosm)
     ELSE IF(itype==8) THEN
        !Compensated void
@@ -1624,86 +1599,6 @@ CONTAINS
     win_total=win_CDM(ik,k,m,rv,rs,cosm)+win_gas(ik,k,m,rv,rs,cosm)+win_star(ik,k,m,rv,rs,cosm)
 
   END FUNCTION win_total
-
-  FUNCTION win_gas(ik,k,m,rv,rs,cosm)
-
-    IMPLICIT NONE
-    REAL :: win_gas
-    INTEGER, INTENT(IN) :: ik
-    REAL, INTENT(IN) :: k, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
-
-    win_gas=win_boundgas(ik,1,k,m,rv,rs,cosm)+win_freegas(ik,1,k,m,rv,rs,cosm)
-
-  END FUNCTION win_gas
-
-  FUNCTION win_void(ik,k,m,rv,rs,cosm)
-
-    IMPLICIT NONE
-    REAL :: win_void
-    INTEGER, INTENT(IN) :: ik
-    REAL, INTENT(IN) :: k, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
-    INTEGER :: irho
-    REAL :: r, rmin, rmax
-
-    !Set the void model
-    !1 - Top-hat void
-    INTEGER, PARAMETER :: imod=1
-
-    IF(imod==1) THEN
-       !Top-hat
-       irho=2
-    ELSE
-       STOP 'WIN_VOID: Error, imod specified incorrectly'
-    END IF
-
-    rmin=0.
-    rmax=10.*rv
-
-    IF(ik==0) THEN
-       r=k
-       win_void=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
-       win_void=win_void/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
-    ELSE       
-       win_void=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
-    END IF
-
-  END FUNCTION win_void
-
-  FUNCTION win_compensated_void(ik,k,m,rv,rs,cosm)
-
-    IMPLICIT NONE
-    REAL:: win_compensated_void
-    INTEGER, INTENT(IN) :: ik
-    REAL, INTENT(IN) :: k, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
-    INTEGER :: irho
-    REAL :: r, rmin, rmax
-
-    !Set the void model
-    !1 - Top-hat void
-    INTEGER, PARAMETER :: imod=1
-
-    IF(imod==1) THEN
-       !Top-hat
-       irho=2
-    ELSE
-       STOP 'WIN_COMPENSATED_VOID: Error, imod specified incorrectly'
-    END IF
-
-    rmin=0.
-    rmax=10.*rv
-
-    IF(ik==0) THEN
-       r=k
-       win_compensated_void=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
-       win_compensated_void=win_compensated_void/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
-    ELSE       
-       win_compensated_void=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
-    END IF
-
-  END FUNCTION win_compensated_void
 
   FUNCTION win_DMONLY(ik,k,m,rv,rs,cosm)
 
@@ -1797,6 +1692,18 @@ CONTAINS
 
   END FUNCTION win_CDM
 
+  FUNCTION win_gas(ik,k,m,rv,rs,cosm)
+
+    IMPLICIT NONE
+    REAL :: win_gas
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    win_gas=win_boundgas(ik,1,k,m,rv,rs,cosm)+win_freegas(ik,1,k,m,rv,rs,cosm)
+
+  END FUNCTION win_gas
+
   FUNCTION win_star(ik,k,m,rv,rs,cosm)
 
     IMPLICIT NONE
@@ -1857,87 +1764,6 @@ CONTAINS
     win_star=halo_star_fraction(m,cosm)*win_star
 
   END FUNCTION win_star
-
-  FUNCTION win_pressure(ik,k,m,rv,rs,z,lut,cosm)
-
-    !Window function for bound + unbound pressures
-    IMPLICIT NONE
-    REAL :: win_pressure
-    INTEGER, INTENT(IN) :: ik
-    REAL, INTENT(IN) :: k, m, rv, rs, z
-    TYPE(cosmology), INTENT(IN) :: cosm
-    TYPE(tables), INTENT(IN) :: lut
-    
-    LOGICAL, PARAMETER :: use_UPP=.FALSE. !Use UPP or not
-
-    IF(use_UPP) THEN
-       !This overrides everything and just makes a UPP
-       win_pressure=UPP(ik,k,m,rv,rs,z,lut,cosm)
-    ELSE
-       !win_pressure=win_pressure_bound(ik,k,m,rv,rs,z,lut,cosm)+win_pressure_free(ik,k,m,rv,rs,z,lut,cosm)
-       win_pressure=win_boundgas(ik,2,k,m,rv,rs,cosm)+win_freegas(ik,2,k,m,rv,rs,cosm)
-    END IF
-
-  END FUNCTION win_pressure
-
-  FUNCTION UPP(ik,k,m,rv,rs,z,lut,cosm)
-
-    IMPLICIT NONE
-    REAL :: UPP
-    INTEGER, INTENT(IN) :: ik
-    REAL, INTENT(IN) :: k, m, rv, rs, z
-    TYPE(cosmology), INTENT(IN) :: cosm
-    TYPE(tables), INTENT(IN) :: lut  
-    REAL :: r500c, rmin, rmax, a, r, alphap, b, m500c, E
-
-    INTEGER, PARAMETER :: irho=14 !Set UPP profile 
-
-    !Get r500 for UPP
-    r500c=exp(find(log(m),log(lut%m),log(lut%r500c),lut%n,3,3,2))
-
-    !Set the radius range for the integration
-    rmin=0.
-    rmax=1.*rv
-
-    !UPP is written in terms of physical coordinates (?)
-    a=scale_factor_z(z)
-    IF(ik==0) THEN
-       r=k
-       !win_pressure_bound=rho(a*r,a*rmax,a*r500c,a*rs,irho)
-       UPP=rho(r,rmin,rmax,r500c,rs,zero,zero,irho)
-    ELSE IF(ik==1) THEN
-       !win_pressure_bound=winint(k/a,a*rmax,a*r500c,a*rs,irho)
-       UPP=winint(k,rmin,rmax,r500c,rs,zero,zero,irho)
-    ELSE
-       STOP 'WIN_PRESSURE_BOUND: Error, ik not specified correctly'
-    END IF
-
-    !UPP parameter
-    alphap=0.12
-    b=0. !How different is the inferred hydrostatic mass from true mass? (M_obs = (1-b) * M_true)
-
-    !Upp, P(x), equation 4.1 in Ma et al. (2015)
-    m500c=exp(find(log(m),log(lut%m),log(lut%m500c),lut%n,3,3,2))
-    m500c=m500c*(1.-b)
-
-    !Dimensionless Hubble
-    E=sqrt(Hubble2(z,cosm))
-
-    !WRITE(*,*) 'M [Msun/h]:', REAL(m)
-    !WRITE(*,*) 'M500c [Msun/h]:', REAL(m500c)
-    !WRITE(*,*) 'r500c [Mpc/h]:', r500c
-    !WRITE(*,*)
-
-    !Pre-factors from equation 4.1 in Ma et al. (2015) [eV cm^-3]
-    UPP=UPP*((m500c/2.1e14)**(alphap+2./3.))*(E**(8./3.))*3.37
-
-    !Is pressure comoving or not?
-    !win_pressure_bound=win_pressure_bound/(1.+z)**2.
-
-    !Convert thermal pressure to electron pressure
-    UPP=UPP/pfac
-
-  END FUNCTION UPP
 
   FUNCTION win_boundgas(ik,itype,k,m,rv,rs,cosm)
 
@@ -2037,7 +1863,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ik, itype
     REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL :: re, rmin, rmax, r, A, gamma, rho0, T0, p1, p2, beta, c, thing
+    REAL :: re, rmin, rmax, r, A, gamma, rho0, rhov, T0, p1, p2, beta, c, thing, m0
     INTEGER :: irho_density, irho_pressure
     LOGICAL :: match_pressure
 
@@ -2047,8 +1873,10 @@ CONTAINS
     !3 - Isothermal shell that connects pressure and density to boundgas at rv
     !4 - Komatsu-Seljak continuation
     !5 - Power-law continuation
-    !6 - Delta function
-    INTEGER, PARAMETER :: imod=3
+    !6 - Cubic profile
+    !7 - Smoothly distributed (physically dubious)
+    !8 - Delta function (physically dubious)
+    INTEGER, PARAMETER :: imod=7
 
     !Enable to force the pressure to be matched at the virial radius
     !This is enabled by default for some halo gas/pressure models
@@ -2066,67 +1894,132 @@ CONTAINS
     ELSE
 
        IF(imod==1) THEN
+          
           !Simple isothermal model, motivated by constant velocity and rate expulsion
           irho_density=1
           irho_pressure=irho_density !Okay because T is constant
           rmin=0.
           rmax=2.*rv
-          !rf=rs !Does not need to be set
+          
        ELSE IF(imod==2) THEN
+          
           !Ejected gas model from Schneider (2015)
           irho_density=10
           irho_pressure=irho_density !Okay because T is constant
-          rmin=0.
+          rmin=rv
           re=rv
           p1=re
           rmax=15.*re !Needs to be such that integral converges (15rf seems okay)
+          
        ELSE IF(imod==3) THEN
-          !Isothermal model with continuous link to KS
-          !Komatsu-Seljak density at the virial radius
-          A=win_boundgas(0,1,rv,m,rv,rs,cosm) !This is A as in A/r^2
-          rho0=A !This is the value of rho at the halo boundary for the gas
-          A=A*rv**2 !This is A as in A/r^2
+          
           !Now do isothermal shell connected to the KS profile continuously
           irho_density=16
           irho_pressure=irho_density !Okay because T is constant
+          
+          !Isothermal model with continuous link to KS
+          rhov=win_boundgas(0,1,rv,m,rv,rs,cosm) !This is the value of rho at the halo boundary for the bound gas           
+          A=rhov/rho(rv,0.,rv,rv,rs,p1,p2,irho_density) !This is A, as in A/r^2
+          
           rmin=rv
           rmax=rv+halo_freegas_fraction(m,cosm)/(4.*pi*A) !This ensures density continuity and mass conservation
-          c=10. !How many times larger than the virial radius can the gas cloud go?
+          
+          c=10. !How many times larger than the virial radius can the gas cloud go?          
           IF(rmax>c*rv) rmax=c*rv !This needs to be set otherwise get huge decrement in gas power at large scales
           match_pressure=.TRUE. !Match the pressure at the boundary
+          
        ELSE IF(imod==4) THEN
+          
           !Ejected gas is a continuation of the KS profile
-          irho_density=11
-          irho_pressure=13
+          irho_density=11 !KS
+          irho_pressure=13 !KS
           rmin=rv
           rmax=2.*rv
           Gamma=cosm%Gamma
           p1=Gamma
+          
        ELSE IF(imod==5) THEN
-          !Ejected gas is a power-law profile
-          irho_density=17
-          irho_pressure=17 !Change this
-          rmin=rv
-          c=rv/rs
-          Gamma=cosm%Gamma
-          beta=(c-(1.+c)*log(1.+c))/((1.+c)*log(1.+c))
-          beta=beta/(Gamma-1.) !This is the power-law index at the virial radius for the KS gas profile
-          thing=(beta+3.)*halo_freegas_fraction(m,cosm)*m/(4.*pi)+rv**(beta+3.)
-          WRITE(*,*) 'THING:', log10(m), beta, thing
-          IF(thing>0.) THEN
-             rmax=thing**(1./(beta+3.))
+
+          m0=1e14
+
+          IF(m<m0) THEN
+
+             irho_density=0
+             irho_pressure=irho_density
+             rmin=0.
+             rmax=rv
+
           ELSE
-             rmax=5.*rv
+
+             !Set the density profile to be the power-law profile
+             irho_density=17
+             irho_pressure=irho_density !Not okay
+
+             !Calculate the KS index at the virial radius
+             c=rv/rs
+             Gamma=cosm%Gamma
+             beta=(c-(1.+c)*log(1.+c))/((1.+c)*log(1.+c))
+             beta=beta/(Gamma-1.) !This is the power-law index at the virial radius for the KS gas profile
+             p1=beta
+             !WRITE(*,*) 'Beta:', beta, log10(m)
+             IF(beta<=-3.) beta=-2.9 !If beta<-3 then there is only a finite amount of gas allowed in the free component
+
+             !Calculate the density at the boundary of the KS profile
+             rhov=win_boundgas(0,1,rv,m,rv,rs,cosm)
+             !WRITE(*,*) 'rho_v:', rhov
+
+             !Calculate A as in rho(r)=A*r**beta
+             A=rhov/rho(rv,0.,rv,rv,rs,p1,p2,irho_density)
+             !WRITE(*,*) 'A:', A
+
+             !Set the minimum radius for the power-law to be the virial radius
+             rmin=rv
+             !WRITE(*,*) 'rmin:', rmin
+
+             !Set the maximum radius so that it joins to KS profile seamlessly
+             thing=(beta+3.)*halo_freegas_fraction(m,cosm)/(4.*pi*A)+(rhov*rv**3)/A
+             !WRITE(*,*) 'thing:', thing
+             IF(thing>0.) THEN
+                !This then fixes the condition of contiunity in amplitude and gradient
+                rmax=thing**(1./(beta+3.))
+             ELSE
+                !If there are no solutions then fix to 10rv and accept discontinuity
+                !There may be no solution if there is a lot of free gas and if beta<-3
+                rmax=10.*rv
+             END IF
+             !WRITE(*,*) 'rmax 2:', rmax
+
           END IF
-          p1=beta
+
        ELSE IF(imod==6) THEN
-          !Delta-function model (this is very stupid, as it is basically the most incorrect you can be)
+
+          !Cubic profile
+          rmin=rv
+          rmax=3.*rv
+          irho_density=18
+          irho_pressure=irho_density
+
+       ELSE IF(imod==7) THEN
+
+          !Smooth profile
+          rmin=0.
+          rmax=rv
+          irho_density=19
+          irho_pressure=irho_density
+
+       ELSE IF(imod==8) THEN
+
+          !Delta function
+          rmin=0.
+          rmax=rv
           irho_density=0
-          irho_pressure=0
+          irho_pressure=irho_density
+          
        ELSE
           STOP 'WIN_FREEGAS: Error, imod_freegas specified incorrectly'
        END IF
 
+       !Density
        IF(itype==1) THEN
 
           !Density profile of free gas
@@ -2143,8 +2036,10 @@ CONTAINS
 
           win_freegas=halo_freegas_fraction(m,cosm)*win_freegas
 
+       !Pressure
        ELSE IF(itype==2) THEN
 
+          !If we are applying a pressure-matching condition
           IF(match_pressure) THEN
 
              r=k
@@ -2192,6 +2087,96 @@ CONTAINS
 
   END FUNCTION win_freegas
 
+  FUNCTION win_pressure(ik,k,m,rv,rs,z,lut,cosm)
+
+    !Window function for bound + unbound pressures
+    IMPLICIT NONE
+    REAL :: win_pressure
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs, z
+    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(tables), INTENT(IN) :: lut
+    
+    LOGICAL, PARAMETER :: use_UPP=.FALSE. !Use UPP or not
+
+    IF(use_UPP) THEN
+       !This overrides everything and just makes a UPP
+       win_pressure=UPP(ik,k,m,rv,rs,z,lut,cosm)
+    ELSE
+       !win_pressure=win_pressure_bound(ik,k,m,rv,rs,z,lut,cosm)+win_pressure_free(ik,k,m,rv,rs,z,lut,cosm)
+       win_pressure=win_boundgas(ik,2,k,m,rv,rs,cosm)+win_freegas(ik,2,k,m,rv,rs,cosm)
+    END IF
+
+  END FUNCTION win_pressure
+
+  FUNCTION win_void(ik,k,m,rv,rs,cosm)
+
+    IMPLICIT NONE
+    REAL :: win_void
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs
+    TYPE(cosmology), INTENT(IN) :: cosm
+    INTEGER :: irho
+    REAL :: r, rmin, rmax
+
+    !Set the void model
+    !1 - Top-hat void
+    INTEGER, PARAMETER :: imod=1
+
+    IF(imod==1) THEN
+       !Top-hat
+       irho=2
+    ELSE
+       STOP 'WIN_VOID: Error, imod specified incorrectly'
+    END IF
+
+    rmin=0.
+    rmax=10.*rv
+
+    IF(ik==0) THEN
+       r=k
+       win_void=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_void=win_void/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
+    ELSE       
+       win_void=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
+    END IF
+
+  END FUNCTION win_void
+
+  FUNCTION win_compensated_void(ik,k,m,rv,rs,cosm)
+
+    IMPLICIT NONE
+    REAL:: win_compensated_void
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs
+    TYPE(cosmology), INTENT(IN) :: cosm
+    INTEGER :: irho
+    REAL :: r, rmin, rmax
+
+    !Set the void model
+    !1 - Top-hat void
+    INTEGER, PARAMETER :: imod=1
+
+    IF(imod==1) THEN
+       !Top-hat
+       irho=2
+    ELSE
+       STOP 'WIN_COMPENSATED_VOID: Error, imod specified incorrectly'
+    END IF
+
+    rmin=0.
+    rmax=10.*rv
+
+    IF(ik==0) THEN
+       r=k
+       win_compensated_void=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_compensated_void=win_compensated_void/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
+    ELSE       
+       win_compensated_void=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
+    END IF
+
+  END FUNCTION win_compensated_void
+
   FUNCTION virial_temperature(M,R)
 
     !Halo virial temperature in K
@@ -2205,6 +2190,65 @@ CONTAINS
     virial_temperature=virial_temperature/kb !Convert to temperature from energy
 
   END FUNCTION virial_temperature
+
+   FUNCTION UPP(ik,k,m,rv,rs,z,lut,cosm)
+
+    IMPLICIT NONE
+    REAL :: UPP
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs, z
+    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(tables), INTENT(IN) :: lut  
+    REAL :: r500c, rmin, rmax, a, r, alphap, b, m500c, E
+
+    INTEGER, PARAMETER :: irho=14 !Set UPP profile 
+
+    !Get r500 for UPP
+    r500c=exp(find(log(m),log(lut%m),log(lut%r500c),lut%n,3,3,2))
+
+    !Set the radius range for the integration
+    rmin=0.
+    rmax=1.*rv
+
+    !UPP is written in terms of physical coordinates (?)
+    a=scale_factor_z(z)
+    IF(ik==0) THEN
+       r=k
+       !win_pressure_bound=rho(a*r,a*rmax,a*r500c,a*rs,irho)
+       UPP=rho(r,rmin,rmax,r500c,rs,zero,zero,irho)
+    ELSE IF(ik==1) THEN
+       !win_pressure_bound=winint(k/a,a*rmax,a*r500c,a*rs,irho)
+       UPP=winint(k,rmin,rmax,r500c,rs,zero,zero,irho)
+    ELSE
+       STOP 'WIN_PRESSURE_BOUND: Error, ik not specified correctly'
+    END IF
+
+    !UPP parameter
+    alphap=0.12
+    b=0. !How different is the inferred hydrostatic mass from true mass? (M_obs = (1-b) * M_true)
+
+    !Upp, P(x), equation 4.1 in Ma et al. (2015)
+    m500c=exp(find(log(m),log(lut%m),log(lut%m500c),lut%n,3,3,2))
+    m500c=m500c*(1.-b)
+
+    !Dimensionless Hubble
+    E=sqrt(Hubble2(z,cosm))
+
+    !WRITE(*,*) 'M [Msun/h]:', REAL(m)
+    !WRITE(*,*) 'M500c [Msun/h]:', REAL(m500c)
+    !WRITE(*,*) 'r500c [Mpc/h]:', r500c
+    !WRITE(*,*)
+
+    !Pre-factors from equation 4.1 in Ma et al. (2015) [eV cm^-3]
+    UPP=UPP*((m500c/2.1e14)**(alphap+2./3.))*(E**(8./3.))*3.37
+
+    !Is pressure comoving or not?
+    !win_pressure_bound=win_pressure_bound/(1.+z)**2.
+
+    !Convert thermal pressure to electron pressure
+    UPP=UPP/pfac
+
+  END FUNCTION UPP
 
   FUNCTION win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)
 
@@ -2240,7 +2284,11 @@ CONTAINS
           re=p1
           win_norm=exp(-1.5*(k*re)**2.)
        ELSE IF(irho==16) THEN
+          !Isothermal shells
           win_norm=wk_isothermal_2(k*rmax,k*rmin)
+       ELSE IF(irho==19) THEN
+          !Smooth profile (not sure this is physical)
+          win_norm=0.
        ELSE
           !Numerical integral over the density profile (slower)
           win_norm=winint(k,rmin,rmax,rv,rs,p1,p2,irho)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
@@ -2252,7 +2300,9 @@ CONTAINS
 
   FUNCTION rhor2at0(irho)
 
-    !This is the value of r^2/rho(r) at r=0. For most profiles this is zero
+    !This is the value of r^2 * rho(r) at r=0.
+    !For most profiles this is zero, BUT not if rho(r->0) -> r^-2
+    !Note if rho(r->0) -> r^n with n<-2 then the profile mass would diverge!
 
     IMPLICIT NONE
     REAL :: rhor2at0
@@ -2264,6 +2314,8 @@ CONTAINS
        !1 - Isothermal
        !9 - Stellar profile from Schneider (2015)
        rhor2at0=1.
+    ELSE IF(irho==18) THEN
+       STOP 'RHOR2AT0: Error, profile diverges at the origin'
     ELSE
        rhor2at0=0.
     END IF
@@ -2272,13 +2324,13 @@ CONTAINS
 
   FUNCTION rho(r,rmin,rmax,rv,rs,p1,p2,irho)
 
-    !This is an UNNORMALISED halo profile of some sort (density, temperature, ...)
+    !This is an UNNORMALISED halo profile of any sort
 
     !Types of profile
     !================
     ! 0 - Delta function at r=0
-    ! 1 - Isothermal
-    ! 2 - Top hat
+    ! 1 - Isothermal: r^-2
+    ! 2 - Top hat: r^0
     ! 3 - Moore (1999)
     ! 4 - NFW (1997)
     ! 5 - Analytic NFW
@@ -2294,6 +2346,8 @@ CONTAINS
     !15 - Isothermal beta model, beta=0.86 (Ma et al. 2015)
     !16 - Isothermal shell
     !17 - Power-law profile
+    !18 - Cubic profile: r^-3
+    !19 - Smooth profile (rho = 0, not really physical)
 
     IMPLICIT NONE
     REAL :: rho
@@ -2313,9 +2367,10 @@ CONTAINS
     ELSE
        IF(irho==0) THEN
           !Delta function
+          !Do not assign any value to rho as this gets handled properly elsewhere
           !STOP 'RHO: You should not be here for a delta-function profile'
           rho=0. 
-       ELSE IF(irho==1) THEN
+       ELSE IF(irho==1 .OR. irho==16) THEN
           !Isothermal
           rho=1./r**2
        ELSE IF(irho==2) THEN
@@ -2411,6 +2466,12 @@ CONTAINS
           !Power-law profile
           beta=p1
           rho=r**beta
+       ELSE IF(irho==18) THEN
+          !Cubic profile
+          rho=r**(-3)
+       ELSE IF(irho==19) THEN
+          !Smooth profile
+          rho=0.
        ELSE
           STOP 'RHO: Error, irho not specified correctly'
        END IF
@@ -2853,12 +2914,14 @@ CONTAINS
     ! 9 - Stellar profile (Schneider (2015)
     !10 - Ejected gas profile (Schneider 2015)
     !16 - Isothermal shell (M = 4pi*(rmax-rmin))
+    !18 - Cubic profile
+    !19 - Smooth profile (physically dubious)
 
     IMPLICIT NONE
     REAL :: normalisation
     REAL, INTENT(IN) :: rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
-    REAL :: cmax, k, re, rstar, beta
+    REAL :: cmax, re, rstar, beta
 
     IF(irho==0) THEN
        !Delta function
@@ -2871,33 +2934,61 @@ CONTAINS
        normalisation=4.*pi*(rmax**3-rmin**3)/3.
     ELSE IF(irho==3) THEN
        !Moore
-       cmax=rmax/rs
-       normalisation=(2./3.)*4.*pi*(rs**3)*log(1.+cmax**1.5)
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          cmax=rmax/rs
+          normalisation=(2./3.)*4.*pi*(rs**3)*log(1.+cmax**1.5)
+       END IF
     ELSE IF(irho==4 .OR. irho==5) THEN
        !NFW
-       cmax=rmax/rs
-       normalisation=4.*pi*(rs**3)*(log(1.+cmax)-cmax/(1.+cmax))
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          cmax=rmax/rs
+          normalisation=4.*pi*(rs**3)*(log(1.+cmax)-cmax/(1.+cmax))
+       END IF
     ELSE IF(irho==6) THEN
        !Beta model with beta=2/3
-       normalisation=4.*pi*(rs**3)*(rmax/rs-atan(rmax/rs))
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          cmax=rmax/rs
+          normalisation=4.*pi*(rs**3)*(cmax-atan(cmax))
+       END IF
     ELSE IF(irho==9) THEN
-       !Stellar profile from Schneider (2015)
-       !Assumed to go on to r -> infinity
-       rstar=p1
-       normalisation=4.*pi*rstar*sqrt(pi)
+       !Stellar profile from Schneider (2015)       
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          !Assumed to go on to r -> infinity
+          rstar=p1
+          normalisation=4.*pi*rstar*sqrt(pi)
+       END IF
     ELSE IF(irho==10) THEN
        !Ejected gas profile from Schneider (2015)
        !Assumed to go on to r -> infinity
-       re=p1
-       normalisation=4.*pi*sqrt(pi/2.)*re**3
+       !IF(rmin .NE. 0.) STOP 'NORMALISATION: Error, normalisation of Schneider (2015) gas profile assumed to be from 0 -> inf
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          !Assumed to go on to r -> infinity
+          re=p1
+          normalisation=4.*pi*sqrt(pi/2.)*re**3
+       END IF
     ELSE IF(irho==17) THEN
        !Power-law profile
        beta=p1
        normalisation=(4.*pi/(beta+3.))*(rmax**(beta+3.)-rmin**(beta+3.))
+    ELSE IF(irho==18) THEN
+       !Cubic profile
+       normalisation=4.*pi*log(rmax/rmin)
+    ELSE IF(irho==19) THEN
+       normalisation=1.
     ELSE
        !Otherwise need to do the integral numerically
-       k=0. !k=0 gives normalisation
-       normalisation=winint(k,rmin,rmax,rv,rs,p1,p2,irho)
+       !k=0 gives normalisation
+       normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
     END IF
 
   END FUNCTION normalisation
@@ -3118,7 +3209,7 @@ CONTAINS
 
     !Hard-coded z=0.
     REAL, PARAMETER :: z=0.
-    REAL, PARAMETER :: Dv=337.2
+    REAL, PARAMETER :: Dv=200.
 
     !Parameter arrays from Tinker (2010)
     INTEGER, PARAMETER :: n=9 !Number of entries in parameter lists
@@ -3160,7 +3251,7 @@ CONTAINS
 
   FUNCTION wk_isothermal(x)
 
-    !The normlaised Fourier Transform of a top-hat
+    !The normlaised Fourier Transform of an isothermal profile
     IMPLICIT NONE
     REAL :: wk_isothermal
     REAL, INTENT(IN) :: x
@@ -3180,7 +3271,7 @@ CONTAINS
 
   FUNCTION wk_isothermal_2(x,y)
 
-    !The normlaised Fourier Transform of a top-hat
+    !The normlaised Fourier Transform of an isothemral profile from x -> y
     IMPLICIT NONE
     REAL :: wk_isothermal_2
     REAL, INTENT(IN) :: x, y

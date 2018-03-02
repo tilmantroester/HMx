@@ -1766,4 +1766,45 @@ CONTAINS
 
   END FUNCTION fv
 
+  FUNCTION dc_NakamuraSuto(z,cosm)
+
+    !Nakamura & Suto (1997) fitting formula for LCDM
+    IMPLICIT NONE
+    REAL :: dc_NakamuraSuto
+    REAL, INTENT(IN) :: z
+    TYPE(cosmology), INTENT(IN) :: cosm
+    
+    REAL, PARAMETER :: dc0=(3./20.)*(12.*pi)**(2./3.)
+    
+    dc_NakamuraSuto=dc0*(1.+0.0123*log10(omega_m(z,cosm)))
+    
+  END FUNCTION dc_NakamuraSuto
+
+  FUNCTION Dv_BryanNorman(z,cosm)
+
+    !Bryan & Norman (1998) spherical over-density fitting function
+    IMPLICIT NONE
+    REAL :: Dv_BryanNorman
+    REAL :: x, om_m
+    REAL, INTENT(IN) :: z
+    TYPE(cosmology), INTENT(IN) :: cosm
+    
+    REAL, PARAMETER :: Dv0=18.*pi**2
+
+    om_m=omega_m(z,cosm)
+    x=om_m-1.
+
+    IF(cosm%om_v==0.) THEN
+       STOP 'Dv_BRYAN: Should not be in here'
+       !Open model results
+       Dv_BryanNorman=Dv0+60.*x-32.*x**2
+       Dv_BryanNorman=dv_BryanNorman/om_m
+    ELSE
+       !LCDM results
+       Dv_BryanNorman=Dv0+82.*x-39.*x**2
+       Dv_BryanNorman=dv_BryanNorman/om_m
+    END IF
+
+  END FUNCTION Dv_BryanNorman
+
 END MODULE cosmology_functions

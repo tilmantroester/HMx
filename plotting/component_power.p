@@ -2,7 +2,13 @@ reset
 
 set term aqua dashed
 
-owl(mod,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N800/%s_%s_%s_power.dat',mod,type1,type2)
+#Compare to
+#1 - cosmo-OWLS
+#2 - BAHAMAS
+if(!exists('icomp')){icomp=2}
+
+if(icomp==1){owl(mod,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N800/%s_%s_%s_power.dat',mod,type1,type2)}
+if(icomp==2){owl(mod,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M512/%s_nu0_L400N1024_WMAP9_snap32_%s_%s_power.dat',mod,type1,type2)}
 hmpk(i,j)=sprintf('data/power_%d%d.dat',i,j)
 
 kmin=1e-2
@@ -24,7 +30,7 @@ set ylabel '{/Symbol D}_{i,j}^2(k)'
 #type1='stars'
 #type2='stars'
 
-if(!exists('mod'))  {mod='AGN'}
+if(!exists('mod'))  {mod='AGN_TUNED'}
 if(!exists('type1')){type1='all'}
 if(!exists('type2')){type2='all'}
 
@@ -48,7 +54,7 @@ print 'cosmo-OWLS file: ', owl(mod,type1,type2)
 print 'halo-model file: ', hmpk(i1,i2)
 print ''
 
-set title 'Power: '.type1.' x '.type2.''
+set title 'Simulation: '.mod.' || Power: '.type1.' x '.type2.''
 
 unset key
 
