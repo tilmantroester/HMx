@@ -29,6 +29,28 @@
   
 CONTAINS
 
+  FUNCTION xcorr_type(ix)
+
+    !Names for cross-correlation field types
+    IMPLICIT NONE
+    CHARACTER(len=256) :: xcorr_type
+    INTEGER, INTENT(IN) :: ix
+
+    xcorr_type=''
+    IF(ix==1)  xcorr_type='RCSLenS lensing'
+    IF(ix==2)  xcorr_type='Compton y'
+    IF(ix==3)  xcorr_type='CMB lensing'
+    IF(ix==4)  xcorr_type='CFHTLenS lensing'
+    IF(ix==5)  xcorr_type='KiDS lensing (z = 0.1 -> 0.9)'
+    IF(ix==6)  xcorr_type='KiDS lensing (z = 0.1 -> 0.3)'
+    IF(ix==7)  xcorr_type='KiDS lensing (z = 0.3 -> 0.5)'
+    IF(ix==8)  xcorr_type='KiDS lensing (z = 0.5 -> 0.7)'
+    IF(ix==9)  xcorr_type='KiDS lensing (z = 0.7 -> 0.9)'
+    IF(ix==10) xcorr_type='Gravitational waves'
+    IF(xcorr_type=='') STOP 'XCORR_TYPE: Error, ix not specified correctly'
+    
+  END FUNCTION xcorr_type
+
   SUBROUTINE set_ix(ix,ip)
 
     !Set the cross-correlation type

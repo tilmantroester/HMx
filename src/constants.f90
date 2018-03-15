@@ -24,6 +24,6 @@ MODULE constants
   REAL, PARAMETER :: cm=0.01 !Centimetre in metres
   REAL, PARAMETER :: rad2deg=180./pi !Radians-to-degrees conversion
   REAL, PARAMETER :: neff=3.046 !Effective number of neutrinos
-  REAL, PARAMETER :: critical_density=2.775d11 !Critical density at z=0 in (M_sun/h)/(Mpc/h)^3
+  REAL, PARAMETER :: critical_density=2.775d11 !Critical density at z=0 in (M_sun/h)/(Mpc/h)^3 (3*H0^2 / 8piG)
   
 END MODULE constants
