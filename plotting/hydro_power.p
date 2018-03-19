@@ -11,9 +11,12 @@ print ''
 #1 - cosmo-OWLS
 #2 - BAHAMAS
 if(!exists('icomp')){icomp=1}
-print 'Variable *icomp* (1-2): '.icomp.''
-if(icomp==1){print 'Comparing to cosmo-OWLS simulations'; Om_m=0.272; Om_b=0.0455}
-if(icomp==2){print 'Comparing to BAHAMAS simulations'; Om_m=0.2793; Om_b=0.0463}
+print 'icomp = 1: Compare to cosmo-OWLS'
+print 'icomp = 2: Compare to BAHAMAS'
+print 'icomp = '.icomp.''
+#print 'Variable *icomp* (1-2): '.icomp.''
+if(icomp==1){sims='cosmo-OWLS'; Om_m=0.272; Om_b=0.0455}
+if(icomp==2){sims='BAHAMAS'; Om_m=0.2793; Om_b=0.0463}
 Om_c=Om_m-Om_b
 print ''
 
@@ -23,11 +26,15 @@ print ''
 #3 - Power suppression
 #4 - Power residual
 if(!exists('iplot')){iplot=1}
-print 'Variable *iplot* (1-4): '.iplot.''
-if(iplot==1){print 'Making power spectrum plot'}
-if(iplot==2){print 'Making power spectrum ratio plot'}
-if(iplot==3){print 'Making power spectrum suppression plot'}
-if(iplot==4){print 'Making power spectrum residual plot'}
+print 'iplot = 1: Power spectrum plot'
+print 'iplot = 2: Power spectrum ratio plot'
+print 'iplot = 3: Power spectrum suppression plot'
+print 'iplot = 4: Power spectrum residual plot'
+print 'iplot = '.iplot.''
+#if(iplot==1){print 'Making power spectrum plot'}
+#if(iplot==2){print 'Making power spectrum ratio plot'}
+#if(iplot==3){print 'Making power spectrum suppression plot'}
+#if(iplot==4){print 'Making power spectrum residual plot'}
 print ''
 
 #File names - cosmo-OWLS
@@ -58,8 +65,8 @@ owls_names="'DMONLY' 'REF' 'NOCOOL_UVB' 'AGN' 'AGN_Theat_8p5' 'AGN_Theat_8p7'"
 
 #BAHAMAS simulation names
 if(icomp==2){
-hm_names="'DMONLY' 'AGN' 'AGN-lo' 'AGN-hi'"
-owls_names="'DMONLY_2fluid' 'AGN_TUNED' 'AGN_7p6' 'AGN_8p0'"
+hm_names="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
+owls_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
 }
 
 #Set the comparison model
@@ -118,7 +125,7 @@ set mytics 10
 
 if(iplot==1){
 
-set title 'Comparison of '.hm_name.' simulation to halo-model predictions'
+set title 'Comparison of '.sims.' '.hm_name.' simulation to halo-model predictions'
 
 set key bottom right
 

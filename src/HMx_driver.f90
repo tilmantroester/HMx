@@ -60,7 +60,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '======================'
      WRITE(*,*) ' 0 - Matter power spectrum at z = 0'
      WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
-     WRITE(*,*) ' 2 - Produce all components cross and auto spectra'
+     WRITE(*,*) ' 2 - Produce all halo components cross and auto spectra'
      WRITE(*,*) ' 3 - Run diagnostics'
      WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
      WRITE(*,*) ' 5 - Pressure field comparison'
@@ -73,8 +73,9 @@ PROGRAM HMx_driver
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra as baryon parameters vary'
-     WRITE(*,*) '15 - Do 3D spectra for cosmo-OWLS models'
-     WRITE(*,*) '16 - Do 3D spectra for BAHAMAS models'
+     WRITE(*,*) '15 - 3D spectra for cosmo-OWLS models'
+     WRITE(*,*) '16 - 3D spectra for BAHAMAS models'
+     WRITE(*,*) '17 - 3D spectra for user choice of fields'
      READ(*,*) imode
      WRITE(*,*) '======================'
      WRITE(*,*)
@@ -120,7 +121,7 @@ PROGRAM HMx_driver
         CLOSE(8)
      END IF
 
-  ELSE IF(imode==1) THEN
+  ELSE IF(imode==1 .OR. imode==17) THEN
 
      !Assigns the cosmological model
      icosmo=0
@@ -132,9 +133,17 @@ PROGRAM HMx_driver
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-     nk=200
-     kmin=1e-3
-     kmax=1e4
+     IF(imode==1) THEN
+        nk=200
+        kmin=1e-3
+        kmax=1e4
+     ELSE IF(imode==17) THEN
+        nk=128
+        kmin=1e-3
+        kmax=1e2
+     ELSE
+        STOP 'HMx_driver: Error, imode specified incorrectly'
+     END IF
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
@@ -146,8 +155,14 @@ PROGRAM HMx_driver
      a=1./(1.+a)
      na=nz
 
-     !ip = -1 sets the DMONLY profiles
-     ip=-1
+     IF(imode==1) THEN
+        !ip = -1 sets the DMONLY profiles
+        ip=-1
+     ELSE IF(imode==17) THEN
+        CALL set_halo_type(ip)
+     ELSE
+        STOP 'HMx_driver: Error, imode specified incorrectly'
+     END IF
      CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
      base='data/power'
@@ -330,7 +345,7 @@ PROGRAM HMx_driver
         CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
         CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
-        !Loop over matter types and do auto and cross-spectra
+        !Loop over matter types and do auto- and cross-spectra
         DO j1=0,6
            DO j2=j1,6
 
@@ -497,7 +512,7 @@ PROGRAM HMx_driver
 
      !Set the fields
      ix=-1
-     CALL set_ix(ix,ip)
+     CALL set_xcorr_type(ix,ip)
 
      !Assign the cosmological model
      icosmo=-1
@@ -1078,7 +1093,7 @@ PROGRAM HMx_driver
      dir='data'
 
      ixx=-1
-     CALL set_ix(ixx,ip)
+     CALL set_xcorr_type(ixx,ip)
 
      DO i=1,3
         IF(i==1) THEN

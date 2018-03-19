@@ -16,11 +16,11 @@ MODULE HMx
 
   !Choose halo-model calculation
   !1 - Accurate halo-model calculation (Mead et al. 2015, 2016)
-  !2 - Basic halo-model with linear two-halo term
+  !2 - Basic halo-model with linear two-halo term (Delta_v=200, delta_c=1.686))
   !3 - Standard halo-model calculation (Seljak 2000)
   !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition and one-halo damping
   !5 - Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed
-  INTEGER, PARAMETER :: ihm=4
+  INTEGER, PARAMETER :: ihm=2
 
   !Choose mass and bias functions
   !1 - Press & Schecter (1974)
@@ -29,7 +29,8 @@ MODULE HMx
   INTEGER, PARAMETER :: imf=2
 
   !Choose concentration-mass relation
-  !1 - Bullock et al. (2001)
+  !1 - Full Bullock et al. (2001; astro-ph/9909159)
+  !2 - Simple Bullock et al. (2001; astro-ph/9909159)
   INTEGER, PARAMETER :: iconc=1
 
   !Global integration-accuracy parameter
@@ -68,9 +69,34 @@ CONTAINS
     IF(i==6)  halo_type='Pressure'
     IF(i==7)  halo_type='Void'
     IF(i==8)  halo_type='Compensated void'
+    IF(i==9)  halo_type='Central galaxies'
+    IF(i==10) halo_type='Satellite galaxies'
+    IF(i==11) halo_type='Galaxies'
     IF(halo_type=='') STOP 'HALO_TYPE: Error, i not specified correctly'
     
   END FUNCTION halo_type
+
+  SUBROUTINE set_halo_type(ip)
+
+    !Set the halo types
+    IMPLICIT NONE
+    INTEGER, INTENT(OUT) :: ip(2)
+    INTEGER :: i, j
+
+    DO i=1,2
+
+       WRITE(*,fmt='(A20,I3)') 'SET_HALO_TYPE: Choose field: ', i
+       WRITE(*,*) '========================='
+       DO j=-1,11
+          WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(halo_type(j))
+       END DO
+       READ(*,*) ip(i)
+       WRITE(*,*) '========================='
+       WRITE(*,*)
+       
+    END DO
+
+  END SUBROUTINE set_halo_type
 
   SUBROUTINE calculate_HMx(itype,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
@@ -888,6 +914,7 @@ CONTAINS
     END IF
 
     !Find non-linear radius and scale
+    !This is defined as nu(M_star)=1 *not* sigma(M_star)=1, so depends on delta_c
     lut%rnl=r_nl(lut)
     lut%mnl=mass_r(lut%rnl,cosm)
     lut%knl=1./lut%rnl
@@ -903,8 +930,8 @@ CONTAINS
 
     IF(verbose) WRITE(*,*) 'HALOMOD_INIT: n_eff:', REAL(lut%neff)
 
-    CALL halo_concentration(z,cosm,lut)
-    !CALL conc_bull(z,cosm,lut)
+    CALL fill_halo_concentration(z,cosm,lut)
+    !CALL fill_conc_Bullock(z,cosm,lut)
 
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: halo concentration tables filled'
@@ -1071,79 +1098,144 @@ CONTAINS
 
   END FUNCTION effective_index
 
-  SUBROUTINE halo_concentration(z,cosm,lut)
+  SUBROUTINE fill_halo_concentration(z,cosm,lut)
 
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
-    TYPE(cosmology) :: cosm
-    TYPE(tables) :: lut
-    
+    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(tables), INTENT(INOUT) :: lut
+    TYPE(cosmology) :: cosm_lcdm
+    REAL :: mstar, zinf, ainf, g_lcdm, g_wcdm, m, zf
+    INTEGER :: i
+
+    !iconc = 1: Full Bullock et al. (2001)
+    !iconc = 2: Simple Bullock et al. (2001)
+
     IF(iconc==1) THEN
-       CALL conc_Bullock(z,cosm,lut)
+       !Fill the collapse z look-up table
+       CALL zcoll_bull(z,cosm,lut)
+    ELSE IF(iconc==2) THEN
+       mstar=lut%mnl
     ELSE
-       STOP 'Error, iconc specified incorrectly'
+       STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
     END IF
-    
-  END SUBROUTINE halo_concentration
-  
-  SUBROUTINE conc_Bullock(z,cosm,lut)
 
-    !Calculates the Bullock et al. (2001; xxx.xxxx) mass-concentration relation
-    IMPLICIT NONE
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology) :: cosm, cos_lcdm
-    TYPE(tables) :: lut
-    REAL :: A, zinf, ainf, zf, g_lcdm, g_wcdm
-    INTEGER :: i   
-
-    A=As(cosm)
-
-    !Fill the collapse z look-up table
-    CALL zcoll_bull(z,cosm,lut)
-
-    !Fill the concentration look-up table
+    !Fill concentration-mass for all halo masses
     DO i=1,lut%n
 
-       zf=lut%zc(i)
-       lut%c(i)=A*(1.+zf)/(1.+z)
-
-       !Dolag2004 prescription for adding DE dependence
-       IF(ihm==1) THEN
-
-          !The redshift considered to be infinite
-          zinf=10.
-          ainf=scale_factor_z(zinf)
-
-          !Save the growth function in the current cosmology
-          g_wcdm=grow(zinf,cosm)
-
-          !Make a LCDM cosmology
-          cos_lcdm=cosm
-          DEALLOCATE(cos_lcdm%growth)
-          DEALLOCATE(cos_lcdm%a_growth)
-          cos_lcdm%w=-1.
-          cos_lcdm%wa=0.
-          cos_lcdm%om_v=1.-cosm%om_m !Added this so that 'making a LCDM cosmology' works for curved models.
-
-          !Needs to use grow_int explicitly in case tabulated values are stored
-          g_lcdm=growint(ainf,acc,cos_lcdm)
-
-          !Changed this to a power of 1.5, which produces more accurate results for extreme DE
-          lut%c(i)=lut%c(i)*((g_wcdm/g_lcdm)**1.5)
-
+       IF(iconc==1) THEN
+          zf=lut%zc(i)
+          lut%c(i)=conc_Bullock(z,zf,cosm)
+       ELSE IF(iconc==2) THEN
+          m=lut%m(i)
+          lut%c(i)=conc_Bullock_simple(m,mstar)
+       ELSE
+          STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
        END IF
 
     END DO
 
-  END SUBROUTINE conc_Bullock
+    !Dolag2004 prescription for adding DE dependence
+    IF(ihm==1) THEN
+
+       !The redshift considered to be infinite
+       zinf=10.
+       ainf=scale_factor_z(zinf)
+
+       !Save the growth function in the current cosmology
+       g_wcdm=grow(zinf,cosm)
+
+       !Make a LCDM cosmology
+       cosm_lcdm=cosm
+       DEALLOCATE(cosm_lcdm%growth)
+       DEALLOCATE(cosm_lcdm%a_growth)
+       cosm_lcdm%w=-1.
+       cosm_lcdm%wa=0.
+       cosm_lcdm%om_v=1.-cosm%om_m !Added this so that 'making a LCDM cosmology' works for curved models.
+
+       !Needs to use grow_int explicitly in case tabulated values are stored
+       g_lcdm=growint(ainf,acc,cosm_lcdm)
+
+       !Changed this to a power of 1.5, which produces more accurate results for extreme DE
+       lut%c=lut%c*((g_wcdm/g_lcdm)**1.5)
+
+    END IF
+    
+  END SUBROUTINE fill_halo_concentration
+  
+!!$  SUBROUTINE fill_conc_Bullock(z,cosm,lut)
+!!$
+!!$    !Calculates the Bullock et al. (2001; xxx.xxxx) mass-concentration relation
+!!$    IMPLICIT NONE
+!!$    REAL, INTENT(IN) :: z
+!!$    TYPE(cosmology), INTENT(IN) :: cosm
+!!$    TYPE(tables), INTENT(INOUT) :: lut
+!!$    TYPE(cosmology) :: cos_lcdm
+!!$    REAL :: A, zinf, ainf, zf, g_lcdm, g_wcdm
+!!$    INTEGER :: i   
+!!$
+!!$    A=As(cosm)
+!!$
+!!$    !Fill the collapse z look-up table
+!!$    CALL zcoll_bull(z,cosm,lut)
+!!$
+!!$    !Fill the concentration look-up table
+!!$    DO i=1,lut%n
+!!$
+!!$       zf=lut%zc(i)
+!!$       lut%c(i)=A*(1.+zf)/(1.+z)
+!!$
+!!$       !Dolag2004 prescription for adding DE dependence
+!!$       IF(ihm==1) THEN
+!!$
+!!$          !The redshift considered to be infinite
+!!$          zinf=10.
+!!$          ainf=scale_factor_z(zinf)
+!!$
+!!$          !Save the growth function in the current cosmology
+!!$          g_wcdm=grow(zinf,cosm)
+!!$
+!!$          !Make a LCDM cosmology
+!!$          cos_lcdm=cosm
+!!$          DEALLOCATE(cos_lcdm%growth)
+!!$          DEALLOCATE(cos_lcdm%a_growth)
+!!$          cos_lcdm%w=-1.
+!!$          cos_lcdm%wa=0.
+!!$          cos_lcdm%om_v=1.-cosm%om_m !Added this so that 'making a LCDM cosmology' works for curved models.
+!!$
+!!$          !Needs to use grow_int explicitly in case tabulated values are stored
+!!$          g_lcdm=growint(ainf,acc,cos_lcdm)
+!!$
+!!$          !Changed this to a power of 1.5, which produces more accurate results for extreme DE
+!!$          lut%c(i)=lut%c(i)*((g_wcdm/g_lcdm)**1.5)
+!!$
+!!$       END IF
+!!$
+!!$    END DO
+!!$
+!!$  END SUBROUTINE fill_conc_Bullock
+
+  FUNCTION conc_Bullock(z,zf,cosm)
+
+    IMPLICIT NONE
+    REAL :: conc_Bullock
+    REAL, INTENT(IN) :: z, zf
+    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL :: A
+
+    A=As(cosm)
+
+    conc_Bullock=A*(1.+zf)/(1.+z)
+
+  END FUNCTION conc_Bullock
 
   SUBROUTINE zcoll_bull(z,cosm,lut)
 
     !This fills up the halo collapse redshift table as per Bullock relations   
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
-    TYPE(cosmology) :: cosm
-    TYPE(tables) :: lut
+    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(tables), INTENT(INOUT) :: lut
     REAL :: dc
     REAL :: af, zf, RHS, a, growz
     REAL, ALLOCATABLE :: af_tab(:), grow_tab(:)
@@ -1184,6 +1276,17 @@ CONTAINS
 
   END SUBROUTINE zcoll_bull
 
+  FUNCTION conc_Bullock_simple(m,mstar)
+
+    !The simple concentration-mass relation from Bullock et al. (2001; astro-ph/9908159v3 equation 18)
+    IMPLICIT NONE
+    REAL :: conc_Bullock_simple
+    REAL, INTENT(IN) :: m, mstar
+
+    conc_Bullock_simple=9.*(m/mstar)**(-0.13)
+    
+  END FUNCTION conc_Bullock_simple
+
   FUNCTION mass_r(r,cosm)
 
     !Calcuates the mass contains in a sphere of comoving radius 'r' in a homogeneous universe
@@ -1222,6 +1325,10 @@ CONTAINS
     ! 4 - Bound gas
     ! 5 - Free gas
     ! 6 - Pressure
+    ! 7 - Voids
+    ! 8 - Compensated voids
+    ! 9 - Central galaxies
+    !10 - Satellite galaxies
 
     !Calls expressions for one- and two-halo terms and then combines
     !to form the full power spectrum
@@ -1275,10 +1382,11 @@ CONTAINS
     END IF
 
     !Alpha is set to one sometimes, which is just the standard halo-model sum of terms
+    !No need to have an IF statement around this
     alp=alpha_transition(lut,cosm)
     pfull=(p2h**alp+p1h**alp)**(1./alp)
 
-    !If we are worrying about voids
+    !If we are worrying about voids...
     IF(lut%void) THEN
        STOP 'HALOMOD: Extreme caution, parameter void is defined twice'
        pfull=pfull+p_1v(k,lut)
@@ -1534,7 +1642,7 @@ CONTAINS
        !Overdensity if all the matter were CDM
        win_type=win_DMONLY(ik,k,m,rv,rs,cosm)
     ELSE IF(itype==0) THEN
-       !matter overdensity (sum of CDM, gas, stars)
+       !Matter overdensity (sum of CDM, gas, stars)
        win_type=win_total(ik,k,m,rv,rs,cosm)
     ELSE IF(itype==1) THEN
        !CDM overdensity
@@ -1560,6 +1668,15 @@ CONTAINS
     ELSE IF(itype==8) THEN
        !Compensated void
        win_type=win_compensated_void(ik,k,m,rv,rs,cosm)
+    ELSE IF(itype==9) THEN
+       !Central galaxies
+       win_type=win_centrals(ik,k,m,rv,rs,cosm)
+    ELSE IF(itype==10) THEN
+       !Satellite galaxies
+       win_type=win_satellites(ik,k,m,rv,rs,cosm)
+    ELSE IF(itype==11) THEN
+       !All galaxies
+       win_type=win_galaxies(ik,k,m,rv,rs,cosm)
     ELSE
        STOP 'WIN_TYPE: Error, itype not specified correclty' 
     END IF
@@ -2154,6 +2271,114 @@ CONTAINS
     END IF
 
   END FUNCTION win_compensated_void
+
+  FUNCTION win_centrals(ik,k,m,rv,rs,cosm)
+
+    IMPLICIT NONE
+    REAL :: win_centrals
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs
+    TYPE(cosmology), INTENT(IN) :: cosm
+    INTEGER :: irho
+    REAL :: r, rmin, rmax
+
+    !Need to change this to be correct for central galaxy overdensity
+    !Need to divide by \bar{n}_cen
+
+    !Delta functions
+    irho=0
+
+    rmin=0.
+    rmax=rv
+
+    IF(ik==0) THEN
+       r=k
+       win_centrals=n_centrals(m)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_centrals=win_centrals/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
+    ELSE IF(ik==1) THEN      
+       win_centrals=n_centrals(m)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
+    ELSE
+       STOP 'WIN_centrals: ik not specified correctly'
+    END IF
+
+  END FUNCTION win_centrals
+
+  FUNCTION win_satellites(ik,k,m,rv,rs,cosm)
+
+    IMPLICIT NONE
+    REAL :: win_satellites
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs
+    TYPE(cosmology), INTENT(IN) :: cosm
+    INTEGER :: irho
+    REAL :: r, rmin, rmax
+
+    !Need to change this to be correct for satellite galaxy overdensity
+    !Need to divide by \bar{n}_sat
+
+    !NFW profile
+    irho=5
+
+    rmin=0.
+    rmax=rv
+
+    IF(ik==0) THEN
+       r=k
+       win_satellites=n_satellites(m)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_satellites=win_satellites/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
+    ELSE IF(ik==1) THEN
+       win_satellites=n_satellites(m)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
+    ELSE
+       STOP 'WIN_satellites: ik not specified correctly'
+    END IF
+
+  END FUNCTION win_satellites
+
+  FUNCTION win_galaxies(ik,k,m,rv,rs,cosm)
+
+    IMPLICIT NONE
+    REAL :: win_galaxies
+    INTEGER, INTENT(IN) :: ik
+    REAL, INTENT(IN) :: k, m, rv, rs
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    win_galaxies=win_centrals(ik,k,m,rv,rs,cosm)+win_satellites(ik,k,m,rv,rs,cosm)
+    
+  END FUNCTION win_galaxies
+
+  FUNCTION n_centrals(m)
+
+    !The number of central galaxies as a function of halo mass
+    IMPLICIT NONE
+    INTEGER :: n_centrals
+    REAL, INTENT(IN) :: m
+    
+    REAL, PARAMETER :: m0=1e12 !Limit for halo mass below which there are no galaxies
+
+    IF(m<m0) THEN
+       n_centrals=0
+    ELSE
+       n_centrals=1
+    END IF
+    
+  END FUNCTION n_centrals
+
+  FUNCTION n_satellites(m)
+
+    !The number of satellite galxies as a function of halo mass
+    IMPLICIT NONE
+    INTEGER :: n_satellites
+    REAL, INTENT(IN) :: m
+    
+    REAL, PARAMETER :: m0=1e12 !Limit for halo mass below which there are no galaxies
+
+    IF(m<m0) THEN
+       n_satellites=0
+    ELSE
+       n_satellites=CEILING(m/m0)-1
+    END IF
+    
+  END FUNCTION n_satellites
 
   FUNCTION virial_temperature(M,R)
 

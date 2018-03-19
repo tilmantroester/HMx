@@ -2,10 +2,14 @@ reset
 
 set term aqua dashed
 
+#Initial white space
+print('')
+
 #Compare to
-#1 - cosmo-OWLS
-#2 - BAHAMAS
+print('icomp = 1: Compare to cosmo-OWLS')
+print('icomp = 2: Compare to BAHAMAS')
 if(!exists('icomp')){icomp=2}
+print('icomp = '.icomp.'')
 
 if(icomp==1){owl(mod,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N800/%s_%s_%s_power.dat',mod,type1,type2)}
 if(icomp==2){owl(mod,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M512/%s_nu0_L400N1024_WMAP9_snap32_%s_%s_power.dat',mod,type1,type2)}
@@ -26,10 +30,6 @@ set log y
 set format y '10^{%T}'
 set ylabel '{/Symbol D}_{i,j}^2(k)'
 
-#mod='AGN'
-#type1='stars'
-#type2='stars'
-
 if(!exists('mod'))  {mod='AGN_TUNED'}
 if(!exists('type1')){type1='all'}
 if(!exists('type2')){type2='all'}
@@ -48,9 +48,18 @@ if(type2 eq 'pressure'){i2=6}
 
 print ''
 print 'Model *mod*: ', mod
-print 'field 1 *type1*: ', type1
-print 'field 2 *type2*: ', type2
+print ''
+print 'Fild types:'
+print 'all - Matter'
+print 'dm - CDM'
+print 'gas - Gas'
+print 'stars - Stars'
+print 'pressure - Pressure'
+print 'field 1 *type1*: ', i1, ' ', type1
+print 'field 2 *type2*: ', i2, ' ', type2
+print ''
 print 'cosmo-OWLS file: ', owl(mod,type1,type2)
+print ''
 print 'halo-model file: ', hmpk(i1,i2)
 print ''
 

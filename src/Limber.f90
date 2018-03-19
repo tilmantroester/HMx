@@ -1,4 +1,4 @@
-  MODULE Limber
+MODULE Limber
 
   !USE cosdef
   USE constants
@@ -51,7 +51,7 @@ CONTAINS
     
   END FUNCTION xcorr_type
 
-  SUBROUTINE set_ix(ix,ip)
+  SUBROUTINE set_xcorr_type(ix,ip)
 
     !Set the cross-correlation type
     IMPLICIT NONE
@@ -62,9 +62,9 @@ CONTAINS
     DO i=1,2
 
        IF(ix(i)==-1) THEN
-          WRITE(*,fmt='(A20,I3)') 'SET_IX: Choose field: ', i
+          WRITE(*,fmt='(A20,I3)') 'SET_XCORR_TYPE: Choose field: ', i
           WRITE(*,*) '========================='
-          DO j=1,10!SIZE(xcorr_type)
+          DO j=1,10
              WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
           END DO
           READ(*,*) ix(i)
@@ -82,9 +82,10 @@ CONTAINS
           !Gravitational lensing (should be set to 0 eventually)
           ip(i)=-1 !Profile type: 0 - Matter
        END IF
+       
     END DO
 
-  END SUBROUTINE set_ix
+  END SUBROUTINE set_xcorr_type
 
   SUBROUTINE xcorr(ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
 
@@ -137,7 +138,7 @@ CONTAINS
        WRITE(*,*)
     END IF
 
-    CALL set_ix(ix,ip)
+    CALL set_xcorr_type(ix,ip)
 
     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,cosm,verbose)
 
