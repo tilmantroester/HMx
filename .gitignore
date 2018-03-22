@@ -40,6 +40,8 @@ profiling/
 projection/
 variations/
 winint/
+BAHAMAS/
+hydro/
 
 # Library update script
 src/update_library.sh*

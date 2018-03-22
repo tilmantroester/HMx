@@ -23,7 +23,7 @@ MODULE cosmology_functions
      !Varying baryon parameters
      !INTEGER :: np=5
      !REAL :: param(5), param_defaults(5), param_min(5), param_max(5)
-     REAL :: alpha, Dc, Gamma, M0, Astar
+     REAL :: alpha, Dc, Gamma, M0, Astar, whim
      !CHARACTER(len=256) :: param_names(5)
      !LOGICAL :: param_log(5)
   END TYPE cosmology
@@ -76,6 +76,7 @@ CONTAINS
     cosm%Gamma=1.17
     cosm%M0=1e14
     cosm%Astar=0.02
+    cosm%whim=1e6
 
     IF(icosmo==0) THEN
        !Boring - do nothing
@@ -473,10 +474,9 @@ CONTAINS
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Dc:', cosm%Dc
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
-    IF(cosm%M0 .NE. 0.) THEN
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
-    END IF
+    IF(cosm%M0 .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
+    IF(cosm%whim .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(WHIM):', log10(cosm%whim)
     WRITE(*,*) '===================================='
     WRITE(*,*)
 

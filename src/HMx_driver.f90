@@ -9,7 +9,8 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
   REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
-  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa
+  REAL, ALLOCATABLE :: z_tab(:)
+  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa
   INTEGER :: ip(2), ix(2), ixx(2)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2
@@ -113,7 +114,7 @@ PROGRAM HMx_driver
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Write the one-void term if necessary
-     IF(lut%void) THEN
+     IF(voids) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
            WRITE(8,*) k(i), p_1v(k(i),lut)
@@ -178,7 +179,12 @@ PROGRAM HMx_driver
         n=1
 
         !Set the redshift
-        z=0.
+        nz=4
+        ALLOCATE(z_tab(nz))
+        z_tab(1)=0.0
+        z_tab(2)=0.5
+        z_tab(3)=1.0
+        z_tab(4)=2.0
      
         !Set number of k points and k range (log spaced)
         nk=200
@@ -193,7 +199,9 @@ PROGRAM HMx_driver
         n=5
 
         !Set the redshift
-        z=0.
+        nz=1
+        ALLOCATE(z_tab(nz))
+        z_tab(1)=0.
 
         !Simulation P(k) location
         infile='/Users/Mead/Physics/cosmo-OWLS/power/N800/DMONLY_all_all_power.dat'
@@ -207,10 +215,15 @@ PROGRAM HMx_driver
         n=3
 
         !Set the redshift
-        z=0.
+        nz=4
+        ALLOCATE(z_tab(nz))
+        z_tab(1)=0.
+        z_tab(2)=0.5
+        z_tab(3)=1.
+        z_tab(4)=2.
 
         !Simulation P(k) location
-        infile='/Users/Mead/Physics/BAHAMAS/power/M512/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+        infile='/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
 
         !Get the k values from the simulation measured P(k)
         CALL get_k_values(infile,k,nk)
@@ -223,8 +236,8 @@ PROGRAM HMx_driver
      DO iowl=1,n
 
         !Assigns the cosmological model
-        IF(imode==2 .OR. imode==15) icosmo=1
-        IF(imode==16) icosmo=3
+        IF(imode==15) icosmo=1
+        IF(imode==2 .OR. imode==16) icosmo=3
         CALL assign_cosmology(icosmo,cosm)
 
         IF(imode==15 .AND. iowl==1) THEN
@@ -308,60 +321,78 @@ PROGRAM HMx_driver
         CALL initialise_cosmology(verbose,cosm)
         IF(verbose) CALL print_cosmology(cosm)
 
-        !Initiliasation for the halomodel calcualtion
-        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
+        DO j=1,nz
 
-        !Runs the diagnostics
-        IF(imode==2) THEN           
-           dir='diagnostics'
-           CALL halo_diagnostics(z,lut,cosm,dir)
-           CALL halo_definitions(lut,dir)
-        END IF
+           z=z_tab(j)
+           
+           !Initiliasation for the halomodel calcualtion
+           CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
 
-        IF(imode==2) THEN
-           !File base and extension
-           base='data/power_'
-           mid=''
-           ext='.dat'
-        ELSE IF(imode==15) THEN
-           base='cosmo-OWLS/data/power_'//TRIM(fname)//'_'
-           mid=''
-           ext='.dat'
-        ELSE IF(imode==16) THEN
-           base='BAHAMAS/data/power_'//TRIM(fname)//'_'
-           mid=''
-           ext='.dat'
-        END IF
+           !Runs the diagnostics
+           IF(imode==2) THEN           
+              dir='diagnostics'
+              CALL halo_diagnostics(z,lut,cosm,dir)
+              CALL halo_definitions(lut,dir)
+           END IF
 
-        !Dark-matter only
-        IF(imode==2) THEN
-           outfile='data/power.dat'
-        ELSE IF(imode==15) THEN
-           outfile='cosmo-OWLS/data/power_DMONLY_00.dat'
-        ELSE IF(imode==16) THEN
-           outfile='BAHAMAS/data/power_DMONLY_00.dat'
-        END IF
-        WRITE(*,*) -1, -1, TRIM(outfile)
-        CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
-        CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+           IF(imode==2) THEN
+              !File base and extension
+              IF(j==1) base='hydro/power_z0.0_'
+              IF(j==2) base='hydro/power_z0.5_'
+              IF(j==3) base='hydro/power_z1.0_'
+              IF(j==4) base='hydro/power_z2.0_'
+              mid=''
+              ext='.dat'
+           ELSE IF(imode==15) THEN
+              base='cosmo-OWLS/power_'//TRIM(fname)//'_'
+              mid=''
+              ext='.dat'
+           ELSE IF(imode==16) THEN
+              IF(j==1) base='BAHAMAS/power_'//TRIM(fname)//'_z0.0_'
+              IF(j==2) base='BAHAMAS/power_'//TRIM(fname)//'_z0.5_'
+              IF(j==3) base='BAHAMAS/power_'//TRIM(fname)//'_z1.0_'
+              IF(j==4) base='BAHAMAS/power_'//TRIM(fname)//'_z2.0_'
+              mid=''
+              ext='.dat'
+           END IF
 
-        !Loop over matter types and do auto- and cross-spectra
-        DO j1=0,6
-           DO j2=j1,6
+           !Dark-matter only
+           IF(imode==2) THEN
+              IF(j==1) outfile='hydro/power_z0.0.dat'
+              IF(j==2) outfile='hydro/power_z0.5.dat'
+              IF(j==3) outfile='hydro/power_z1.0.dat'
+              IF(j==4) outfile='hydro/power_z2.0.dat'
+           ELSE IF(imode==15) THEN
+              outfile='cosmo-OWLS/power_DMONLY_00.dat'
+           ELSE IF(imode==16) THEN
+              IF(j==1) outfile='BAHAMAS/power_DMONLY_z0.0_00.dat'
+              IF(j==2) outfile='BAHAMAS/power_DMONLY_z0.5_00.dat'
+              IF(j==3) outfile='BAHAMAS/power_DMONLY_z1.0_00.dat'
+              IF(j==4) outfile='BAHAMAS/power_DMONLY_z2.0_00.dat'
+           END IF
+           WRITE(*,*) -1, -1, TRIM(outfile)
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
+           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
-              !Skip for the bound- and free-gas spectra
-              IF(j1==4 .OR. j1==5) CYCLE
-              IF(j2==4 .OR. j2==5) CYCLE
+           !Loop over matter types and do auto- and cross-spectra
+           DO j1=0,6
+              DO j2=j1,6
 
-              !Fix output file and write to screen
-              outfile=number_file2(base,j1,mid,j2,ext)
-              WRITE(*,*) j1, j2, TRIM(outfile)
+                 !Skip for the bound- and free-gas spectra, fuck 'em
+                 IF(j1==4 .OR. j1==5) CYCLE
+                 IF(j2==4 .OR. j2==5) CYCLE
 
-              !Do the calculation and write P(k) to disk
-              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
-              CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
+                 !Fix output file and write to screen
+                 outfile=number_file2(base,j1,mid,j2,ext)
+                 WRITE(*,*) j1, j2, TRIM(outfile)
 
+                 !Do the calculation and write P(k) to disk
+                 CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
+                 CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
+
+              END DO
            END DO
+
         END DO
 
      END DO
@@ -376,19 +407,26 @@ PROGRAM HMx_driver
      CALL initialise_cosmology(verbose,cosm)
      IF(verbose) CALL print_cosmology(cosm)
 
-     !WRITE(*,*) 'Redshift:'
-     !READ(*,*) z
-     !WRITE(*,*)
-     z=0.
+     !Loop over redshifts
+     DO j=1,4
 
-     !Initiliasation for the halomodel calcualtion
-     CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
+        !Set the redshift
+        IF(j==1) z=0.0
+        IF(j==2) z=0.5
+        IF(j==3) z=1.0
+        IF(j==4) z=2.0
 
-     !Runs the diagnostics
-     dir='diagnostics'
-     CALL halo_diagnostics(z,lut,cosm,dir)
-     CALL halo_definitions(lut,dir)
+        !Initiliasation for the halomodel calcualtion
+        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
 
+        !Runs the diagnostics
+        dir='diagnostics'
+        CALL halo_diagnostics(z,lut,cosm,dir)
+        CALL halo_definitions(lut,dir)
+
+     END DO
+
+     !Stuff for diagnosing problems with the window function integrand
      !output='winint/integrand.dat'
      !irho=14
      !rv=1.
@@ -1132,7 +1170,7 @@ PROGRAM HMx_driver
      z=0.
 
      !Assigns the cosmological model
-     icosmo=1
+     icosmo=3
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
@@ -1152,8 +1190,11 @@ PROGRAM HMx_driver
      !Prevents warning
      ilog=.FALSE.
 
-     !Loop over parameters
-     DO ipa=1,5
+     !Number of parameters
+     npa=6 
+
+     !Loop over parameters     
+     DO ipa=1,npa
 
         !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Reassigns the cosmological model
@@ -1185,7 +1226,7 @@ PROGRAM HMx_driver
            param_max=1.25
            ilog=.FALSE.
         ELSE IF(ipa==4) THEN
-           !M0 - bound gas transition
+           !M0 - bound gas transition in Msun/h
            param_min=1e13
            param_max=1e15
            ilog=.TRUE.
@@ -1194,6 +1235,11 @@ PROGRAM HMx_driver
            param_min=0.01
            param_max=0.03
            ilog=.FALSE.
+        ELSE IF(ipa==6) THEN
+           !WHIM temperature in K
+           param_min=1e5
+           param_max=1e7
+           ilog=.TRUE.
         END IF
 
         !Loop over parameter values
@@ -1212,6 +1258,7 @@ PROGRAM HMx_driver
            IF(ipa==3) cosm%Gamma=param
            IF(ipa==4) cosm%M0=param
            IF(ipa==5) cosm%Astar=param
+           IF(ipa==6) cosm%whim=param
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later

@@ -2,15 +2,15 @@ unset multiplot
 reset
 
 if(!exists('print')){print=0}
-if(print==0) set term aqua dashed
-if(print==1) set term post enh col dashed dl .5 font ',10'#; set output 'allpower.eps'
+if(print==0) {set term aqua dashed}
+if(print==1) {set term post enh col dashed dl .5 font ',10'}
 
 print ''
 
 #Simulations to compare against
 #1 - cosmo-OWLS
 #2 - BAHAMAS
-if(!exists('icomp')){icomp=1}
+if(!exists('icomp')){icomp=2}
 print 'icomp = 1: Compare to cosmo-OWLS'
 print 'icomp = 2: Compare to BAHAMAS'
 print 'icomp = '.icomp.''
@@ -20,11 +20,21 @@ if(icomp==2){sims='BAHAMAS'; Om_m=0.2793; Om_b=0.0463}
 Om_c=Om_m-Om_b
 print ''
 
+#Redshift
+if(!exists('iz')){iz=1}
+print 'iz = 1: z = 0.0'
+print 'iz = 2: z = 0.5'
+print 'iz = 3: z = 1.0'
+print 'iz = 4: z = 2.0'
+print 'iz = '.iz.''
+if(iz==1){z=0.0; snap='snap32'}
+if(iz==2){z=0.5; snap='snap28'}
+if(iz==3){z=1.0; snap='snap26'}
+if(iz==4){z=2.0; snap='snap22'}
+print 'z = ', z
+print ''
+
 #Plot to make
-#1 - Power spectrum
-#2 - Power spectrum ratio
-#3 - Power suppression
-#4 - Power residual
 if(!exists('iplot')){iplot=1}
 print 'iplot = 1: Power spectrum plot'
 print 'iplot = 2: Power spectrum ratio plot'
@@ -40,13 +50,14 @@ print ''
 #File names - cosmo-OWLS
 if(icomp==1){
 data(sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N800/%s_%s_%s_power.dat',sim,type1,type2)
-hmpk(sim,i,j)=sprintf('cosmo-OWLS/data/power_%s_%i%i.dat',sim,i,j)
+hmpk(sim,i,j)=sprintf('cosmo-OWLS/power_%s_%i%i.dat',sim,i,j)
 }
 
 #File names - BAHAMAS
 if(icomp==2){
-data(sim,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M512/%s_nu0_L400N1024_WMAP9_snap32_%s_%s_power.dat',sim,type1,type2)
-hmpk(sim,i,j)=sprintf('BAHAMAS/data/power_%s_%i%i.dat',sim,i,j)
+data(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
+hmpk(sim,z,i,j)=sprintf('BAHAMAS/power_%s_z%1.1f_%i%i.dat',sim,z,i,j)
+name(sim,z)=sprintf('BAHAMAS comarison of %s at z = %1.1f', sim, z)
 }
 
 #Columns for simulation power
@@ -78,10 +89,14 @@ print 'Simuation name: '.hm_name.''
 print 'Simuation file: '.owls_name.''
 print ''
 
+print 'Example simulation file: ', data(owls_name,snap,thing0,thing0)
+print 'Example halo-model file: ', hmpk(hm_name,z,0,0)
+print ''
+
 #Set the files to compare against (DMONLY)
 if(icomp==1){owl0='DMONLY'}
 if(icomp==2){owl0='DMONLY_2fluid'}
-hm0=hmpk('DMONLY',0,0)
+hm0=hmpk('DMONLY',z,0,0)
 
 #Snapshot
 #22: z=2.0
@@ -123,28 +138,30 @@ set format y '10^{%T}'
 set ylabel '{/Symbol D}^2(k)'
 set mytics 10
 
+set title name(owls_name,z)
+
 if(iplot==1){
 
-set title 'Comparison of '.sims.' '.hm_name.' simulation to halo-model predictions'
+#set title 'Comparison of '.sims.' '.hm_name.' simulation to halo-model predictions'
 
 set key bottom right
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     data(owls_name,thing0,thing0) u 1:(column(c)) w p pt 7 lc col1 noti,\
-     data(owls_name,thing1,thing1) u 1:(column(c)) w p pt 7 lc col2 noti,\
-     data(owls_name,thing2,thing2) u 1:(column(c)) w p pt 7 lc col3 noti,\
-     data(owls_name,thing3,thing3) u 1:(column(c)) w p pt 7 lc col4 noti,\
-     data(owls_name,thing0,thing1) u 1:(column(c)) w p pt 6 lc col2 noti,\
-     data(owls_name,thing0,thing2) u 1:(column(c)) w p pt 6 lc col3 noti,\
-     data(owls_name,thing0,thing3) u 1:(column(c)) w p pt 6 lc col4 noti,\
-     hmpk(hm_name,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'All matter',\
-     hmpk(hm_name,1,1) u 1:(column(d)) w l lw 3 dt 1 lc col2 ti 'CDM',\
-     hmpk(hm_name,2,2) u 1:(column(d)) w l lw 3 dt 1 lc col3 ti 'Gas',\
-     hmpk(hm_name,3,3) u 1:(column(d)) w l lw 3 dt 1 lc col4 ti 'Stars',\
-     hmpk(hm_name,0,1) u 1:(column(d)) w l lw 3 dt 2 lc col2 noti,\
-     hmpk(hm_name,0,2) u 1:(column(d)) w l lw 3 dt 2 lc col3 noti,\
-     hmpk(hm_name,0,3) u 1:(column(d)) w l lw 3 dt 2 lc col4 noti
+     data(owls_name,snap,thing0,thing0) u 1:(column(c)) w p pt 7 lc col1 noti,\
+     data(owls_name,snap,thing1,thing1) u 1:(column(c)) w p pt 7 lc col2 noti,\
+     data(owls_name,snap,thing2,thing2) u 1:(column(c)) w p pt 7 lc col3 noti,\
+     data(owls_name,snap,thing3,thing3) u 1:(column(c)) w p pt 7 lc col4 noti,\
+     data(owls_name,snap,thing0,thing1) u 1:(column(c)) w p pt 6 lc col2 noti,\
+     data(owls_name,snap,thing0,thing2) u 1:(column(c)) w p pt 6 lc col3 noti,\
+     data(owls_name,snap,thing0,thing3) u 1:(column(c)) w p pt 6 lc col4 noti,\
+     hmpk(hm_name,z,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'All matter',\
+     hmpk(hm_name,z,1,1) u 1:(column(d)) w l lw 3 dt 1 lc col2 ti 'CDM',\
+     hmpk(hm_name,z,2,2) u 1:(column(d)) w l lw 3 dt 1 lc col3 ti 'Gas',\
+     hmpk(hm_name,z,3,3) u 1:(column(d)) w l lw 3 dt 1 lc col4 ti 'Stars',\
+     hmpk(hm_name,z,0,1) u 1:(column(d)) w l lw 3 dt 2 lc col2 noti,\
+     hmpk(hm_name,z,0,2) u 1:(column(d)) w l lw 3 dt 2 lc col3 noti,\
+     hmpk(hm_name,z,0,3) u 1:(column(d)) w l lw 3 dt 2 lc col4 noti
 
 }
 
@@ -167,22 +184,22 @@ plot 1 w l lt -1 noti,\
      Om_c/Om_m      w l lc -1 dt 2 noti,\
      (Om_b/Om_m)**2 w l lc -1 dt 2 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
-     '<paste '.data(owls_name,thing0,thing0).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col1 noti,\
-     '<paste '.data(owls_name,thing1,thing1).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col2 noti,\
-     '<paste '.data(owls_name,thing2,thing2).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col3 noti,\
-     '<paste '.data(owls_name,thing3,thing3).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col4 noti,\
-     '<paste '.data(owls_name,thing0,thing0).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col1 noti,\
-     '<paste '.data(owls_name,thing0,thing1).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col2 noti,\
-     '<paste '.data(owls_name,thing0,thing2).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col3 noti,\
-     '<paste '.data(owls_name,thing0,thing3).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col4 noti,\
-     '<paste '.hmpk(hm_name,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'All matter',\
-     '<paste '.hmpk(hm_name,1,1).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col2 ti 'CDM',\
-     '<paste '.hmpk(hm_name,2,2).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col3 ti 'Gas',\
-     '<paste '.hmpk(hm_name,3,3).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col4 ti 'Stars',\
-     '<paste '.hmpk(hm_name,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col1 noti,\
-     '<paste '.hmpk(hm_name,0,1).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col2 noti,\
-     '<paste '.hmpk(hm_name,0,2).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col3 noti,\
-     '<paste '.hmpk(hm_name,0,3).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col4 noti
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col1 noti,\
+     '<paste '.data(owls_name,snap,thing1,thing1).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col2 noti,\
+     '<paste '.data(owls_name,snap,thing2,thing2).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col3 noti,\
+     '<paste '.data(owls_name,snap,thing3,thing3).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col4 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col1 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing1).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col2 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing2).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col3 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing3).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col4 noti,\
+     '<paste '.hmpk(hm_name,z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'All matter',\
+     '<paste '.hmpk(hm_name,z,1,1).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col2 ti 'CDM',\
+     '<paste '.hmpk(hm_name,z,2,2).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col3 ti 'Gas',\
+     '<paste '.hmpk(hm_name,z,3,3).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col4 ti 'Stars',\
+     '<paste '.hmpk(hm_name,z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col1 noti,\
+     '<paste '.hmpk(hm_name,z,0,1).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col2 noti,\
+     '<paste '.hmpk(hm_name,z,0,2).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col3 noti,\
+     '<paste '.hmpk(hm_name,z,0,3).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col4 noti
 
 rmin=1e-9
 rmax=2.
@@ -192,12 +209,12 @@ set format y '10^{%T}'
 plot 1 w l lt -1 noti,\
      NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     '<paste '.data(owls_name,thing0,thing0).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col1 noti,\
-     '<paste '.data(owls_name,thing6,thing6).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col6 noti,\
-     '<paste '.data(owls_name,thing0,thing6).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col6 noti,\
-     '<paste '.hmpk(hm_name,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'All matter',\
-     '<paste '.hmpk(hm_name,6,6).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col6 ti 'Pressure',\
-     '<paste '.hmpk(hm_name,0,6).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col1 noti,\
+     '<paste '.data(owls_name,snap,thing6,thing6).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col6 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing6).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col6 noti,\
+     '<paste '.hmpk(hm_name,z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'All matter',\
+     '<paste '.hmpk(hm_name,z,6,6).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col6 ti 'Pressure',\
+     '<paste '.hmpk(hm_name,z,0,6).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti
 
 unset multiplot
 
@@ -213,8 +230,8 @@ set yrange [rmin:rmax]
 set ylabel 'P(k) / P_{DMONLY}(k)'
 
 plot 1 w l lt -1 noti,\
-     for [i=1:words(owls_names)] '<paste '.data(word(owls_names,i),thing0,thing0).' '.data(owl0,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 dt 1 lc i noti,\
-     for [i=1:words(hm_names)] '<paste '.hmpk(word(hm_names,i),0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 lc i ti word(hm_names,i)
+     for [i=1:words(owls_names)] '<paste '.data(word(owls_names,i),snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 dt 1 lc i noti,\
+     for [i=1:words(hm_names)] '<paste '.hmpk(word(hm_names,i),z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 lc i ti word(hm_names,i)
 
 }
 
@@ -231,14 +248,14 @@ set ylabel 'P_{HM}(k) / P_{OWLS}(k)'
 plot NaN w l lw 2 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 2 dt 2 lc -1 ti 'Cross with matter',\
      1 w l lt -1 noti,\
-     '<paste '.data(owls_name,thing0,thing0).' '.hmpk(hm_name,0,0).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col1 ti 'All matter',\
-     '<paste '.data(owls_name,thing1,thing1).' '.hmpk(hm_name,1,1).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col2 ti 'CDM',\
-     '<paste '.data(owls_name,thing2,thing2).' '.hmpk(hm_name,2,2).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col3 ti 'Gas',\
-     '<paste '.data(owls_name,thing3,thing3).' '.hmpk(hm_name,3,3).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col4 ti 'Stars',\
-     '<paste '.data(owls_name,thing6,thing6).' '.hmpk(hm_name,6,6).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col6 ti 'Pressure',\
-     '<paste '.data(owls_name,thing0,thing1).' '.hmpk(hm_name,0,1).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col2 noti,\
-     '<paste '.data(owls_name,thing0,thing2).' '.hmpk(hm_name,0,2).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col3 noti,\
-     '<paste '.data(owls_name,thing0,thing3).' '.hmpk(hm_name,0,3).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col4 noti,\
-     '<paste '.data(owls_name,thing0,thing6).' '.hmpk(hm_name,0,6).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col6 noti
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.hmpk(hm_name,z,0,0).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col1 ti 'All matter',\
+     '<paste '.data(owls_name,snap,thing1,thing1).' '.hmpk(hm_name,z,1,1).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col2 ti 'CDM',\
+     '<paste '.data(owls_name,snap,thing2,thing2).' '.hmpk(hm_name,z,2,2).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col3 ti 'Gas',\
+     '<paste '.data(owls_name,snap,thing3,thing3).' '.hmpk(hm_name,z,3,3).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col4 ti 'Stars',\
+     '<paste '.data(owls_name,snap,thing6,thing6).' '.hmpk(hm_name,z,6,6).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col6 ti 'Pressure',\
+     '<paste '.data(owls_name,snap,thing0,thing1).' '.hmpk(hm_name,z,0,1).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col2 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing2).' '.hmpk(hm_name,z,0,2).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col3 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing3).' '.hmpk(hm_name,z,0,3).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col4 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing6).' '.hmpk(hm_name,z,0,6).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col6 noti
 
 }

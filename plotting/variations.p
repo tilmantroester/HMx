@@ -9,6 +9,9 @@ if(!exists("print")){print=0}
 if(print==0){set term aqua dashed font ',10'; sun='sun'}
 if(print==1){set term post enh col dashed dl 1 fontfile cmsy font ',10'; sun='{/cmsy10 \014}'}
 
+#Initial white space
+print ''
+
 #File paths
 dmonly='variations/DMONLY.dat'
 power(param,value,type)=sprintf('variations/power_param_%i_value_%i_%s.dat',param,value,type)
@@ -23,27 +26,32 @@ if(param==2){pname='{/Symbol D}c';      min=-3.0;  max=3.0;   ilog=0; coll='pink
 if(param==3){pname='{/Symbol G}';       min=1.15;  max=1.25;  ilog=0; coll='orange'}
 if(param==4){pname='M_B / M_{'.sun.'}'; min=1e13;  max=1e15;  ilog=1; coll='light-green'}
 if(param==5){pname='A_*';               min=0.01;  max=0.03;  ilog=0; coll='gold'}
+if(param==6){pname='T_{WHIM} / K';      min=1e5;   max=1e7;   ilog=1; coll='cyan'}
 print 'Comparison for parameter (set with *param*): '.param.''
 
 #Output figure
-if(!exists("type")){type='matter'}
+if(!exists('type')){type='matter'}
 if(type eq 'matter'){outfile(i)=sprintf('variations_matter_param_%i.eps',i)}
 if(type eq 'pressure'){outfile(i)=sprintf('variations_pressure_param_%i.eps',i)}
 if(print==1){set output outfile(param); print 'Output: ', outfile(param)}
+
 print 'Type of comparison (set with *type*): '.type.''
 
 #Number of different values for the parameters
 n=9
 
-if(!exists("isim")){sim=4}
-simulation_names='DMONLY REF NOCOOL_UVB AGN AGN_Theat_8p5 AGN_Theat_8p7'
-simulation_titles="'DMONLY' 'REF' 'NO COOL' 'AGN' 'AGN 8.5' 'AGN 8.7'"
-simulation(n,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',n,sim,type1,type2)
+if(!exists('isim')){sim=4}
+#simulation_names='DMONLY REF NOCOOL_UVB AGN AGN_Theat_8p5 AGN_Theat_8p7'
+#simulation_titles="'DMONLY' 'REF' 'NO COOL' 'AGN' 'AGN 8.5' 'AGN 8.7'"
+#simulation(n,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',n,sim,type1,type2)
+simulation_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
+simulation_titles="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
+simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
 sim_name=word(simulation_names,sim)
 sim_title=word(simulation_titles,sim)
 print 'Comparing to simulation (set with *isim*): '.sim_title.''
-dmsim='DMONLY'
-mesh=800
+dmsim=word(simulation_names,1)
+snap='snap32' #Fix to z=0
 
 #Names of simulation power spectrum types
 dsim='all'
@@ -120,8 +128,9 @@ prelab='4{/Symbol p} r^2 P(r) [eV (Mpc/h)^{-1}]'
 
 #Axis range for halo profiles
 rmin=0.01
-rmax=1e1
-rlab='r / h^{-1} Mpc'
+rmax=2.
+#rlab='r / h^{-1} Mpc'
+rlab='r / r_v'
 
 ###
 
@@ -201,6 +210,9 @@ if(ilog==1){set log cb; set format cb '10^{%T}'}
 set colorbox vertical user origin all_right+0.02, .1 size .02,all_top-all_bottom
 set cblabel pname
 
+#Final white space
+print ''
+
 if(type eq 'matter'){
 
 set multiplot
@@ -231,9 +243,9 @@ set label '{/Symbol d}s'           at graph 0.02,0.15
 plot for [i=1:n] power(param,i,'dd') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] power(param,i,'dg') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] power(param,i,'ds') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     simulation(mesh,sim_name,dsim,dsim) u 1:2 w p pt 2 lc 'black' ti sim_title,\
-     simulation(mesh,sim_name,dsim,gsim) u 1:2 w p pt 2 lc 'black' noti,\
-     simulation(mesh,sim_name,dsim,ssim) u 1:2 w p pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,dsim,dsim) u 1:2 w p pt 2 lc 'black' ti sim_title,\
+     simulation(sim_name,snap,dsim,gsim) u 1:2 w p pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,dsim,ssim) u 1:2 w p pt 2 lc 'black' noti,\
 
 unset label
 
@@ -261,9 +273,9 @@ set label '{/Symbol d}s'           at graph 0.03,0.27
 plot for [i=1:n] '<paste '.power(param,i,'dd').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] '<paste '.power(param,i,'dg').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] '<paste '.power(param,i,'ds').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-'<paste '.simulation(mesh,sim_name,dsim,dsim).' '.simulation(mesh,dmsim,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))              w p pt 2 lc 'black' noti,\
-'<paste '.simulation(mesh,sim_name,dsim,gsim).' '.simulation(mesh,dmsim,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))      w p pt 2 lc 'black' noti,\
-'<paste '.simulation(mesh,sim_name,dsim,ssim).' '.simulation(mesh,dmsim,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti,\
+'<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))              w p pt 2 lc 'black' noti,\
+'<paste '.simulation(sim_name,snap,dsim,gsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))      w p pt 2 lc 'black' noti,\
+'<paste '.simulation(sim_name,snap,dsim,ssim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti,\
 
 unset label
 
@@ -314,7 +326,8 @@ set format y ''
 set label mlab(mass) at graph mlabx,mlaby
 
 plot for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(2)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
-     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(3)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti
+     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(3)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
+     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(4)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti
 
 unset label
 
@@ -385,9 +398,9 @@ set label pplab at graph 0.03,0.10
 set key top left
 
 plot for [j=1:words(types_pressure)] for [i=1:n] power(param,i,word(types_pressure,j)) u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     simulation(mesh,sim_name,dsim,dsim) u 1:2 w p pt 2 lc 'black' ti sim_title,\
-     simulation(mesh,sim_name,dsim,psim) u 1:2 w p pt 2 lc 'black' noti,\
-     simulation(mesh,sim_name,psim,psim) u 1:2 w p pt 2 lc 'black' noti
+     simulation(sim_name,snap,dsim,dsim) u 1:2 w p pt 2 lc 'black' ti sim_title,\
+     simulation(sim_name,snap,dsim,psim) u 1:2 w p pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,psim,psim) u 1:2 w p pt 2 lc 'black' noti
 
 unset label
 
@@ -411,9 +424,9 @@ set label dplab at graph 0.03,0.6
 set label pplab at graph 0.03,0.3
 
 plot for [j=1:words(types_pressure)] for [i=1:n] '<paste '.power(param,i,word(types_pressure,j)).' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     '<paste '.simulation(mesh,sim_name,dsim,dsim).' '.simulation(mesh,dmsim,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))              w p pt 2 lc 'black' noti,\
-     '<paste '.simulation(mesh,sim_name,dsim,psim).' '.simulation(mesh,dmsim,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))      w p pt 2 lc 'black' noti,\
-     '<paste '.simulation(mesh,sim_name,psim,psim).' '.simulation(mesh,dmsim,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti
+     '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))              w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))      w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,psim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti
 
 unset label
 
@@ -516,8 +529,8 @@ set format y ''
 
 #set label mlab(mass) at graph mlabx,mlaby
 
-plot for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(7)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
-     UPP(mass) u 1:(4.*pi*$1*$1*column(7)) w l lw 2 lc -1 dt 2 noti
+plot for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(7)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti#,\
+     #UPP(mass) u 1:(4.*pi*$1*$1*column(7)) w l lw 2 lc -1 dt 2 noti
 
 unset label
 
