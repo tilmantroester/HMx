@@ -136,8 +136,10 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Gamma", 1.18, HMx_config%cosm%Gamma)
     status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", 14.08, log10_M0)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Astar", 0.02, HMx_config%cosm%Astar)
-    
+    status = datablock_get_double_default(block, halo_model_parameters_section, "log10_whim", 6.0, HMx_config%cosm%whim)
+
     HMx_config%cosm%M0 = 10**log10_M0
+    HMx_config%cosm%whim = 10**log10_whim
 
     if(HMx_config%compute_p_lin == 0) then
         status = datablock_get_double_grid(block, matter_power_lin_section, &
