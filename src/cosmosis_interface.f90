@@ -109,7 +109,7 @@ function execute(block, config) result(status)
     type(HMx_setup_config), pointer :: HMx_config
     integer :: i
     integer, dimension(:) :: fields(2)
-    real(8) :: log10_M0
+    real(8) :: log10_M0, log10_whim
     real(8), dimension(:), allocatable :: k_plin, z_plin
     real(8), dimension(:,:), allocatable :: pk_lin, pk_1h, pk_2h, pk_full
     character(len=256) :: pk_section
