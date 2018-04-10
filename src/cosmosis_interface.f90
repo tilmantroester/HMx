@@ -109,7 +109,7 @@ function execute(block, config) result(status)
     type(HMx_setup_config), pointer :: HMx_config
     integer :: i
     integer, dimension(:) :: fields(2)
-    real(8) :: log10_M0, log10_whim
+    real(8) :: log10_eps, log10_M0, log10_whim
     real(8), dimension(:), allocatable :: k_plin, z_plin
     real(8), dimension(:,:), allocatable :: pk_lin, pk_1h, pk_2h, pk_full
     character(len=256) :: pk_section
@@ -132,12 +132,13 @@ function execute(block, config) result(status)
 
     ! Baryon parameters
     status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
-    status = datablock_get_double_default(block, halo_model_parameters_section, "Dc", 0.0, HMx_config%cosm%Dc)
+    status = datablock_get_double_default(block, halo_model_parameters_section, "log10_eps", 0.0, log10_eps)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Gamma", 1.18, HMx_config%cosm%Gamma)
     status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", 14.08, log10_M0)
     status = datablock_get_double_default(block, halo_model_parameters_section, "Astar", 0.02, HMx_config%cosm%Astar)
     status = datablock_get_double_default(block, halo_model_parameters_section, "log10_whim", 6.0, log10_whim)
 
+    HMx_config%cosm%eps = 10**log10_eps
     HMx_config%cosm%M0 = 10**log10_M0
     HMx_config%cosm%whim = 10**log10_whim
 
