@@ -43,13 +43,15 @@ MODULE HMx
   !Choose mass and bias functions
   !1 - Press & Schecter (1974)
   !2 - Sheth & Tormen (1999)
-  !3 - Tinker et al. (2008 and 2010)
+  !3 - Tinker et al. (2010)
   INTEGER, PARAMETER :: imf=2
 
   !Choose concentration-mass relation
   !1 - Full Bullock et al. (2001; astro-ph/9909159)
   !2 - Simple Bullock et al. (2001; astro-ph/9909159)
-  INTEGER, PARAMETER :: iconc=1
+  !3 - Duffy et al. (2008; 0804.2486): mean
+  !4 - Duffy et al. (2008; 0804.2486): virial
+  INTEGER, PARAMETER :: iconc=4
 
   !Do voids?
   LOGICAL, PARAMETER :: voids=.FALSE.
@@ -196,14 +198,12 @@ CONTAINS
     REAL :: plin
     LOGICAL :: compute_p_lin
 
-    !Tilman - added this
+    !Tilman added this for the CosmoSIS wrapper
     IF(PRESENT(compute_p_lin_arg)) THEN
        compute_p_lin = compute_p_lin_arg
     ELSE
        compute_p_lin = .TRUE.
     END IF
-    !compute_p_lin = .TRUE. !Mead - added this to make things work!!!
-    !Tilman - done
 
     !Write to screen
     IF(verbose) THEN
@@ -219,13 +219,12 @@ CONTAINS
 !!$OMP PARALLEL DO DEFAULT(SHARED), private(k,plin, pfull,p1h,p2h)
     DO i=1,nk
 
-       !Tilman - added this
+       !Tilman added this for the CosmoSIS wrapper
        IF(compute_p_lin) THEN
           !Get the linear power
           plin=p_lin(k(i),z,cosm)
           pow_lin(i)=plin
        END IF
-       !Tilman - done
 
        !Do the halo model calculation
        CALL halomod(itype1,itype2,k(i),z,pow_2h(i),pow_1h(i),pow(i),plin,lut,cosm)
@@ -414,20 +413,33 @@ CONTAINS
 
   END SUBROUTINE halo_diagnostics
 
-  SUBROUTINE halo_definitions(lut,dir)
+  SUBROUTINE halo_definitions(z,lut,dir)
 
     !Writes out to files the different halo definitions
     IMPLICIT NONE
+    REAL, INTENT(IN) :: z
     TYPE(tables), INTENT(IN) :: lut
     CHARACTER(len=256), INTENT(IN) :: dir
-    CHARACTER(len=256) :: fradius, fmass, fconc
+    CHARACTER(len=256) :: fradius, fmass, fconc, ext
     INTEGER :: i
 
     WRITE(*,*) 'HALO_DEFINITIONS: Outputting definitions'
 
-    fradius=TRIM(dir)//'/radius.dat'
-    fmass=TRIM(dir)//'/mass.dat'
-    fconc=TRIM(dir)//'/concentration.dat'
+    IF(z==0.0) THEN
+       ext='_z0.0.dat'
+    ELSE IF(z==0.5) THEN
+       ext='_z0.5.dat'
+    ELSE IF(z==1.0) THEN
+       ext='_z1.0.dat'
+    ELSE IF(z==2.0) THEN
+       ext='_z2.0.dat'
+    ELSE
+       STOP 'HALO_DIAGNOSTICS: Error, need to make this better with z'
+    END IF
+
+    fradius=TRIM(dir)//'/radius'//TRIM(ext)
+    fmass=TRIM(dir)//'/mass'//TRIM(ext)
+    fconc=TRIM(dir)//'/concentration'//TRIM(ext)
 
     WRITE(*,*) 'HALO_DEFINITIONS: ', TRIM(fradius)
     WRITE(*,*) 'HALO_DEFINITIONS: ', TRIM(fmass)
@@ -988,7 +1000,7 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: maximum concentration:', REAL(lut%c(1))
     END IF
 
-    A0=one_halo_amplitude(z,lut,cosm)
+    A0=one_halo_amplitude(lut,cosm)
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [Mpc/h]^3:', REAL(A0)
        WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
@@ -1011,30 +1023,24 @@ CONTAINS
 
   END SUBROUTINE halomod_init
 
-  FUNCTION one_halo_amplitude(z,lut,cosm)
+  FUNCTION one_halo_amplitude(lut,cosm)
 
     !Calculates the amplitude of the shot-noise plateau of the one-halo term
     IMPLICIT NONE
     REAL :: one_halo_amplitude
-    REAL, INTENT(IN) :: z
     TYPE(tables), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(IN) :: cosm
-    REAL :: wk(2,lut%n)
+    REAL :: integrand(lut%n), g, m
     INTEGER :: i
 
-    REAL, PARAMETER :: ksmall=1e-3 !A 'small' wavenumber
-
-    !This needs to be fixed as it does not work when the one-halo term is damped
-    !It should really just calculate <M^2>, not rely on p_1h function
-
+    !Calculates the value of the integrand at all nu values!
     DO i=1,lut%n
-       wk(1,i)=lut%m(i)
+       g=g_nu(lut%nu(i))
+       m=lut%m(i)
+       integrand(i)=g*m
     END DO
-    wk(1,:)=wk(1,:)/comoving_matter_density(cosm)
-    wk(2,:)=wk(1,:)
 
-    one_halo_amplitude=p_1h(wk,ksmall,z,lut,cosm)
-    one_halo_amplitude=one_halo_amplitude/(4.*pi*(ksmall/(2.*pi))**3)
+    one_halo_amplitude=integrate_table(lut%nu,integrand,lut%n,1,lut%n,1)/comoving_matter_density(cosm)
 
   END FUNCTIOn one_halo_amplitude
 
@@ -1163,14 +1169,15 @@ CONTAINS
 
     !iconc = 1: Full Bullock et al. (2001)
     !iconc = 2: Simple Bullock et al. (2001)
+    !iconc = 3: Duffy et al. (2008): mean
+    !iconc = 4: Duffy et al. (2008): virial
 
+    !Any initialisation for the c(M) relation goes here
     IF(iconc==1) THEN
        !Fill the collapse z look-up table
        CALL zcoll_bull(z,cosm,lut)
     ELSE IF(iconc==2) THEN
        mstar=lut%mnl
-    ELSE
-       STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
     END IF
 
     !Fill concentration-mass for all halo masses
@@ -1182,6 +1189,12 @@ CONTAINS
        ELSE IF(iconc==2) THEN
           m=lut%m(i)
           lut%c(i)=conc_Bullock_simple(m,mstar)
+       ELSE IF(iconc==3) THEN
+          m=lut%m(i)
+          lut%c(i)=conc_Duffy_mean(m,z)
+       ELSE IF(iconc==4) THEN
+          m=lut%m(i)
+          lut%c(i)=conc_Duffy_virial(m,z)
        ELSE
           STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
        END IF
@@ -1215,58 +1228,6 @@ CONTAINS
     END IF
     
   END SUBROUTINE fill_halo_concentration
-  
-!!$  SUBROUTINE fill_conc_Bullock(z,cosm,lut)
-!!$
-!!$    !Calculates the Bullock et al. (2001; xxx.xxxx) mass-concentration relation
-!!$    IMPLICIT NONE
-!!$    REAL, INTENT(IN) :: z
-!!$    TYPE(cosmology), INTENT(IN) :: cosm
-!!$    TYPE(tables), INTENT(INOUT) :: lut
-!!$    TYPE(cosmology) :: cos_lcdm
-!!$    REAL :: A, zinf, ainf, zf, g_lcdm, g_wcdm
-!!$    INTEGER :: i   
-!!$
-!!$    A=As(cosm)
-!!$
-!!$    !Fill the collapse z look-up table
-!!$    CALL zcoll_bull(z,cosm,lut)
-!!$
-!!$    !Fill the concentration look-up table
-!!$    DO i=1,lut%n
-!!$
-!!$       zf=lut%zc(i)
-!!$       lut%c(i)=A*(1.+zf)/(1.+z)
-!!$
-!!$       !Dolag2004 prescription for adding DE dependence
-!!$       IF(ihm==1) THEN
-!!$
-!!$          !The redshift considered to be infinite
-!!$          zinf=10.
-!!$          ainf=scale_factor_z(zinf)
-!!$
-!!$          !Save the growth function in the current cosmology
-!!$          g_wcdm=grow(zinf,cosm)
-!!$
-!!$          !Make a LCDM cosmology
-!!$          cos_lcdm=cosm
-!!$          DEALLOCATE(cos_lcdm%growth)
-!!$          DEALLOCATE(cos_lcdm%a_growth)
-!!$          cos_lcdm%w=-1.
-!!$          cos_lcdm%wa=0.
-!!$          cos_lcdm%om_v=1.-cosm%om_m !Added this so that 'making a LCDM cosmology' works for curved models.
-!!$
-!!$          !Needs to use grow_int explicitly in case tabulated values are stored
-!!$          g_lcdm=growint(ainf,acc,cos_lcdm)
-!!$
-!!$          !Changed this to a power of 1.5, which produces more accurate results for extreme DE
-!!$          lut%c(i)=lut%c(i)*((g_wcdm/g_lcdm)**1.5)
-!!$
-!!$       END IF
-!!$
-!!$    END DO
-!!$
-!!$  END SUBROUTINE fill_conc_Bullock
 
   FUNCTION conc_Bullock(z,zf,cosm)
 
@@ -1339,6 +1300,40 @@ CONTAINS
     conc_Bullock_simple=9.*(m/mstar)**(-0.13)
     
   END FUNCTION conc_Bullock_simple
+
+  FUNCTION conc_Duffy_mean(m,z)
+
+    !Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
+    IMPLICIT NONE
+    REAL :: conc_Duffy_mean
+    REAL, INTENT(IN) :: m, z
+    
+    REAL, PARAMETER :: m_piv=2e12 !Pivot mass in Msun/h
+    REAL, PARAMETER :: A=10.14
+    REAL, PARAMETER :: B=-0.081
+    REAL, PARAMETER :: C=-1.01
+
+    !Equation (4) in 0804.2486
+    conc_Duffy_mean=A*(m/m_piv)**B*(1.+z)**C
+    
+  END FUNCTION conc_Duffy_mean
+
+  FUNCTION conc_Duffy_virial(m,z)
+
+    !Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
+    IMPLICIT NONE
+    REAL :: conc_Duffy_virial
+    REAL, INTENT(IN) :: m, z
+    
+    REAL, PARAMETER :: m_piv=2e12 !Pivot mass in Msun/h
+    REAL, PARAMETER :: A=7.85
+    REAL, PARAMETER :: B=-0.081
+    REAL, PARAMETER :: C=-0.71
+
+    !Equation (4) in 0804.2486
+    conc_Duffy_virial=A*(m/m_piv)**B*(1.+z)**C
+    
+  END FUNCTION conc_Duffy_virial
 
   FUNCTION mass_r(r,cosm)
 
@@ -1799,7 +1794,7 @@ CONTAINS
     REAL, INTENT(IN) :: k, m, rv, rs
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: irho
-    REAL :: rss, dc, r, rmin, rmax, c
+    REAL :: rss, eps, r, rmin, rmax, c
 
     !Set the model
     !1 - NFW
@@ -1813,9 +1808,9 @@ CONTAINS
     ELSE IF(imod==2) THEN
        !NFW with increase concentation
        irho=5
-       dc=cosm%Dc*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b !Change in halo concentration
+       eps=cosm%eps*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b !Change in halo concentration
        c=rv/rs !Old concentration: c
-       rss=rv/(c+dc) !New scale radius calculated from new concentration: c + dc
+       rss=rv/(c*eps) !New scale radius calculated from new concentration: c*eps
     ELSE
        STOP 'WIN_CDM: Error, imod specified incorrectly'
     END IF
@@ -3262,7 +3257,7 @@ CONTAINS
 
   FUNCTION b_ps(nu)
 
-    !Press & Scheter (1974) bias
+    !Press & Scheter (1974) halo bias
     IMPLICIT NONE
     REAL :: b_ps
     REAL, INTENT(IN) :: nu
@@ -3275,7 +3270,8 @@ CONTAINS
 
   FUNCTION b_st(nu)
 
-    !Sheth, Mo & Tormen (2001) bias
+    !Sheth & Tormen (1999) halo bias (equation 12 in 9901122)
+    !Comes from peak-background split
     IMPLICIT NONE
     REAL :: b_st
     REAL, INTENT(IN) :: nu
@@ -3305,6 +3301,8 @@ CONTAINS
     REAL, PARAMETER :: b=1.5
     REAL, PARAMETER :: bigC=0.019+0.107*y+0.19*exp(-(4./y)**4)
     REAL, PARAMETER :: c=2.4
+
+    STOP 'B_TINKER: Be careful, redshift dependence is missing'
     
     b_Tinker=1.-bigA*(nu**a)/(nu**a+delta_c**a)+bigB*nu**b+bigC*nu**c
     
@@ -3416,6 +3414,7 @@ CONTAINS
     !Sheth & Tormen (1999) mass function!
     !Note I use nu=dc/sigma(M) and this Sheth & Tormen (1999) use nu=(dc/sigma)^2
     !This accounts for some small differences
+    !Equation (10) in arXiv:9901122
     IMPLICIT NONE
     REAL :: g_st
     REAL, INTENT(IN) :: nu
@@ -3427,25 +3426,6 @@ CONTAINS
     g_st=A*(1.+((q*nu*nu)**(-p)))*exp(-q*nu*nu/2.)
 
   END FUNCTION g_st
-
-!!$  FUNCTION g_Tinker(nu)
-!!$
-!!$    !Tinker et al. (2010; 1001.3162) mass function (also 2008; xxxx.xxxx)
-!!$    IMPLICIT NONE
-!!$    REAL :: g_Tinker
-!!$    REAL, INTENT(IN) :: nu
-!!$
-!!$    !Hard-coded z=0. and Delta_v=200.
-!!$    REAL, PARAMETER :: z=0.
-!!$    REAL, PARAMETER :: alpha=0.368
-!!$    REAL, PARAMETER :: beta=0.589*(1.+z)**0.20
-!!$    REAL, PARAMETER :: gamma=0.864**(1.+z)**(-0.01)
-!!$    REAL, PARAMETER :: phi=-0.729*(1.+z)**(-0.08)
-!!$    REAL, PARAMETER :: eta=-0.243*(1.+z)**0.27
-!!$
-!!$    g_Tinker=alpha*(1.+(beta*nu)**(-2.*phi))*nu**(2.*eta)*exp(-0.5*gamma*nu**2)
-!!$    
-!!$  END FUNCTION g_Tinker
 
   FUNCTION g_Tinker(nu)
 
@@ -3466,7 +3446,9 @@ CONTAINS
     REAL, PARAMETER :: beta0(n)=[0.589,0.585,0.544,0.543,0.564,0.623,0.637,0.673,0.702]
     REAL, PARAMETER :: gamma0(n)=[0.864,0.922,0.987,1.09,1.20,1.34,1.50,1.68,1.81]
     REAL, PARAMETER :: phi0(n)=[-0.729,-0.789,-0.910,-1.05,-1.20,-1.26,-1.45,-1.50,-1.49]
-    REAL, PARAMETER :: eta0(n)=[-0.243,-0.261,-0.261,-0.273,-0.278,-0.301,-0.301,-0.319,-0.336]    
+    REAL, PARAMETER :: eta0(n)=[-0.243,-0.261,-0.261,-0.273,-0.278,-0.301,-0.301,-0.319,-0.336]
+
+    STOP 'B_TINKER: Be careful, redshift dependence is missing'
 
     !Delta_v dependence
     alpha=find(Dv,Delta_v,alpha0,n,3,3,2)

@@ -13,10 +13,12 @@ print ''
 if(!exists('icomp')){icomp=2}
 print 'icomp = 1: Compare to cosmo-OWLS'
 print 'icomp = 2: Compare to BAHAMAS'
+print 'icomp = 3: Generic hydro, no comparison'
 print 'icomp = '.icomp.''
 #print 'Variable *icomp* (1-2): '.icomp.''
 if(icomp==1){sims='cosmo-OWLS'; Om_m=0.272; Om_b=0.0455}
 if(icomp==2){sims='BAHAMAS'; Om_m=0.2793; Om_b=0.0463}
+if(icomp==3){sims=''; Om_m=0.3; Om_b=0.05}
 Om_c=Om_m-Om_b
 print ''
 
@@ -60,6 +62,11 @@ hmpk(sim,z,i,j)=sprintf('BAHAMAS/power_%s_z%1.1f_%i%i.dat',sim,z,i,j)
 name(sim,z)=sprintf('BAHAMAS comarison of %s at z = %1.1f', sim, z)
 }
 
+if(icomp==3){
+hmpk(sim,z,i,j)=sprintf('hydro/power_z%1.1f_%i%i.dat',z,i,j)
+hmdm(z)=sprintf('hydro/power_z%1.1f.dat',z)
+}
+
 #Columns for simulation power
 c=2
 L=4
@@ -80,30 +87,21 @@ hm_names="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
 owls_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
 }
 
+if(icomp==3){
+hm_names="''"
+owls_names="''"
+}
+
 #Set the comparison model
 if(!exists('nsim')){nsim=4}
 hm_name=word(hm_names,nsim)
-owls_name=word(owls_names,nsim)
 print 'Variable *nsim* '.nsim.''
 print 'Simuation name: '.hm_name.''
+if(icomp==1 || icomp==2){
+owls_name=word(owls_names,nsim)
 print 'Simuation file: '.owls_name.''
+}
 print ''
-
-print 'Example simulation file: ', data(owls_name,snap,thing0,thing0)
-print 'Example halo-model file: ', hmpk(hm_name,z,0,0)
-print ''
-
-#Set the files to compare against (DMONLY)
-if(icomp==1){owl0='DMONLY'}
-if(icomp==2){owl0='DMONLY_2fluid'}
-hm0=hmpk('DMONLY',z,0,0)
-
-#Snapshot
-#22: z=2.0
-#26: z=1.0
-#38: z=0.5
-#32: z=0.0
-#zs=32
 
 #All different fields
 thing0='all'
@@ -111,6 +109,15 @@ thing1='dm'
 thing2='gas'
 thing3='stars'
 thing6='pressure'
+
+if(icomp==1 || icomp==2){print 'Example simulation file: ', data(owls_name,snap,thing0,thing0)}
+print 'Example halo-model file: ', hmpk(hm_name,z,0,0)
+print ''
+
+#Set the files to compare against (DMONLY)
+if(icomp==1){owl0='DMONLY'; hm0=hmpk('DMONLY',z,0,0)}
+if(icomp==2){owl0='DMONLY_2fluid'; hm0=hmpk('DMONLY',z,0,0)}
+if(icomp==3){owl0=''; hm0=hmdm(z)}
 
 #Set colours
 col0=0
@@ -122,8 +129,8 @@ col5=5
 col6=6
 
 #k range
-kmin=1e-2
-kmax=1e1
+if(icomp==1 || icomp==2){kmin=1e-2; kmax=1e1}
+if(icomp==3){kmin=1e-2; kmax=1e2}
 set xlabel 'k / h Mpc^{-1}'
 set format x
 set log x
@@ -229,9 +236,16 @@ set format y
 set yrange [rmin:rmax]
 set ylabel 'P(k) / P_{DMONLY}(k)'
 
+if(icomp==1 || icomp==2){
 plot 1 w l lt -1 noti,\
      for [i=1:words(owls_names)] '<paste '.data(word(owls_names,i),snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 dt 1 lc i noti,\
+     for [i=1:words(hm_names)]   '<paste '.hmpk(word(hm_names,i),z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 lc i ti word(hm_names,i)
+}
+
+if(icomp==3){
+plot 1 w l lt -1 noti,\
      for [i=1:words(hm_names)] '<paste '.hmpk(word(hm_names,i),z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 lc i ti word(hm_names,i)
+}
 
 }
 

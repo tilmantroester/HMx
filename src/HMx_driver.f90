@@ -217,10 +217,10 @@ PROGRAM HMx_driver
         !Set the redshift
         nz=4
         ALLOCATE(z_tab(nz))
-        z_tab(1)=0.
+        z_tab(1)=0.0
         z_tab(2)=0.5
-        z_tab(3)=1.
-        z_tab(4)=2.
+        z_tab(3)=1.0
+        z_tab(4)=2.0
 
         !Simulation P(k) location
         infile='/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
@@ -236,8 +236,9 @@ PROGRAM HMx_driver
      DO iowl=1,n
 
         !Assigns the cosmological model
+        IF(imode==2)  icosmo=0
         IF(imode==15) icosmo=1
-        IF(imode==2 .OR. imode==16) icosmo=3
+        IF(imode==16) icosmo=3
         CALL assign_cosmology(icosmo,cosm)
 
         IF(imode==15 .AND. iowl==1) THEN
@@ -245,7 +246,7 @@ PROGRAM HMx_driver
            fname=name
            !From my fitting by eye
            cosm%alpha=2.
-           cosm%Dc=1.4
+           cosm%eps=1.
            cosm%Gamma=1.24
            cosm%M0=1e13
            cosm%Astar=0.055
@@ -254,7 +255,7 @@ PROGRAM HMx_driver
            fname=name
            !From my fitting by eye
            cosm%alpha=2.
-           cosm%Dc=0.8
+           cosm%eps=1.
            cosm%Gamma=1.1
            cosm%M0=0.
            cosm%Astar=0.
@@ -263,13 +264,13 @@ PROGRAM HMx_driver
            fname=name
            !From my fitting by eye
            !cosm%alpha=2.
-           !cosm%Dc=0.5
+           !cosm%eps=1.
            !cosm%Gamma=1.18
            !cosm%M0=8e13
            !cosm%Astar=0.0225
            !From Tilman's preliminary results
            cosm%alpha=0.52
-           cosm%Dc=0.
+           cosm%eps=1.
            cosm%Gamma=1.17
            cosm%M0=1.047e14
            cosm%Astar=0.02
@@ -277,13 +278,13 @@ PROGRAM HMx_driver
            name='AGN 8.5'
            fname='AGN8p5'
            !cosm%alpha=2.
-           !cosm%Dc=-0.5
+           !cosm%eps=-0.5
            !cosm%Gamma=1.26
            !cosm%M0=2d14
            !cosm%Astar=0.0175
            !From Tilman's preliminary results
            cosm%alpha=0.56
-           cosm%Dc=0.
+           cosm%eps=1.
            cosm%Gamma=1.19
            cosm%M0=3.548e14
            cosm%Astar=0.01
@@ -291,13 +292,13 @@ PROGRAM HMx_driver
            name='AGN 8.7'
            fname='AGN8p7'
            !cosm%alpha=2.
-           !cosm%Dc=-2.
+           !cosm%eps=-2.
            !cosm%Gamma=1.3
            !cosm%M0=1e15
            !cosm%Astar=0.015
            !From Tilman's preliminary results
            cosm%alpha=0.53
-           cosm%Dc=0.
+           cosm%eps=1.
            cosm%Gamma=1.21
            cosm%M0=7.586e14
            cosm%Astar=0.01
@@ -306,6 +307,18 @@ PROGRAM HMx_driver
         IF(imode==16 .AND. iowl==1) THEN
            name='AGN'
            fname='AGN'
+           !cosm%alpha=0.53
+           !cosm%eps=-0.71
+           !cosm%Gamma=1.22
+           !cosm%M0=10**13.7
+           !cosm%Astar=0.03
+           !cosm%whim=10**6
+           cosm%alpha=1.45
+           cosm%eps=1.
+           cosm%Gamma=1.35
+           cosm%M0=10**13.61
+           cosm%Astar=0.02
+           cosm%whim=10**5.77
         ELSE IF(imode==16 .AND. iowl==2) THEN
            name='AGN low'
            fname='AGN-lo'
@@ -329,10 +342,10 @@ PROGRAM HMx_driver
            CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
 
            !Runs the diagnostics
-           IF(imode==2) THEN           
+           IF(imode==2) THEN
               dir='diagnostics'
               CALL halo_diagnostics(z,lut,cosm,dir)
-              CALL halo_definitions(lut,dir)
+              CALL halo_definitions(z,lut,dir)
            END IF
 
            IF(imode==2) THEN
@@ -422,7 +435,7 @@ PROGRAM HMx_driver
         !Runs the diagnostics
         dir='diagnostics'
         CALL halo_diagnostics(z,lut,cosm,dir)
-        CALL halo_definitions(lut,dir)
+        CALL halo_definitions(z,lut,dir)
 
      END DO
 
@@ -476,7 +489,7 @@ PROGRAM HMx_driver
      !Runs the diagnostics
      dir='diagnostics'
      CALL halo_diagnostics(z,lut,cosm,dir)
-     CALL halo_definitions(lut,dir)
+     CALL halo_definitions(z,lut,dir)
 
      !File base and extension
      base='data/power_'
@@ -624,7 +637,7 @@ PROGRAM HMx_driver
         CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
         dir='diagnostics'
         CALL halo_diagnostics(z,lut,cosm,dir)
-        CALL halo_definitions(lut,dir)
+        CALL halo_definitions(z,lut,dir)
 
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
@@ -1216,10 +1229,10 @@ PROGRAM HMx_driver
            param_max=1.1
            ilog=.FALSE.
         ELSE IF(ipa==2) THEN
-           !Delta c - concentration change due to gas presence
-           param_min=-3.
-           param_max=3.
-           ilog=.FALSE.
+           !epsilon - concentration change due to gas presence
+           param_min=0.1
+           param_max=10.
+           ilog=.TRUE.
         ELSE IF(ipa==3) THEN
            !Gamma - KS polytropic index
            param_min=1.15
@@ -1247,14 +1260,13 @@ PROGRAM HMx_driver
 
            !Set the parameter value that is being varied
            IF(ilog) THEN
-              !param=exp(progression(log(param_min),log(param_max),i,m))
               param=progression_log(param_min,param_max,i,m)
            ELSE
               param=progression(param_min,param_max,i,m)
            END IF
 
            IF(ipa==1) cosm%alpha=param
-           IF(ipa==2) cosm%Dc=param
+           IF(ipa==2) cosm%eps=param
            IF(ipa==3) cosm%Gamma=param
            IF(ipa==4) cosm%M0=param
            IF(ipa==5) cosm%Astar=param

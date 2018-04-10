@@ -23,7 +23,7 @@ MODULE cosmology_functions
      !Varying baryon parameters
      !INTEGER :: np=5
      !REAL :: param(5), param_defaults(5), param_min(5), param_max(5)
-     REAL :: alpha, Dc, Gamma, M0, Astar, whim
+     REAL :: alpha, eps, Gamma, M0, Astar, whim
      !CHARACTER(len=256) :: param_names(5)
      !LOGICAL :: param_log(5)
   END TYPE cosmology
@@ -72,7 +72,7 @@ CONTAINS
 
     !Default values of baryon parameters
     cosm%alpha=0.52
-    cosm%Dc=0.
+    cosm%eps=1.
     cosm%Gamma=1.17
     cosm%M0=1e14
     cosm%Astar=0.02
@@ -472,7 +472,7 @@ CONTAINS
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%om
     WRITE(*,*) '===================================='
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Dc:', cosm%Dc
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
     IF(cosm%M0 .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
