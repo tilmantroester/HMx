@@ -622,11 +622,9 @@ CONTAINS
 
   SUBROUTINE fill_kernel(ix,proj,cosm)
 
-    !Fill the Compton-y look-up table
+    !Fill a table of kernel values
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
-    !REAL, ALLOCATABLE, INTENT(OUT) :: r_x(:), x(:)
-    !INTEGER, INTENT(OUT) :: nx
     TYPE(projection), INTENT(OUT) :: proj
     TYPE(cosmology), INTENT(IN) :: cosm
     INTEGER :: i
@@ -635,7 +633,7 @@ CONTAINS
     REAL, PARAMETER :: rmin=0. !Minimum r for table
     INTEGER, PARAMETER :: nx=128 !Entires in look-up table
 
-    proj%nx=nx 
+    proj%nx=nx
 
     !Get the distance range for the projection function
     !Use the same as that for the distance calculation
@@ -649,7 +647,7 @@ CONTAINS
     IF(ALLOCATED(proj%X)) DEALLOCATE(proj%X)
     ALLOCATE(proj%X(nX))
 
-    !Now fill the y-kernel (which is simply proportional to 'a')
+    !Now fill the kernels
     DO i=1,nX
        r=proj%r_x(i)
        IF(ix==2) THEN
@@ -673,17 +671,18 @@ CONTAINS
     REAL :: y_kernel
     REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(IN) :: cosm
-    !REAL :: z, a
+    REAL :: z, a
     REAL :: crap
 
-    !z=redshift_r(r,cosm)
-    !a=scale_factor_z(z)
+    z=redshift_r(r,cosm)
+    a=scale_factor_z(z)
 
     !To stop compile-time warnings
     crap=cosm%om_m
     crap=r 
 
     y_kernel=yfac*mpc !Convert some units; note that there is no factor of 'a'
+    y_kernel=y_kernel*a
     y_kernel=y_kernel*eV*cm**(-3) !Convert from eV cm^-3 to J m^-3
 
   END FUNCTION y_kernel

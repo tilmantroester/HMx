@@ -5,6 +5,9 @@ if(!exists('print')) {print=0}
 if(print==0) {set term aqua dashed}
 if(print==1) {set term post enh col dashed dl .5 font ',10'; set output 'pressure_power.eps'}
 
+#Initial white space
+print ''
+
 #Mesh size
 N=800
 

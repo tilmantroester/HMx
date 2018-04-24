@@ -45,6 +45,8 @@ PROGRAM HMx_driver
   !Sets the values for the variable baryon parameters
   !CALL init_HMx(cosm)
 
+  STOP 'Check assign cosmology always followed by initialise cosmology'
+
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
      imode=-1
@@ -262,12 +264,6 @@ PROGRAM HMx_driver
         ELSE IF(imode==15 .AND. iowl==3) THEN
            name='AGN'
            fname=name
-           !From my fitting by eye
-           !cosm%alpha=2.
-           !cosm%eps=1.
-           !cosm%Gamma=1.18
-           !cosm%M0=8e13
-           !cosm%Astar=0.0225
            !From Tilman's preliminary results
            cosm%alpha=0.52
            cosm%eps=1.
@@ -277,11 +273,6 @@ PROGRAM HMx_driver
         ELSE IF(imode==15 .AND. iowl==4) THEN
            name='AGN 8.5'
            fname='AGN8p5'
-           !cosm%alpha=2.
-           !cosm%eps=-0.5
-           !cosm%Gamma=1.26
-           !cosm%M0=2d14
-           !cosm%Astar=0.0175
            !From Tilman's preliminary results
            cosm%alpha=0.56
            cosm%eps=1.
@@ -291,11 +282,6 @@ PROGRAM HMx_driver
         ELSE IF(imode==15 .AND. iowl==5) THEN
            name='AGN 8.7'
            fname='AGN8p7'
-           !cosm%alpha=2.
-           !cosm%eps=-2.
-           !cosm%Gamma=1.3
-           !cosm%M0=1e15
-           !cosm%Astar=0.015
            !From Tilman's preliminary results
            cosm%alpha=0.53
            cosm%eps=1.
@@ -307,24 +293,30 @@ PROGRAM HMx_driver
         IF(imode==16 .AND. iowl==1) THEN
            name='AGN'
            fname='AGN'
-           !cosm%alpha=0.53
-           !cosm%eps=-0.71
-           !cosm%Gamma=1.22
-           !cosm%M0=10**13.7
-           !cosm%Astar=0.03
-           !cosm%whim=10**6
-           cosm%alpha=1.45
-           cosm%eps=1.
-           cosm%Gamma=1.35
-           cosm%M0=10**13.61
-           cosm%Astar=0.02
-           cosm%whim=10**5.77
+           cosm%alpha=0.485
+           cosm%eps=10**0.103
+           cosm%Gamma=1.212
+           cosm%M0=10**13.836
+           cosm%Astar=0.029
+           cosm%whim=10**6.346
         ELSE IF(imode==16 .AND. iowl==2) THEN
            name='AGN low'
            fname='AGN-lo'
+           cosm%alpha=0.441
+           cosm%eps=10**0.089
+           cosm%Gamma=1.198
+           cosm%M0=10**13.547
+           cosm%Astar=0.031
+           cosm%whim=10**6.35
         ELSE IF(imode==16 .AND. iowl==3) THEN
            name='AGN high'
            fname='AGN-hi'
+           cosm%alpha=0.553
+           cosm%eps=10**0.165
+           cosm%Gamma=1.232
+           cosm%M0=10**14.306
+           cosm%Astar=0.026
+           cosm%whim=10**6.398
         END IF
 
         IF(imode==15) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
@@ -1062,8 +1054,15 @@ PROGRAM HMx_driver
      dir='data'
 
      !Assigns the cosmological model
-     icosmo=0
+     icosmo=2
      CALL assign_cosmology(icosmo,cosm)
+     !cosm%alpha=0.485
+     cosm%alpha=2.
+     cosm%eps=10**0.103
+     cosm%Gamma=1.212
+     cosm%M0=10**13.836
+     cosm%Astar=0.029
+     cosm%whim=10**6.346
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      CALL initialise_cosmology(verbose,cosm)
