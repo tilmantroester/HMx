@@ -8,16 +8,20 @@ print 'Set variable *thing* to change what is plotted (radius, mass, concentrati
 if(!exists('thing')){thing='radius'}
 print 'thing: ', thing
 
+#Set the redshift
 z=0.
 
+#Radius stuff
 if(thing eq 'radius') {set title 'Radius'; file='diagnostics/radius_z0.0.dat'}
 if(thing eq 'radius') {vmin=5e-3; vmax=1e1; xlab='R_v / (h^{-1} Mpc)'; ylab='R_i / (h^{-1} Mpc)'; ylab2='R_i / R_v'; rmin=0.5; rmax=1.3}
 if(thing eq 'radius') {outfile='radius.eps'; set format x '10^{%T}'; set format y '10^{%T}'}
 
+#Mass stuff
 if(thing eq 'mass') {set title 'Mass'; file='diagnostics/mass_z0.0.dat'}
 if(thing eq 'mass') {vmin=1e8; vmax=1e17; xlab='M_v / (h^{-1} M_{sun})'; ylab='M_i / (h^{-1} M_{sun})'; ylab2='M_i / M_v'; rmin=0.5; rmax=1.2}
 if(thing eq 'mass') {outfile='mass.eps'; set format x '10^{%T}'; set format y '10^{%T}'}
 
+#Concentration stuff
 if(thing eq 'concentration') {set title 'Concentration'; file='diagnostics/concentration_z0.0.dat'}
 if(thing eq 'concentration') {vmin=2; vmax=50; xlab='c_v'; ylab='c_i'; ylab2='c_i / c_v'; rmin=0.5; rmax=1.3}
 if(thing eq 'concentration') {outfile='concentration.eps'; set format x; set format y}

@@ -71,12 +71,11 @@ MODULE HMx
      REAL, ALLOCATABLE :: c(:), rv(:), nu(:), sig(:), zc(:), m(:), rr(:), sigf(:)
      REAL, ALLOCATABLE :: r500(:), m500(:), c500(:), r200(:), m200(:), c200(:)
      REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
-     REAL, ALLOCATABLE :: log_m(:)
+     !REAL, ALLOCATABLE :: log_m(:)
      REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
      INTEGER :: ip2h!, ibias
      INTEGER :: n
-     !LOGICAL :: void !Do voids or not
   END TYPE tables
 
 CONTAINS
@@ -135,7 +134,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: nk, na, itype(2)
     !REAL, ALLOCATABLE, INTENT(INOUT) :: powa_lin(:,:) !Mead - commented out
     REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:), powa_lin(:,:) !Mead - added powa_lin here instead
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose
     REAL, INTENT(IN) :: mmin, mmax
     LOGICAL :: compute_p_lin
@@ -170,9 +169,8 @@ CONTAINS
     DO i=na,1,-1
        z=redshift_a(a(i))
        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose2)
-       !IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
        IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
-       IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z) !Mead - re-added verbose dependence
+       IF(verbose) WRITE(*,fmt='(A5,I5,F10.2)') 'HMx:', i, REAL(z)
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),lut,cosm,verbose2,compute_p_lin)
        verbose2=.FALSE.
     END DO
@@ -191,12 +189,12 @@ CONTAINS
     REAL, INTENT(IN) :: k(nk), z
     REAL, INTENT(INOUT) :: pow_lin(nk)
     REAL, INTENT(OUT) ::pow_2h(nk), pow_1h(nk), pow(nk)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     LOGICAL, OPTIONAL, INTENT(IN) :: compute_p_lin_arg
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
-    REAL :: plin
+    REAL :: plin, a
     LOGICAL :: compute_p_lin
 
     !Tilman added this for the CosmoSIS wrapper
@@ -215,6 +213,8 @@ CONTAINS
        WRITE(*,*) 'CALCULATE_HALOMOD: Calculating halo-model power spectrum'
     END IF
 
+    a=scale_factor_z(z)
+    
     !Loop over k values
     !ADD OMP support properly. What is private and what is shared? CHECK THIS!
 !!$OMP PARALLEL DO DEFAULT(SHARED), private(k,plin, pfull,p1h,p2h)
@@ -223,7 +223,7 @@ CONTAINS
        !Tilman added this for the CosmoSIS wrapper
        IF(compute_p_lin) THEN
           !Get the linear power
-          plin=p_lin(k(i),z,cosm)
+          plin=p_lin(k(i),a,cosm)
           pow_lin(i)=plin
        END IF
 
@@ -312,18 +312,9 @@ CONTAINS
     REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i, j
-    !CHARACTER(len=256) :: output!_2halo, output_1halo, output_full, output_lin, output
 
-    !output_lin=TRIM(base)//'_linear.dat'
-    !output_2halo=TRIM(base)//'_2halo.dat'
-    !output_1halo=TRIM(base)//'_1halo.dat'
-    !output_full=TRIM(base)//'_full.dat'
-
-    !Write out data to files
+    !Print to screen
     IF(verbose) THEN
-       !   WRITE(*,*) 'WRITE_POWER_A: Writing 2-halo power to ', TRIM(output_2halo)
-       !   WRITE(*,*) 'WRITE_POWER_A: Writing 1-halo power to ', TRIM(output_1halo)
-       !   WRITE(*,*) 'WRITE_POWER_A: Writing full power to ',   TRIM(output_full)
        WRITE(*,*) 'WRITE_POWER_A: The first entry of the file is hashes - #####'
        WRITE(*,*) 'WRITE_POWER_A: The remainder of the first row are the scale factors - a'
        WRITE(*,*) 'WRITE_POWER_A: The remainder of the first column are the wave numbers - k'
@@ -331,11 +322,7 @@ CONTAINS
        WRITE(*,*) 'WRITE_POWER_A: Output:', TRIM(output)
     END IF
 
-    !DO o=1,4
-    !   IF(o==1) output=output_lin
-    !   IF(o==2) output=output_2halo
-    !   IF(o==3) output=output_1halo
-    !   IF(o==4) output=output_full
+    !Write out data to files
     OPEN(7,file=output)
     DO i=0,nk
        IF(i==0) THEN
@@ -345,8 +332,8 @@ CONTAINS
        END IF
     END DO
     CLOSE(7)
-    !END DO
 
+    !Print to screen
     IF(verbose) THEN
        WRITE(*,*) 'WRITE_POWER_A: Done'
        WRITE(*,*)
@@ -358,7 +345,7 @@ CONTAINS
 
     !Writes out to file a whole set of halo diagnostics
     IMPLICIT NONE
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     REAL, INTENT(IN) :: z
     CHARACTER(len=256), INTENT(IN) :: dir
@@ -396,11 +383,6 @@ CONTAINS
        outfile=number_file(base,m,ext)
        WRITE(*,*) 'HALO_DIAGNOSTICS: ', TRIM(outfile)
        CALL write_halo_profiles(mass,z,lut,cosm,outfile)
-
-       !base=TRIM(dir)//'/halo_profile_m'
-       !ext='noh.dat'
-       !outfile=number_file(base,m,ext)
-       !CALL write_halo_profiles(cosm%h*mass,z,lut,cosm,outfile)
 
        base=TRIM(dir)//'/halo_window_m'
        outfile=number_file(base,m,ext)
@@ -463,12 +445,50 @@ CONTAINS
 
   END SUBROUTINE halo_definitions
 
+  SUBROUTINE halo_properties(z,lut,dir)
+
+    !Writes out to files the different halo definitions
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: z
+    TYPE(tables), INTENT(IN) :: lut
+    CHARACTER(len=256), INTENT(IN) :: dir
+    CHARACTER(len=256) :: output, ext
+    INTEGER :: i
+
+    WRITE(*,*) 'HALO_PROPERTIES: Outputting definitions'
+
+    IF(z==0.0) THEN
+       ext='_z0.0.dat'
+    ELSE IF(z==0.5) THEN
+       ext='_z0.5.dat'
+    ELSE IF(z==1.0) THEN
+       ext='_z1.0.dat'
+    ELSE IF(z==2.0) THEN
+       ext='_z2.0.dat'
+    ELSE
+       STOP 'HALO_PROPERTIES: Error, need to make this better with z'
+    END IF
+
+    output=TRIM(dir)//'/properies'//TRIM(ext)
+    WRITE(*,*) 'HALO_PROPERTIES: ', TRIM(output)
+
+    OPEN(7,file=output)
+    DO i=1,lut%n
+       WRITE(7,*) lut%m(i), lut%rr(i), lut%rv(i), lut%nu(i), lut%c(i),lut%sig(i), lut%sigf(i), lut%zc(i)
+    END DO
+    CLOSE(7)
+
+    WRITE(*,*) 'HALO_PROPERTIES: Done'
+    WRITE(*,*)
+
+  END SUBROUTINE halo_properties
+
   SUBROUTINE write_mass_fractions(cosm,outfile)
 
     !Writes out the halo mass fractions
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: outfile
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: m, mmin, mmax
     INTEGER :: i, j, n
 
@@ -490,7 +510,7 @@ CONTAINS
     !Writes out the halo density profiles
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: outfile
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, INTENT(IN) :: m, z
     TYPE(tables), INTENT(IN) :: lut
     REAL :: r, rv, rs, c
@@ -506,18 +526,18 @@ CONTAINS
     c=find(log(m),log(lut%m),lut%c,lut%n,3,3,2)
     rs=rv/c
 
-    !Max and min r/rv and number of points
-    !xmin=1d-3
-    !xmax=1d1
-    !n=201
+    WRITE(*,*) 'TWAT m:', m
+    WRITE(*,*) 'TWAT rv:', rv
+    WRITE(*,*) 'TWAT c:', c
+    WRITE(*,*) 'TWAT rs:', rs
+    WRITE(*,*) 'TWAT z:', z
 
+    !Write file
     OPEN(7,file=outfile)
     DO i=1,n
-       !x=exp(log(xmin)+log(xmax/xmin)*float(i-1)/float(n-1))
-       !r=x*rv
        r=exp(progression(log(rmin),log(rmax),i,n))
        r=r*rv
-       WRITE(7,*) r/rv, (win_type(rsp,j,1,r,z,m,rv,rs,lut,cosm)*rv**3, j=1,6)
+       WRITE(7,*) r/rv, (win_type(rsp,j,1,r,z,m,rv,rs,lut,cosm)*rv**3, j=1,6) !Q: Why rv**3 here? (probably r^2 dr in integral)
     END DO
     CLOSE(7)
 
@@ -528,13 +548,13 @@ CONTAINS
     !Writes out to file the Fourier transform of the halo density profiles
     IMPLICIT NONE
     CHARACTER(len=256), INTENT(IN) :: outfile
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, INTENT(IN) :: m, z
     TYPE(tables), INTENT(IN) :: lut
     REAL :: x, rv, c, rs, k, rhobar
     INTEGER :: i, j
 
-    REAL, PARAMETER :: xmin=1e-1 !Mininum r/rv
+    REAL, PARAMETER :: xmin=1e-1 !Minimum r/rv
     REAL, PARAMETER :: xmax=1e2 !Maximum r/rv
     INTEGER, PARAMETER :: n=512 !Number of points
     LOGICAL, PARAMETER :: rsp=.FALSE. !Fourier profiles
@@ -542,14 +562,14 @@ CONTAINS
     !Calculate halo attributes
     rv=exp(find(log(m),log(lut%m),log(lut%rv),lut%n,3,3,2))
     c=find(log(m),log(lut%m),lut%c,lut%n,3,3,2)
-    !c=2.*c !To mimic baryonic contraction, or some such bullshit
     rs=rv/c
 
+    !Need mean density
     rhobar=comoving_matter_density(cosm)    
 
+    !Write file
     OPEN(7,file=outfile)
     DO i=1,n
-       !x=exp(log(xmin)+log(xmax/xmin)*float(i-1)/float(n-1))
        x=exp(progression(log(xmin),log(xmax),i,n))
        k=x/rv
        WRITE(7,*) x, (win_type(rsp,j,1,k,z,m,rv,rs,lut,cosm)*rhobar/m, j=1,6)
@@ -558,67 +578,66 @@ CONTAINS
 
   END SUBROUTINE write_halo_transforms
 
-  FUNCTION delta_c(z,cosm)
+  FUNCTION delta_c(a,cosm)
 
     !Linear collapse density
     IMPLICIT NONE
     REAL :: delta_c
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(ihm==3 .OR. ihm==4) THEN
        !From Nakamura & Suto (1997)
-       delta_c=dc_NakamuraSuto(z,cosm)
+       delta_c=dc_NakamuraSuto(a,cosm)
     ELSE IF(ihm==2 .OR. ihm==5) THEN
        !Fixed value
        delta_c=1.686
     ELSE IF(ihm==1 .OR. ihm==6) THEN
        !From Mead et al. (2015)
-       delta_c=1.59+0.0314*log(sigma_cb(8.,z,cosm))
-       !delta_c=delta_c*(1.+0.0123*log10(omega_m(z,cosm)))
-       delta_c=delta_c*(dc_NakamuraSuto(z,cosm)/1.686)
+       delta_c=1.59+0.0314*log(sigma(8.,a,cosm))
+       delta_c=delta_c*(dc_NakamuraSuto(a,cosm)/dc0)
     ELSE
        STOP 'DELTA_C: Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION delta_c
 
-  FUNCTION Delta_v(z,cosm)
+  FUNCTION Delta_v(a,cosm)
 
     !Virialised overdensity
     IMPLICIT NONE
     REAL :: Delta_v
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
    
     IF(ihm==3 .OR. ihm==4) THEN
        !From Bryan & Norman (1998)
-       Delta_v=Dv_BryanNorman(z,cosm)
+       Delta_v=Dv_BryanNorman(a,cosm)
     ELSE IF(ihm==2 .OR. ihm==5) THEN
        !Fixed value
        Delta_v=200.
     ELSE IF(ihm==1 .OR. ihm==6) THEN
        !From Mead et al. (2015)
-       Delta_v=418.*(omega_m(z,cosm)**(-0.352))
+       Delta_v=418.*(Omega_m(a,cosm)**(-0.352))
     ELSE
        STOP 'DELTA_V: Error, ihm defined incorrectly'
     END IF
 
   END FUNCTION Delta_v
 
-  FUNCTION eta(z,cosm)
+  FUNCTION eta(a,cosm)
 
     !Calculates the eta that comes into the bastardised one-halo term
     IMPLICIT NONE
     REAL :: eta
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(ihm==2 .OR. ihm==3 .OR. ihm==4 .OR. ihm==5 .OR. ihm==6) THEN
        eta=0.
     ELSE IF(ihm==1) THEN
        !The first parameter here is 'eta_0' in Mead et al. (2015; arXiv 1505.07833)
-       eta=0.603-0.3*(sigma_cb(8.,z,cosm))
+       eta=0.603-0.3*(sigma(8.,a,cosm))
     ELSE
        STOP 'Error, ihm defined incorrectly'
     END IF
@@ -630,7 +649,7 @@ CONTAINS
     !Calculates the one-halo damping wave number
     IMPLICIT NONE
     REAL :: kstar
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     REAL :: crap
 
@@ -654,7 +673,7 @@ CONTAINS
     !Halo concentration pre-factor
     IMPLICIT NONE
     REAL :: As
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
 
     !To prevent compile-time warnings
@@ -672,25 +691,25 @@ CONTAINS
 
   END FUNCTION As
 
-  FUNCTION fdamp(z,lut,cosm)
+  FUNCTION fdamp(a,lut,cosm)
 
     !Calculates the linear-theory damping factor
     IMPLICIT NONE
     REAL ::fdamp
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
     REAL :: crap
 
     !To prevent compile-time warnings
     crap=cosm%A
-    crap=z
+    crap=a
 
     IF(ihm==2 .OR. ihm==3 .OR. ihm==5 .OR. ihm==4) THEN
        !Set to 0 for the standard linear theory two halo term
        fdamp=0.
     ELSE IF(ihm==1 .OR. ihm==6) THEN
-       !fdamp=0.188*sigma_cb(8.,z,cosm)**4.29
+       !fdamp=0.188*sigma(8.,a,cosm)**4.29
        fdamp=0.0095*lut%sigv100**1.37
        !Catches extreme values of fdamp that occur for ridiculous cosmologies
        IF(fdamp<1.e-3) fdamp=0.
@@ -707,7 +726,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: alpha_transition
     TYPE(tables), INTENT(IN) :: lut
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
 
     !To prevent compile-time warnings
@@ -733,25 +752,25 @@ CONTAINS
 
   END FUNCTION alpha_transition
 
-  SUBROUTINE print_halomodel_parameters(z,lut,cosm)
+  SUBROUTINE print_halomodel_parameters(a,lut,cosm)
 
     !This subroutine writes out the physical halo-model parameters at some redshift 
     !(e.g., Delta_v) rather than the model parameters
     IMPLICIT NONE
-    REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
 
     WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
     WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Halo-model parameters at your redshift'
     WRITE(*,*) '==========================='
-    WRITE(*,fmt='(A10,F10.5)') 'z:', z
-    WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(z,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'dc:', delta_c(z,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'eta:', eta(z,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'z:', redshift_a(a)
+    WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(a,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'dc:', delta_c(a,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'eta:', eta(a,cosm)
     WRITE(*,fmt='(A10,F10.5)') 'k*:', kstar(lut,cosm)
     WRITE(*,fmt='(A10,F10.5)') 'A:', As(cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(z,lut,cosm)
+    WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(a,lut,cosm)
     WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_transition(lut,cosm)
     WRITE(*,*) '==========================='
     WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Done'
@@ -823,8 +842,8 @@ CONTAINS
     lut%c200c=0.
 
     !Experimental log tables
-    ALLOCATE(lut%log_m(n))
-    lut%log_m=0.
+    !ALLOCATE(lut%log_m(n))
+    !lut%log_m=0.
 
   END SUBROUTINE allocate_LUT
 
@@ -843,7 +862,7 @@ CONTAINS
     !DEALLOCATE(lut%log_win,lut%log_k)
 
     !Deallocate experimental log tables
-    DEALLOCATE(lut%log_m)
+    !DEALLOCATE(lut%log_m)
 
   END SUBROUTINE deallocate_LUT
 
@@ -856,13 +875,16 @@ CONTAINS
     REAL, INTENT(IN) :: mmin, mmax
     LOGICAL, INTENT(IN) :: verbose
     TYPE(tables), INTENT(OUT) :: lut
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
-    REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc, frac
+    REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc, frac, a
     REAL, ALLOCATABLE :: integrand(:)
     
     INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
     REAL, PARAMETER :: large_nu=10. !Value for nu such that there are no haloes larger
+
+    !Get the scale factor
+    a=scale_factor_z(z)
 
     IF(verbose) THEN
        IF(ihm==1) THEN
@@ -897,13 +919,14 @@ CONTAINS
     !lut%void=.FALSE.
 
     !Find value of sigma_v
-    lut%sigv=sqrt(dispint(0.,z,acc,cosm)/3.)
-    lut%sigv100=sqrt(dispint(100.,z,acc,cosm)/3.)
-    lut%sig8z=sigma(8.,z,cosm)
+    lut%sigv=sqrt(sigmaV(0.,a,cosm)/3.)
+    lut%sigv100=sqrt(sigmaV(100.,a,cosm)/3.)
+    lut%sig8z=sigma(8.,a,cosm)
 
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: Filling look-up tables'
        WRITE(*,*) 'HALOMOD_INIT: tables being filled at redshift:', REAL(z)
+       WRITE(*,*) 'HALOMOD_INIT: tables being filled at scale-factor:', REAL(a)
        WRITE(*,*) 'HALOMOD_INIT: sigv [Mpc/h]:', REAL(lut%sigv)
        WRITE(*,*) 'HALOMOD_INIT: sigv100 [Mpc/h]:', REAL(lut%sigv100)
        WRITE(*,*) 'HALOMOD_INIT: sig8(z):', REAL(lut%sig8z)
@@ -914,14 +937,15 @@ CONTAINS
 
     CALL allocate_LUT(lut,n)
 
-    dc=delta_c(z,cosm)
+    
+    dc=delta_c(a,cosm)
 
     DO i=1,n
 
        !m=exp(log(mmin)+log(mmax/mmin)*float(i-1)/float(n-1))
        m=exp(progression(log(mmin),log(mmax),i,n))
        r=radius_m(m,cosm)
-       sig=sigma_cb(r,z,cosm)
+       sig=sigma(r,a,cosm)
        nu=dc/sig
 
        lut%m(i)=m
@@ -937,12 +961,12 @@ CONTAINS
     !This is the f=0.01 parameter in the Bullock realtion sigma(fM,z)
     f=0.01**(1./3.)
     DO i=1,lut%n
-       lut%sigf(i)=sigma_cb(lut%rr(i)*f,z,cosm)
+       lut%sigf(i)=sigma(lut%rr(i)*f,a,cosm)
     END DO
     IF(verbose) WRITE(*,*) 'HALOMOD_INIT: sigf tables filled'  
 
     !Fill virial radius table using real radius table
-    Dv=Delta_v(z,cosm)
+    Dv=Delta_v(a,cosm)
     lut%rv=lut%rr/(Dv**(1./3.))
 
     IF(verbose) THEN
@@ -986,14 +1010,14 @@ CONTAINS
 
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: non-linear mass [log10(M*/[Msun/h])]:', REAL(log10(lut%mnl))
-       WRITE(*,*) 'HALOMOD_INIT: non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(lut%mnl,z,cosm))
+       WRITE(*,*) 'HALOMOD_INIT: non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(lut%mnl,a,cosm))
        WRITE(*,*) 'HALOMOD_INIT: non-linear Lagrangian radius [Mpc/h]:', REAL(lut%rnl)
        WRITE(*,*) 'HALOMOD_INIT: non-linear wavenumber [h/Mpc]:', REAL(lut%knl)
     END IF
 
     lut%neff=effective_index(lut,cosm)
 
-    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: n_eff:', REAL(lut%neff)
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: Collapse n_eff:', REAL(lut%neff)
 
     CALL fill_halo_concentration(z,cosm,lut)
     !CALL fill_conc_Bullock(z,cosm,lut)
@@ -1013,7 +1037,7 @@ CONTAINS
     END IF
 
     rhom=comoving_matter_density(cosm)
-    rhoc=comoving_critical_density(z,cosm)
+    rhoc=comoving_critical_density(a,cosm)
 
     !Calculate Delta = 200, 500 and Delta_c = 200, 500 quantities
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,1.,lut%r500,lut%c500,lut%m500,500.,1.,lut%n)
@@ -1021,7 +1045,7 @@ CONTAINS
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r500c,lut%c500c,lut%m500c,500.,rhoc,lut%n)
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,rhom,lut%r200c,lut%c200c,lut%m200c,200.,rhoc,lut%n)
 
-    IF(verbose) CALL print_halomodel_parameters(z,lut,cosm)
+    IF(verbose) CALL print_halomodel_parameters(a,lut,cosm)
 
     !IF(verbose) verbose=.FALSE.
 
@@ -1033,7 +1057,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: one_halo_amplitude
     TYPE(tables), INTENT(IN) :: lut
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: integrand(lut%n), g, m
     INTEGER :: i
 
@@ -1125,21 +1149,21 @@ CONTAINS
     IMPLICIT NONE
     REAL :: radius_m
     REAL, INTENT(IN) :: m
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     radius_m=(3.*m/(4.*pi*comoving_matter_density(cosm)))**(1./3.)
 
   END FUNCTION radius_m
 
-  FUNCTION virial_radius(m,z,cosm)
+  FUNCTION virial_radius(m,a,cosm)
 
     !The comoving halo virial radius 
     IMPLICIT NONE
     REAL :: virial_radius
-    REAL, INTENT(IN) :: m, z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL, INTENT(IN) :: m, a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    virial_radius=(3.*m/(4.*pi*comoving_matter_density(cosm)*Delta_v(z,cosm)))**(1./3.)
+    virial_radius=(3.*m/(4.*pi*comoving_matter_density(cosm)*Delta_v(a,cosm)))**(1./3.)
 
   END FUNCTION virial_radius
 
@@ -1165,11 +1189,13 @@ CONTAINS
 
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(INOUT) :: lut
     TYPE(cosmology) :: cosm_lcdm
-    REAL :: mstar, zinf, ainf, g_lcdm, g_wcdm, m, zf
+    REAL :: mstar, ainf, g_lcdm, g_wcdm, m, zf
     INTEGER :: i
+
+    REAL, PARAMETER :: zinf=10. !The redshift considered to be infinite
 
     !iconc = 1: Full Bullock et al. (2001)
     !iconc = 2: Simple Bullock et al. (2001)
@@ -1179,7 +1205,7 @@ CONTAINS
     !Any initialisation for the c(M) relation goes here
     IF(iconc==1) THEN
        !Fill the collapse z look-up table
-       CALL zcoll_bull(z,cosm,lut)
+       CALL zcoll_Bullock(z,cosm,lut)
     ELSE IF(iconc==2) THEN
        mstar=lut%mnl
     END IF
@@ -1208,12 +1234,11 @@ CONTAINS
     !Dolag2004 prescription for adding DE dependence
     IF(ihm==1 .OR. ihm==6) THEN
 
-       !The redshift considered to be infinite
-       zinf=10.
+       !The 'infinite' scale factor
        ainf=scale_factor_z(zinf)
 
        !Save the growth function in the current cosmology
-       g_wcdm=grow(zinf,cosm)
+       g_wcdm=grow(ainf,cosm)
 
        !Make a LCDM cosmology
        cosm_lcdm=cosm
@@ -1224,7 +1249,7 @@ CONTAINS
        cosm_lcdm%om_v=1.-cosm%om_m !Added this so that 'making a LCDM cosmology' works for curved models.
 
        !Needs to use grow_int explicitly in case tabulated values are stored
-       g_lcdm=growint(ainf,acc,cosm_lcdm)
+       g_lcdm=growint(ainf,cosm_lcdm,acc)
 
        !Changed this to a power of 1.5, which produces more accurate results for extreme DE
        lut%c=lut%c*((g_wcdm/g_lcdm)**1.5)
@@ -1238,7 +1263,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: conc_Bullock
     REAL, INTENT(IN) :: z, zf
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: A
 
     A=As(cosm)
@@ -1247,12 +1272,12 @@ CONTAINS
 
   END FUNCTION conc_Bullock
 
-  SUBROUTINE zcoll_bull(z,cosm,lut)
+  SUBROUTINE zcoll_Bullock(z,cosm,lut)
 
     !This fills up the halo collapse redshift table as per Bullock relations   
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(INOUT) :: lut
     REAL :: dc
     REAL :: af, zf, RHS, a, growz
@@ -1268,21 +1293,20 @@ CONTAINS
     !Do numerical inversion
     DO i=1,lut%n
 
-       !I don't think this is really consistent with dc varying as a function of z
-       !But the change will be very small
-       dc=delta_c(z,cosm)
-
-       RHS=dc*grow(z,cosm)/lut%sigf(i)
-
-       !a=1./(1.+z)
        a=scale_factor_z(z)
+
+       !I don't think this is really consistent with dc varying as a function of z
+       !but the change will *probably* be very small
+       dc=delta_c(a,cosm)
+
+       RHS=dc*grow(a,cosm)/lut%sigf(i)
+       
        growz=find(a,af_tab,grow_tab,cosm%ng,3,3,2)
 
        IF(RHS>growz) THEN
           zf=z
        ELSE
           af=find(RHS,grow_tab,af_tab,cosm%ng,3,3,2)
-          !zf=-1.+1./af
           zf=redshift_a(af)
        END IF
 
@@ -1292,7 +1316,7 @@ CONTAINS
 
     DEALLOCATE(af_tab,grow_tab)
 
-  END SUBROUTINE zcoll_bull
+  END SUBROUTINE zcoll_Bullock
 
   FUNCTION conc_Bullock_simple(m,mstar)
 
@@ -1358,12 +1382,15 @@ CONTAINS
     REAL, INTENT(OUT) :: p1h, p2h, pfull
     REAL, INTENT(IN) :: plin, k, z
     INTEGER, INTENT(IN) :: ih1, ih2
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
-    REAL :: alp, et, nu
+    REAL :: alp, et, nu, a
     REAL :: wk(2,lut%n), m, rv, rs
     INTEGER :: i, j, ih(2)
 
+    !Get the scale factor
+    a=scale_factor_z(z)
+    
     !Initially fill this small array 
     ih(1)=ih1
     ih(2)=ih2
@@ -1393,7 +1420,7 @@ CONTAINS
     ELSE
 
        !Get eta
-       et=eta(z,cosm)
+       et=eta(a,cosm)
 
        !Calculate the halo window functions
        DO j=1,2
@@ -1458,17 +1485,20 @@ CONTAINS
     REAL :: p_2h    
     TYPE(tables), INTENT(IN) :: lut
     REAL, INTENT(IN) :: k, z, plin, wk(2,lut%n)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(IN) :: ih(2)
-    REAL :: sigv, frac, rhom
+    REAL :: sigv, frac, rhom, a
     REAL :: nu, m, m0, wki(2)
     REAL :: integrand1(2,lut%n), integrand2(2,lut%n)
     REAL :: sum1(2), sum2(2)
     INTEGER :: i, j
 
+    !Get the scale factor
+    a=scale_factor_z(z)
+
     rhom=comoving_matter_density(cosm)
 
-    IF(ihm==1) THEN
+    IF(ihm==1 .OR. ihm==2) THEN
 
        p_2h=plin
 
@@ -1545,7 +1575,7 @@ CONTAINS
 
     !Two-halo damping parameters
     sigv=lut%sigv
-    frac=fdamp(z,lut,cosm)
+    frac=fdamp(a,lut,cosm)
 
     !Apply the damping to the two-halo term
     IF(frac==0.) THEN
@@ -1566,10 +1596,13 @@ CONTAINS
     REAL :: p_1h    
     TYPE(tables), INTENT(IN) :: lut
     REAL, INTENT(IN) :: k, z, wk(2,lut%n)
-    TYPE(cosmology), INTENT(IN) :: cosm
-    REAL :: m, g, fac, ks
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: m, g, fac, ks, a
     REAL, ALLOCATABLE :: integrand(:)
     INTEGER :: i
+
+    !Get the scale factor
+    a=scale_factor_z(z)
 
     ALLOCATE(integrand(lut%n))
     integrand=0.
@@ -1620,7 +1653,7 @@ CONTAINS
     REAL :: p_1v
     REAL, INTENT(IN) :: k
     TYPE(tables), INTENT(IN) :: lut
-    !TYPE(cosmology), INTENT(IN) :: cosm
+    !TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: dc, wk, V, rvoid, rcomp, nu
     REAL :: integrand(lut%n)
     INTEGER :: i, n
@@ -1689,7 +1722,7 @@ CONTAINS
     REAL, INTENT(IN) :: k, z, m, rv, rs
     INTEGER, INTENT(IN) :: itype, ipnh
     LOGICAL, INTENT(IN) :: real_space
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
 
     IF(itype==-1) THEN
@@ -1744,7 +1777,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: real_space
     INTEGER, INTENT(IN) :: ipnh
     REAL, INTENT(IN) :: k, z, rv, rs, m
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     win_total=win_CDM(real_space,k,z,m,rv,rs,cosm)+win_gas(real_space,ipnh,k,z,m,rv,rs,cosm)+win_star(real_space,k,z,m,rv,rs,cosm)
 
@@ -1756,7 +1789,7 @@ CONTAINS
     REAL :: win_DMONLY
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
 
@@ -1799,7 +1832,7 @@ CONTAINS
     REAL :: win_CDM
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: rss, eps, r, rmin, rmax, c
 
@@ -1845,7 +1878,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: real_space
     INTEGER, INTENT(IN) :: ipnh
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     win_gas=win_boundgas(real_space,1,k,z,m,rv,rs,cosm)+win_freegas(real_space,1,ipnh,k,z,m,rv,rs,cosm)
 
@@ -1857,7 +1890,7 @@ CONTAINS
     REAL :: win_star
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: rstar, r, rmin, rmax, p1, p2
     REAL :: crap
@@ -1918,7 +1951,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: real_space
     INTEGER, INTENT(IN) :: itype
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: rho0, T0, r, gamma
     REAL :: rmin, rmax, p1, p2
     INTEGER :: irho_density, irho_pressure
@@ -2003,7 +2036,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: real_space
     INTEGER, INTENT(IN) :: itype, ipnh
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: re, rmin, rmax, r, A, gamma, rho0, rhov, T0, p1, p2, beta, c, thing, m0
     INTEGER :: irho_density, irho_pressure
     LOGICAL :: match_pressure
@@ -2242,7 +2275,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: real_space
     INTEGER, INTENT(IN) :: ipnh
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut
 
     IF(use_UPP) THEN
@@ -2261,7 +2294,7 @@ CONTAINS
     REAL :: win_void
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
 
@@ -2295,7 +2328,7 @@ CONTAINS
     REAL:: win_compensated_void
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
 
@@ -2329,7 +2362,7 @@ CONTAINS
     REAL :: win_centrals
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
 
@@ -2358,7 +2391,7 @@ CONTAINS
     REAL :: win_satellites
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
 
@@ -2387,7 +2420,7 @@ CONTAINS
     REAL :: win_galaxies
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     win_galaxies=win_centrals(real_space,k,z,m,rv,rs,cosm)+win_satellites(real_space,k,z,m,rv,rs,cosm)
     
@@ -2447,7 +2480,7 @@ CONTAINS
     REAL :: UPP
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k, z, m, rv, rs
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(tables), INTENT(IN) :: lut  
     REAL :: r500c, rmin, rmax, a, r, alphap, b, m500c, E
 
@@ -2482,7 +2515,7 @@ CONTAINS
     m500c=m500c*(1.-b)
 
     !Dimensionless Hubble
-    E=sqrt(Hubble2(z,cosm))
+    E=sqrt(Hubble2(a,cosm))
 
     !WRITE(*,*) 'M [Msun/h]:', REAL(m)
     !WRITE(*,*) 'M500c [Msun/h]:', REAL(m500c)
@@ -2881,7 +2914,6 @@ CONTAINS
              END IF
 
              !Now get r and do the function evaluations
-             !r=a+(b-a)*DBLE(i-1)/DBLE(n-1)
              r=progression(a,b,i,n)
              sum=sum+weight*winint_integrand(r,rmin,rmax,rv,rs,p1,p2,irho)*sinc(r*k)
 
@@ -3550,7 +3582,7 @@ CONTAINS
     REAL :: halo_CDM_fraction
     REAL, INTENT(IN) :: m
     REAL :: crap
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     !To prevent compile-time warning
     crap=m
@@ -3566,7 +3598,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: halo_gas_fraction
     REAL, INTENT(IN) :: m
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     halo_gas_fraction=halo_boundgas_fraction(m,cosm)+halo_freegas_fraction(m,cosm)
 
@@ -3578,7 +3610,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: halo_star_fraction
     REAL, INTENT(IN) :: m
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: m0, sigma, A, min
 
     !Set the model
@@ -3617,7 +3649,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: halo_freegas_fraction
     REAL, INTENT(IN) :: m
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     !This is always all the gas that is not bound or in stars
     halo_freegas_fraction=cosm%om_b/cosm%om_m-halo_star_fraction(m,cosm)-halo_boundgas_fraction(m,cosm)
@@ -3631,7 +3663,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: halo_boundgas_fraction
     REAL, INTENT(IN) :: m
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: m0, sigma, beta
 
     !Set the model

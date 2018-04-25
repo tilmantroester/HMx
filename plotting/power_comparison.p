@@ -21,16 +21,16 @@ set yrange [pmin:pmax]
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 
-#com='power_HMcode_Mead.txt'
-com='power_HMcode_standard.txt'
+#File to compare against
+if(!exists('com')){com='power_HMcode_standard.txt'}
 
 new='data/power_full.dat'
 p1h='data/power_1halo.dat'
 p2h='data/power_2halo.dat'
 
 print ''
-print 'Comparing power_full.dat to ', com
-print 'Remember to set variable *com* as comparison'
+print 'Comparing power_full.dat to: ', com
+print 'Set variable *com* as comparison file'
 print ''
 
 set key top left

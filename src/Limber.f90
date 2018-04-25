@@ -95,7 +95,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: nl
     REAL, INTENT(IN) :: ell(nl), mmin, mmax
     REAL, INTENT(OUT) :: Cell(nl)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, ALLOCATABLE :: a(:), k(:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa(:,:)
     !TYPE(tables) :: lut
     !TYPE(lensing) :: lens
@@ -179,7 +179,7 @@ CONTAINS
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix(2)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(projection) :: proj(2)
     INTEGER :: nk, i
 
@@ -206,7 +206,7 @@ CONTAINS
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(projection), INTENT(OUT) :: proj
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(lensing) :: lens
 
     IF(ix==2 .OR. ix==10) THEN
@@ -227,7 +227,7 @@ CONTAINS
     REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
     REAL, INTENT(IN) :: r1, r2
     TYPE(projection), INTENT(IN) :: proj(2)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j
 
@@ -274,7 +274,7 @@ CONTAINS
     REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
     REAL, INTENT(IN) :: r1, r2
     TYPE(projection), INTENT(IN) :: proj(2)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j, l
     CHARACTER(len=256) :: fbase, fext, outfile
@@ -400,7 +400,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: maxdist
     TYPE(projection), INTENT(IN) :: proj(2)
-    !TYPE(cosmology), INTENT(IN) :: cosm
+    !TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: rmax1, rmax2
 
     REAL, PARAMETER :: dr=0.01
@@ -418,7 +418,7 @@ CONTAINS
 
     IMPLICIT NONE
     TYPE(projection), INTENT(IN) :: proj(2)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     CHARACTER(len=256) :: output
 
     output=TRIM('projection/kernel1.dat')
@@ -433,7 +433,7 @@ CONTAINS
 
     IMPLICIT NONE
     TYPE(projection), INTENT(IN) :: proj
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     CHARACTER(len=256), INTENT(IN) :: output
     INTEGER :: i
     REAL :: r, z
@@ -462,7 +462,7 @@ CONTAINS
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(lensing) :: lens
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(projection), INTENT(OUT) :: proj
     REAL :: zmin, zmax, rmax, r
     CHARACTER(len=256) :: output
@@ -488,7 +488,7 @@ CONTAINS
     END IF
 
     !Get the distance range for the lensing kernel
-    rmax=cosmic_distance(zmax,cosm)
+    rmax=comoving_distance(zmax,cosm)
     WRITE(*,*) 'FILL_LENSING_KERNEL: minimum r [Mpc/h]:', REAL(rmin)
     WRITE(*,*) 'FILL_LENSING_KERNEL: maximum r [Mpc/h]:', REAL(rmax)
     WRITE(*,*) 'FILL_LENSING_KERNEL: minimum z:', REAL(zmin)
@@ -528,7 +528,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ix
     REAL, INTENT(IN) :: rmin, rmax, zmax
     TYPE(lensing), INTENT(INOUT) :: lens
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: r, z
     INTEGER :: i
 
@@ -579,7 +579,7 @@ CONTAINS
     !Write lensing efficiency q(r) function to a file
     IMPLICIT NONE
     TYPE(lensing), INTENT(INOUT) :: lens
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     CHARACTER(len=256), INTENT(IN) :: output
     REAL :: r, z, q
     INTEGER :: i
@@ -605,7 +605,7 @@ CONTAINS
     REAL :: lensing_kernel
     REAL, INTENT(IN) :: r
     TYPE(lensing) :: lens
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: z, q
 
     !Get z(r)
@@ -626,7 +626,7 @@ CONTAINS
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(projection), INTENT(OUT) :: proj
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
     REAL :: rmax, r
 
@@ -670,7 +670,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: y_kernel
     REAL, INTENT(IN) :: r
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: z, a
     REAL :: crap
 
@@ -693,7 +693,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: gravity_kernel
     REAL, INTENT(IN) :: r
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
 
     REAL, PARAMETER :: A=1.
@@ -864,7 +864,7 @@ CONTAINS
     REAL :: integrate_q
     REAL, INTENT(IN) :: a, b, r, acc
     INTEGER, INTENT(IN) :: iorder
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(lensing), INTENT(IN) :: lens
     INTEGER :: i, j
     INTEGER :: n
@@ -958,7 +958,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: q_integrand
     REAL, INTENT(IN) :: r, z
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(lensing), INTENT(IN) :: lens
     REAL :: rdash, nz
 
@@ -967,7 +967,7 @@ CONTAINS
     ELSE
        !Find the r'(z) variable that is integrated over
        !rdash=find(z,cosm%z_r,cosm%r,cosm%nr,3,3,2)
-       rdash=cosmic_distance(z,cosm)
+       rdash=comoving_distance(z,cosm)
        !Find the n(z)
        nz=find(z,lens%z_nz,lens%nz,lens%nnz,3,3,2)
        !This is then the integrand
@@ -988,7 +988,7 @@ CONTAINS
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
     TYPE(projection), INTENT(IN) :: proj(2)
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i, j
     INTEGER :: n
     REAL :: x, dx
@@ -1083,7 +1083,7 @@ CONTAINS
     REAL, INTENT(IN) :: r, l
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(projection), INTENT(IN) :: proj(2)
     REAL :: z, a, k, X(2)
     INTEGER :: i
@@ -1109,30 +1109,28 @@ CONTAINS
 
        !Construct the integrand
        Limber_integrand=X(1)*X(2)*find_pka(k,a,logktab,logatab,logptab,nk,na)/f_k(r,cosm)**2
-       !Limber_integrand=x1*x2/f_k(r,cosm)**2 !Note that this is very hard to integrate for kappa-y or y-y
-       !Limber_integrand=find_pkz(k,z,logktab,ztab,logptab,nk,nz)/f_k(r,cosm)
 
     END IF
 
   END FUNCTION Limber_integrand
 
-  SUBROUTINE Limber_contribution(l,a,b,logktab,logatab,logptab,nk,na,proj,cosm,outfile)
+  SUBROUTINE Limber_contribution(l,r1,r2,logktab,logatab,logptab,nk,na,proj,cosm,outfile)
 
     USE array_operations
     IMPLICIT NONE
-    REAL, INTENT(IN) :: l, a, b
+    REAL, INTENT(IN) :: l, r1, r2
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
     INTEGER, INTENT(IN) :: nk, na
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(projection), INTENT(IN) :: proj(2)
     CHARACTER(len=256), INTENT(IN) :: outfile
-    REAL :: k, r, z, total, int
+    REAL :: k, r, z, total, int, a
     INTEGER :: i
 
     INTEGER, PARAMETER  :: n=1024 !Number of samples to take in r
 
     !Calculate the integral for this value of ell
-    total=integrate_Limber(l,a,b,logktab,logatab,logptab,nk,na,acc_Limber,3,proj,cosm)
+    total=integrate_Limber(l,r1,r2,logktab,logatab,logptab,nk,na,acc_Limber,3,proj,cosm)
 
     !Now split up the contributions
     !You need the Jacobian and to remember that the contribution is split in ln(k), ln(z) and ln(R)
@@ -1142,16 +1140,16 @@ CONTAINS
     !r - r
     OPEN(7,file=TRIM(outfile))
     DO i=1,n
-       !r=a+(b-a)*DBLE(i-1)/DBLE(n-1)
-       r=progression(a,b,i,n)
+       r=progression(r1,r2,i,n)
        IF(r==0.) THEN
           CYCLE
        ELSE
           k=(l+lcorr)/f_k(r,cosm)
           !z=find(r,cosm%r,cosm%z_r,cosm%nr,3,3,2)
           z=redshift_r(r,cosm)
+          a=scale_factor_z(z)
           int=Limber_integrand(r,l,logktab,logatab,logptab,nk,na,proj,cosm)
-          WRITE(7,*) k, int*f_k(r,cosm)/(fdash_k(r,cosm)*total), z, int*z/(sqrt(Hubble2(z,cosm))*total), r, int*r/total
+          WRITE(7,*) k, int*f_k(r,cosm)/(fdash_k(r,cosm)*total), z, int*z/(sqrt(Hubble2(a,cosm))*total), r, int*r/total
        END IF
     END DO
     CLOSE(7)
