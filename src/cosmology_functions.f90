@@ -487,7 +487,9 @@ CONTAINS
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose
-    REAL :: sigi    
+    REAL :: sigi
+
+    REAL, PARAMETER :: neff=3.046
     
     !cosm%name = ''
     !Derived cosmological parameters

@@ -45,8 +45,6 @@ PROGRAM HMx_driver
   !Sets the values for the variable baryon parameters
   !CALL init_HMx(cosm)
 
-  STOP 'Check assign cosmology always followed by initialise cosmology'
-
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
      imode=-1
