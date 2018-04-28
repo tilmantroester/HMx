@@ -62,7 +62,7 @@ CONTAINS
     DO i=1,2
 
        IF(ix(i)==-1) THEN
-          WRITE(*,fmt='(A20,I3)') 'SET_XCORR_TYPE: Choose field: ', i
+          WRITE(*,fmt='(A30,I3)') 'SET_XCORR_TYPE: Choose field: ', i
           WRITE(*,*) '========================='
           DO j=1,10
              WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
@@ -464,7 +464,7 @@ CONTAINS
     TYPE(lensing) :: lens
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(projection), INTENT(OUT) :: proj
-    REAL :: zmin, zmax, rmax, r
+    REAL :: zmin, zmax, rmax, amax, r
     CHARACTER(len=256) :: output
     INTEGER :: i
 
@@ -488,7 +488,8 @@ CONTAINS
     END IF
 
     !Get the distance range for the lensing kernel
-    rmax=comoving_distance(zmax,cosm)
+    amax=scale_factor_z(zmax)
+    rmax=comoving_distance(amax,cosm)
     WRITE(*,*) 'FILL_LENSING_KERNEL: minimum r [Mpc/h]:', REAL(rmin)
     WRITE(*,*) 'FILL_LENSING_KERNEL: maximum r [Mpc/h]:', REAL(rmax)
     WRITE(*,*) 'FILL_LENSING_KERNEL: minimum z:', REAL(zmin)
@@ -541,7 +542,7 @@ CONTAINS
     IF(ALLOCATED(lens%q)) DEALLOCATE(lens%q)
     ALLOCATE(lens%q(lens%nq))
 
-    DO i=1,lens%nq
+    DO i=1,lens%nq       
        r=lens%r_q(i)
        z=redshift_r(r,cosm)
        IF(r==0.) THEN
@@ -616,7 +617,7 @@ CONTAINS
 
     !This is then the projection kernel (X_kappa)
     lensing_kernel=(1.+z)*f_k(r,cosm)*q
-    lensing_kernel=lensing_kernel*1.5*cosm%om_m/(conH0**2)
+    lensing_kernel=lensing_kernel*1.5*cosm%om_m/(Hdist**2)
 
   END FUNCTION lensing_kernel
 
@@ -960,14 +961,16 @@ CONTAINS
     REAL, INTENT(IN) :: r, z
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(lensing), INTENT(IN) :: lens
-    REAL :: rdash, nz
+    REAL :: rdash, nz, a
+
+    a=scale_factor_z(z)
 
     IF(z==0.) THEN
        q_integrand=0.
     ELSE
        !Find the r'(z) variable that is integrated over
-       !rdash=find(z,cosm%z_r,cosm%r,cosm%nr,3,3,2)
-       rdash=comoving_distance(z,cosm)
+       !rdash=find(z,cosm%z_r,cosm%r,cosm%nr,3,3,2)       
+       rdash=comoving_distance(a,cosm)
        !Find the n(z)
        nz=find(z,lens%z_nz,lens%nz,lens%nnz,3,3,2)
        !This is then the integrand

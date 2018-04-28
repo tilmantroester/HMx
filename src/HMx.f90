@@ -52,7 +52,7 @@ MODULE HMx
   !2 - Simple Bullock et al. (2001; astro-ph/9909159)
   !3 - Duffy et al. (2008; 0804.2486): mean
   !4 - Duffy et al. (2008; 0804.2486): virial
-  INTEGER, PARAMETER :: iconc=4
+  INTEGER, PARAMETER :: iconc=1
 
   !Do voids?
   LOGICAL, PARAMETER :: voids=.FALSE.
@@ -526,18 +526,18 @@ CONTAINS
     c=find(log(m),log(lut%m),lut%c,lut%n,3,3,2)
     rs=rv/c
 
-    WRITE(*,*) 'TWAT m:', m
-    WRITE(*,*) 'TWAT rv:', rv
-    WRITE(*,*) 'TWAT c:', c
-    WRITE(*,*) 'TWAT rs:', rs
-    WRITE(*,*) 'TWAT z:', z
+    !WRITE(*,*) 'TWAT m:', m
+    !WRITE(*,*) 'TWAT rv:', rv
+    !WRITE(*,*) 'TWAT c:', c
+    !WRITE(*,*) 'TWAT rs:', rs
+    !WRITE(*,*) 'TWAT z:', z
 
     !Write file
     OPEN(7,file=outfile)
     DO i=1,n
        r=exp(progression(log(rmin),log(rmax),i,n))
        r=r*rv
-       WRITE(7,*) r/rv, (win_type(rsp,j,1,r,z,m,rv,rs,lut,cosm)*rv**3, j=1,6) !Q: Why rv**3 here? (probably r^2 dr in integral)
+       WRITE(7,*) r/rv, (win_type(rsp,j,1,r,z,m,rv,rs,lut,cosm)*rv**3, j=1,6) !rv**3 here is from r^2 dr in integral
     END DO
     CLOSE(7)
 
@@ -925,11 +925,11 @@ CONTAINS
 
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: Filling look-up tables'
-       WRITE(*,*) 'HALOMOD_INIT: tables being filled at redshift:', REAL(z)
-       WRITE(*,*) 'HALOMOD_INIT: tables being filled at scale-factor:', REAL(a)
-       WRITE(*,*) 'HALOMOD_INIT: sigv [Mpc/h]:', REAL(lut%sigv)
-       WRITE(*,*) 'HALOMOD_INIT: sigv100 [Mpc/h]:', REAL(lut%sigv100)
-       WRITE(*,*) 'HALOMOD_INIT: sig8(z):', REAL(lut%sig8z)
+       WRITE(*,*) 'HALOMOD_INIT: Tables being filled at redshift:', REAL(z)
+       WRITE(*,*) 'HALOMOD_INIT: Tables being filled at scale-factor:', REAL(a)
+       WRITE(*,*) 'HALOMOD_INIT: sigma_V [Mpc/h]:', REAL(lut%sigv)
+       WRITE(*,*) 'HALOMOD_INIT: sigmaV_100 [Mpc/h]:', REAL(lut%sigv100)
+       WRITE(*,*) 'HALOMOD_INIT: sigma_8(z):', REAL(lut%sig8z)
     END IF
 
     !Remove this if LUT is INTENT(OUT)
@@ -955,7 +955,7 @@ CONTAINS
 
     END DO
 
-    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: m, r, nu, sig tables filled'
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: M, R, nu, sigma tables filled'
 
     !Fills up a table for sigma(fM) for Bullock c(m) relation
     !This is the f=0.01 parameter in the Bullock realtion sigma(fM,z)
@@ -963,7 +963,7 @@ CONTAINS
     DO i=1,lut%n
        lut%sigf(i)=sigma(lut%rr(i)*f,a,cosm)
     END DO
-    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: sigf tables filled'  
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: sigma_f tables filled'  
 
     !Fill virial radius table using real radius table
     Dv=Delta_v(a,cosm)
@@ -973,12 +973,12 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: virial radius tables filled'
        WRITE(*,*) 'HALOMOD_INIT: Delta_v:', REAL(Dv)
        WRITE(*,*) 'HALOMOD_INIT: delta_c:', REAL(dc)
-       WRITE(*,*) 'HALOMOD_INIT: minimum nu:', REAL(lut%nu(1))
-       WRITE(*,*) 'HALOMOD_INIT: maximum nu:', REAL(lut%nu(lut%n))
-       WRITE(*,*) 'HALOMOD_INIT: minimum R_v [Mpc/h]:', REAL(lut%rv(1))
-       WRITE(*,*) 'HALOMOD_INIT: maximum R_v [Mpc/h]:', REAL(lut%rv(lut%n))
-       WRITE(*,*) 'HALOMOD_INIT: minimum log10(M/[Msun/h]):', REAL(log10(lut%m(1)))
-       WRITE(*,*) 'HALOMOD_INIT: maximum log10(M/[Msun/h]):', REAL(log10(lut%m(lut%n)))
+       WRITE(*,*) 'HALOMOD_INIT: Minimum nu:', REAL(lut%nu(1))
+       WRITE(*,*) 'HALOMOD_INIT: Maximum nu:', REAL(lut%nu(lut%n))
+       WRITE(*,*) 'HALOMOD_INIT: Minimum R_v [Mpc/h]:', REAL(lut%rv(1))
+       WRITE(*,*) 'HALOMOD_INIT: Maximum R_v [Mpc/h]:', REAL(lut%rv(lut%n))
+       WRITE(*,*) 'HALOMOD_INIT: Minimum log10(M/[Msun/h]):', REAL(log10(lut%m(1)))
+       WRITE(*,*) 'HALOMOD_INIT: Maximum log10(M/[Msun/h]):', REAL(log10(lut%m(lut%n)))
     END IF
 
     lut%gmin=1.-integrate(lut%nu(1),large_nu,g_nu,acc,3)
@@ -986,10 +986,10 @@ CONTAINS
     lut%gbmin=1.-integrate(lut%nu(1),large_nu,gb_nu,acc,3)
     lut%gbmax=integrate(lut%nu(lut%n),large_nu,gb_nu,acc,3)
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at low end:', REAL(lut%gmin)
-       WRITE(*,*) 'HALOMOD_INIT: missing g(nu) at high end:', REAL(lut%gmax)
-       WRITE(*,*) 'HALOMOD_INIT: missing g(nu)b(nu) at low end:', REAL(lut%gbmin)
-       WRITE(*,*) 'HALOMOD_INIT: missing g(nu)b(nu) at high end:', REAL(lut%gbmax)
+       WRITE(*,*) 'HALOMOD_INIT: Missing g(nu) at low end:', REAL(lut%gmin)
+       WRITE(*,*) 'HALOMOD_INIT: Missing g(nu) at high end:', REAL(lut%gmax)
+       WRITE(*,*) 'HALOMOD_INIT: Missing g(nu)b(nu) at low end:', REAL(lut%gbmin)
+       WRITE(*,*) 'HALOMOD_INIT: Missing g(nu)b(nu) at high end:', REAL(lut%gbmax)
     END IF
 
     !Calculate the total stellar mass fraction
@@ -999,7 +999,7 @@ CONTAINS
           integrand(i)=halo_fraction(3,lut%m(i),cosm)*g_nu(lut%nu(i))
        END DO
        frac=integrate_table(lut%nu,integrand,n,1,n,3)
-       WRITE(*,*) 'HALOMOD_INIT: total stellar mass fraction:', frac
+       WRITE(*,*) 'HALOMOD_INIT: Total stellar mass fraction:', frac
     END IF
 
     !Find non-linear radius and scale
@@ -1009,10 +1009,10 @@ CONTAINS
     lut%knl=1./lut%rnl
 
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: non-linear mass [log10(M*/[Msun/h])]:', REAL(log10(lut%mnl))
-       WRITE(*,*) 'HALOMOD_INIT: non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(lut%mnl,a,cosm))
-       WRITE(*,*) 'HALOMOD_INIT: non-linear Lagrangian radius [Mpc/h]:', REAL(lut%rnl)
-       WRITE(*,*) 'HALOMOD_INIT: non-linear wavenumber [h/Mpc]:', REAL(lut%knl)
+       WRITE(*,*) 'HALOMOD_INIT: Non-linear mass [log10(M*/[Msun/h])]:', REAL(log10(lut%mnl))
+       WRITE(*,*) 'HALOMOD_INIT: Non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(lut%mnl,a,cosm))
+       WRITE(*,*) 'HALOMOD_INIT: Non-linear Lagrangian radius [Mpc/h]:', REAL(lut%rnl)
+       WRITE(*,*) 'HALOMOD_INIT: Non-linear wavenumber [h/Mpc]:', REAL(lut%knl)
     END IF
 
     lut%neff=effective_index(lut,cosm)
@@ -1023,15 +1023,15 @@ CONTAINS
     !CALL fill_conc_Bullock(z,cosm,lut)
 
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: halo concentration tables filled'
-       WRITE(*,*) 'HALOMOD_INIT: minimum concentration:', REAL(lut%c(lut%n))
-       WRITE(*,*) 'HALOMOD_INIT: maximum concentration:', REAL(lut%c(1))
+       WRITE(*,*) 'HALOMOD_INIT: Halo concentration tables filled'
+       WRITE(*,*) 'HALOMOD_INIT: Minimum concentration:', REAL(lut%c(lut%n))
+       WRITE(*,*) 'HALOMOD_INIT: Maximum concentration:', REAL(lut%c(1))
     END IF
 
     A0=one_halo_amplitude(lut,cosm)
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [Mpc/h]^3:', REAL(A0)
-       WRITE(*,*) 'HALOMOD_INIT: one-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
+       WRITE(*,*) 'HALOMOD_INIT: One-halo amplitude [Mpc/h]^3:', REAL(A0)
+       WRITE(*,*) 'HALOMOD_INIT: One-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
        WRITE(*,*) 'HALOMOD_INIT: Done'
        WRITE(*,*)
     END IF
@@ -1232,7 +1232,7 @@ CONTAINS
     END DO
 
     !Dolag2004 prescription for adding DE dependence
-    IF(ihm==1 .OR. ihm==6) THEN
+    IF(ihm==1 .OR. ihm==4 .OR. ihm==6) THEN
 
        !The 'infinite' scale factor
        ainf=scale_factor_z(zinf)
@@ -1250,11 +1250,19 @@ CONTAINS
 
        !Needs to use grow_int explicitly in case tabulated values are stored
        g_lcdm=growint(ainf,cosm_lcdm,acc)
-
+       
        !Changed this to a power of 1.5, which produces more accurate results for extreme DE
        lut%c=lut%c*((g_wcdm/g_lcdm)**1.5)
 
     END IF
+
+    !Update the concentration-mass relation via the epsilon parameter
+    !lut%c=lut%c*cosm%eps
+    DO i=1,lut%n    
+       m=lut%m(i)
+       !WRITE(*,*) i, m, (1.+(cosm%eps-1.)*halo_boundgas_fraction(m,cosm)/(cosm%Om_b/cosm%Om_m))
+       lut%c(i)=lut%c(i)*(1.+(cosm%eps-1.)*halo_boundgas_fraction(m,cosm)/(cosm%Om_b/cosm%Om_m))
+    END DO
     
   END SUBROUTINE fill_halo_concentration
 
@@ -1834,23 +1842,15 @@ CONTAINS
     REAL, INTENT(IN) :: k, z, m, rv, rs
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
-    REAL :: rss, eps, r, rmin, rmax, c
+    REAL :: r, rmin, rmax, c
 
     !Set the model
     !1 - NFW
-    !2 - NFW with concentration change due to gas
-    INTEGER, PARAMETER :: imod=2
+    INTEGER, PARAMETER :: imod=1
 
     IF(imod==1) THEN
        !Analytical NFW
        irho=5
-       rss=rs
-    ELSE IF(imod==2) THEN
-       !NFW with increase concentation
-       irho=5
-       eps=cosm%eps*halo_boundgas_fraction(m,cosm)*cosm%om_m/cosm%om_b !Change in halo concentration
-       c=rv/rs !Old concentration: c
-       rss=rv/(c*eps) !New scale radius calculated from new concentration: c*eps
     ELSE
        STOP 'WIN_CDM: Error, imod specified incorrectly'
     END IF
@@ -1860,11 +1860,11 @@ CONTAINS
 
     IF(real_space) THEN
        r=k
-       win_CDM=rho(r,rmin,rmax,rv,rss,zero,zero,irho)
-       win_CDM=win_CDM/normalisation(rmin,rmax,rv,rss,zero,zero,irho)
+       win_CDM=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_CDM=win_CDM/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE
        !Properly normalise and convert to overdensity
-       win_CDM=m*win_norm(k,rmin,rmax,rv,rss,zero,zero,irho)/comoving_matter_density(cosm)
+       win_CDM=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
     END IF
 
     win_CDM=halo_CDM_fraction(m,cosm)*win_CDM
@@ -3185,7 +3185,7 @@ CONTAINS
     !This calculates the normalisation of a halo of concentration c
     !See your notes for details of what this means!
 
-    !Factors of 4\pi have been *RESTORED*
+    !Factors of 4pi have been *RESTORED*
 
     ! 0 - Delta function (M = 1)
     ! 1 - Isothermal (M = 4pi*rv)

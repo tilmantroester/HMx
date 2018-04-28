@@ -93,7 +93,7 @@ PROGRAM HMx_driver
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
      !Assigns the cosmological model
-     icosmo=0
+     icosmo=1
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
@@ -125,7 +125,7 @@ PROGRAM HMx_driver
   ELSE IF(imode==1 .OR. imode==17) THEN
 
      !Assigns the cosmological model
-     icosmo=0
+     icosmo=1
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
@@ -236,9 +236,9 @@ PROGRAM HMx_driver
      DO iowl=1,n
 
         !Assigns the cosmological model
-        IF(imode==2)  icosmo=0
-        IF(imode==15) icosmo=1
-        IF(imode==16) icosmo=3
+        IF(imode==2)  icosmo=1
+        IF(imode==15) icosmo=2
+        IF(imode==16) icosmo=4
         CALL assign_cosmology(icosmo,cosm)
 
         IF(imode==15 .AND. iowl==1) THEN
@@ -404,7 +404,7 @@ PROGRAM HMx_driver
   ELSE IF(imode==3) THEN
 
      !Assigns the cosmological model
-     icosmo=0
+     icosmo=1
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
@@ -468,7 +468,7 @@ PROGRAM HMx_driver
      z=0.
 
      !Assigns the cosmological model
-     icosmo=1
+     icosmo=2
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
@@ -628,10 +628,11 @@ PROGRAM HMx_driver
 
         !Write out diagnostics
         CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
-        dir='diagnostics'
-        CALL halo_diagnostics(z,lut,cosm,dir)
-        CALL halo_definitions(z,lut,dir)
-        CALL halo_properties(z,lut,dir)
+
+        !dir='diagnostics'
+        !CALL halo_diagnostics(z,lut,cosm,dir)
+        !CALL halo_definitions(z,lut,dir)
+        !CALL halo_properties(z,lut,dir)
 
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
@@ -1057,7 +1058,7 @@ PROGRAM HMx_driver
      dir='data'
 
      !Assigns the cosmological model
-     icosmo=2
+     icosmo=3
      CALL assign_cosmology(icosmo,cosm)
      !cosm%alpha=0.485
      cosm%alpha=2.
@@ -1185,7 +1186,7 @@ PROGRAM HMx_driver
      z=0.
 
      !Assigns the cosmological model
-     icosmo=3
+     icosmo=4
      CALL assign_cosmology(icosmo,cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
@@ -1218,11 +1219,7 @@ PROGRAM HMx_driver
         !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         !CALL initialise_cosmology(verbose,cosm)
-        IF(verbose) CALL print_cosmology(cosm)
-
-        !DO NOT DELETE - needs to be here to restore default cosmology on each loop
-        !Initiliasation for the halo-model calcualtion
-        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose) 
+        IF(verbose) CALL print_cosmology(cosm) 
         
         !Set maximum and minimum parameter values and linear or log range
         IF(ipa==1) THEN
@@ -1232,8 +1229,8 @@ PROGRAM HMx_driver
            ilog=.FALSE.
         ELSE IF(ipa==2) THEN
            !epsilon - concentration change due to gas presence
-           param_min=0.1
-           param_max=10.
+           param_min=0.5
+           param_max=2.
            ilog=.TRUE.
         ELSE IF(ipa==3) THEN
            !Gamma - KS polytropic index
@@ -1274,10 +1271,14 @@ PROGRAM HMx_driver
            IF(ipa==5) cosm%Astar=param
            IF(ipa==6) cosm%whim=param
 
-           CALL init_cosmology(cosm)
+           !DO NOT DELETE - needs to be here to restore default cosmology on each loop
+           !Initiliasation for the halo-model calcualtion
+           !CALL init_cosmology(cosm)
+           CALL halomod_init(mmin,mmax,z,lut,cosm,verbose) 
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later
+           !For example, mass, which is inconvenient if written out in full
            IF(ilog) param=log10(param)
 
            !Write out halo matter and pressure profile information

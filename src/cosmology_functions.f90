@@ -7,20 +7,21 @@ MODULE cosmology_functions
   REAL, PARAMETER :: acc_cosm=1e-4
   INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
   REAL, PARAMETER :: Lbox=400. !Simulation box size
-  INTEGER, PARAMETER :: iorder=3
   LOGICAL, PARAMETER :: verbose_cosmology=.TRUE.
 
   !Contains cosmological parameters that need only be calculated once
   TYPE cosmology     
-     REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa
-     REAL :: z_CMB, T_CMB, neff, Om_r
-     REAL :: Om, k, Om_k, Om_c
-     REAL :: A
-     REAL, ALLOCATABLE :: sigma(:), r_sigma(:)
-     REAL, ALLOCATABLE :: a_growth(:), growth(:), growth_rate(:), acc_growth(:)
-     REAL, ALLOCATABLE :: r(:), a_r(:)
-     REAL, ALLOCATABLE :: plin(:), k_plin(:) !Added for input linear Pk
-     INTEGER :: nsig, ng, nr, nplin
+     REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa !Primary parameters
+     REAL :: z_CMB, T_CMB, neff, Om_r, age, horizon !Secondard parameters
+     REAL :: a1, a2, ns, ws, am, dm, wm !DE parameters
+     REAL :: Om, k, Om_k, Om_c, A !Derived parameters
+     REAL :: Om_ws, as, a1n, a2n !Derived DE parameters
+     REAL, ALLOCATABLE :: sigma(:), r_sigma(:) !Arrays for sigma(R)
+     REAL, ALLOCATABLE :: a_growth(:), growth(:), growth_rate(:), acc_growth(:) !Arrays for growth
+     REAL, ALLOCATABLE :: r(:), a_r(:) !Arrays for distance
+     REAL, ALLOCATABLE :: plin(:), k_plin(:) !Arrays for input linear P(k)
+     INTEGER :: iw !Switches
+     INTEGER :: nsig, ng, nr, nplin !Array entries
      REAL :: gnorm
      CHARACTER(len=256) :: name = ""
      LOGICAL :: has_distance, has_growth, has_sigma
@@ -35,15 +36,27 @@ CONTAINS
     !Assigns the cosmological parameters
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    INTEGER, INTENT(INOUT) :: icosmo
-    CHARACTER(len=256) :: names(0:3)
+    INTEGER, INTENT(INOUT) :: icosmo    
     INTEGER :: i
-    REAL :: Om_c
+    REAL :: Om_c, Om_g_h2, rho_g
 
-    names(0)='Boring'
-    names(1)='WMAP7 (cosmo-OWLS version; 1312.5462)'
-    names(2)='Planck 2013 (cosmo-OWLS version; 1312.5462)'
-    names(3)='WMAP9 (BAHAMAS version: 1712.02411)'
+    INTEGER, PARAMETER :: ncosmo=13
+    CHARACTER(len=256) :: names(0:ncosmo)
+
+    names(0)='User defined'
+    names(1)='Boring'
+    names(2)='WMAP7 (cosmo-OWLS version; 1312.5462)'
+    names(3)='Planck 2013 (cosmo-OWLS version; 1312.5462)'
+    names(4)='WMAP9 (BAHAMAS version: 1712.02411)'
+    names(5)='Boring open model'
+    names(6)='Einstein de-Sitter'
+    names(7)='IDE I (user)'
+    names(8)='IDE II (user)'
+    names(9)='IDE III (user)'
+    names(10)='IDE3'
+    names(11)='IDE10'
+    names(12)='LCDM (user)'
+    names(13)='w(a)CDM (user)'
 
     IF(icosmo==-1) THEN
        WRITE(*,*) 'ASSIGN_COSMOLOGY: Choose cosmological model'
@@ -69,9 +82,12 @@ CONTAINS
     cosm%n=0.96
     cosm%w=-1.
     cosm%wa=0.
-    cosm%T_CMB=2.72
+    cosm%T_CMB=2.73
     cosm%z_CMB=1100.
     cosm%neff=3.046
+
+    !Default dark energy is Lambda
+    cosm%iw=1
 
     !Initially set the normalisation to 1
     cosm%A=1.
@@ -93,8 +109,10 @@ CONTAINS
     cosm%external_plin=.FALSE.
 
     IF(icosmo==0) THEN
-       !Boring - do nothing
+       STOP 'Need to implement user decision here'
     ELSE IF(icosmo==1) THEN
+       !Boring - do nothing
+    ELSE IF(icosmo==2) THEN
        !cosmo-OWLS - WMAP7 (1312.5462)
        cosm%Om_m=0.272
        cosm%Om_b=0.0455
@@ -102,10 +120,8 @@ CONTAINS
        cosm%Om_nu=0.
        cosm%h=0.704
        cosm%sig8=0.81
-       !cosm%sig8=0.797
-       !cosm%sig8=0.823
        cosm%n=0.967
-    ELSE IF(icosmo==2) THEN
+    ELSE IF(icosmo==3) THEN
        !cosmo-OWLS - Planck 2013 (1312.5462)
        cosm%Om_m=0.3175
        cosm%Om_b=0.0490
@@ -113,7 +129,7 @@ CONTAINS
        cosm%h=0.6711
        cosm%n=0.9624
        cosm%sig8=0.834
-    ELSE IF(icosmo==3) THEN
+    ELSE IF(icosmo==4) THEN
        !BAHAMAS - WMAP9 (1712.02411)
        cosm%h=0.7
        Om_c=0.2330
@@ -123,14 +139,77 @@ CONTAINS
        cosm%Om_nu=0.
        cosm%n=0.9720
        cosm%sig8=0.8211
+    ELSE IF(icosmo==5) THEN
+       !Boring open model
+       cosm%Om_v=0.
+    ELSE IF(icosmo==6) THEN
+       !Einstein-de Sitter
+       cosm%Om_m=1.
+       cosm%Om_v=0.
+    ELSE IF(icosmo==7) THEN
+       !IDE I
+       cosm%iw=5
+       WRITE(*,*) 'a*:'
+       READ(*,*) cosm%as
+       WRITE(*,*) 'n*:'
+       READ(*,*) cosm%ns
+       WRITE(*,*) 'Om_w(a*):'
+       READ(*,*) cosm%Om_ws
+       cosm%Om_m=0.3
+       cosm%Om_v=0.7
+    ELSE IF(icosmo==8) THEN
+       !IDE II model
+       cosm%iw=6      
+       WRITE(*,*) 'n*:'
+       READ(*,*) cosm%ns
+       WRITE(*,*) 'a*:'
+       READ(*,*) cosm%as
+       WRITE(*,*) 'Om_w(a*):'
+       READ(*,*) cosm%Om_ws
+       cosm%Om_m=0.3
+       cosm%Om_w=0.7
+       cosm%Om_v=0. !No vacuum necessary here
+    ELSE IF(icosmo==9) THEN
+       !IDE III model
+       cosm%iw=7
+       WRITE(*,*) 'a*:'
+       READ(*,*) cosm%as
+       WRITE(*,*) 'Om_w(a*):'
+       READ(*,*) cosm%Om_ws
+       WRITE(*,*) 'w*:'
+       READ(*,*) cosm%ws
+       cosm%Om_m=0.3
+       cosm%Om_w=0.7
+       cosm%Om_v=0.
+    ELSE IF(icosmo==10 .OR. icosmo==11) THEN
+       cosm%iw=6
+       cosm%Om_w=cosm%Om_v
+       cosm%Om_v=0.
+       IF(icosmo==10) cosm%ns=3
+       IF(icosmo==11) cosm%ns=10
+       cosm%as=0.01
+       cosm%Om_ws=0.2
+    ELSE IF(icosmo==12) THEN
+       WRITE(*,*) 'Om_m:'
+       READ(*,*) cosm%Om_m
+       WRITE(*,*) 'Om_v:'
+       READ(*,*) cosm%Om_v
+    ELSE IF(icosmo==13) THEN
+       cosm%iw=3
+       WRITE(*,*) 'w0:'
+       READ(*,*) cosm%w
+       WRITE(*,*) 'wa:'
+       READ(*,*) cosm%wa
     ELSE
        STOP 'ASSIGN_COSMOLOGY: Error, icosmo not specified correctly'
     END IF
 
     !Radiation density
-    cosm%Om_r=2.5e-5*(1.+0.227*cosm%neff)/cosm%h**2 !Should include T_CMB here
+    rho_g=(4.*SBconst*cosm%T_CMB**4/c_light**3)
+    Om_g_h2=rho_g*(8.*pi*bigG/3.)/H0**2
+    cosm%Om_r=Om_g_h2*(1.+0.227*cosm%neff)/cosm%h**2
 
-    !Correction for radiation to maintain flatness
+    !Correction to matter for radiation to maintain flatness
     cosm%Om_m=cosm%Om_m-cosm%Om_r
 
     WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology assigned'
@@ -151,20 +230,60 @@ CONTAINS
 
     WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
     WRITE(*,*) '===================================='
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', cosm%Om_m
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_b:', cosm%Om_b
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%Om_c
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v:', cosm%Om_v
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_w:', cosm%Om_w
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_r:', cosm%Om_r
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'h:', cosm%h
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_0:', cosm%w
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', cosm%wa
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sigma_8:', cosm%sig8
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_s:', cosm%n
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%om
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%om_k
+    WRITE(*,*) 'COSMOLOGY: Standard parameters'
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', REAL(cosm%Om_m)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_b:', REAL(cosm%Om_b)    
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v:', REAL(cosm%Om_v)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_w:', REAL(cosm%Om_w)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_r:', REAL(cosm%Om_r)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'h:', REAL(cosm%h)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_0:', REAL(cosm%w)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', REAL(cosm%wa)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sigma_8:', REAL(cosm%sig8)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_s:', REAL(cosm%n)
     WRITE(*,*) '===================================='
+    WRITE(*,*) 'COSMOLOGY: Derived parameters'
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%Om
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%Om_c
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%Om_k
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k [Mpc/h]^-2:', REAL(cosm%k)       
+    WRITE(*,*) '===================================='
+    IF(cosm%iw==1) THEN
+       WRITE(*,*) 'COSMOLOGY: Vacuum energy'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w:', -1.
+    ELSE IF(cosm%iw==2) THEN
+       WRITE(*,*) 'COSMOLOGY: QUICC dark energy prescription'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w0:', cosm%w
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'wm:', cosm%wm
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'am:', cosm%am
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'dm:', cosm%dm
+    ELSE IF(cosm%iw==3) THEN
+       WRITE(*,*) 'COSMOLOGY: w(a) = w0+wa(1.-a)'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w0:', cosm%w
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'wa:', cosm%wa
+    ELSE IF(cosm%iw==4) THEN
+       WRITE(*,*) 'COSMOLOGY: Constant w'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w:', cosm%w
+    ELSE IF(cosm%iw==5) THEN
+       WRITE(*,*) 'COSMOLOGY: IDE I'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%as
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n*:', cosm%ns
+    ELSE IF(cosm%iw==6) THEN
+       WRITE(*,*) 'COSMOLOGY: IDE II'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%as
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n*:', cosm%ns
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a1^n (derived):', cosm%a1n
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a2^n (derived):', cosm%a2n
+    ELSE IF(cosm%iw==7) THEN
+       WRITE(*,*) 'COSMOLOGY: IDE III'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%a1
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w*:', cosm%ws
+    END IF
+    WRITE(*,*) '===================================='
+    WRITE(*,*) 'COSMOLOGY: Baryon Model'
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
@@ -181,23 +300,70 @@ CONTAINS
     !Calcualtes derived parameters
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: Xs, f1, f2
 
     !Derived cosmological parameters    
     cosm%Om_c=cosm%Om_m-cosm%Om_b-cosm%Om_nu!-cosm%Om_r
     cosm%Om=cosm%Om_m+cosm%Om_v+cosm%Om_r+cosm%Om_w
-    cosm%Om_k=1.-cosm%om
-    cosm%k=-cosm%Om_k/(conH0**2)
+    cosm%Om_k=1.-cosm%Om
+    cosm%k=(cosm%Om-1.)/(Hdist**2)
     
     IF(verbose_cosmology) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_c:', REAL(cosm%Om_c)
        WRITE(*,*) 'INIT_COSMOLOGY: Omega:', REAL(cosm%Om)
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_k:', REAL(cosm%Om_k)
-       WRITE(*,*) 'INIT_COSMOLOGY: k [Mpc/h]^-2:', REAL(cosm%k)
-       WRITE(*,*)
+       WRITE(*,*) 'INIT_COSMOLOGY: k [Mpc/h]^-2:', REAL(cosm%k)       
+       !WRITE(*,*)
     END IF
 
     !Change flags
     cosm%is_init=.TRUE.
+
+    !Dark energy models
+    IF(cosm%iw==5) THEN
+       !STOP 'INIT_COSMOLOGY: IDE I does not work yet'
+       !WRITE(*,*) H2(astar), X(astar)
+       !Om_w=Om_w*(Om_m*astar**(-3)+Om_v)/(X(astar)*(1.-Om_w))
+       cosm%Om_w=cosm%Om_ws*(Hubble2(cosm%a,cosm)-cosm%Om_ws*X_de(cosm%as,cosm)+cosm%Om_ws*cosm%as**(-2))/(X_de(cosm%as,cosm)*(1.-cosm%Om_ws)+cosm%Om_ws*cosm%as**(-2))
+    ELSE IF(cosm%iw==6) THEN
+       !STOP 'INIT_COSMOLOGY: Check this carefully: IDE II'
+       !Define a1^n
+       cosm%a1n=cosm%as**cosm%ns
+
+       !Necessary for first step below
+       cosm%a2n=cosm%a1n
+
+       !All neccessary to convert parameters to a1,a2
+       f1=cosm%Om_ws*(Hubble2(cosm%as,cosm)-cosm%Om_w*X_de(cosm%as,cosm))
+       f2=cosm%Om_w*(1.-cosm%Om_ws)
+       Xs=f1/f2
+       !a1=astar**nstar
+       !Xstar=Xstar**(-nstar/6.)
+       Xs=Xs**(cosm%ns/6.)
+            
+       !Top and bottom of fraction
+       !f1=2.-a1*Xstar*(1.+1./a1)
+       !f2=Xstar*(1.+1./a1)-2.
+       f1=cosm%a1n*(2.*Xs-(1.+cosm%a1n))
+       f2=(1.+cosm%a1n)-2.*Xs*cosm%a1n
+       
+       !Finally! a2
+       cosm%a2n=f1/f2
+       !IF(a2<a1) a2=a1
+    ELSE IF(cosm%iw==7) THEN
+       !STOP 'INIT_COSMOLOGY: Check this carefully: IDE III'
+       cosm%a1=cosm%as !Scale-factor at which Om_w(a*) is most important
+       cosm%a2=cosm%as !Needs to be set for X(a*) and H2(a*) below (which cancel each other)
+       f1=cosm%Om_ws*(Hubble2(cosm%as,cosm)-cosm%Om_w*X_de(cosm%as,cosm))
+       f2=cosm%Om_w*(1.-cosm%Om_ws)
+       cosm%a2=cosm%as*(f1/f2)**(1./(3.*(1.+cosm%ws)))
+    END IF
+
+    cosm%age=age_of_universe(cosm)
+    IF(verbose_cosmology) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: age [Gyrs/h]:', REAL(cosm%age)
+       WRITE(*,*)
+    END IF
 
     !Ensure deallocate distances
     cosm%has_distance=.FALSE.
@@ -235,7 +401,7 @@ CONTAINS
     cosm%A=1.
 
     !Calculate the initial sigma_8 value (will not be correct)
-    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm,iorder))
+    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
 
     IF(verbose_cosmology) WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)
 
@@ -244,7 +410,7 @@ CONTAINS
     !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
 
     !Recalculate sigma8, should be correct this time
-    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm,iorder))
+    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
 
     !Write to screen
     IF(verbose_cosmology) THEN
@@ -427,28 +593,180 @@ CONTAINS
 
   END FUNCTION Omega
 
+!!$  FUNCTION w_de(a,cosm)
+!!$
+!!$    !w(a) for DE models
+!!$    IMPLICIT NONE
+!!$    REAL :: w_de
+!!$    REAL, INTENT(IN) :: a
+!!$    TYPE(cosmology), INTENT(IN) :: cosm
+!!$
+!!$    w_de=cosm%w+(1.-a)*cosm%wa
+!!$
+!!$  END FUNCTION w_de
+!!$
+!!$  FUNCTION X_de(a,cosm)
+!!$
+!!$    !The time evolution for Om_w for w(a) DE models
+!!$    !X_de = rho_w(z)/rho_w(z=0)
+!!$    IMPLICIT NONE
+!!$    REAL :: X_de
+!!$    REAL, INTENT(IN) :: a
+!!$    TYPE(cosmology), INTENT(IN) :: cosm
+!!$
+!!$    X_de=(a**(-3.*(1.+cosm%w+cosm%wa)))*exp(-3.*cosm%wa*(1.-a))
+!!$
+!!$  END FUNCTION X_de
+
   FUNCTION w_de(a,cosm)
 
-    !w(a) for DE models
+    !Variations of the dark energy parameter w(a)
     IMPLICIT NONE
     REAL :: w_de
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(IN) :: cosm
+    REAL :: p1, p2, p3, p4
+    DOUBLE PRECISION :: f1, f2, f3, f4
 
-    w_de=cosm%w+(1.-a)*cosm%wa
+    IF(cosm%iw==1) THEN
+       !LCDM
+       w_de=-1.
+    ELSE IF(cosm%iw==2) THEN
+       !QUICC parameterisation
+       p1=1.+exp(cosm%am/cosm%dm)
+       p2=1.-exp(-(a-1.)/cosm%dm)
+       p3=1.+exp(-(a-cosm%am)/cosm%dm)
+       p4=1.-exp(1./cosm%dm)
+       w_de=cosm%w+(cosm%wm-cosm%w)*p1*p2/(p3*p4)
+    ELSE IF(cosm%iw==3) THEN
+       !w(a)CDM
+       w_de=cosm%w+(1.-a)*cosm%wa
+    ELSE IF(cosm%iw==4) THEN
+       !wCDM
+       w_de=cosm%w
+    ELSE IF(cosm%iw==5) THEN
+       !IDE I
+       w_de=((a/cosm%as)**cosm%ns-1.)/((a/cosm%as)**cosm%ns+1.)
+    ELSE IF(cosm%iw==6) THEN
+       !IDE II
+       f1=a**cosm%ns-cosm%a1n
+       f2=a**cosm%ns+cosm%a1n
+       f3=a**cosm%ns-cosm%a2n
+       f4=a**cosm%ns+cosm%a2n
+       w_de=-1.+REAL(f1/f2-f3/f4)
+    ELSE IF(cosm%iw==7) THEN
+       !IDE III
+       IF(a<cosm%a1) THEN
+          w_de=-1.
+       ELSE IF(cosm%a1<=a .AND. a<cosm%a2) THEN
+          w_de=cosm%ws
+       ELSE IF(a>=cosm%a2) THEN
+          w_de=-1.
+       ELSE
+          STOP 'W_DE: Error, something went wrong'
+       END IF
+    ELSE
+       STOP 'W_DE: Error, value of iw set incorrectly'
+    END IF
 
   END FUNCTION w_de
 
-  FUNCTION X_de(a,cosm)
+  FUNCTION w_de_total(a,cosm)
 
-    !The time evolution for Om_w for w(a) DE models
-    !X_de = rho_w(z)/rho_w(z=0)
+    !Do an average over the DE components
+    IMPLICIT NONE
+    REAL :: w_de_total
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    IF(cosm%Om_nu .NE. 0.) STOP 'W_DE_TOTAL: Error, does not support massive neutrinos'
+
+    IF(cosm%Om_v==0. .AND. cosm%Om_w==0.) THEN
+       w_de_total=-1.
+    ELSE
+       w_de_total=w_de(a,cosm)*Omega_w(a,cosm)-Omega_v(a,cosm)
+       w_de_total=w_de_total/(Omega_w(a,cosm)+Omega_v(a,cosm))
+    END IF
+       
+  END FUNCTION w_de_total
+
+  FUNCTION w_eff(a,cosm)
+
+    !Do an average over the DE components
+    IMPLICIT NONE
+    REAL :: w_eff
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(IN) :: cosm
+
+    IF(cosm%Om_nu .NE. 0.) STOP 'W_EFF: Error, does not support massive neutrinos'
+
+    w_eff=w_de(a,cosm)*Omega_w(a,cosm)-Omega_v(a,cosm)+Omega_r(a,cosm)/3.
+    w_eff=w_eff/Omega(a,cosm)
+
+  END FUNCTION w_eff
+
+  FUNCTION X_de(a,cosm)
+    
+    !Redshift scaling for dark energy (i.e., if w=0 x(a)=a^-3, if w=-1 x(a)=const etc.)
     IMPLICIT NONE
     REAL :: X_de
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(IN) :: cosm
+    DOUBLE PRECISION :: f1, f2, f3, f4
+    !REAL, PARAMETER :: acc=1e-3
 
-    X_de=(a**(-3.*(1.+cosm%w+cosm%wa)))*exp(-3.*cosm%wa*(1.-a))
+    IF(cosm%iw==1) THEN
+       !LCDM
+       X_de=1.
+    ELSE IF(cosm%iw==2) THEN
+       STOP 'X_DE: Error, need to support explicit integration here'
+    ELSE IF(cosm%iw==3) THEN
+       !w(a)CDM
+       X_de=(a**(-3.*(1.+cosm%w+cosm%wa)))*exp(-3.*cosm%wa*(1.-a))
+    ELSE IF(cosm%iw==4) THEN
+       !wCDM
+       X_de=a**(-3.*(1.+cosm%w))
+    ELSE IF(cosm%iw==5) THEN
+       !IDE I
+       X_de=((1.+(a/cosm%as)**cosm%ns)/(1.+(1./cosm%as)**cosm%ns))**(-6./cosm%ns)
+    ELSE IF(cosm%iw==6) THEN
+       !IDE II
+       f1=a**cosm%ns+cosm%a1n
+       f2=1.+cosm%a1n
+       f3=1.+cosm%a2n
+       f4=a**cosm%ns+cosm%a2n
+       X_de=REAL(f1*f3/(f2*f4))**(-6./cosm%ns)
+    ELSE IF(cosm%iw==7) THEN
+       !IDE III
+       IF(a<cosm%a1) THEN
+          X_de=(cosm%a1/cosm%a2)**(-3.*(1.+cosm%ws))
+       ELSE IF(cosm%a1<=a .AND. a<cosm%a2) THEN
+          X_de=(a/cosm%a2)**(-3.*(1.+cosm%ws))
+       ELSE IF(a>=cosm%a2) THEN
+          X_de=1.
+       ELSE
+          STOP 'X_DE: Error, something went wrong'
+       END IF
+    ELSE
+       STOP 'X_DE: Error, iw not specified correctly'
+!!$    ELSE
+!!$       !Generally true, doing this integration can make calculations very slow
+!!$       !Difficult to implement into library because of cosm dependence of w_de
+!!$       !See the commented out bit below
+!!$       !X_de=(a**(-3))*exp(3.*integrate_log(a,1.,integrand_de,acc,3,1))
+    END IF
+
+!!$  FUNCTION integrand_de(a)!,cosm)
+!!$
+!!$    !The integrand for the X_de(a) integral
+!!$    IMPLICIT NONE
+!!$    REAL :: integrand_de
+!!$    REAL, INTENT(IN) :: a
+!!$    !TYPE(cosmology), INTENT(IN) :: cosm
+!!$
+!!$    integrand_de=w_de(a,cosm)/a
+!!$
+!!$  END FUNCTION integrand_de
 
   END FUNCTION X_de
 
@@ -459,8 +777,15 @@ CONTAINS
     REAL :: redshift_a
     REAL, INTENT(IN) :: a
 
-    IF(a==0.) STOP 'REDSHIFT_A: Error, routine called with a=0'
-    IF(a>1.) STOP 'REDSHIFT_A: Error, routine called for a>1'
+    IF(a==0. .OR. a>1.) THEN
+       WRITE(*,*) 'REDSHIFT_A: a', a
+       STOP 'REDSHIFT_A: Error, routine called with weird a'
+    END IF
+
+    !IF(a==0.) THEN
+    !   WRITE(*,*) 'REDSHIFT_A: a', a
+    !   STOP 'REDSHIFT_A: Error, routine called with a=0'
+    !END IF
 
     redshift_a=-1.+1./a
 
@@ -473,7 +798,10 @@ CONTAINS
     REAL :: scale_factor_z
     REAL, INTENT(IN) :: z
 
-    IF(z<0.) STOP 'SCALE_FACTOR_Z: Error, routine called for z<0'
+    IF(z<0.) THEN
+       WRITE(*,*) 'SCALE_FACTOR_Z: z', z
+       STOP 'SCALE_FACTOR_Z: Error, routine called for z<0'
+    END IF
 
     scale_factor_z=1./(1.+z)
 
@@ -531,14 +859,13 @@ CONTAINS
 
   END FUNCTION fdash_k
 
-  FUNCTION integrate_distance(a,b,acc,iorder,cosm)
+  FUNCTION integrate_distance(a,b,cosm,acc)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
     REAL :: integrate_distance
     REAL, INTENT(IN) :: a, b, acc
-    INTEGER, INTENT(IN) :: iorder
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i, j
     INTEGER :: n
@@ -548,6 +875,7 @@ CONTAINS
 
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
+    INTEGER, PARAMETER :: iorder=3
 
     IF(a==b) THEN
 
@@ -634,9 +962,9 @@ CONTAINS
     REAL, PARAMETER :: amin=1e-5
 
     IF(a<amin) THEN
-       distance_integrand=conH0/sqrt(Hubble2a4_highz(cosm))
+       distance_integrand=Hdist/sqrt(Hubble2a4_highz(cosm))
     ELSE
-       distance_integrand=conH0/(sqrt(Hubble2(a,cosm))*a**2)
+       distance_integrand=Hdist/(sqrt(Hubble2(a,cosm))*a**2)
     END IF
 
   END FUNCTION distance_integrand
@@ -674,13 +1002,21 @@ CONTAINS
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    IF(cosm%k .NE. zero) THEN
-       STOP 'PHYSICAL_ANGULAR_DISTANCE: Need to implement curvature'
-    ELSE
-       physical_angular_distance=physical_distance(a,cosm)
-    END IF
+    physical_angular_distance=f_k(physical_distance(a,cosm),cosm)
 
   END FUNCTION physical_angular_distance
+
+  FUNCTION comoving_angular_distance(a,cosm)
+
+    !The physical angular-diameter distance to a galaxy at scale-factor a
+    IMPLICIT NONE
+    REAL :: comoving_angular_distance
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    comoving_angular_distance=a*physical_angular_distance(a,cosm)
+
+  END FUNCTION comoving_angular_distance
 
   FUNCTION luminosity_distance(a,cosm)
 
@@ -690,11 +1026,7 @@ CONTAINS
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    IF(cosm%k .NE. zero) THEN
-       STOP 'LUMINOSITY_DISTANCE: Need to impliment curvature'
-    ELSE
-       luminosity_distance=comoving_distance(a,cosm)/a
-    END IF
+    luminosity_distance=f_k(comoving_distance(a,cosm),cosm)/a
 
   END FUNCTION luminosity_distance
 
@@ -702,10 +1034,8 @@ CONTAINS
 
     !Fill up tables of a vs. r(a) (comoving distance)
     IMPLICIT NONE
-    !LOGICAL, INTENT(IN) :: verbose
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: zmin, zmax, amin, amax
-    REAL :: rh
     INTEGER :: i
 
     INTEGER, PARAMETER :: nr=128
@@ -728,7 +1058,7 @@ CONTAINS
 
     !Now do the r(z) calculation
     DO i=1,cosm%nr
-       cosm%r(i)=integrate_distance(cosm%a_r(i),1.,acc_cosm,3,cosm)
+       cosm%r(i)=integrate_distance(cosm%a_r(i),1.,cosm,acc_cosm)
     END DO
     IF(verbose_cosmology) THEN
        WRITE(*,*) 'INIT_DISTANCE: minimum r [Mpc/h]:', REAL(cosm%r(cosm%nr))
@@ -736,9 +1066,9 @@ CONTAINS
     END IF
 
     !Find the horizon distance in your cosmology
-    rh=integrate_distance(0.,1.,acc_cosm,3,cosm)
+    cosm%horizon=integrate_distance(0.,1.,cosm,acc_cosm)
     IF(verbose_cosmology) THEN
-       WRITE(*,*) 'INIT_DISTANCE: Horizon distance [Mpc/h]:', REAL(rh)
+       WRITE(*,*) 'INIT_DISTANCE: Horizon distance [Mpc/h]:', REAL(cosm%horizon)
        WRITE(*,*) 'INIT_DISTANCE: Done'
        WRITE(*,*)
     END IF
@@ -769,6 +1099,150 @@ CONTAINS
     WRITE(*,*)
 
   END SUBROUTINE write_distances
+
+  FUNCTION age_of_universe(cosm)
+
+    IMPLICIT NONE
+    REAL :: age_of_universe
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    age_of_universe=cosmic_time(1.,cosm)
+    
+  END FUNCTION age_of_universe
+  
+  FUNCTION cosmic_time(a,cosm)
+
+    !The age of the universe at scale-factor 'a'
+    IMPLICIT NONE
+    REAL :: cosmic_time
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    cosmic_time=integrate_time(0.,a,cosm,acc_cosm)
+    
+  END FUNCTION cosmic_time
+
+  FUNCTION look_back_time(a,cosm)
+
+    !The time in the past that photons at scale-factor 'a' were emitted
+    IMPLICIT NONE
+    REAL :: look_back_time
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    look_back_time=integrate_time(a,1.,cosm,acc_cosm)
+    
+  END FUNCTION look_back_time
+
+  FUNCTION integrate_time(a,b,cosm,acc)
+
+    !Integrates between a and b until desired accuracy is reached
+    !Stores information to reduce function calls
+    IMPLICIT NONE
+    REAL :: integrate_time
+    REAL, INTENT(IN) :: a, b, acc
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER :: i, j
+    INTEGER :: n
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
+    INTEGER, PARAMETER :: jmin=5
+    INTEGER, PARAMETER :: jmax=30
+    INTEGER, PARAMETER :: iorder=3
+
+    IF(a==b) THEN
+
+       !Fix the answer to zero if the integration limits are identical
+       integrate_time=0.
+
+    ELSE
+
+       !Set the sum variable for the integration
+       sum_2n=0.
+       sum_n=0.
+       sum_old=0.
+       sum_new=0.
+
+       DO j=1,jmax
+
+          !Note, you need this to be 1+2**n for some integer n
+          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+          n=1+2**(j-1)
+
+          !Calculate the dx interval for this value of 'n'
+          dx=(b-a)/REAL(n-1)
+
+          IF(j==1) THEN
+
+             !The first go is just the trapezium of the end points
+             f1=time_integrand(a,cosm)
+             f2=time_integrand(b,cosm)
+             sum_2n=0.5*(f1+f2)*dx
+             sum_new=sum_2n
+
+          ELSE
+
+             !Loop over only new even points to add these to the integral
+             DO i=2,n,2
+                x=progression(a,b,i,n)
+                fx=time_integrand(x,cosm)
+                sum_2n=sum_2n+fx
+             END DO
+
+             !Now create the total using the old and new parts
+             sum_2n=sum_n/2.+sum_2n*dx
+
+             !Now calculate the new sum depending on the integration order
+             IF(iorder==1) THEN  
+                sum_new=sum_2n
+             ELSE IF(iorder==3) THEN         
+                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
+             ELSE
+                STOP 'INTEGRATE_TIME: Error, iorder specified incorrectly'
+             END IF
+
+          END IF
+
+          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
+             !jmin avoids spurious early convergence
+             integrate_time=REAL(sum_new)
+             EXIT
+          ELSE IF(j==jmax) THEN
+             integrate_time=0.d0
+             STOP 'INTEGRATE_TIME: Integration timed out'
+          ELSE
+             !Integral has not converged so store old sums and reset sum variables
+             integrate_time=0.d0
+             sum_old=sum_new
+             sum_n=sum_2n
+             sum_2n=0.
+          END IF
+
+       END DO
+
+    END IF
+
+  END FUNCTION integrate_time
+
+  FUNCTION time_integrand(a,cosm)
+
+    !The integrand for the cosmic-distance calculation
+    IMPLICIT NONE
+    REAL :: time_integrand
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    REAL, PARAMETER :: amin=1e-5
+
+    IF(a<amin) THEN
+       time_integrand=a*Htime/sqrt(Hubble2a4_highz(cosm))
+    ELSE
+       time_integrand=Htime/(a*sqrt(Hubble2(a,cosm)))
+    END IF
+
+  END FUNCTION time_integrand
 
   SUBROUTINE random_cosmology(cosm)
 
@@ -987,9 +1461,9 @@ CONTAINS
 
        !sig=sigma(r,0.,cosm)
        IF(r>=rsplit) THEN
-          sig=sqrt(sigma_integral0(r,1.,cosm,acc_cosm,iorder))
+          sig=sqrt(sigma_integral0(r,1.,cosm,acc_cosm))
        ELSE IF(r<rsplit) THEN
-          sig=sqrt(sigma_integral1(r,1.,cosm,acc_cosm,iorder)+sigma_integral2(r,1.,cosm,acc_cosm,iorder))
+          sig=sqrt(sigma_integral1(r,1.,cosm,acc_cosm)+sigma_integral2(r,1.,cosm,acc_cosm))
        ELSE
           STOP 'INIT_SIGMA: Error, something went wrong'
        END IF
@@ -1087,7 +1561,7 @@ CONTAINS
 
   END FUNCTION sigma_integrand_transformed
 
-  FUNCTION sigma_integral0(r,a,cosm,acc,iorder)
+  FUNCTION sigma_integral0(r,a,cosm,acc)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
@@ -1095,8 +1569,7 @@ CONTAINS
     REAL :: sigma_integral0
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL, INTENT(IN) :: acc
-    INTEGER, INTENT(IN) :: iorder
+    REAL, INTENT(IN) :: acc    
     INTEGER :: i, j
     INTEGER :: n
     REAL :: x, dx
@@ -1107,6 +1580,7 @@ CONTAINS
     INTEGER, PARAMETER :: jmax=30
     REAL, PARAMETER :: b=0. !Integration lower limit (corresponts to k=inf)
     REAL, PARAMETER :: c=1. !Integration upper limit (corresponds to k=0)
+    INTEGER, PARAMETER :: iorder=3
 
     IF(b==c) THEN
 
@@ -1206,7 +1680,7 @@ CONTAINS
 
   END FUNCTION f0_rapid
 
-  FUNCTION sigma_integral1(r,a,cosm,acc,iorder)
+  FUNCTION sigma_integral1(r,a,cosm,acc)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
@@ -1215,7 +1689,6 @@ CONTAINS
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, INTENT(IN) :: acc
-    INTEGER, INTENT(IN) :: iorder
     REAL :: b, c
     INTEGER :: i, j
     INTEGER :: n
@@ -1225,6 +1698,7 @@ CONTAINS
 
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
+    INTEGER, PARAMETER :: iorder=3
 
     b=r/(r+r**.5)
     c=1.
@@ -1317,7 +1791,7 @@ CONTAINS
 
   END FUNCTION f1_rapid
 
-  FUNCTION sigma_integral2(r,a,cosm,acc,iorder)
+  FUNCTION sigma_integral2(r,a,cosm,acc)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
@@ -1326,7 +1800,6 @@ CONTAINS
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, INTENT(IN) :: acc
-    INTEGER, INTENT(IN) :: iorder
     REAL :: b, c
     INTEGER :: i, j
     INTEGER :: n
@@ -1337,6 +1810,7 @@ CONTAINS
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
     REAL, PARAMETER :: CC=10. !How far to go out in 1/r units for integral
+    INTEGER, PARAMETER :: iorder=3
 
     b=1./r
     c=CC/r
@@ -1445,7 +1919,7 @@ CONTAINS
 
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
-    !INTEGER, PARAMETER :: iorder=3   
+    INTEGER, PARAMETER :: iorder=3
 
     !Integration range for integration parameter
     !Note 0 -> infinity in k has changed to 0 -> 1 in x
@@ -1632,7 +2106,7 @@ CONTAINS
 
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
-    !INTEGER, PARAMETER :: iorder=3   
+    INTEGER, PARAMETER :: iorder=3   
 
     !Integration range for integration parameter
     !Note a -> 1
@@ -2030,8 +2504,7 @@ CONTAINS
     Om_m=Omega_m(a,cosm)
     x=Om_m-1.
 
-    IF(cosm%Om_v==0.) THEN
-       STOP 'DV_BRYANNORMAN: Should not be in here'
+    IF(cosm%Om_v==0. .AND. cosm%Om_w==0.) THEN
        !Open model results
        Dv_BryanNorman=Dv0+60.*x-32.*x**2
        Dv_BryanNorman=Dv_BryanNorman/Om_m
