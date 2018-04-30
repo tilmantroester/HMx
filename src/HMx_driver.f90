@@ -1173,7 +1173,7 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==14) THEN
 
-     !Make power spectra as a function of parameter variations
+     !Make power spectra as a function of baryon parameter variations
 
      !Number of values to try for each parameter
      m=9
@@ -1277,7 +1277,7 @@ PROGRAM HMx_driver
 
            !DO NOT DELETE - needs to be here to restore default cosmology on each loop
            !Initiliasation for the halo-model calcualtion
-           !CALL init_cosmology(cosm)
+           CALL init_cosmology(cosm)
            CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose) 
 
            !DO NOT DELETE THIS

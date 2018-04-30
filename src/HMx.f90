@@ -1043,7 +1043,7 @@ CONTAINS
     !2 - Simple Bullock et al. (2001; astro-ph/9909159)
     !3 - Duffy et al. (2008; astro-ph/0804.2486): mean
     !4 - Duffy et al. (2008; astro-ph/0804.2486): virial
-    lut%iconc=1
+    lut%iconc=4
 
     !Linear collapse threshold delta_c
     !1 - Fixed 1.686
@@ -1152,7 +1152,6 @@ CONTAINS
        IF(ihm==6) THEN             
           lut%idc=3
           lut%iDv=3
-          lut%iAs=2
           lut%iDolag=3
        END IF
     ELSE IF(ihm==5) THEN
