@@ -20,7 +20,7 @@ PROGRAM HMx_driver
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
   CHARACTER(len=256) :: mode
-  INTEGER :: imode, icosmo, iowl, owl1, owl2
+  INTEGER :: imode, icosmo, iowl
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass

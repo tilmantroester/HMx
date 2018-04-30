@@ -1464,7 +1464,7 @@ CONTAINS
 
        IF(lut%iconc==1) THEN
           zf=lut%zc(i)
-          lut%c(i)=conc_Bullock(z,zf,lut,cosm)
+          lut%c(i)=conc_Bullock(z,zf)
        ELSE IF(lut%iconc==2) THEN
           m=lut%m(i)
           lut%c(i)=conc_Bullock_simple(m,mstar)
@@ -1524,13 +1524,11 @@ CONTAINS
     
   END SUBROUTINE fill_halo_concentration
 
-  FUNCTION conc_Bullock(z,zf,lut,cosm)
+  FUNCTION conc_Bullock(z,zf)
 
     IMPLICIT NONE
     REAL :: conc_Bullock
     REAL, INTENT(IN) :: z, zf
-    TYPE(halomod), INTENT(IN) :: lut
-    TYPE(cosmology), INTENT(INOUT) :: cosm
     
     REAL, PARAMETER :: A=4.
     
@@ -1956,6 +1954,7 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
+    REAL :: crap
 
     !Set the DMONLY halo model
     !1 - Analyical NFW
@@ -1963,6 +1962,10 @@ CONTAINS
     !3 - Tophat
     !4 - Delta function
     INTEGER, PARAMETER :: imod=1
+
+    !Prevent compile-time warnings
+    crap=z
+    crap=lut%sigv
 
     IF(imod==1) THEN
        irho=5 !Analytical NFW
@@ -1999,7 +2002,8 @@ CONTAINS
     TYPE(halomod), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
-    REAL :: r, rmin, rmax, c
+    REAL :: r, rmin, rmax
+    REAL :: crap
 
     !Set the model
     !1 - NFW
@@ -2011,6 +2015,10 @@ CONTAINS
     ELSE
        STOP 'WIN_CDM: Error, imod specified incorrectly'
     END IF
+
+    !Prevent compile-time warnings
+    crap=z
+    crap=lut%sigv
 
     rmin=0.
     rmax=rv
@@ -2062,6 +2070,8 @@ CONTAINS
 
     !To prevent compile-time warnings
     crap=rs
+    crap=z
+    crap=lut%sigv
 
     !Initially set p1, p2
     p1=0.
@@ -2115,11 +2125,16 @@ CONTAINS
     REAL :: rho0, T0, r, gamma
     REAL :: rmin, rmax, p1, p2
     INTEGER :: irho_density, irho_pressure
+    REAL :: crap
 
     !Select model
     !1 - Komatsu-Seljak gas model
     !2 - Isothermal beta model
     INTEGER, PARAMETER :: imod=1
+
+    !Stop compile-time warnings
+    crap=z
+    crap=lut%sigv
 
     !Initially set the halo parameters to zero
     p1=0.
@@ -2459,10 +2474,15 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
+    REAL :: crap
 
     !Set the void model
     !1 - Top-hat void
     INTEGER, PARAMETER :: imod=1
+
+    !Stop compile-time warnings
+    crap=z
+    crap=lut%sigv
 
     IF(imod==1) THEN
        !Top-hat
@@ -2494,10 +2514,15 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
+    REAL :: crap
 
     !Set the void model
     !1 - Top-hat void
     INTEGER, PARAMETER :: imod=1
+
+    !Stop compile-time warnings
+    crap=z
+    crap=lut%sigv
 
     IF(imod==1) THEN
        !Top-hat
@@ -2529,6 +2554,12 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
+    REAL :: crap
+
+    !Stop compile-time warnings
+    crap=z
+    crap=lut%sigv
+    crap=cosm%A
 
     !Need to change this to be correct for central galaxy overdensity
     !Need to divide by \bar{n}_cen
@@ -2559,6 +2590,12 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
     REAL :: r, rmin, rmax
+    REAL :: crap
+
+    !Stop compile-time warnings
+    crap=z
+    crap=lut%sigv
+    crap=cosm%A
 
     !Need to change this to be correct for satellite galaxy overdensity
     !Need to divide by \bar{n}_sat
@@ -2802,7 +2839,7 @@ CONTAINS
     REAL :: rho
     REAL, INTENT(IN) :: r, rmin, rmax, rv, rs, p1, p2 !Standard profile parameters
     INTEGER, INTENT(IN) :: irho
-    REAL :: y, ct, t, c, Gamma, rt, A, re, rstar, r0 !Derived parameters
+    REAL :: y, ct, t, c, Gamma, rt, A, re, rstar !Derived parameters
     REAL :: P0, c500, alpha, beta, r500 !UPP parameters
     REAL :: f1, f2
     REAL :: crap
