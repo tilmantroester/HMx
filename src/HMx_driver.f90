@@ -15,7 +15,7 @@ PROGRAM HMx_driver
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2, a1, a2
   TYPE(cosmology) :: cosm
-  TYPE(tables) :: lut
+  TYPE(halomod) :: lut
   TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
@@ -24,13 +24,14 @@ PROGRAM HMx_driver
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
+  INTEGER :: ihm=4
 
   !Baryon stuff
   REAL :: param_min, param_max, param
   LOGICAL :: ilog
 
   !Halo-model Parameters
-  LOGICAL, PARAMETER :: verbose=.TRUE.
+  LOGICAL, PARAMETER :: verbose=.TRUE. !Verbosity
   REAL, PARAMETER :: mmin=1e7 !Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17 !Maximum halo mass for the calculation
 
@@ -104,7 +105,8 @@ PROGRAM HMx_driver
      z=0.
 
      !Initiliasation for the halomodel calcualtion
-     CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
+     ihm=-1
+     CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
 
      !Do the halo-model calculation
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
@@ -114,7 +116,7 @@ PROGRAM HMx_driver
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Write the one-void term if necessary
-     IF(voids) THEN
+     IF(lut%voids) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
            WRITE(8,*) k(i), p_1v(k(i),lut)
@@ -164,7 +166,9 @@ PROGRAM HMx_driver
      ELSE
         STOP 'HMx_driver: Error, imode specified incorrectly'
      END IF
-     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+
+     ihm=-1
+     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
@@ -329,7 +333,7 @@ PROGRAM HMx_driver
            z=z_tab(j)
            
            !Initiliasation for the halomodel calcualtion
-           CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
+           CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
 
            !Runs the diagnostics
            IF(imode==2) THEN
@@ -421,7 +425,7 @@ PROGRAM HMx_driver
         IF(j==4) z=2.0
 
         !Initiliasation for the halomodel calcualtion
-        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
+        CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -476,7 +480,7 @@ PROGRAM HMx_driver
      IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halomodel calcualtion
-     CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
+     CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
 
      !Runs the diagnostics
      dir='diagnostics'
@@ -627,14 +631,14 @@ PROGRAM HMx_driver
         CALL write_distances(cosm)
 
         !Write out diagnostics
-        CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)
+        CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
 
         !dir='diagnostics'
         !CALL halo_diagnostics(z,lut,cosm,dir)
         !CALL halo_definitions(z,lut,dir)
         !CALL halo_properties(z,lut,dir)
 
-        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
 !!$        !Fix the one-halo term P(k) to be a constant
 !!$        DO j=1,na
@@ -737,7 +741,7 @@ PROGRAM HMx_driver
            IF(verbose) CALL print_cosmology(cosm)
            !CALL initialise_distances(verbose,cosm)
 
-           CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+           CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
            !Fill out the projection kernels
            CALL fill_projection_kernels(ix,proj,cosm)
@@ -874,7 +878,7 @@ PROGRAM HMx_driver
               z=redshift_a(a(j))
 
               !Initiliasation for the halomodel calcualtion
-              CALL halomod_init(m1,m2,z,lut,cosm,verbose)
+              CALL halomod_init(ihm,m1,m2,z,lut,cosm,verbose)
               CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm,verbose)
 
               !Write progress to screen
@@ -948,7 +952,7 @@ PROGRAM HMx_driver
         !CALL initialise_cosmology(verbose,cosm)
         IF(verbose) CALL print_cosmology(cosm)
 
-        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
         !Initialise the lensing part of the calculation
         !CALL initialise_distances(verbose,cosm)
@@ -1112,7 +1116,7 @@ PROGRAM HMx_driver
            outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
         END IF
 
-        CALL xcorr(ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
 
         WRITE(*,*) 'HMx: Done'
@@ -1163,7 +1167,7 @@ PROGRAM HMx_driver
            ix(2)=ixx(2)
            outfile=TRIM(dir)//'/cl_full.dat'
         END IF
-        CALL xcorr(ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
      END DO
 
@@ -1194,7 +1198,7 @@ PROGRAM HMx_driver
      IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halo-model calcualtion
-     CALL halomod_init(mmin,mmax,z,lut,cosm,verbose)  
+     CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)  
 
      !DMONLY
      j1=-1
@@ -1274,7 +1278,7 @@ PROGRAM HMx_driver
            !DO NOT DELETE - needs to be here to restore default cosmology on each loop
            !Initiliasation for the halo-model calcualtion
            !CALL init_cosmology(cosm)
-           CALL halomod_init(mmin,mmax,z,lut,cosm,verbose) 
+           CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose) 
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later

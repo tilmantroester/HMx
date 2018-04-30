@@ -1244,51 +1244,51 @@ CONTAINS
 
   END FUNCTION time_integrand
 
-  SUBROUTINE random_cosmology(cosm)
-
-    !Generate some random cosmological parameter
-    USE random_numbers
-    IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: Om_m_min, Om_m_max, Om_b_min, Om_b_max, n_min, n_max
-    REAL :: w_min, w_max, h_min, h_max, sig8_min, sig8_max, wa_min, wa_max
-
-    !Needs to be set to normalise P_lin
-    cosm%A=1.
-
-    Om_m_min=0.1
-    Om_m_max=1.
-    cosm%Om_m=uniform(Om_m_min,Om_m_max)
-
-    cosm%Om_v=1.-cosm%Om_m
-
-    Om_b_min=0.005
-    Om_b_max=MIN(0.095,cosm%Om_m)
-    cosm%Om_b=uniform(Om_b_min,Om_b_max)
-
-    cosm%Om_c=cosm%Om_m-cosm%Om_b
-
-    n_min=0.5
-    n_max=1.5
-    cosm%n=uniform(n_min,n_max)
-
-    h_min=0.4
-    h_max=1.2
-    cosm%h=uniform(h_min,h_max)
-
-    w_min=-1.5
-    w_max=-0.5
-    cosm%w=uniform(w_min,w_max)
-
-    wa_min=-1.
-    wa_max=-cosm%w*0.8
-    cosm%wa=uniform(wa_min,wa_max)
-
-    sig8_min=0.2
-    sig8_max=1.5
-    cosm%sig8=uniform(sig8_min,sig8_max)
-
-  END SUBROUTINE random_cosmology
+!!$  SUBROUTINE random_cosmology(cosm)
+!!$
+!!$    !Generate some random cosmological parameter
+!!$    USE random_numbers
+!!$    IMPLICIT NONE
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    REAL :: Om_m_min, Om_m_max, Om_b_min, Om_b_max, n_min, n_max
+!!$    REAL :: w_min, w_max, h_min, h_max, sig8_min, sig8_max, wa_min, wa_max
+!!$
+!!$    !Needs to be set to normalise P_lin
+!!$    cosm%A=1.
+!!$
+!!$    Om_m_min=0.1
+!!$    Om_m_max=1.
+!!$    cosm%Om_m=random_uniform(Om_m_min,Om_m_max)
+!!$
+!!$    cosm%Om_v=1.-cosm%Om_m
+!!$
+!!$    Om_b_min=0.005
+!!$    Om_b_max=MIN(0.095,cosm%Om_m)
+!!$    cosm%Om_b=random_uniform(Om_b_min,Om_b_max)
+!!$
+!!$    cosm%Om_c=cosm%Om_m-cosm%Om_b
+!!$
+!!$    n_min=0.5
+!!$    n_max=1.5
+!!$    cosm%n=random_uniform(n_min,n_max)
+!!$
+!!$    h_min=0.4
+!!$    h_max=1.2
+!!$    cosm%h=random_uniform(h_min,h_max)
+!!$
+!!$    w_min=-1.5
+!!$    w_max=-0.5
+!!$    cosm%w=random_uniform(w_min,w_max)
+!!$
+!!$    wa_min=-1.
+!!$    wa_max=-cosm%w*0.8
+!!$    cosm%wa=random_uniform(wa_min,wa_max)
+!!$
+!!$    sig8_min=0.2
+!!$    sig8_max=1.5
+!!$    cosm%sig8=random_uniform(sig8_min,sig8_max)
+!!$
+!!$  END SUBROUTINE random_cosmology
 
   FUNCTION Tk(k,cosm)
 

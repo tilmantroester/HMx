@@ -87,11 +87,11 @@ CONTAINS
 
   END SUBROUTINE set_xcorr_type
 
-  SUBROUTINE xcorr(ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+  SUBROUTINE xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
 
     !Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
     IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: ix(2)
+    INTEGER, INTENT(INOUT) :: ix(2), ihm
     INTEGER, INTENT(IN) :: nl
     REAL, INTENT(IN) :: ell(nl), mmin, mmax
     REAL, INTENT(OUT) :: Cell(nl)
@@ -140,7 +140,7 @@ CONTAINS
 
     CALL set_xcorr_type(ix,ip)
 
-    CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,cosm,verbose)
+    CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,cosm,verbose)
 
     !Fill out the projection kernels
     CALL fill_projection_kernels(ix,proj,cosm)

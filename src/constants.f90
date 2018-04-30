@@ -4,6 +4,7 @@ MODULE constants
 
   !Mathematical constants
   REAL, PARAMETER :: pi=3.14159265359 !pi
+  REAL, PARAMETER :: twopi=2.*pi !2pi or tau
   REAL, PARAMETER :: em=0.5772156649 !Euler–Mascheroni
   REAL, PARAMETER :: zero=0. !zero
   REAL, PARAMETER :: one=1. !one
