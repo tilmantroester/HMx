@@ -11,6 +11,8 @@ module HMx_setup
 
         integer :: compute_p_lin
 
+        integer :: ihm
+
         integer, dimension(2) :: fields
 
         type(cosmology) :: cosm
@@ -159,12 +161,13 @@ function execute(block, config) result(status)
         HMx_config%cosm%external_plin = .false.
     end if
 
-    call initialise_cosmology(HMx_config%verbose, HMx_config%cosm)
+    call init_cosmology(HMx_config%cosm)
     if(HMx_config%verbose) then
         call print_cosmology(HMx_config%cosm)
     end if
 
-    call calculate_HMx(HMx_config%fields, &
+    call calculate_HMx(HMx_config%ihm &
+                       HMx_config%fields, &
                        HMx_config%mmin, HMx_config%mmax, &
                        HMx_config%k, HMx_config%nk, &
                        HMx_config%a, HMx_config%nz, &
