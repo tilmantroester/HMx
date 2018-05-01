@@ -765,6 +765,9 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: crap
 
+    REAL, PARAMETER :: fdamp_min=1e-3
+    REAL, PARAMETER :: fdamp_max=0.99
+
     !To prevent compile-time warnings
     crap=cosm%A
     crap=a
@@ -783,8 +786,8 @@ CONTAINS
     END IF
 
     !Catches extreme values of fdamp that occur for ridiculous cosmologies
-    IF(fdamp<1.e-3) fdamp=0.
-    IF(fdamp>0.99)  fdamp=0.99
+    IF(fdamp<fdamp_min) fdamp=0.
+    IF(fdamp>fdamp_max) fdamp=fdamp_max
 
   END FUNCTION fdamp
 
@@ -797,6 +800,9 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
 
+    REAL, PARAMETER :: alpha_min=0.5
+    REAL, PARAMETER :: alpha_max=2.0
+
     !To prevent compile-time warnings
     crap=cosm%A
 
@@ -804,10 +810,13 @@ CONTAINS
        !Set to 1 for the standard halo model addition of one- and two-halo terms
        alpha_transition=1.
     ELSE IF(lut%itrans==2) THEN
-       !This uses the top-hat defined neff
-       alpha_transition=2.93*1.77**lut%neff !From Mead et al. (2015)       
+       !From Mead et al. (2015)   
+       !This uses the top-hat defined neff in contrast to the neff in HALOFIT
+       alpha_transition=2.93*1.77**lut%neff     
     ELSE IF(lut%itrans==3) THEN
-       alpha_transition=3.24*1.85**lut%neff !From Mead et al. (2016)
+       !From Mead et al. (2016)
+       !This uses the top-hat defined neff in contrast to the neff in HALOFIT
+       alpha_transition=3.24*1.85**lut%neff 
     ELSE IF(lut%itrans==4) THEN
        !Specially for HMx, exponentiated Mead et al. (2016) result
        alpha_transition=(3.24*1.85**lut%neff)**2.5
@@ -816,8 +825,8 @@ CONTAINS
     END IF
 
     !Catches values of alpha that are crazy
-    IF(alpha_transition>2.)  alpha_transition=2.
-    IF(alpha_transition<0.5) alpha_transition=0.5
+    IF(alpha_transition<alpha_min) alpha_transition=alpha_min
+    IF(alpha_transition>alpha_max) alpha_transition=alpha_max 
 
   END FUNCTION alpha_transition
 
@@ -875,7 +884,7 @@ CONTAINS
     IF(lut%itrans==1) WRITE(*,*) 'Standard sum of two- and one-halo terms'
     IF(lut%itrans==2) WRITE(*,*) 'Smoothed transition from Mead et al. (2015)'
     IF(lut%itrans==3) WRITE(*,*) 'Smoothed transition from Mead et al. (2016)'
-    IF(lut%itrans==4) WRITE(*,*) 'Experimental Smoothed transition for HMx'
+    IF(lut%itrans==4) WRITE(*,*) 'Experimental smoothed transition for HMx'
     WRITE(*,*) '==========================='
     WRITE(*,fmt='(A10,F10.5)') 'z:', redshift_a(a)
     WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(a,lut,cosm)
