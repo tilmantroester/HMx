@@ -98,7 +98,8 @@ end function setup
 function execute(block, config) result(status)
     use cosmosis_modules
     use HMx_setup
-    use HMx, only : initialise_cosmology, print_cosmology, calculate_HMx
+    use HMx, only : calculate_HMx
+    use cosmology_functions, only : init_cosmology, print_cosmology
     use constants
 
     implicit none
@@ -155,8 +156,8 @@ function execute(block, config) result(status)
         end if
         HMx_config%cosm%external_plin = .true.
         HMx_config%cosm%nplin = size(k_plin)
-        allocate(HMx_config%cosm%logk_logplin, source=log(k_plin))
-        allocate(HMx_config%cosm%logplin, source=log(pk_lin(:,1)*k_plin**3/(2*pi**2)))
+        allocate(HMx_config%cosm%k_plin, source=log(k_plin))
+        allocate(HMx_config%cosm%plin, source=log(pk_lin(:,1)*k_plin**3/(2*pi**2)))
     else
         HMx_config%cosm%external_plin = .false.
     end if
@@ -166,7 +167,7 @@ function execute(block, config) result(status)
         call print_cosmology(HMx_config%cosm)
     end if
 
-    call calculate_HMx(HMx_config%ihm &
+    call calculate_HMx(HMx_config%ihm, &
                        HMx_config%fields, &
                        HMx_config%mmin, HMx_config%mmax, &
                        HMx_config%k, HMx_config%nk, &
