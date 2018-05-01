@@ -40,9 +40,9 @@ CONTAINS
     INTEGER :: i
     REAL :: Om_c, Om_g_h2, rho_g
 
+    !Names of pre-defined cosmologies    
     INTEGER, PARAMETER :: ncosmo=13
     CHARACTER(len=256) :: names(0:ncosmo)
-
     names(0)='User defined'
     names(1)='Boring'
     names(2)='WMAP7 (cosmo-OWLS version; 1312.5462)'
