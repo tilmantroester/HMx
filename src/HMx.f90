@@ -17,7 +17,7 @@ MODULE HMx
   !Halo-model stuff that needs to be recalculated for each new z
   TYPE halomod
      INTEGER :: ip2h, ibias, imf, iconc, iDolag, iAs, ip2h_corr
-     INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans
+     INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans, iscatter
      LOGICAL :: voids, use_UPP, smooth_freegas
      REAL, ALLOCATABLE :: c(:), rv(:), nu(:), sig(:), zc(:), m(:), rr(:), sigf(:)
      REAL, ALLOCATABLE :: r500(:), m500(:), c500(:), r200(:), m200(:), c200(:)
@@ -205,8 +205,9 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(halomod), INTENT(IN) :: lut
     REAL :: alp, et, nu, a
-    REAL :: wk(2,lut%n), m, rv, rs
+    REAL :: wk(lut%n,2), wk2(lut%n), m, rv, rs
     INTEGER :: i, j, ih(2)
+    REAL :: c, dc
 
     !Get the scale factor
     a=scale_factor_z(z)
@@ -241,25 +242,48 @@ CONTAINS
 
        !Get eta
        et=eta(a,lut,cosm)
+       
+       !No scatter in halo properties
+       IF(lut%iscatter==1) THEN
 
-       !Calculate the halo window functions
-       DO j=1,2
+          !Calculate the halo window functions
+          DO j=1,2
+             DO i=1,lut%n
+                m=lut%m(i)
+                rv=lut%rv(i)
+                c=lut%c(i)
+                rs=rv/c
+                nu=lut%nu(i)
+                wk(i,j)=win_type(.FALSE.,ih(j),1,k*nu**et,z,m,rv,rs,lut,cosm)
+             END DO
+             IF(ih(2)==ih(1)) THEN
+                !Avoid having to call win_type twice if doing auto spectrum
+                wk(:,2)=wk(:,1)
+                EXIT
+             END IF
+          END DO
+
+          !wk(1)*wk(2) in the case of no scatter
+          wk2=wk(:,1)*wk(:,2)
+          
+       ELSE IF(lut%iscatter==2) THEN
+
+          !Scatter in log concentration: sigma_ln(c)
+          dc=0.2
+
+          !Scatter in halo properties
+          !TODO: include scatter in two-halo term
           DO i=1,lut%n
              m=lut%m(i)
              rv=lut%rv(i)
-             rs=rv/lut%c(i)
-             nu=lut%nu(i)
-             wk(j,i)=win_type(.FALSE.,ih(j),1,k*nu**et,z,m,rv,rs,lut,cosm)
+             c=lut%c(i)             
+             wk2(i)=integrate_scatter(c,dc,ih,k,z,m,rv,lut,cosm,acc,3)
           END DO
-          IF(ih(2)==ih(1)) THEN
-             !Avoid having to call win_type twice if doing auto spectrum
-             wk(2,:)=wk(1,:)
-             EXIT
-          END IF
-       END DO
+          
+       END IF
 
        !Get the one-halo term
-       p1h=p_1h(wk,k,z,lut,cosm)
+       p1h=p_1h(wk2,k,z,lut,cosm)
 
        !If linear theory if used for two-halo term we need to recalculate the window
        !functions for the two-halo term with k=0 fixed
@@ -270,12 +294,12 @@ CONTAINS
                 rv=lut%rv(i)
                 rs=rv/lut%c(i)
                 nu=lut%nu(i)
-                IF(lut%ip2h==1) wk(j,i)=win_type(.FALSE.,ih(j),2,0.,z,m,rv,rs,lut,cosm)
-                IF(lut%smooth_freegas) wk(j,i)=win_type(.FALSE.,ih(j),2,k*nu**et,z,m,rv,rs,lut,cosm)
+                IF(lut%ip2h==1) wk(i,j)=win_type(.FALSE.,ih(j),2,0.,z,m,rv,rs,lut,cosm)
+                IF(lut%smooth_freegas) wk(i,j)=win_type(.FALSE.,ih(j),2,k*nu**et,z,m,rv,rs,lut,cosm)
              END DO
              IF(ih(2)==ih(1)) THEN
                 !Avoid having to call win_type twice if doing auto spectrum
-                wk(2,:)=wk(1,:)
+                wk(:,2)=wk(:,1)
                 EXIT
              END IF
           END DO
@@ -649,12 +673,15 @@ CONTAINS
        !Fixed value
        delta_c=1.686
     ELSE IF(lut%idc==2) THEN
-       !From Nakamura & Suto (1997)
+       !From Nakamura & Suto (1997) LCDM fitting function
        delta_c=dc_NakamuraSuto(a,cosm)    
     ELSE IF(lut%idc==3) THEN
        !From Mead et al. (2015)
        delta_c=1.59+0.0314*log(sigma(8.,a,cosm))
        delta_c=delta_c*(dc_NakamuraSuto(a,cosm)/dc0)
+    ELSE IF(lut%idc==4) THEN
+       !From Mead (2017) fitting function
+       delta_c=dc_Mead(a,cosm)
     ELSE
        STOP 'DELTA_C: Error, idc defined incorrectly'
     END IF
@@ -674,11 +701,14 @@ CONTAINS
        !Fixed value
        Delta_v=200.
     ELSE IF(lut%iDv==2) THEN
-       !From Bryan & Norman (1998)
+       !From Bryan & Norman (1998) fitting functions
        Delta_v=Dv_BryanNorman(a,cosm)    
     ELSE IF(lut%iDv==3) THEN
        !From Mead et al. (2015)
        Delta_v=418.*(Omega_m(a,cosm)**(-0.352))
+    ELSE IF(lut%iDv==4) THEN
+       !From Mead (2017) fitting function
+       Delta_v=Dv_Mead(a,cosm)
     ELSE
        STOP 'DELTA_V: Error, iDv defined incorrectly'
     END IF
@@ -841,50 +871,89 @@ CONTAINS
 
     WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS:'
     WRITE(*,*) 'Writing out halo-model parameters at your redshift'
-    WRITE(*,*) '==========================='    
+    WRITE(*,*) '==========================='
+    WRITE(*,*) 'Name: ', TRIM(lut%name)
+
+    !Form of the two-halo term
     IF(lut%ip2h==1) WRITE(*,*) 'Linear two-halo term'
     IF(lut%ip2h==2) WRITE(*,*) 'Standard two-halo term (Seljak 2000)'
+
+    !Order to go to in halo bias
     IF(lut%ip2h .NE. 1) THEN
        IF(lut%ibias==1) WRITE(*,*) 'Linear halo bias'
        IF(lut%ibias==2) WRITE(*,*) 'Second-order halo bias'
+    END IF
+
+    !Correction for missing low-mass haloes
+    IF(lut%ip2h .NE. 1) THEN
        IF(lut%ip2h_corr==1) WRITE(*,*) 'No two-halo correction applied for missing low-mass haloes'
        IF(lut%ip2h_corr==2) WRITE(*,*) 'Two-halo term corrected by adding missing g(nu)b(nu)' 
        IF(lut%ip2h_corr==3) WRITE(*,*) 'Two-halo term corrected via delta function at low mass end'      
-    END IF   
+    END IF
+
+    !Halo mass function
     IF(lut%imf==1) WRITE(*,*) 'Press & Schecter (1974) mass function'
     IF(lut%imf==2) WRITE(*,*) 'Sheth & Tormen (1999) mass function'
     IF(lut%imf==3) WRITE(*,*) 'Tinker et al. (2010) mass function'
+
+    !Concentration-mass relation
     IF(lut%iconc==1) WRITE(*,*) 'Full Bullock et al. (2001) concentration-mass relation'
     IF(lut%iconc==2) WRITE(*,*) 'Simple Bullock et al. (2001) concentration-mass relation'
     IF(lut%iconc==3) WRITE(*,*) 'Mean density Duffy et al. (2008) concentration-mass relation'
     IF(lut%iconc==4) WRITE(*,*) 'Virial denity Duffy et al. (2008) concentration-mass relation'
+
+    !Concentration-mass relation correction
     IF(lut%iDolag==1) WRITE(*,*) 'No concentration-mass correction'
     IF(lut%iDolag==2) WRITE(*,*) 'Dolag (2004) concentration-mass correction'
     IF(lut%iDolag==3) WRITE(*,*) 'Dolag (2004) concentration-mass correction with 1.5 exponent'
+
+    !delta_c
     IF(lut%idc==1) WRITE(*,*) 'Fixed delta_c = 1.686'
     IF(lut%idc==2) WRITE(*,*) 'delta_c from Nakamura & Suto (1998) fitting function'
     IF(lut%idc==3) WRITE(*,*) 'delta_c from Mead et al. (2015, 2016) power spectrum fit'
+    IF(lut%idc==4) WRITE(*,*) 'delta_c from Mead (2017) fitting function'
+
+    !Delta_v
     IF(lut%iDv==1) WRITE(*,*) 'Fixed Delta_v = 200'
     IF(lut%iDv==2) WRITE(*,*) 'Delta_v from Bryan & Norman (1998) fitting function'
     IF(lut%iDv==3) WRITE(*,*) 'Delta_v from Mead et al. (2015, 2016) power spectrum fit'
+    IF(lut%iDv==4) WRITE(*,*) 'Delta_v from Mead (2017) fitting function'
+
+    !Eta for halo window function
     IF(lut%ieta==1) WRITE(*,*) 'eta = 0 fixed'
     IF(lut%ieta==2) WRITE(*,*) 'eta from Mead et al. (2015, 2016) power spectrum fit'
+
+    !Small-scale two-halo term damping coefficient
     IF(lut%i2hdamp==1) WRITE(*,*) 'No two-halo term damping at small scales'
     IF(lut%i2hdamp==2) WRITE(*,*) 'Two-halo term damping from Mead et al. (2015)'
     IF(lut%i2hdamp==3) WRITE(*,*) 'Two-halo term damping from Mead et al. (2016)'
+
+    !Large-scale one-halo term damping function
     IF(lut%i1hdamp==1) WRITE(*,*) 'No damping in one-halo term at large scales'
     IF(lut%i1hdamp==2) WRITE(*,*) 'One-halo term large-scale damping via an exponential'
     IF(lut%i1hdamp==3) WRITE(*,*) 'One-halo term large-scale damping like Delta^2 ~ k^7'
+
+    !Large-scale one-halo term damping coefficient
     IF(lut%i1hdamp .NE. 1) THEN
        IF(lut%ikstar==1) WRITE(*,*) 'No damping in one-halo term at large scales'
        IF(lut%ikstar==2) WRITE(*,*) 'One-halo term damping function from Mead et al. (2015, 2016)'
     END IF
+
+    !Concentration-mass scaling
     IF(lut%iAs==1) WRITE(*,*) 'No rescaling of concentration-mass relation'
     IF(lut%iAs==2) WRITE(*,*) 'Concentration-mass relation rescaled mass independetly (Mead et al. 2015, 2016)'
+
+    !Scatter in halo properties
+    IF(lut%iscatter==1) WRITE(*,*) 'No scatter in halo properties at fixed mass'
+    IF(lut%iscatter==2) WRITE(*,*) 'Scatter in halo concentration at fixed mass'
+
+    !Two- to one-halo transition region
     IF(lut%itrans==1) WRITE(*,*) 'Standard sum of two- and one-halo terms'
     IF(lut%itrans==2) WRITE(*,*) 'Smoothed transition from Mead et al. (2015)'
     IF(lut%itrans==3) WRITE(*,*) 'Smoothed transition from Mead et al. (2016)'
     IF(lut%itrans==4) WRITE(*,*) 'Experimental smoothed transition for HMx'
+
+    !Numerical parameters
     WRITE(*,*) '==========================='
     WRITE(*,fmt='(A10,F10.5)') 'z:', redshift_a(a)
     WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(a,lut,cosm)
@@ -1007,14 +1076,16 @@ CONTAINS
     REAL, PARAMETER :: large_nu=10. !Value for nu such that there are no haloes larger   
 
     !Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=6 !Number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=8 !Number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
-    names(1)='Accurate halo-model calculation (Mead et al. 2015, 2016)'
+    names(1)='Accurate halo-model calculation (Mead et al. 2016)'
     names(2)='Basic halo-model calculation (Two-halo term is linear)'
     names(3)='Standard halo-model calculation (Seljak 2000)'
     names(4)='Standard halo-model calculation but with Mead et al. (2015) transition'
-    names(5)='Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed'
+    names(5)='Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 and Bullock c(M)'
     names(6)='Half-accurate halo-model calculation (Mead et al. 2015, 2016)'
+    names(7)='Accurate halo-model calculation (Mead et al. 2015)'
+    names(8)='Including scatter in halo properties at fixed mass'
     
     !Default options
 
@@ -1058,12 +1129,14 @@ CONTAINS
     !1 - Fixed 1.686
     !2 - Nakamura & Suto (1998) fitting function
     !3 - Mead et al. (2015)
+    !4 - Mead (2017) fitting function
     lut%idc=2
 
     !Virial density Delta_v
     !1 - Fixed 200
     !2 - Bryan & Norman (1998) fitting function
     !3 - Mead et al. (2015)
+    !4 - Mead (2017) fitting function
     lut%iDv=2
 
     !eta for halo window function
@@ -1100,6 +1173,11 @@ CONTAINS
     !3 - Yes, 1.5 power correction
     lut%iDolag=2
 
+    !Scatter in halo properties at fixed mass
+    !1 - No
+    !2 - Scatter in halo concentration 
+    lut%iscatter=1
+
     !Do voids?
     lut%voids=.FALSE.
 
@@ -1118,9 +1196,7 @@ CONTAINS
        WRITE(*,*)
     END IF
        
-    IF(ihm==0) THEN
-       !Do nothing
-    ELSE IF(ihm==1 .OR. ihm==7) THEN
+    IF(ihm==1 .OR. ihm==7) THEN
        !1 - Accurate halo-model calculation (Mead et al. 2016)
        !7 - Accurate halo-model calculation (Mead et al. 2015)
        lut%ip2h=1
@@ -1151,6 +1227,7 @@ CONTAINS
        lut%iDv=1
     ELSE IF(ihm==3) THEN
        !3 - Standard halo-model calculation (Seljak 2000)
+       !This is the default, so do nothing here
     ELSE IF(ihm==4 .OR. ihm==6) THEN
        !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition and one-halo damping
        !6 - Half-accurate halo-model calculation (Mead et al. 2015, 2016)
@@ -1164,12 +1241,20 @@ CONTAINS
           lut%iDolag=3
        END IF
     ELSE IF(ihm==5) THEN
-       !5 - Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed
+       !5 - Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed and Bullock c(M)
        lut%idc=1
        lut%iDv=1
+       lut%iconc=1
+    ELSE IF(ihm==8) THEN
+       !8 - Include scatter in halo properties
+       lut%idc=1
+       lut%iDv=1
+       lut%iconc=1
+       lut%iscatter=2
     ELSE
        STOP 'HALOMOD_INIT: Error, ihm specified incorrectly'
     END IF
+    lut%name=names(ihm)
 
     !Get the scale factor
     a=scale_factor_z(z)
@@ -1653,12 +1738,12 @@ CONTAINS
     IMPLICIT NONE
     REAL :: p_2h    
     TYPE(halomod), INTENT(IN) :: lut
-    REAL, INTENT(IN) :: k, z, plin, wk(2,lut%n)
+    REAL, INTENT(IN) :: k, z, plin, wk(lut%n,2)
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(IN) :: ih(2)
     REAL :: sigv, frac, rhom, a
     REAL :: nu, m, m0, wki(2)
-    REAL :: integrand1(2,lut%n), integrand2(2,lut%n)
+    REAL :: integrand1(lut%n,2), integrand2(lut%n,2)
     REAL :: sum1(2), sum2(2)
     INTEGER :: i, j
 
@@ -1678,16 +1763,16 @@ CONTAINS
           !Some variables to make equations cleaner below
           m=lut%m(i)
           nu=lut%nu(i)
-          wki=wk(:,i)
+          wki=wk(i,:)
 
           DO j=1,2
 
              !Linear bias term, standard two-halo term integral
-             integrand1(j,i)=g_nu(nu,lut)*b_nu(nu,lut)*wki(j)/m
+             integrand1(i,j)=g_nu(nu,lut)*b_nu(nu,lut)*wki(j)/m
 
              IF(lut%ibias==2) THEN
                 !Second-order bias term
-                integrand2(j,i)=g_nu(nu,lut)*b2_nu(nu,lut)*wki(j)/m
+                integrand2(i,j)=g_nu(nu,lut)*b2_nu(nu,lut)*wki(j)/m
              END IF
 
           END DO
@@ -1696,7 +1781,7 @@ CONTAINS
 
        !Evaluate these integrals from the tabled values
        DO j=1,2
-          sum1(j)=integrate_table(lut%nu,integrand1(j,:),lut%n,1,lut%n,3)
+          sum1(j)=integrate_table(lut%nu,integrand1(:,j),lut%n,1,lut%n,3)
        END DO
 
        IF(lut%ip2h_corr==1) THEN
@@ -1715,8 +1800,8 @@ CONTAINS
           !Put the missing part of the integrand as a delta function at the low-mass limit of the integral
           !I think this is the best thing to do
           m0=lut%m(1)
-          DO j=1,2
-             wki=wk(:,1)
+          wki=wk(1,:)
+          DO j=1,2             
              sum1(j)=sum1(j)+lut%gbmin*wki(j)/m0
           END DO
        ELSE
@@ -1734,7 +1819,7 @@ CONTAINS
           !sum21=integrate_table(lut%nu,integrand21,lut%n,1,lut%n,3)
           !sum22=integrate_table(lut%nu,integrand22,lut%n,1,lut%n,3)
           DO j=1,2
-             sum2(j)=integrate_table(lut%nu,integrand2(j,:),lut%n,1,lut%n,3)
+             sum2(j)=integrate_table(lut%nu,integrand2(:,j),lut%n,1,lut%n,3)
           END DO
           p_2h=p_2h+(plin**2)*sum2(1)*sum2(2)*rhom**2
        END IF
@@ -1757,13 +1842,13 @@ CONTAINS
 
   END FUNCTION p_2h
 
-  FUNCTION p_1h(wk,k,z,lut,cosm)
+  FUNCTION p_1h(wk2,k,z,lut,cosm)
 
     !Calculates the one-halo term
     IMPLICIT NONE
     REAL :: p_1h    
     TYPE(halomod), INTENT(IN) :: lut
-    REAL, INTENT(IN) :: k, z, wk(2,lut%n)
+    REAL, INTENT(IN) :: k, z, wk2(lut%n)
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: m, g, fac, ks, a
     REAL, ALLOCATABLE :: integrand(:)
@@ -1779,7 +1864,7 @@ CONTAINS
     DO i=1,lut%n
        g=g_nu(lut%nu(i),lut)
        m=lut%m(i)
-       integrand(i)=g*wk(1,i)*wk(2,i)/m
+       integrand(i)=g*wk2(i)/m
     END DO
 
     !Carries out the integration
@@ -3175,10 +3260,10 @@ CONTAINS
     ELSE
 
        !Reset the sum variables for the integration
-       sum_2n=0.
-       sum_n=0.
-       sum_old=0.
-       sum_new=0.
+       sum_2n=0.d0
+       sum_n=0.d0
+       sum_old=0.d0
+       sum_new=0.d0
 
        DO j=1,jmax
 
@@ -4014,6 +4099,7 @@ CONTAINS
     REAL :: x, dx
     REAL :: f1, f2, fx
     DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+    
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
@@ -4088,5 +4174,130 @@ CONTAINS
     END IF
 
   END FUNCTION integrate_gbnu
+
+  FUNCTION integrate_scatter(c,dc,ih,k,z,m,rv,lut,cosm,acc,iorder)
+
+    !Integrates between a and b until desired accuracy is reached
+    !Stores information to reduce function calls
+    IMPLICIT NONE
+    REAL :: integrate_scatter
+    REAL, INTENT(IN) :: c, dc, acc
+    INTEGER, INTENT(IN) :: iorder
+    INTEGER, INTENT(IN) :: ih(2)
+    REAL, INTENT(IN) :: k, z, m, rv    
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: a, b
+    INTEGER :: i, j
+    INTEGER :: n
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+    
+    INTEGER, PARAMETER :: jmin=5
+    INTEGER, PARAMETER :: jmax=30
+    REAL, PARAMETER :: nsig=5
+
+    a=c/(1.+nsig*dc)
+    b=c*(1.+nsig*dc)
+    
+    IF(a==b) THEN
+
+       !Fix the answer to zero if the integration limits are identical
+       integrate_scatter=0.
+
+    ELSE
+
+       !Set the sum variable for the integration
+       sum_2n=0.d0
+       sum_n=0.d0
+       sum_old=0.d0
+       sum_new=0.d0
+
+       DO j=1,jmax
+
+          !Note, you need this to be 1+2**n for some integer n
+          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+          n=1+2**(j-1)
+
+          !Calculate the dx interval for this value of 'n'
+          dx=(b-a)/REAL(n-1)
+
+          IF(j==1) THEN
+             
+             !The first go is just the trapezium of the end points
+             f1=scatter_integrand(a,c,dc,ih,k,z,m,rv,lut,cosm)
+             f2=scatter_integrand(b,c,dc,ih,k,z,m,rv,lut,cosm)
+             sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
+             
+          ELSE
+
+             !Loop over only new even points to add these to the integral
+             DO i=2,n,2
+                x=a+(b-a)*REAL(i-1)/REAL(n-1)
+                fx=scatter_integrand(x,c,dc,ih,k,z,m,rv,lut,cosm)
+                sum_2n=sum_2n+fx
+             END DO
+
+             !Now create the total using the old and new parts
+             sum_2n=sum_n/2.d0+sum_2n*dx
+
+             !Now calculate the new sum depending on the integration order
+             IF(iorder==1) THEN  
+                sum_new=sum_2n
+             ELSE IF(iorder==3) THEN         
+                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+             ELSE
+                STOP 'INTEGRATE_FNU: Error, iorder specified incorrectly'
+             END IF
+
+          END IF
+
+          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+             EXIT
+          ELSE IF(j==jmax) THEN
+             STOP 'INTEGRATE_FNU: Integration timed out'
+          ELSE
+             !Integral has not converged so store old sums and reset sum variables
+             sum_old=sum_new
+             sum_n=sum_2n
+             sum_2n=0.d0
+          END IF
+
+       END DO
+
+       integrate_scatter=REAL(sum_new)
+
+    END IF
+
+  END FUNCTION integrate_scatter
+
+  FUNCTION scatter_integrand(c,cbar,dc,ih,k,z,m,rv,lut,cosm)
+
+    !Integrand for computing halo profiles with scatter
+    IMPLICIT NONE
+    REAL :: scatter_integrand
+    REAL, INTENT(IN) :: c, cbar, dc
+    INTEGER, INTENT(IN) :: ih(2)
+    REAL, INTENT(IN) :: k, z, m, rv    
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: wk(2), pc, rs
+    INTEGER :: j
+
+    !Halo profiles
+    DO j=1,2
+       rs=rv/c
+       wk(j)=win_type(.FALSE.,ih(j),1,k,z,m,rv,rs,lut,cosm)
+    END DO
+
+    !Probability distribution
+    pc=lognormal(c,cbar,dc)
+
+    !The full integrand
+    scatter_integrand=wk(1)*wk(2)*pc
+    
+  END FUNCTION scatter_integrand
 
 END MODULE HMx

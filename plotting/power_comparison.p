@@ -9,13 +9,13 @@ if(!exists('print')){print=0}
 if(print==0){set term aqua dashed}
 if(print==1){set term post enh col sol; set output 'power_comparison.eps'}
 
-kmin=0.01
-kmax=10.
+kmin=1e-3
+kmax=1e2
 set log x
 set xrange [kmin:kmax]
 
-pmin=1e-4
-pmax=1e3
+pmin=1e-7
+pmax=1e4
 set log y
 set yrange [pmin:pmax]
 set ylabel '{/Symbol D}^2(k)'
