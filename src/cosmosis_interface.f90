@@ -120,9 +120,13 @@ function execute(block, config) result(status)
     call c_f_pointer(config, HMx_config)
 
     HMx_config%cosm%wa=0.
-    HMx_config%cosm%T_cmb=2.72
+    HMx_config%cosm%T_cmb=2.73
     HMx_config%cosm%z_cmb=1100.
 
+    !Mead - added these
+    HMx_config%iw=1
+    HMx_config%neff=3.045
+    
     ! Cosmology parameters
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, HMx_config%cosm%om_m)
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v)
