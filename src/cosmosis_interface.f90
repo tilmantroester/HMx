@@ -11,7 +11,7 @@ module HMx_setup
 
         integer :: compute_p_lin
 
-        integer :: ihm
+        integer :: ihm, iw
 
         integer, dimension(2) :: fields
 
@@ -83,6 +83,11 @@ function setup(options) result(result)
 
     status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
     status = datablock_get_int_default(options, option_section, "verbose", 1, verbose)
+    status = datablock_get_int_default(options, option_section, "hmcode_corrections", 0, HMx_config%ihm)
+    status = datablock_get_int_default(options, option_section, "de_type", 1, HMx_config%iw)
+
+    HMx_config%cosm%iw = HMx_config%iw
+
     HMx_config%verbose = verbose > 0
 
     !Create k array (log spacing)
@@ -118,14 +123,6 @@ function execute(block, config) result(status)
     character(len=256) :: pk_section
 
     call c_f_pointer(config, HMx_config)
-
-    HMx_config%cosm%wa=0.
-    HMx_config%cosm%T_cmb=2.73
-    HMx_config%cosm%z_cmb=1100.
-
-    !Mead - added these
-    HMx_config%iw=1
-    HMx_config%neff=3.045
     
     ! Cosmology parameters
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, HMx_config%cosm%om_m)
@@ -136,6 +133,10 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, cosmological_parameters_section, "sigma_8", 0.8, HMx_config%cosm%sig8)
     status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96, HMx_config%cosm%n)
     status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, HMx_config%cosm%w)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "wa", 0.0, HMx_config%cosm%wa)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "neff", 3.046, HMx_config%cosm%neff)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "T_cmb", 2.73, HMx_config%cosm%T_cmb)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "z_cmb", 1100.0, HMx_config%cosm%z_cmb)
 
     ! Baryon parameters
     status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
