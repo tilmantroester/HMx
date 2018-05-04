@@ -2665,10 +2665,10 @@ CONTAINS
 
     IF(real_space) THEN
        r=k
-       win_centrals=n_centrals(m)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_centrals=N_centrals(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
        win_centrals=win_centrals/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE      
-       win_centrals=n_centrals(m)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
+       win_centrals=N_centrals(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
     END IF
 
   END FUNCTION win_centrals
@@ -2701,10 +2701,10 @@ CONTAINS
 
     IF(real_space) THEN
        r=k
-       win_satellites=n_satellites(m)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_satellites=N_satellites(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
        win_satellites=win_satellites/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE
-       win_satellites=n_satellites(m)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
+       win_satellites=N_satellites(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
     END IF
 
   END FUNCTION win_satellites
@@ -2722,39 +2722,37 @@ CONTAINS
     
   END FUNCTION win_galaxies
 
-  FUNCTION n_centrals(m)
+  FUNCTION N_centrals(m,cosm)
 
     !The number of central galaxies as a function of halo mass
     IMPLICIT NONE
-    INTEGER :: n_centrals
+    INTEGER :: N_centrals
     REAL, INTENT(IN) :: m
-    
-    REAL, PARAMETER :: m0=1e12 !Limit for halo mass below which there are no galaxies
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    IF(m<m0) THEN
-       n_centrals=0
+    IF(m<cosm%mgal) THEN
+       N_centrals=0
     ELSE
-       n_centrals=1
+       N_centrals=1
     END IF
     
-  END FUNCTION n_centrals
+  END FUNCTION N_centrals
 
-  FUNCTION n_satellites(m)
+  FUNCTION N_satellites(m,cosm)
 
     !The number of satellite galxies as a function of halo mass
     IMPLICIT NONE
-    INTEGER :: n_satellites
+    INTEGER :: N_satellites
     REAL, INTENT(IN) :: m
-    
-    REAL, PARAMETER :: m0=1e12 !Limit for halo mass below which there are no galaxies
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    IF(m<m0) THEN
-       n_satellites=0
+    IF(m<cosm%mgal) THEN
+       N_satellites=0
     ELSE
-       n_satellites=CEILING(m/m0)-1
+       N_satellites=CEILING(m/cosm%mgal)-1
     END IF
     
-  END FUNCTION n_satellites
+  END FUNCTION N_satellites
 
   FUNCTION virial_temperature(M,rv)
 

@@ -12,10 +12,12 @@ MODULE cosmology_functions
   !Contains cosmological parameters that need only be calculated once
   TYPE cosmology     
      REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa !Primary parameters
-     REAL :: z_CMB, T_CMB, neff, Om_r, age, horizon !Secondard parameters
-     REAL :: a1, a2, ns, ws, am, dm, wm !DE parameters
+     REAL :: z_CMB, T_CMB, neff, Om_r, age, horizon !Secondary parameters
      REAL :: Om, k, Om_k, Om_c, A !Derived parameters
+     REAL :: a1, a2, ns, ws, am, dm, wm !DE parameters     
      REAL :: Om_ws, as, a1n, a2n !Derived DE parameters
+     REAL :: alpha, eps, Gamma, M0, Astar, whim !Baryon parameters
+     REAL :: mgal !HOD parameters
      REAL, ALLOCATABLE :: sigma(:), r_sigma(:) !Arrays for sigma(R)
      REAL, ALLOCATABLE :: a_growth(:), growth(:), growth_rate(:), acc_growth(:) !Arrays for growth
      REAL, ALLOCATABLE :: r(:), a_r(:) !Arrays for distance
@@ -25,8 +27,7 @@ MODULE cosmology_functions
      REAL :: gnorm
      CHARACTER(len=256) :: name = ""
      LOGICAL :: has_distance, has_growth, has_sigma
-     LOGICAL :: is_normalised, is_init, external_plin
-     REAL :: alpha, eps, Gamma, M0, Astar, whim !HMx baryon parameters
+     LOGICAL :: is_normalised, is_init, external_plin     
   END TYPE cosmology
 
 CONTAINS
@@ -99,6 +100,9 @@ CONTAINS
     cosm%M0=1e14
     cosm%Astar=0.02
     cosm%whim=1e6
+
+    !Default values of the HOD parameters
+    cosm%mgal=1e12
 
     !Set all 'has' logicals to FALSE
     cosm%is_init=.FALSE.
