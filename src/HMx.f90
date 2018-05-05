@@ -1555,24 +1555,28 @@ CONTAINS
     !Fill concentration-mass for all halo masses
     DO i=1,lut%n
 
+       !Halo mass
+       m=lut%m(i)
+
+       !Choose concentration-mass relation
        IF(lut%iconc==1) THEN
           zf=lut%zc(i)
           lut%c(i)=conc_Bullock(z,zf)
-       ELSE IF(lut%iconc==2) THEN
-          m=lut%m(i)
+       ELSE IF(lut%iconc==2) THEN         
           lut%c(i)=conc_Bullock_simple(m,mstar)
        ELSE IF(lut%iconc==3) THEN
-          m=lut%m(i)
           lut%c(i)=conc_Duffy_mean(m,z)
        ELSE IF(lut%iconc==4) THEN
-          m=lut%m(i)
           lut%c(i)=conc_Duffy_virial(m,z)
        ELSE
           STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
        END IF
 
-       !Rescale halo concentrations
+       !Rescale halo concentrations via the As HMcode parameter
        lut%c(i)=lut%c(i)*As(lut,cosm)
+
+       !Rescale the concentration-mass relation for gas the epsilon parameter
+       lut%c(i)=lut%c(i)*(1.+(cosm%eps-1.)*halo_boundgas_fraction(m,cosm)/(cosm%Om_b/cosm%Om_m))
 
     END DO
     
@@ -1587,8 +1591,6 @@ CONTAINS
 
        !Make a LCDM cosmology
        cosm_lcdm=cosm
-       !DEALLOCATE(cosm_lcdm%growth)
-       !DEALLOCATE(cosm_lcdm%a_growth)
        cosm_lcdm%has_growth=.FALSE.
        cosm_lcdm%w=-1.
        cosm_lcdm%wa=0.
@@ -1606,14 +1608,6 @@ CONTAINS
        END IF
 
     END IF
-
-    !Update the concentration-mass relation via the epsilon parameter
-    !lut%c=lut%c*cosm%eps
-    DO i=1,lut%n    
-       m=lut%m(i)
-       !WRITE(*,*) i, m, (1.+(cosm%eps-1.)*halo_boundgas_fraction(m,cosm)/(cosm%Om_b/cosm%Om_m))
-       lut%c(i)=lut%c(i)*(1.+(cosm%eps-1.)*halo_boundgas_fraction(m,cosm)/(cosm%Om_b/cosm%Om_m))
-    END DO
     
   END SUBROUTINE fill_halo_concentration
 

@@ -295,30 +295,36 @@ PROGRAM HMx_driver
         IF(imode==16 .AND. iowl==1) THEN
            name='AGN'
            fname='AGN'
-           cosm%alpha=0.485
-           cosm%eps=10**0.103
-           cosm%Gamma=1.212
-           cosm%M0=10**13.836
+           !! Best fit on 04/05/2018 !!
+           cosm%alpha=0.474
+           cosm%eps=10**(-0.068)
+           cosm%Gamma=1.202
+           cosm%M0=10**13.843
            cosm%Astar=0.029
-           cosm%whim=10**6.346
+           cosm%whim=10**6.316
+           !! !!
         ELSE IF(imode==16 .AND. iowl==2) THEN
            name='AGN low'
            fname='AGN-lo'
-           cosm%alpha=0.441
-           cosm%eps=10**0.089
-           cosm%Gamma=1.198
-           cosm%M0=10**13.547
+           !! Best fit on 04/05/2018 !!
+           cosm%alpha=0.440
+           cosm%eps=10**(-0.022)
+           cosm%Gamma=1.196
+           cosm%M0=10**13.542
            cosm%Astar=0.031
-           cosm%whim=10**6.35
+           cosm%whim=10**6.329
+           !! !!
         ELSE IF(imode==16 .AND. iowl==3) THEN
            name='AGN high'
            fname='AGN-hi'
-           cosm%alpha=0.553
-           cosm%eps=10**0.165
-           cosm%Gamma=1.232
-           cosm%M0=10**14.306
+           !! Best fit on 04/05/2018 !!
+           cosm%alpha=0.528
+           cosm%eps=10**0.164
+           cosm%Gamma=1.208
+           cosm%M0=10**14.329
            cosm%Astar=0.026
-           cosm%whim=10**6.398
+           cosm%whim=10**6.359
+           !! !!
         END IF
 
         IF(imode==15) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
@@ -1232,7 +1238,7 @@ PROGRAM HMx_driver
            param_max=1.1
            ilog=.FALSE.
         ELSE IF(ipa==2) THEN
-           !epsilon - concentration change due to gas presence
+           !epsilon - concentration change due to gas
            param_min=0.5
            param_max=2.
            ilog=.TRUE.
