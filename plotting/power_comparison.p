@@ -9,28 +9,28 @@ if(!exists('print')){print=0}
 if(print==0){set term aqua dashed}
 if(print==1){set term post enh col sol; set output 'power_comparison.eps'}
 
-kmin=0.01
-kmax=10.
+kmin=1e-3
+kmax=1e2
 set log x
 set xrange [kmin:kmax]
 
-pmin=1e-4
-pmax=1e3
+pmin=1e-7
+pmax=1e4
 set log y
 set yrange [pmin:pmax]
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 
-#com='power_HMcode_Mead.txt'
-com='power_HMcode_standard.txt'
+#File to compare against
+if(!exists('com')){com='power_HMcode_standard.txt'}
 
 new='data/power_full.dat'
 p1h='data/power_1halo.dat'
 p2h='data/power_2halo.dat'
 
 print ''
-print 'Comparing power_full.dat to ', com
-print 'Remember to set variable *com* as comparison'
+print 'Comparing power_full.dat to: ', com
+print 'Set variable *com* as comparison file'
 print ''
 
 set key top left

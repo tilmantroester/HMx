@@ -82,6 +82,11 @@ set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 set mytics 10
 
+print 'Example field file: ', field(N,mod,word(fields,1),word(fields,1))
+print 'Example DMONLY file: ', dmonly
+print 'Example halo-model file: ', hmpk('d','d')
+print ''
+
 plot field(N,mod,word(fields,1),word(fields,1)) u 1:(column(c)) w p pt 7 lc col1 noti,\
      field(N,mod,word(fields,1),word(fields,5)) u 1:(fm*column(c)) w p pt 7 lc col2 noti,\
      field(N,mod,word(fields,5),word(fields,5)) u 1:(fm*fm*column(c)) w p pt 7 lc col3 noti,\

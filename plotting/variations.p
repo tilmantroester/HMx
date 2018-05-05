@@ -22,7 +22,7 @@ UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat'
 #Fix the parameter to plot
 if(!exists("param")){param=1}
 if(param==1){pname='{/Symbol a}';       min=0.1;   max=1.1;   ilog=0; coll='light-blue'}
-if(param==2){pname='{/Symbol D}c';      min=0.1;   max=10.;   ilog=1; coll='pink'}
+if(param==2){pname='{/Symbol e}';       min=0.5;   max=2.;   ilog=1; coll='pink'}
 if(param==3){pname='{/Symbol G}';       min=1.15;  max=1.25;  ilog=0; coll='orange'}
 if(param==4){pname='M_B / M_{'.sun.'}'; min=1e13;  max=1e15;  ilog=1; coll='light-green'}
 if(param==5){pname='A_*';               min=0.01;  max=0.03;  ilog=0; coll='gold'}
@@ -127,8 +127,10 @@ premax=1e2
 prelab='4{/Symbol p} r^2 P(r) [eV (Mpc/h)^{-1}]'
 
 #Axis range for halo profiles
-rmin=0.01
-rmax=2.
+#rmin=0.01
+#rmax=2.
+rmin=0.
+rmax=1.1
 #rlab='r / h^{-1} Mpc'
 rlab='r / r_v'
 
@@ -283,6 +285,7 @@ unset label
 
 ### Density: Density profiles ###  - Top right
 
+unset log x
 set xrange[rmin:rmax/dx]
 set xlabel rlab
 set format x
@@ -434,6 +437,7 @@ unset label
 
 ### Pressure: density profiles ### - Top right
 
+unset log x
 set xrange[rmin:rmax/dx]
 set xlabel ''
 set format x ''

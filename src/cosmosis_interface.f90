@@ -11,6 +11,8 @@ module HMx_setup
 
         integer :: compute_p_lin
 
+        integer :: ihm, iw
+
         integer, dimension(2) :: fields
 
         type(cosmology) :: cosm
@@ -81,6 +83,11 @@ function setup(options) result(result)
 
     status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
     status = datablock_get_int_default(options, option_section, "verbose", 1, verbose)
+    status = datablock_get_int_default(options, option_section, "hmcode_corrections", 0, HMx_config%ihm)
+    status = datablock_get_int_default(options, option_section, "de_type", 1, HMx_config%iw)
+
+    HMx_config%cosm%iw = HMx_config%iw
+
     HMx_config%verbose = verbose > 0
 
     !Create k array (log spacing)
@@ -96,7 +103,8 @@ end function setup
 function execute(block, config) result(status)
     use cosmosis_modules
     use HMx_setup
-    use HMx, only : initialise_cosmology, print_cosmology, calculate_HMx
+    use HMx, only : calculate_HMx
+    use cosmology_functions, only : init_cosmology, print_cosmology
     use constants
 
     implicit none
@@ -115,11 +123,7 @@ function execute(block, config) result(status)
     character(len=256) :: pk_section
 
     call c_f_pointer(config, HMx_config)
-
-    HMx_config%cosm%wa=0.
-    HMx_config%cosm%T_cmb=2.72
-    HMx_config%cosm%z_cmb=1100.
-
+    
     ! Cosmology parameters
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, HMx_config%cosm%om_m)
     status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v)
@@ -129,6 +133,10 @@ function execute(block, config) result(status)
     status = datablock_get_double_default(block, cosmological_parameters_section, "sigma_8", 0.8, HMx_config%cosm%sig8)
     status = datablock_get_double_default(block, cosmological_parameters_section, "n_s", 0.96, HMx_config%cosm%n)
     status = datablock_get_double_default(block, cosmological_parameters_section, "w", -1.0, HMx_config%cosm%w)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "wa", 0.0, HMx_config%cosm%wa)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "neff", 3.046, HMx_config%cosm%neff)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "T_cmb", 2.73, HMx_config%cosm%T_cmb)
+    status = datablock_get_double_default(block, cosmological_parameters_section, "z_cmb", 1100.0, HMx_config%cosm%z_cmb)
 
     ! Baryon parameters
     status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
@@ -153,18 +161,19 @@ function execute(block, config) result(status)
         end if
         HMx_config%cosm%external_plin = .true.
         HMx_config%cosm%nplin = size(k_plin)
-        allocate(HMx_config%cosm%logk_logplin, source=log(k_plin))
-        allocate(HMx_config%cosm%logplin, source=log(pk_lin(:,1)*k_plin**3/(2*pi**2)))
+        allocate(HMx_config%cosm%k_plin, source=log(k_plin))
+        allocate(HMx_config%cosm%plin, source=log(pk_lin(:,1)*k_plin**3/(2*pi**2)))
     else
         HMx_config%cosm%external_plin = .false.
     end if
 
-    call initialise_cosmology(HMx_config%verbose, HMx_config%cosm)
+    call init_cosmology(HMx_config%cosm)
     if(HMx_config%verbose) then
         call print_cosmology(HMx_config%cosm)
     end if
 
-    call calculate_HMx(HMx_config%fields, &
+    call calculate_HMx(HMx_config%ihm, &
+                       HMx_config%fields, &
                        HMx_config%mmin, HMx_config%mmax, &
                        HMx_config%k, HMx_config%nk, &
                        HMx_config%a, HMx_config%nz, &
