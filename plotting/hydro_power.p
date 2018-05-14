@@ -50,6 +50,8 @@ print ''
 if(icomp==1){
 data(sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N800/%s_%s_%s_power.dat',sim,type1,type2)
 hmpk(sim,i,j)=sprintf('cosmo-OWLS/power_%s_%i%i.dat',sim,i,j)
+print 'Error: cosmo-OWLS comparison needs to be updated'
+exit
 }
 
 #File names - BAHAMAS
@@ -67,6 +69,7 @@ hmdm(z)=sprintf('hydro/power_z%1.1f.dat',z)
 
 #Columns for simulation power
 c=2
+s=3
 L=4
 
 #Columns for halo-model power
@@ -159,13 +162,13 @@ set key bottom right
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     data(owls_name,snap,thing0,thing0) u 1:(column(c)) w p pt 7 lc col1 noti,\
-     data(owls_name,snap,thing1,thing1) u 1:(column(c)) w p pt 7 lc col2 noti,\
-     data(owls_name,snap,thing2,thing2) u 1:(column(c)) w p pt 7 lc col3 noti,\
-     data(owls_name,snap,thing3,thing3) u 1:(column(c)) w p pt 7 lc col4 noti,\
-     data(owls_name,snap,thing0,thing1) u 1:(column(c)) w p pt 6 lc col2 noti,\
-     data(owls_name,snap,thing0,thing2) u 1:(column(c)) w p pt 6 lc col3 noti,\
-     data(owls_name,snap,thing0,thing3) u 1:(column(c)) w p pt 6 lc col4 noti,\
+     data(owls_name,snap,thing0,thing0) u 1:(column(c)-column(s)) w p pt 7 lc col1 noti,\
+     data(owls_name,snap,thing1,thing1) u 1:(column(c)-column(s)) w p pt 7 lc col2 noti,\
+     data(owls_name,snap,thing2,thing2) u 1:(column(c)-column(s)) w p pt 7 lc col3 noti,\
+     data(owls_name,snap,thing3,thing3) u 1:(column(c)-column(s)) w p pt 7 lc col4 noti,\
+     data(owls_name,snap,thing0,thing1) u 1:(column(c)-column(s)) w p pt 6 lc col2 noti,\
+     data(owls_name,snap,thing0,thing2) u 1:(column(c)-column(s)) w p pt 6 lc col3 noti,\
+     data(owls_name,snap,thing0,thing3) u 1:(column(c)-column(s)) w p pt 6 lc col4 noti,\
      hmpk(hm_name,z,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'All matter',\
      hmpk(hm_name,z,1,1) u 1:(column(d)) w l lw 3 dt 1 lc col2 ti 'CDM',\
      hmpk(hm_name,z,2,2) u 1:(column(d)) w l lw 3 dt 1 lc col3 ti 'Gas',\
@@ -190,8 +193,8 @@ print ''
 set key top left
 
 plot data(owls_name,snap,thing0,thing0) u 1:(column(c)) w p pt 7 lc col1 noti,\
-     data(owls_name,snap,thing0,thing6) u 1:(f*column(c)) w p pt 6 lc col2 noti,\
-     data(owls_name,snap,thing6,thing6) u 1:(f*f*column(c)) w p pt 7 lc col3 noti,\
+     data(owls_name,snap,thing0,thing6) u 1:(f*(column(c))) w p pt 6 lc col2 noti,\
+     data(owls_name,snap,thing6,thing6) u 1:(f*f*(column(c))) w p pt 7 lc col3 noti,\
      hmpk(hm_name,z,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'Matter-Matter',\
      hmpk(hm_name,z,0,6) u 1:(f*column(d)) w l lw 3 dt 2 lc col2 ti 'Matter-Pressure',\
      hmpk(hm_name,z,6,6) u 1:(f*f*column(d)) w l lw 3 dt 1 lc col3 ti 'Pressure-Pressure'
@@ -222,14 +225,14 @@ plot 1 w l lt -1 noti,\
      Om_c/Om_m      w l lc -1 dt 2 noti,\
      (Om_b/Om_m)**2 w l lc -1 dt 2 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col1 noti,\
-     '<paste '.data(owls_name,snap,thing1,thing1).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col2 noti,\
-     '<paste '.data(owls_name,snap,thing2,thing2).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col3 noti,\
-     '<paste '.data(owls_name,snap,thing3,thing3).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col4 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col1 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing1).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col2 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing2).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col3 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing3).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 6 lc col4 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
+     '<paste '.data(owls_name,snap,thing1,thing1).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col2 noti,\
+     '<paste '.data(owls_name,snap,thing2,thing2).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col3 noti,\
+     '<paste '.data(owls_name,snap,thing3,thing3).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col4 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col1 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing1).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col2 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing2).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col3 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing3).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col4 noti,\
      '<paste '.hmpk(hm_name,z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'All matter',\
      '<paste '.hmpk(hm_name,z,1,1).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col2 ti 'CDM',\
      '<paste '.hmpk(hm_name,z,2,2).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col3 ti 'Gas',\
@@ -247,9 +250,9 @@ set format y '10^{%T}'
 plot 1 w l lt -1 noti,\
      NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col1 noti,\
-     '<paste '.data(owls_name,snap,thing6,thing6).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col6 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing6).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 lc col6 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
+     '<paste '.data(owls_name,snap,thing6,thing6).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c))/(column(c+L)-column(s+L))) w p pt 7 lc col6 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing6).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c))/(column(c+L)-column(s+L))) w p pt 7 lc col6 noti,\
      '<paste '.hmpk(hm_name,z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'All matter',\
      '<paste '.hmpk(hm_name,z,6,6).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col6 ti 'Pressure',\
      '<paste '.hmpk(hm_name,z,0,6).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti
@@ -275,7 +278,7 @@ set ylabel 'P(k) / P_{DMONLY}(k)'
 
 if(icomp==1 || icomp==2){
 plot 1 w l lt -1 noti,\
-     for [i=1:words(owls_names)] '<paste '.data(word(owls_names,i),snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:(column(c)/column(c+L)) w p pt 7 dt 1 lc i noti,\
+     for [i=1:words(owls_names)] '<paste '.data(word(owls_names,i),snap,thing0,thing0).' '.data(owl0,snap,thing0,thing0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc i noti,\
      for [i=1:words(hm_names)]   '<paste '.hmpk(word(hm_names,i),z,0,0).' '.hm0.'' u 1:(column(d)/column(d+M)) w l lw 3 lc i ti word(hm_names,i)
 }
 
@@ -304,15 +307,15 @@ set ylabel 'P_{HM}(k) / P_{OWLS}(k)'
 plot NaN w l lw 2 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 2 dt 2 lc -1 ti 'Cross with matter',\
      1 w l lt -1 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing0).' '.hmpk(hm_name,z,0,0).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col1 ti 'All matter',\
-     '<paste '.data(owls_name,snap,thing1,thing1).' '.hmpk(hm_name,z,1,1).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col2 ti 'CDM',\
-     '<paste '.data(owls_name,snap,thing2,thing2).' '.hmpk(hm_name,z,2,2).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col3 ti 'Gas',\
-     '<paste '.data(owls_name,snap,thing3,thing3).' '.hmpk(hm_name,z,3,3).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col4 ti 'Stars',\
-     '<paste '.data(owls_name,snap,thing6,thing6).' '.hmpk(hm_name,z,6,6).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 1 lc col6 ti 'Pressure',\
-     '<paste '.data(owls_name,snap,thing0,thing1).' '.hmpk(hm_name,z,0,1).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col2 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing2).' '.hmpk(hm_name,z,0,2).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col3 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing3).' '.hmpk(hm_name,z,0,3).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col4 noti,\
-     '<paste '.data(owls_name,snap,thing0,thing6).' '.hmpk(hm_name,z,0,6).'' u 1:(column(L+d)/column(c)) w l lw 2 dt 2 lc col6 noti
+     '<paste '.data(owls_name,snap,thing0,thing0).' '.hmpk(hm_name,z,0,0).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col1 ti 'All matter',\
+     '<paste '.data(owls_name,snap,thing1,thing1).' '.hmpk(hm_name,z,1,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col2 ti 'CDM',\
+     '<paste '.data(owls_name,snap,thing2,thing2).' '.hmpk(hm_name,z,2,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col3 ti 'Gas',\
+     '<paste '.data(owls_name,snap,thing3,thing3).' '.hmpk(hm_name,z,3,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col4 ti 'Stars',\
+     '<paste '.data(owls_name,snap,thing6,thing6).' '.hmpk(hm_name,z,6,6).'' u 1:(column(L+d)/(column(c))) w l lw 2 dt 1 lc col6 ti 'Pressure',\
+     '<paste '.data(owls_name,snap,thing0,thing1).' '.hmpk(hm_name,z,0,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col2 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing2).' '.hmpk(hm_name,z,0,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col3 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing3).' '.hmpk(hm_name,z,0,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col4 noti,\
+     '<paste '.data(owls_name,snap,thing0,thing6).' '.hmpk(hm_name,z,0,6).'' u 1:(column(L+d)/(column(c))) w l lw 2 dt 2 lc col6 noti
 
 }
 

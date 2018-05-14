@@ -75,6 +75,7 @@ Lp=5
 
 #power columns for simulation power spectra files
 cs=2
+ss=3
 Ls=4
 
 #Masses to plot
@@ -245,9 +246,9 @@ set label '{/Symbol d}s'           at graph 0.02,0.15
 plot for [i=1:n] power(param,i,'dd') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] power(param,i,'dg') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] power(param,i,'ds') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     simulation(sim_name,snap,dsim,dsim) u 1:2 w p pt 2 lc 'black' ti sim_title,\
-     simulation(sim_name,snap,dsim,gsim) u 1:2 w p pt 2 lc 'black' noti,\
-     simulation(sim_name,snap,dsim,ssim) u 1:2 w p pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,dsim,dsim) u 1:($2-$3) w p pt 2 lc 'black' ti sim_title,\
+     simulation(sim_name,snap,dsim,gsim) u 1:($2-$3) w p pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,dsim,ssim) u 1:($2-$3) w p pt 2 lc 'black' noti,\
 
 unset label
 
@@ -275,9 +276,9 @@ set label '{/Symbol d}s'           at graph 0.03,0.27
 plot for [i=1:n] '<paste '.power(param,i,'dd').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] '<paste '.power(param,i,'dg').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] '<paste '.power(param,i,'ds').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-'<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))              w p pt 2 lc 'black' noti,\
-'<paste '.simulation(sim_name,snap,dsim,gsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))      w p pt 2 lc 'black' noti,\
-'<paste '.simulation(sim_name,snap,dsim,ssim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-coumn(ss))/(column(cs+Ls)-column(ss+Ls)) w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,gsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-coumn(ss))/(column(cs+Ls)-column(ss+Ls)) w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,ssim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-coumn(ss))/(column(cs+Ls)-column(cs+Ls)) w p pt 2 lc 'black' noti,\
 
 unset label
 
@@ -427,8 +428,8 @@ set label dplab at graph 0.03,0.6
 set label pplab at graph 0.03,0.3
 
 plot for [j=1:words(types_pressure)] for [i=1:n] '<paste '.power(param,i,word(types_pressure,j)).' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))              w p pt 2 lc 'black' noti,\
-     '<paste '.simulation(sim_name,snap,dsim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls))      w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti,\
      '<paste '.simulation(sim_name,snap,psim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti
 
 unset label
