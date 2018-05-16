@@ -682,6 +682,9 @@ CONTAINS
     ELSE IF(lut%idc==4) THEN
        !From Mead (2017) fitting function
        delta_c=dc_Mead(a,cosm)
+    ELSE IF(lut%idc==5) THEN
+       !From spheircal-collapse calculation
+       delta_c=dc_spherical(a,cosm)
     ELSE
        STOP 'DELTA_C: Error, idc defined incorrectly'
     END IF
@@ -709,6 +712,9 @@ CONTAINS
     ELSE IF(lut%iDv==4) THEN
        !From Mead (2017) fitting function
        Delta_v=Dv_Mead(a,cosm)
+    ELSE IF(lut%iDv==5) THEN
+       !From spheircal-collapse calculation
+       Delta_v=Dv_spherical(a,cosm)
     ELSE
        STOP 'DELTA_V: Error, iDv defined incorrectly'
     END IF
@@ -912,12 +918,14 @@ CONTAINS
     IF(lut%idc==2) WRITE(*,*) 'delta_c from Nakamura & Suto (1998) fitting function'
     IF(lut%idc==3) WRITE(*,*) 'delta_c from Mead et al. (2015, 2016) power spectrum fit'
     IF(lut%idc==4) WRITE(*,*) 'delta_c from Mead (2017) fitting function'
+    IF(lut%idc==5) WRITE(*,*) 'delta_c from spherical-collapse calculation'
 
     !Delta_v
     IF(lut%iDv==1) WRITE(*,*) 'Fixed Delta_v = 200'
     IF(lut%iDv==2) WRITE(*,*) 'Delta_v from Bryan & Norman (1998) fitting function'
     IF(lut%iDv==3) WRITE(*,*) 'Delta_v from Mead et al. (2015, 2016) power spectrum fit'
     IF(lut%iDv==4) WRITE(*,*) 'Delta_v from Mead (2017) fitting function'
+    IF(lut%iDv==5) WRITE(*,*) 'Delta_v from spherical-collapse calculation'
 
     !Eta for halo window function
     IF(lut%ieta==1) WRITE(*,*) 'eta = 0 fixed'
@@ -1130,6 +1138,7 @@ CONTAINS
     !2 - Nakamura & Suto (1998) fitting function
     !3 - Mead et al. (2015)
     !4 - Mead (2017) fitting function
+    !5 - Spherical-collapse calculation
     lut%idc=2
 
     !Virial density Delta_v
@@ -1137,6 +1146,7 @@ CONTAINS
     !2 - Bryan & Norman (1998) fitting function
     !3 - Mead et al. (2015)
     !4 - Mead (2017) fitting function
+    !5 - Spherical-collapse calculation
     lut%iDv=2
 
     !eta for halo window function
@@ -1225,6 +1235,7 @@ CONTAINS
        lut%ip2h=1
        lut%idc=1
        lut%iDv=1
+       lut%iconc=1
     ELSE IF(ihm==3) THEN
        !3 - Standard halo-model calculation (Seljak 2000)
        !This is the default, so do nothing here
@@ -1632,14 +1643,14 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: dc
     REAL :: af, zf, RHS, a, growz
-    REAL, ALLOCATABLE :: af_tab(:), grow_tab(:)
-    INTEGER :: i, ntab  
+    !REAL, ALLOCATABLE :: af_tab(:), grow_tab(:)
+    INTEGER :: i!, ntab  
 
-    ntab=SIZE(cosm%growth)
-    ALLOCATE(af_tab(ntab),grow_tab(ntab))
+    !ntab=cosm%n_growth
+    !ALLOCATE(af_tab(ntab),grow_tab(ntab))
 
-    af_tab=cosm%a_growth
-    grow_tab=cosm%growth
+    !af_tab=cosm%a_growth
+    !grow_tab=cosm%growth
 
     !Do numerical inversion
     DO i=1,lut%n
@@ -1652,12 +1663,13 @@ CONTAINS
 
        RHS=dc*grow(a,cosm)/lut%sigf(i)
        
-       growz=find(a,af_tab,grow_tab,cosm%ng,3,3,2)
+       !growz=find(a,af_tab,grow_tab,cosm%ng,3,3,2)
+       growz=exp(find(log(a),cosm%a_growth,cosm%growth,cosm%n_growth,3,3,2))
 
        IF(RHS>growz) THEN
           zf=z
        ELSE
-          af=find(RHS,grow_tab,af_tab,cosm%ng,3,3,2)
+          af=exp(find(log(RHS),cosm%growth,cosm%a_growth,cosm%n_growth,3,3,2))
           zf=redshift_a(af)
        END IF
 
@@ -1665,7 +1677,7 @@ CONTAINS
 
     END DO
 
-    DEALLOCATE(af_tab,grow_tab)
+    !DEALLOCATE(af_tab,grow_tab)
 
   END SUBROUTINE zcoll_Bullock
 

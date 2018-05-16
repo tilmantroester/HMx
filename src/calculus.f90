@@ -140,7 +140,7 @@ CONTAINS
     REAL :: x, dx, weight
     DOUBLE PRECISION :: sum
 
-    INTERFACE
+    INTERFACE       
        FUNCTION f(x)
          REAL :: f
          REAL, INTENT(IN) :: x
@@ -326,14 +326,15 @@ CONTAINS
     REAL :: x, dx
     REAL :: f1, f2, fx
     DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+    
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
-    INTERFACE
+    INTERFACE      
        FUNCTION f(x)
          REAL :: f
          REAL, INTENT(IN) :: x
-       END FUNCTION f
+       END FUNCTION f       
     END INTERFACE
 
     IF(a==b) THEN
@@ -421,6 +422,7 @@ CONTAINS
     INTEGER :: i, j, n
     REAL :: x, weight, dx, lima, limb 
     DOUBLE PRECISION :: sum1, sum2
+    
     INTEGER, PARAMETER :: jmax=20
     INTEGER, PARAMETER :: ninit=8
 
@@ -540,6 +542,7 @@ CONTAINS
     REAL :: x1, x2, x3, x4
     REAL :: y1, y2, y3, y4
     DOUBLE PRECISION :: sum1, sum2
+    
     INTEGER, PARAMETER :: jmax=20
     INTEGER, PARAMETER :: ni=1
 
@@ -598,7 +601,6 @@ CONTAINS
           END DO
 
           IF(j .NE. 1 .AND. ABS(-1.+sum2/sum1)<acc) THEN
-             !cubeint=REAL(sum2)
              !WRITE(*,*) 'CUBEINT: Number of sections', nsec
              !WRITE(*,*) 'CUBEINT: Number of function points', nint
              EXIT
@@ -629,26 +631,27 @@ CONTAINS
     REAL :: dy, alim, blim
     REAL :: x, y, weight
     DOUBLE PRECISION :: sum1, sum2
+    
     INTEGER, PARAMETER :: jmax=20
     INTEGER, PARAMETER :: ninit=8
 
-    INTERFACE
+    INTERFACE       
        FUNCTION f(x)
          REAL :: f
          REAL, INTENT(IN) :: x
-       END FUNCTION f
+       END FUNCTION f       
        FUNCTION g(x)
          REAL :: g
          REAL, INTENT(IN) :: x
-       END FUNCTION g
+       END FUNCTION g       
        FUNCTION gi(x)
          REAL :: gi
          REAL, INTENT(IN) :: x
-       END FUNCTION gi
+       END FUNCTION gi       
        FUNCTION dg(x)
          REAL :: dg
          REAL, INTENT(IN) :: x
-       END FUNCTION dg
+       END FUNCTION dg       
     END INTERFACE
     
     IF(a==b) THEN
@@ -671,13 +674,6 @@ CONTAINS
           DO i=1,n
 
              y=alim+(blim-alim)*REAL(i-1)/REAL(n-1)
-
-             !IF(i==1 .OR. i==n) THEN
-                !multiple of 0.5 for beginning and end and multiple of 2 for middle points!
-             !   weight=0.5
-             !ELSE
-             !   weight=1.
-             !END IF
 
              IF(iorder==1) THEN
                 !Composite trapezium weights
