@@ -17,7 +17,7 @@ MODULE cosmology_functions
      REAL :: a1, a2, ns, ws, am, dm, wm !DE parameters     
      REAL :: Om_ws, as, a1n, a2n !Derived DE parameters
      REAL :: alpha, eps, Gamma, M0, Astar, whim !Baryon parameters
-     REAL :: mgal !HOD parameters
+     REAL :: mgal, HImin, HImax !HOD parameters
      INTEGER :: iw !Switches
      REAL, ALLOCATABLE :: sigma(:), r_sigma(:) !Arrays for sigma(R)
      REAL, ALLOCATABLE :: a_growth(:), growth(:), growth_rate(:), acc_growth(:) !Arrays for growth
@@ -103,7 +103,11 @@ CONTAINS
     cosm%whim=1e6
 
     !Default values of the HOD parameters
-    cosm%mgal=1e12
+    cosm%mgal=1e13
+
+    !Default values for the HI parameters
+    cosm%HImin=1e12
+    cosm%HImax=1e14
 
     !Set all 'has' logicals to FALSE
     cosm%is_init=.FALSE.
@@ -232,7 +236,7 @@ CONTAINS
 
     !Prints the cosmological parameters to the screen
     IMPLICIT NONE
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
     WRITE(*,*) '===================================='
@@ -441,7 +445,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: comoving_critical_density
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     comoving_critical_density=physical_critical_density(a,cosm)*a**3
 
@@ -454,7 +458,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: physical_critical_density
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     physical_critical_density=critical_density*Hubble2(a,cosm)
 
@@ -467,7 +471,7 @@ CONTAINS
     !Not a function of redshift!
     IMPLICIT NONE
     REAL :: comoving_matter_density
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     comoving_matter_density=critical_density*cosm%Om_m
 
@@ -480,7 +484,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: physical_matter_density
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     physical_matter_density=comoving_matter_density(cosm)*a**(-3)
 
@@ -492,7 +496,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Hubble2
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%is_init .EQV. .FALSE.) STOP 'HUBBLE2: Error, cosmology is not initialised'
     Hubble2=cosm%Om_m*a**(-3)+cosm%Om_nu*a**(-3)+cosm%Om_r*a**(-4)+cosm%Om_v+cosm%Om_w*X_de(a,cosm)+(1.-cosm%om)*a**(-2)
@@ -504,7 +508,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Hubble2_norad
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     Hubble2_norad=Hubble2(a,cosm)-cosm%Om_r*a**(-4)
     
@@ -518,7 +522,7 @@ CONTAINS
     !Need to worry if Omega_de is scaling anything like a^-4 (e.g., kinetic dominated a^-6)
     IMPLICIT NONE
     REAL :: Hubble2a4_highz
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%is_init .EQV. .FALSE.) STOP 'HUBBLE2A4_HIGHZ: Error, cosmology is not initialised'
     Hubble2a4_highz=cosm%Om_r
@@ -531,7 +535,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: AH
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%is_init .EQV. .FALSE.) STOP 'AH: Error, cosmology is not initialised'
     AH=cosm%Om_m*a**(-3)+cosm%Om_nu*a**(-3)+2.*cosm%Om_r*a**(-4)-2.*cosm%Om_v+cosm%Om_w*(1.+3.*w_de(a,cosm))*X_de(a,cosm)
@@ -544,7 +548,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: AH_norad
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     AH_norad=AH(a,cosm)+cosm%Om_r*a**(-4)
     
@@ -556,7 +560,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Omega_m
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     Omega_m=cosm%Om_m*a**(-3)/Hubble2(a,cosm)
 
@@ -568,7 +572,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Omega_m_norad
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     Omega_m_norad=cosm%Om_m*a**(-3)/Hubble2_norad(a,cosm)
 
@@ -580,7 +584,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Omega_nu
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     Omega_nu=cosm%Om_nu*a**(-3)/Hubble2(a,cosm)
 
@@ -592,7 +596,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Omega_r
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%is_init .EQV. .FALSE.) STOP 'Omega_r: Error, cosmology is not initialised'
     Omega_r=cosm%Om_r*a**(-4)/Hubble2(a,cosm)
@@ -605,7 +609,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Omega_v
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     Omega_v=cosm%Om_v/Hubble2(a,cosm)
 
@@ -617,7 +621,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Omega_w
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     Omega_w=cosm%Om_w*X_de(a,cosm)/Hubble2(a,cosm)
 
@@ -629,7 +633,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: Omega
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%is_init .EQV. .FALSE.) STOP 'OMEGA: Error, cosmology is not initialised'
     Omega=Omega_m(a,cosm)+Omega_nu(a,cosm)+Omega_r(a,cosm)+Omega_v(a,cosm)+Omega_w(a,cosm)
@@ -642,7 +646,7 @@ CONTAINS
 !!$    IMPLICIT NONE
 !!$    REAL :: w_de
 !!$    REAL, INTENT(IN) :: a
-!!$    TYPE(cosmology), INTENT(IN) :: cosm
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
 !!$
 !!$    w_de=cosm%w+(1.-a)*cosm%wa
 !!$
@@ -655,7 +659,7 @@ CONTAINS
 !!$    IMPLICIT NONE
 !!$    REAL :: X_de
 !!$    REAL, INTENT(IN) :: a
-!!$    TYPE(cosmology), INTENT(IN) :: cosm
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
 !!$
 !!$    X_de=(a**(-3.*(1.+cosm%w+cosm%wa)))*exp(-3.*cosm%wa*(1.-a))
 !!$
@@ -667,7 +671,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: w_de
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: p1, p2, p3, p4
     DOUBLE PRECISION :: f1, f2, f3, f4
 
@@ -720,7 +724,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: w_de_total
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%Om_nu .NE. 0.) STOP 'W_DE_TOTAL: Error, does not support massive neutrinos'
 
@@ -739,7 +743,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: w_eff
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%Om_nu .NE. 0.) STOP 'W_EFF: Error, does not support massive neutrinos'
 
@@ -754,7 +758,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: X_de
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     DOUBLE PRECISION :: f1, f2, f3, f4
     !REAL, PARAMETER :: acc=1e-3
 
@@ -796,7 +800,7 @@ CONTAINS
        !See the commented out bit below
        !X_de=(a**(-3))*exp(3.*integrate_log(a,1.,integrand_de,acc,3,1))
        STOP 'X_DE: Error, this integration routine has not been tested'
-       X_de=(a**(-3))*exp(3.*integrate_de(a,1.,cosm,acc_cosm,3))
+       X_de=(a**(-3))*exp(3.*integrate_cosm(a,1.,integrand_de,cosm,acc_cosm,3))
 !!$    ELSE
 !!$       STOP 'X_DE: Error, iw not specified correctly'
     END IF
@@ -809,104 +813,11 @@ CONTAINS
     IMPLICIT NONE
     REAL :: integrand_de
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     integrand_de=w_de(a,cosm)/a
 
   END FUNCTION integrand_de
-
-  FUNCTION integrate_de(a,b,cosm,acc,iorder)
-
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
-    IMPLICIT NONE
-    REAL :: integrate_de
-    REAL, INTENT(IN) :: a, b, acc
-    TYPE(cosmology), INTENT(IN) :: cosm
-    INTEGER, INTENT(IN) :: iorder
-    INTEGER :: i, j
-    INTEGER :: n
-    REAL :: x, dx
-    REAL :: f1, f2, fx
-    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=30
-
-    IF(a==b) THEN
-
-       !Fix the answer to zero if the integration limits are identical
-       integrate_de=0.
-
-    ELSE
-
-       !Set the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
-
-       DO j=1,jmax
-
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
-          n=1+2**(j-1)
-
-          !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
-
-          IF(j==1) THEN
-
-             !The first go is just the trapezium of the end points
-             f1=integrand_de(a,cosm)
-             f2=integrand_de(b,cosm)
-             sum_2n=0.5d0*(f1+f2)*dx
-             sum_new=sum_2n
-
-          ELSE
-
-             !Loop over only new even points to add these to the integral
-             DO i=2,n,2
-                x=a+(b-a)*REAL(i-1)/REAL(n-1)
-                fx=integrand_de(x,cosm)
-                sum_2n=sum_2n+fx
-             END DO
-
-             !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
-
-             !Now calculate the new sum depending on the integration order
-             IF(iorder==1) THEN  
-                sum_new=sum_2n
-             ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
-             ELSE
-                STOP 'INTEGRATE: Error, iorder specified incorrectly'
-             END IF
-
-          END IF
-
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
-             !jmin avoids spurious early convergence
-             !integrate=REAL(sum_new)
-             !WRITE(*,*) 'INTEGRATE: Nint:', n
-             EXIT
-          ELSE IF(j==jmax) THEN
-             STOP 'INTEGRATE: Integration timed out'
-          ELSE
-             !Integral has not converged so store old sums and reset sum variables
-             sum_old=sum_new
-             sum_n=sum_2n
-             sum_2n=0.d0
-          END IF
-
-       END DO
-
-       integrate_de=REAL(sum_new)
-
-    END IF
-
-  END FUNCTION integrate_de
 
   FUNCTION redshift_a(a)
 
@@ -996,98 +907,6 @@ CONTAINS
     END IF
 
   END FUNCTION fdash_k
-
-  FUNCTION integrate_distance(a,b,cosm,acc)
-
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
-    IMPLICIT NONE
-    REAL :: integrate_distance
-    REAL, INTENT(IN) :: a, b, acc
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    INTEGER :: i, j
-    INTEGER :: n
-    REAL :: x, dx
-    REAL :: f1, f2, fx
-    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=30
-    INTEGER, PARAMETER :: iorder=3
-
-    IF(a==b) THEN
-
-       !Fix the answer to zero if the integration limits are identical
-       integrate_distance=0.
-
-    ELSE
-
-       !Set the sum variable for the integration
-       sum_2n=0.
-       sum_n=0.
-       sum_old=0.
-       sum_new=0.
-
-       DO j=1,jmax
-
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
-          n=1+2**(j-1)
-
-          !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
-
-          IF(j==1) THEN
-
-             !The first go is just the trapezium of the end points
-             f1=distance_integrand(a,cosm)
-             f2=distance_integrand(b,cosm)
-             sum_2n=0.5*(f1+f2)*dx
-             sum_new=sum_2n
-
-          ELSE
-
-             !Loop over only new even points to add these to the integral
-             DO i=2,n,2
-                x=progression(a,b,i,n)
-                fx=distance_integrand(x,cosm)
-                sum_2n=sum_2n+fx
-             END DO
-
-             !Now create the total using the old and new parts
-             sum_2n=sum_n/2.+sum_2n*dx
-
-             !Now calculate the new sum depending on the integration order
-             IF(iorder==1) THEN  
-                sum_new=sum_2n
-             ELSE IF(iorder==3) THEN         
-                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
-             ELSE
-                STOP 'INTEGRATE_DISTANCE: Error, iorder specified incorrectly'
-             END IF
-
-          END IF
-
-          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
-             !jmin avoids spurious early convergence
-             integrate_distance=REAL(sum_new)
-             EXIT
-          ELSE IF(j==jmax) THEN
-             integrate_distance=0.d0
-             STOP 'INTEGRATE_DISTANCE: Integration timed out'
-          ELSE
-             !Integral has not converged so store old sums and reset sum variables
-             integrate_distance=0.d0
-             sum_old=sum_new
-             sum_n=sum_2n
-             sum_2n=0.
-          END IF
-
-       END DO
-
-    END IF
-
-  END FUNCTION integrate_distance
 
   FUNCTION distance_integrand(a,cosm)
 
@@ -1196,7 +1015,7 @@ CONTAINS
 
     !Now do the r(z) calculation
     DO i=1,cosm%n_r
-       cosm%r(i)=integrate_distance(cosm%a_r(i),1.,cosm,acc_cosm)
+       cosm%r(i)=integrate_cosm(cosm%a_r(i),1.,distance_integrand,cosm,acc_cosm,3)
     END DO
     IF(verbose_cosmology) THEN
        WRITE(*,*) 'INIT_DISTANCE: minimum r [Mpc/h]:', REAL(cosm%r(cosm%n_r))
@@ -1204,7 +1023,7 @@ CONTAINS
     END IF
 
     !Find the horizon distance in your cosmology
-    cosm%horizon=integrate_distance(0.,1.,cosm,acc_cosm)
+    cosm%horizon=integrate_cosm(0.,1.,distance_integrand,cosm,acc_cosm,3)
     IF(verbose_cosmology) THEN
        WRITE(*,*) 'INIT_DISTANCE: Horizon distance [Mpc/h]:', REAL(cosm%horizon)
        WRITE(*,*) 'INIT_DISTANCE: Done'
@@ -1256,7 +1075,7 @@ CONTAINS
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    cosmic_time=integrate_time(0.,a,cosm,acc_cosm)
+    cosmic_time=integrate_cosm(0.,a,time_integrand,cosm,acc_cosm,3)
 
   END FUNCTION cosmic_time
 
@@ -1268,101 +1087,9 @@ CONTAINS
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    look_back_time=integrate_time(a,1.,cosm,acc_cosm)
+    look_back_time=integrate_cosm(a,1.,time_integrand,cosm,acc_cosm,3)
 
   END FUNCTION look_back_time
-
-  FUNCTION integrate_time(a,b,cosm,acc)
-
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
-    IMPLICIT NONE
-    REAL :: integrate_time
-    REAL, INTENT(IN) :: a, b, acc
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    INTEGER :: i, j
-    INTEGER :: n
-    REAL :: x, dx
-    REAL :: f1, f2, fx
-    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=30
-    INTEGER, PARAMETER :: iorder=3
-
-    IF(a==b) THEN
-
-       !Fix the answer to zero if the integration limits are identical
-       integrate_time=0.
-
-    ELSE
-
-       !Set the sum variable for the integration
-       sum_2n=0.
-       sum_n=0.
-       sum_old=0.
-       sum_new=0.
-
-       DO j=1,jmax
-
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
-          n=1+2**(j-1)
-
-          !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
-
-          IF(j==1) THEN
-
-             !The first go is just the trapezium of the end points
-             f1=time_integrand(a,cosm)
-             f2=time_integrand(b,cosm)
-             sum_2n=0.5*(f1+f2)*dx
-             sum_new=sum_2n
-
-          ELSE
-
-             !Loop over only new even points to add these to the integral
-             DO i=2,n,2
-                x=progression(a,b,i,n)
-                fx=time_integrand(x,cosm)
-                sum_2n=sum_2n+fx
-             END DO
-
-             !Now create the total using the old and new parts
-             sum_2n=sum_n/2.+sum_2n*dx
-
-             !Now calculate the new sum depending on the integration order
-             IF(iorder==1) THEN  
-                sum_new=sum_2n
-             ELSE IF(iorder==3) THEN         
-                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
-             ELSE
-                STOP 'INTEGRATE_TIME: Error, iorder specified incorrectly'
-             END IF
-
-          END IF
-
-          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
-             !jmin avoids spurious early convergence
-             integrate_time=REAL(sum_new)
-             EXIT
-          ELSE IF(j==jmax) THEN
-             integrate_time=0.d0
-             STOP 'INTEGRATE_TIME: Integration timed out'
-          ELSE
-             !Integral has not converged so store old sums and reset sum variables
-             integrate_time=0.d0
-             sum_old=sum_new
-             sum_n=sum_2n
-             sum_2n=0.
-          END IF
-
-       END DO
-
-    END IF
-
-  END FUNCTION integrate_time
 
   FUNCTION time_integrand(a,cosm)
 
@@ -2225,112 +1952,13 @@ CONTAINS
 
   END FUNCTION acc_growth
 
-  FUNCTION growint(a,cosm,acc)
+  FUNCTION growth_rate_Linder(a,cosm)
 
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
+    !Approximation for the growth rate
     IMPLICIT NONE
-    REAL :: growint
+    REAL :: growth_rate_Linder
     REAL, INTENT(IN) :: a
-    REAL, INTENT(IN) :: acc
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: b
-    INTEGER :: i, j
-    INTEGER :: n
-    REAL :: x, dx
-    REAL :: f1, f2, fx
-    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=30
-    INTEGER, PARAMETER :: iorder=3   
-
-    !Integration range for integration parameter
-    !Note a -> 1
-    b=1.
-
-    IF(a==b) THEN
-
-       !Fix the answer to zero if the integration limits are identical
-       growint=exp(0.)
-
-    ELSE
-
-       !Reset the sum variable for the integration
-       sum_2n=0.
-       sum_n=0.
-       sum_old=0.
-       sum_new=0.
-
-       DO j=1,jmax
-
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
-          n=1+2**(j-1)
-
-          !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
-
-          IF(j==1) THEN
-
-             !The first go is just the trapezium of the end points
-             f1=growint_integrand(a,cosm)
-             f2=growint_integrand(b,cosm)
-             sum_2n=0.5*(f1+f2)*dx
-             sum_new=sum_2n
-
-          ELSE
-
-             !Loop over only new even points to add these to the integral
-             DO i=2,n,2
-                !x=a+(b-a)*REAL(i-1)/REAL(n-1)
-                x=progression(a,b,i,n)
-                fx=growint_integrand(x,cosm)
-                sum_2n=sum_2n+fx
-             END DO
-
-             !Now create the total using the old and new parts
-             sum_2n=sum_n/2.+sum_2n*dx
-
-             !Now calculate the new sum depending on the integration order
-             IF(iorder==1) THEN  
-                sum_new=sum_2n
-             ELSE IF(iorder==3) THEN         
-                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
-             ELSE
-                STOP 'GROWINT: Error, iorder specified incorrectly'
-             END IF
-
-          END IF
-
-          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
-             !jmin avoids spurious early convergence
-             growint=exp(REAL(sum_new))
-             EXIT
-          ELSE IF(j==jmax) THEN
-             growint=0.d0
-             STOP 'GROWINT: Integration timed out'
-          ELSE
-             !Integral has not converged so store old sums and reset sum variables
-             growint=0.d0
-             sum_old=sum_new
-             sum_n=sum_2n
-             sum_2n=0.
-          END IF
-
-       END DO
-
-    END IF
-
-  END FUNCTION growint
-
-  FUNCTION growint_integrand(a,cosm)
-
-    !Integrand for the approximate growth integral
-    IMPLICIT NONE
-    REAL :: growint_integrand
-    REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
     REAL :: gam
 
     IF(cosm%w<-1.) THEN
@@ -2341,10 +1969,67 @@ CONTAINS
        gam=0.55
     END IF
 
-    !Note the minus sign here
-    growint_integrand=-(Omega_m_norad(a,cosm)**gam)/a
+    growth_rate_Linder=Omega_m_norad(a,cosm)**gam
+    
+  END FUNCTION growth_rate_Linder
 
-  END FUNCTION growint_integrand
+  FUNCTION growth_Linder_integrand(a,cosm)
+
+    !Integrand for the approximate growth integral
+    IMPLICIT NONE
+    REAL :: growth_Linder_integrand
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    growth_Linder_integrand=growth_rate_Linder(a,cosm)/a
+
+  END FUNCTION growth_Linder_integrand
+
+  FUNCTION growth_Linder(a,cosm)
+
+    !Calculate the growth function from the Linder growth rate via integration
+    IMPLICIT NONE
+    REAL :: growth_Linder
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    growth_Linder=exp(-integrate_cosm(a,1.,growth_Linder_integrand,cosm,acc_cosm,3))
+    
+  END FUNCTION growth_Linder
+
+  FUNCTION growth_CPT(a,cosm)
+
+    !Carrol, Press & Turner (1992) approximation to growth function (good to 5%)
+    IMPLICIT NONE
+    REAL :: growth_CPT
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: Om_mz, Om_vz, Om_m, Om_v
+
+    Om_mz=Omega_m_norad(a,cosm)
+    Om_vz=Omega_v(a,cosm)+Omega_w(a,cosm)
+    
+    !growth_CPT=a*Om_mz/((Om_mz**(4./7.))-Om_v+(1.+Om_mz/2.)*(1.+Om_vz/70.))
+
+    Om_m=cosm%Om_m
+    Om_v=cosm%Om_v+cosm%Om_w
+    
+    !Normalise
+    ! growth_CPT=growth_CPT/(Om_m/((Om_m**(4./7.))-Om_v+(1.+Om_m/2.)*(1.+Om_v/70.)))
+
+    growth_CPT=CPT(a,Om_mz,Om_vz)/CPT(1.,Om_m,Om_v)
+
+  END FUNCTION growth_CPT
+
+  FUNCTION CPT(a,Om_m,Om_v)
+
+    IMPLICIT NONE
+    REAL :: CPT
+    REAL, INTENT(IN) :: a, Om_m, Om_v
+
+    CPT=a*Om_m/((Om_m**(4./7.))-Om_v+(1.+Om_m/2.)*(1.+Om_v/70.))
+    
+  END FUNCTION CPT
 
   SUBROUTINE init_growth(cosm)
 
@@ -2520,7 +2205,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: dc_NakamuraSuto
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     dc_NakamuraSuto=dc0*(1.+0.0123*log10(Omega_m_norad(a,cosm)))
 
@@ -2533,7 +2218,7 @@ CONTAINS
     REAL :: Dv_BryanNorman
     REAL :: x, Om_m
     REAL, INTENT(IN) :: a
-    TYPE(cosmology), INTENT(IN) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     Om_m=Omega_m_norad(a,cosm)
     x=Om_m-1.
@@ -2828,16 +2513,16 @@ CONTAINS
     CALL reverse(cosm%dc,m)
     CALL reverse(cosm%Dv,m)
 
-    IF(verbose_cosmology) THEN
-       WRITE(*,*) '===================================='
-       WRITE(*,*) 'Point  scalefactor  delta_c  Delta_v'
-       WRITE(*,*) '===================================='
-       DO i=1,m
-          IF(cosm%a_dcDv(i)==0.) EXIT
-          WRITE(*,fmt='(I5,F13.4,F9.4,F9.1)') i, cosm%a_dcDv(i), cosm%dc(i), cosm%Dv(i)
-       END DO
-       WRITE(*,*) '===================================='
-    END IF
+    !IF(verbose_cosmology) THEN
+    !   WRITE(*,*) '===================================='
+    !   WRITE(*,*) 'Point  scalefactor  delta_c  Delta_v'
+    !   WRITE(*,*) '===================================='
+    !   DO i=1,m
+    !      IF(cosm%a_dcDv(i)==0.) EXIT
+    !      WRITE(*,fmt='(I5,F13.4,F9.4,F9.1)') i, cosm%a_dcDv(i), cosm%dc(i), cosm%Dv(i)
+    !   END DO
+    !   WRITE(*,*) '===================================='
+    !END IF
 
     !Calculate the maximum sizes for these new arrays
     DO i=1,m
@@ -2869,9 +2554,7 @@ CONTAINS
     REAL, INTENT(IN) :: kk, xi, vi, ti, tf
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(IN) :: imeth, n
-    LOGICAL, INTENT(IN) :: ilog
-    !REAL :: dt, x4, v4, t4
-    !REAL :: kx1, kx2, kx3, kx4, kv1, kv2, kv3, kv4      
+    LOGICAL, INTENT(IN) :: ilog     
     DOUBLE PRECISION, ALLOCATABLE :: x8(:), v8(:), t8(:)
     INTEGER :: i
 
@@ -2952,8 +2635,6 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(IN) :: imeth
     LOGICAL, INTENT(IN) :: ilog
-    !REAL :: dt, x4, v4, t4
-    !REAL :: kx1, kx2, kx3, kx4, kv1, kv2, kv3, kv4
     DOUBLE PRECISION, ALLOCATABLE :: x8(:), t8(:), v8(:), xh(:), th(:), vh(:)      
     INTEGER :: i, j, n, k, np, ifail, kn
 
@@ -3143,5 +2824,389 @@ CONTAINS
     END IF
 
   END SUBROUTINE ODE_advance_cosmology
+
+   FUNCTION integrate_cosm(a,b,f,cosm,acc,iorder)
+
+    !Integrates between a and b until desired accuracy is reached
+    !Stores information to reduce function calls
+    IMPLICIT NONE
+    REAL :: integrate_cosm
+    REAL, INTENT(IN) :: a, b, acc
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER, INTENT(IN) :: iorder
+    INTEGER :: i, j
+    INTEGER :: n
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+
+    INTEGER, PARAMETER :: jmin=5
+    INTEGER, PARAMETER :: jmax=30
+
+    INTERFACE
+       REAL FUNCTION f(a,cosm)
+         IMPORT :: cosmology
+         REAL, INTENT(IN) :: a
+         TYPE(cosmology), INTENT(INOUT) :: cosm
+       END FUNCTION f
+    END INTERFACE
+
+    IF(a==b) THEN
+
+       !Fix the answer to zero if the integration limits are identical
+       integrate_cosm=0.
+
+    ELSE
+
+       !Set the sum variable for the integration
+       sum_2n=0.d0
+       sum_n=0.d0
+       sum_old=0.d0
+       sum_new=0.d0
+
+       DO j=1,jmax
+
+          !Note, you need this to be 1+2**n for some integer n
+          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+          n=1+2**(j-1)
+
+          !Calculate the dx interval for this value of 'n'
+          dx=(b-a)/REAL(n-1)
+
+          IF(j==1) THEN
+
+             !The first go is just the trapezium of the end points
+             f1=f(a,cosm)
+             f2=f(b,cosm)
+             sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
+
+          ELSE
+
+             !Loop over only new even points to add these to the integral
+             DO i=2,n,2
+                x=a+(b-a)*REAL(i-1)/REAL(n-1)
+                fx=f(x,cosm)
+                sum_2n=sum_2n+fx
+             END DO
+
+             !Now create the total using the old and new parts
+             sum_2n=sum_n/2.d0+sum_2n*dx
+
+             !Now calculate the new sum depending on the integration order
+             IF(iorder==1) THEN  
+                sum_new=sum_2n
+             ELSE IF(iorder==3) THEN         
+                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+             ELSE
+                STOP 'INTEGRATE: Error, iorder specified incorrectly'
+             END IF
+
+          END IF
+
+          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+             !jmin avoids spurious early convergence
+             !integrate=REAL(sum_new)
+             !WRITE(*,*) 'INTEGRATE: Nint:', n
+             EXIT
+          ELSE IF(j==jmax) THEN
+             STOP 'INTEGRATE: Integration timed out'
+          ELSE
+             !Integral has not converged so store old sums and reset sum variables
+             sum_old=sum_new
+             sum_n=sum_2n
+             sum_2n=0.d0
+          END IF
+
+       END DO
+
+       integrate_cosm=REAL(sum_new)
+
+    END IF
+
+  END FUNCTION integrate_cosm
+
+!!$  FUNCTION integrate_time(a,b,cosm,acc)
+!!$
+!!$    !Integrates between a and b until desired accuracy is reached
+!!$    !Stores information to reduce function calls
+!!$    IMPLICIT NONE
+!!$    REAL :: integrate_time
+!!$    REAL, INTENT(IN) :: a, b, acc
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    INTEGER :: i, j
+!!$    INTEGER :: n
+!!$    REAL :: x, dx
+!!$    REAL :: f1, f2, fx
+!!$    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+!!$
+!!$    INTEGER, PARAMETER :: jmin=5
+!!$    INTEGER, PARAMETER :: jmax=30
+!!$    INTEGER, PARAMETER :: iorder=3
+!!$
+!!$    IF(a==b) THEN
+!!$
+!!$       !Fix the answer to zero if the integration limits are identical
+!!$       integrate_time=0.
+!!$
+!!$    ELSE
+!!$
+!!$       !Set the sum variable for the integration
+!!$       sum_2n=0.
+!!$       sum_n=0.
+!!$       sum_old=0.
+!!$       sum_new=0.
+!!$
+!!$       DO j=1,jmax
+!!$
+!!$          !Note, you need this to be 1+2**n for some integer n
+!!$          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+!!$          n=1+2**(j-1)
+!!$
+!!$          !Calculate the dx interval for this value of 'n'
+!!$          dx=(b-a)/REAL(n-1)
+!!$
+!!$          IF(j==1) THEN
+!!$
+!!$             !The first go is just the trapezium of the end points
+!!$             f1=time_integrand(a,cosm)
+!!$             f2=time_integrand(b,cosm)
+!!$             sum_2n=0.5*(f1+f2)*dx
+!!$             sum_new=sum_2n
+!!$
+!!$          ELSE
+!!$
+!!$             !Loop over only new even points to add these to the integral
+!!$             DO i=2,n,2
+!!$                x=progression(a,b,i,n)
+!!$                fx=time_integrand(x,cosm)
+!!$                sum_2n=sum_2n+fx
+!!$             END DO
+!!$
+!!$             !Now create the total using the old and new parts
+!!$             sum_2n=sum_n/2.+sum_2n*dx
+!!$
+!!$             !Now calculate the new sum depending on the integration order
+!!$             IF(iorder==1) THEN  
+!!$                sum_new=sum_2n
+!!$             ELSE IF(iorder==3) THEN         
+!!$                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
+!!$             ELSE
+!!$                STOP 'INTEGRATE_TIME: Error, iorder specified incorrectly'
+!!$             END IF
+!!$
+!!$          END IF
+!!$
+!!$          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
+!!$             !jmin avoids spurious early convergence
+!!$             integrate_time=REAL(sum_new)
+!!$             EXIT
+!!$          ELSE IF(j==jmax) THEN
+!!$             integrate_time=0.d0
+!!$             STOP 'INTEGRATE_TIME: Integration timed out'
+!!$          ELSE
+!!$             !Integral has not converged so store old sums and reset sum variables
+!!$             integrate_time=0.d0
+!!$             sum_old=sum_new
+!!$             sum_n=sum_2n
+!!$             sum_2n=0.
+!!$          END IF
+!!$
+!!$       END DO
+!!$
+!!$    END IF
+!!$
+!!$  END FUNCTION integrate_time
+
+!!$  FUNCTION integrate_distance(a,b,cosm,acc)
+!!$
+!!$    !Integrates between a and b until desired accuracy is reached
+!!$    !Stores information to reduce function calls
+!!$    IMPLICIT NONE
+!!$    REAL :: integrate_distance
+!!$    REAL, INTENT(IN) :: a, b, acc
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    INTEGER :: i, j
+!!$    INTEGER :: n
+!!$    REAL :: x, dx
+!!$    REAL :: f1, f2, fx
+!!$    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+!!$
+!!$    INTEGER, PARAMETER :: jmin=5
+!!$    INTEGER, PARAMETER :: jmax=30
+!!$    INTEGER, PARAMETER :: iorder=3
+!!$
+!!$    IF(a==b) THEN
+!!$
+!!$       !Fix the answer to zero if the integration limits are identical
+!!$       integrate_distance=0.
+!!$
+!!$    ELSE
+!!$
+!!$       !Set the sum variable for the integration
+!!$       sum_2n=0.
+!!$       sum_n=0.
+!!$       sum_old=0.
+!!$       sum_new=0.
+!!$
+!!$       DO j=1,jmax
+!!$
+!!$          !Note, you need this to be 1+2**n for some integer n
+!!$          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+!!$          n=1+2**(j-1)
+!!$
+!!$          !Calculate the dx interval for this value of 'n'
+!!$          dx=(b-a)/REAL(n-1)
+!!$
+!!$          IF(j==1) THEN
+!!$
+!!$             !The first go is just the trapezium of the end points
+!!$             f1=distance_integrand(a,cosm)
+!!$             f2=distance_integrand(b,cosm)
+!!$             sum_2n=0.5*(f1+f2)*dx
+!!$             sum_new=sum_2n
+!!$
+!!$          ELSE
+!!$
+!!$             !Loop over only new even points to add these to the integral
+!!$             DO i=2,n,2
+!!$                x=progression(a,b,i,n)
+!!$                fx=distance_integrand(x,cosm)
+!!$                sum_2n=sum_2n+fx
+!!$             END DO
+!!$
+!!$             !Now create the total using the old and new parts
+!!$             sum_2n=sum_n/2.+sum_2n*dx
+!!$
+!!$             !Now calculate the new sum depending on the integration order
+!!$             IF(iorder==1) THEN  
+!!$                sum_new=sum_2n
+!!$             ELSE IF(iorder==3) THEN         
+!!$                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
+!!$             ELSE
+!!$                STOP 'INTEGRATE_DISTANCE: Error, iorder specified incorrectly'
+!!$             END IF
+!!$
+!!$          END IF
+!!$
+!!$          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
+!!$             !jmin avoids spurious early convergence
+!!$             integrate_distance=REAL(sum_new)
+!!$             EXIT
+!!$          ELSE IF(j==jmax) THEN
+!!$             integrate_distance=0.d0
+!!$             STOP 'INTEGRATE_DISTANCE: Integration timed out'
+!!$          ELSE
+!!$             !Integral has not converged so store old sums and reset sum variables
+!!$             integrate_distance=0.d0
+!!$             sum_old=sum_new
+!!$             sum_n=sum_2n
+!!$             sum_2n=0.
+!!$          END IF
+!!$
+!!$       END DO
+!!$
+!!$    END IF
+!!$
+!!$  END FUNCTION integrate_distance
+
+!!$  FUNCTION growint(a,cosm,acc)
+!!$
+!!$    !Integrates between a and b until desired accuracy is reached
+!!$    !Stores information to reduce function calls
+!!$    IMPLICIT NONE
+!!$    REAL :: growint
+!!$    REAL, INTENT(IN) :: a
+!!$    REAL, INTENT(IN) :: acc
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    REAL :: b
+!!$    INTEGER :: i, j
+!!$    INTEGER :: n
+!!$    REAL :: x, dx
+!!$    REAL :: f1, f2, fx
+!!$    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+!!$
+!!$    INTEGER, PARAMETER :: jmin=5
+!!$    INTEGER, PARAMETER :: jmax=30
+!!$    INTEGER, PARAMETER :: iorder=3   
+!!$
+!!$    !Integration range for integration parameter
+!!$    !Note a -> 1
+!!$    b=1.
+!!$
+!!$    IF(a==b) THEN
+!!$
+!!$       !Fix the answer to zero if the integration limits are identical
+!!$       growint=exp(0.)
+!!$
+!!$    ELSE
+!!$
+!!$       !Reset the sum variable for the integration
+!!$       sum_2n=0.
+!!$       sum_n=0.
+!!$       sum_old=0.
+!!$       sum_new=0.
+!!$
+!!$       DO j=1,jmax
+!!$
+!!$          !Note, you need this to be 1+2**n for some integer n
+!!$          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+!!$          n=1+2**(j-1)
+!!$
+!!$          !Calculate the dx interval for this value of 'n'
+!!$          dx=(b-a)/REAL(n-1)
+!!$
+!!$          IF(j==1) THEN
+!!$
+!!$             !The first go is just the trapezium of the end points
+!!$             f1=growint_integrand(a,cosm)
+!!$             f2=growint_integrand(b,cosm)
+!!$             sum_2n=0.5*(f1+f2)*dx
+!!$             sum_new=sum_2n
+!!$
+!!$          ELSE
+!!$
+!!$             !Loop over only new even points to add these to the integral
+!!$             DO i=2,n,2
+!!$                !x=a+(b-a)*REAL(i-1)/REAL(n-1)
+!!$                x=progression(a,b,i,n)
+!!$                fx=growint_integrand(x,cosm)
+!!$                sum_2n=sum_2n+fx
+!!$             END DO
+!!$
+!!$             !Now create the total using the old and new parts
+!!$             sum_2n=sum_n/2.+sum_2n*dx
+!!$
+!!$             !Now calculate the new sum depending on the integration order
+!!$             IF(iorder==1) THEN  
+!!$                sum_new=sum_2n
+!!$             ELSE IF(iorder==3) THEN         
+!!$                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
+!!$             ELSE
+!!$                STOP 'GROWINT: Error, iorder specified incorrectly'
+!!$             END IF
+!!$
+!!$          END IF
+!!$
+!!$          IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
+!!$             !jmin avoids spurious early convergence
+!!$             growint=exp(REAL(sum_new))
+!!$             EXIT
+!!$          ELSE IF(j==jmax) THEN
+!!$             growint=0.d0
+!!$             STOP 'GROWINT: Integration timed out'
+!!$          ELSE
+!!$             !Integral has not converged so store old sums and reset sum variables
+!!$             growint=0.d0
+!!$             sum_old=sum_new
+!!$             sum_n=sum_2n
+!!$             sum_2n=0.
+!!$          END IF
+!!$
+!!$       END DO
+!!$
+!!$    END IF
+!!$
+!!$  END FUNCTION growint
 
 END MODULE cosmology_functions

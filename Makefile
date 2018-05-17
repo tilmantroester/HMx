@@ -31,7 +31,6 @@ _OBJ = constants.o \
 	   interpolate.o \
 	   solve_equations.o \
 	   string_operations.o \
-	   calculus.o \
 	   calculus_table.o \
 	   cosmology_functions.o \
 	   HMx.o \

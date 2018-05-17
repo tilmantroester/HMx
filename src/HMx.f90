@@ -8,7 +8,7 @@ MODULE HMx
   USE special_functions
   USE interpolate
   USE string_operations
-  USE calculus
+  !USE calculus
   USE calculus_table
   USE cosmology_functions
   
@@ -25,12 +25,13 @@ MODULE HMx
      !REAL, ALLOCATABLE :: log_m(:)
      REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
+     REAL :: nc, ns, ng, nh
      INTEGER :: n
      CHARACTER(len=256) :: name
   END TYPE halomod
 
   !Global accuracy parameter
-  REAL, PARAMETER :: acc=1e-4
+  REAL, PARAMETER :: acc_HMx=1e-4
 
 CONTAINS
 
@@ -55,6 +56,7 @@ CONTAINS
     IF(i==9)  halo_type='Central galaxies'
     IF(i==10) halo_type='Satellite galaxies'
     IF(i==11) halo_type='Galaxies'
+    IF(i==12) halo_type='HI'
     IF(halo_type=='') STOP 'HALO_TYPE: Error, i not specified correctly'
     
   END FUNCTION halo_type
@@ -66,11 +68,14 @@ CONTAINS
     INTEGER, INTENT(OUT) :: ip(2)
     INTEGER :: i, j
 
+    INTEGER, PARAMETER :: halo_min_i=-1
+    INTEGER, PARAMETER :: halo_max_i=12
+
     DO i=1,2
 
        WRITE(*,fmt='(A20,I3)') 'SET_HALO_TYPE: Choose field: ', i
        WRITE(*,*) '========================='
-       DO j=-1,11
+       DO j=halo_min_i,halo_max_i
           WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(halo_type(j))
        END DO
        READ(*,*) ip(i)
@@ -277,7 +282,7 @@ CONTAINS
              m=lut%m(i)
              rv=lut%rv(i)
              c=lut%c(i)             
-             wk2(i)=integrate_scatter(c,dc,ih,k,z,m,rv,lut,cosm,acc,3)
+             wk2(i)=integrate_scatter(c,dc,ih,k,z,m,rv,lut,cosm,acc_HMx,3)
           END DO
           
        END IF
@@ -647,7 +652,7 @@ CONTAINS
     rs=rv/c
 
     !Need mean density
-    rhobar=comoving_matter_density(cosm)    
+    rhobar=comoving_matter_density(cosm)
 
     !Write file
     OPEN(7,file=outfile)
@@ -1078,6 +1083,7 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
     REAL :: Dv, dc, f, m, nu, r, sig, A0, rhom, rhoc, frac, a
+    REAL :: nu_min, nu_max
     REAL, ALLOCATABLE :: integrand(:)
     
     INTEGER, PARAMETER :: n=64 !Number of mass entries in look-up table
@@ -1289,8 +1295,7 @@ CONTAINS
     IF(ALLOCATED(lut%rr)) CALL deallocate_LUT(lut)
 
     CALL allocate_LUT(lut,n)
-
-    
+  
     dc=delta_c(a,lut,cosm)
 
     DO i=1,n
@@ -1299,7 +1304,8 @@ CONTAINS
        m=exp(progression(log(mmin),log(mmax),i,n))
        r=radius_m(m,cosm)
        sig=sigma(r,a,cosm)
-       nu=dc/sig
+       !nu=dc/sig
+       nu=nu_R(R,a,lut,cosm)
 
        lut%m(i)=m
        lut%rr(i)=r
@@ -1334,16 +1340,39 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: Maximum log10(M/[Msun/h]):', REAL(log10(lut%m(lut%n)))
     END IF
 
-    lut%gmin=1.-integrate_gnu(lut%nu(1),large_nu,lut,acc,3)
-    lut%gmax=integrate_gnu(lut%nu(lut%n),large_nu,lut,acc,3)
-    lut%gbmin=1.-integrate_gbnu(lut%nu(1),large_nu,lut,acc,3)
-    lut%gbmax=integrate_gbnu(lut%nu(lut%n),large_nu,lut,acc,3)
+    !Calculate missing mass things
+    lut%gmin=1.-integrate_lut(lut%nu(1),large_nu,g_nu,lut,acc_HMx,3)
+    lut%gmax=integrate_lut(lut%nu(lut%n),large_nu,g_nu,lut,acc_HMx,3)
+    lut%gbmin=1.-integrate_lut(lut%nu(1),large_nu,gb_nu,lut,acc_HMx,3)
+    lut%gbmax=integrate_lut(lut%nu(lut%n),large_nu,gb_nu,lut,acc_HMx,3)
     IF(verbose) THEN
        WRITE(*,*) 'HALOMOD_INIT: Missing g(nu) at low end:', REAL(lut%gmin)
        WRITE(*,*) 'HALOMOD_INIT: Missing g(nu) at high end:', REAL(lut%gmax)
        WRITE(*,*) 'HALOMOD_INIT: Missing g(nu)b(nu) at low end:', REAL(lut%gbmin)
        WRITE(*,*) 'HALOMOD_INIT: Missing g(nu)b(nu) at high end:', REAL(lut%gbmax)
     END IF
+
+    !Get the densities
+    rhom=comoving_matter_density(cosm)
+    rhoc=comoving_critical_density(a,cosm)
+
+    !Smallest nu to consider because there are no galaxies below this halo mass
+    nu_min=nu_M(cosm%mgal,a,lut,cosm)
+
+    !Calculate the comoving number densities of galaxies
+    lut%nc=rhom*integrate_lut_cosm(nu_min,large_nu,nbar_cen_integrand,lut,cosm,acc_HMx,3)
+    lut%ns=rhom*integrate_lut_cosm(nu_min,large_nu,nbar_sat_integrand,lut,cosm,acc_HMx,3)
+    lut%ng=lut%nc+lut%ns
+    IF(verbose) THEN
+       WRITE(*,*) 'HALOMOD_INIT: Comoving density of central galaxies [(Mpc/h)^-3]:', REAL(lut%nc)
+       WRITE(*,*) 'HALOMOD_INIT: Comoving density of satellite galaxies [(Mpc/h)^-3]:', REAL(lut%ns)
+       WRITE(*,*) 'HALOMOD_INIT: Comoving density of all galaxies [(Mpc/h)^-3]:', REAL(lut%ng)
+    END IF
+
+    nu_min=nu_M(cosm%HImin,a,lut,cosm)
+    nu_max=nu_M(cosm%HImax,a,lut,cosm)
+    lut%nh=rhom*integrate_lut_cosm(nu_min,nu_max,nbar_HI_integrand,lut,cosm,acc_HMx,3)
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: HI normalisation factor [(Mpc/h)^-3]:', REAL(lut%nh)
 
     !Calculate the total stellar mass fraction
     IF(verbose) THEN
@@ -1386,10 +1415,7 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: One-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
        WRITE(*,*) 'HALOMOD_INIT: Done'
        WRITE(*,*)
-    END IF
-
-    rhom=comoving_matter_density(cosm)
-    rhoc=comoving_critical_density(a,cosm)
+    END IF   
 
     !Calculate Delta = 200, 500 and Delta_c = 200, 500 quantities
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,1.,lut%r500,lut%c500,lut%m500,500.,1.,lut%n)
@@ -1402,6 +1428,100 @@ CONTAINS
     !IF(verbose) verbose=.FALSE.
 
   END SUBROUTINE halomod_init
+
+  FUNCTION nu_R(R,a,lut,cosm)
+
+    !Calculates nu(R) where R is the Lagrangian halo radius
+    IMPLICIT NONE
+    REAL :: nu_R
+    REAL, INTENT(IN) :: R, a
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    nu_R=delta_c(a,lut,cosm)/sigma(R,a,cosm)
+
+  END FUNCTION nu_R
+
+  FUNCTION nu_M(M,a,lut,cosm)
+
+    !Calculates nu(M) where M is the halo mass
+    IMPLICIT NONE
+    REAL :: nu_M
+    REAL, INTENT(IN) :: M, a
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: R
+
+    R=radius_m(M,cosm)
+    nu_M=nu_R(R,a,lut,cosm)
+    
+  END FUNCTION nu_M
+
+  FUNCTION M_nu(nu,lut)
+
+    !Calculates M(nu) where M is the halo mass and nu is the peak height
+    IMPLICIT NONE
+    REAL :: M_nu
+    REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(IN) :: lut
+
+    M_nu=exp(find(nu,lut%nu,log(lut%m),lut%n,3,3,2))
+
+  END FUNCTION M_nu
+
+  FUNCTION nbar_sat_integrand(nu,lut,cosm)
+
+    IMPLICIT NONE
+    REAL :: nbar_sat_integrand
+    REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: M
+
+    M=M_nu(nu,lut)    
+    nbar_sat_integrand=N_satellites(M,cosm)*g_nu(nu,lut)/M
+    
+  END FUNCTION nbar_sat_integrand
+
+  FUNCTION nbar_cen_integrand(nu,lut,cosm)
+
+    IMPLICIT NONE
+    REAL :: nbar_cen_integrand
+    REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: M
+
+    M=M_nu(nu,lut)    
+    nbar_cen_integrand=N_centrals(M,cosm)*g_nu(nu,lut)/M
+    
+  END FUNCTION nbar_cen_integrand
+
+  FUNCTION nbar_HI_integrand(nu,lut,cosm)
+
+    IMPLICIT NONE
+    REAL :: nbar_HI_integrand
+    REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: M
+
+    M=M_nu(nu,lut)    
+    nbar_HI_integrand=HI_fraction(M,cosm)*g_nu(nu,lut)/M
+    
+  END FUNCTION nbar_HI_integrand
+
+!!$  FUNCTION nbar_gal_integrand(nu,lut,cosm)
+!!$
+!!$    IMPLICIT NONE
+!!$    REAL :: nbar_gal_integrand
+!!$    REAL, INTENT(IN) :: nu
+!!$    TYPE(halomod), INTENT(IN) :: lut
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$   
+!!$    nbar_gal_integrand=nbar_cen_integrand(nu,lut,cosm)+nbar_sat_integrand(nu,lut,cosm)
+!!$    
+!!$  END FUNCTION nbar_gal_integrand
 
   FUNCTION one_halo_amplitude(lut,cosm)
 
@@ -1609,7 +1729,8 @@ CONTAINS
        cosm_lcdm%Om_v=1.-cosm%Om_m !Added this so that 'making a LCDM cosmology' works for curved models.
 
        !Needs to use grow_int explicitly in case tabulated values are stored
-       g_lcdm=growint(ainf,cosm_lcdm,acc)
+       !g_lcdm=growint(ainf,cosm_lcdm,acc_HMx)
+       g_lcdm=growth_Linder(ainf,cosm)
        
        !Changed this to a power of 1.5, which produces more accurate results for extreme DE
        IF(lut%iDolag==2) THEN
@@ -2023,6 +2144,9 @@ CONTAINS
     ELSE IF(itype==11) THEN
        !All galaxies
        win_type=win_galaxies(real_space,k,z,m,rv,rs,lut,cosm)
+    ELSE IF(itype==12) THEN
+       !Neutral hydrogen - HI
+       win_type=win_HI(real_space,k,z,m,rv,rs,lut,cosm)
     ELSE
        STOP 'WIN_TYPE: Error, itype not specified correclty' 
     END IF
@@ -2674,7 +2798,7 @@ CONTAINS
        win_centrals=N_centrals(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
        win_centrals=win_centrals/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE      
-       win_centrals=N_centrals(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
+       win_centrals=N_centrals(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%nc
     END IF
 
   END FUNCTION win_centrals
@@ -2710,7 +2834,7 @@ CONTAINS
        win_satellites=N_satellites(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
        win_satellites=win_satellites/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE
-       win_satellites=N_satellites(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)
+       win_satellites=N_satellites(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%ns
     END IF
 
   END FUNCTION win_satellites
@@ -2759,6 +2883,68 @@ CONTAINS
     END IF
     
   END FUNCTION N_satellites
+
+  FUNCTION N_galaxies(m,cosm)
+
+    !The number of central galaxies as a function of halo mass
+    IMPLICIT NONE
+    INTEGER :: N_galaxies
+    REAL, INTENT(IN) :: m
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    N_galaxies=N_centrals(m,cosm)+N_satellites(m,cosm)
+    
+  END FUNCTION N_galaxies
+
+  FUNCTION win_HI(real_space,k,z,m,rv,rs,lut,cosm)
+
+    IMPLICIT NONE
+    REAL :: win_HI
+    LOGICAL, INTENT(IN) :: real_space
+    REAL, INTENT(IN) :: k, z, m, rv, rs
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER :: irho
+    REAL :: r, rmin, rmax
+    REAL :: crap
+
+    !Stop compile-time warnings
+    crap=z
+    crap=lut%sigv
+    crap=cosm%A
+
+    !Need to change this to be correct for satellite galaxy overdensity
+    !Need to divide by \bar{n}_sat
+
+    !NFW profile
+    irho=5
+
+    rmin=0.
+    rmax=rv
+
+    IF(real_space) THEN
+       r=k
+       win_HI=HI_fraction(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_HI=win_HI/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
+    ELSE
+       win_HI=HI_fraction(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%nh
+    END IF
+
+  END FUNCTION win_HI
+
+  REAL FUNCTION HI_fraction(m,cosm)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    IF(m>=cosm%HImin .AND. m<=cosm%HImax) THEN
+       HI_fraction=1.
+    ELSE
+       HI_fraction=0.
+    END IF
+    
+  END FUNCTION HI_fraction
 
   FUNCTION virial_temperature(M,rv)
 
@@ -3090,12 +3276,12 @@ CONTAINS
     !The hybrid method seems not to be faster for practical calculations here
 
     IF(imeth==1) THEN
-       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
+       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx)
     ELSE IF(imeth==2 .OR. imeth==4 .OR. imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
        IF(rmin .NE. 0.) STOP 'WININT: This cannot cope with rmin to rmax - probably could be fixed quickly'
-       winint=winint_bumps(k,rmax,rv,rs,p1,p2,irho,iorder,acc,imeth)
+       winint=winint_bumps(k,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx,imeth)
     ELSE IF(imeth==3) THEN
-       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
+       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx)
     ELSE
        STOP 'WININT: Error, imeth not specified correctly'
     END IF
@@ -4000,101 +4186,12 @@ CONTAINS
 
   END FUNCTION halo_boundgas_fraction
 
-  FUNCTION integrate_gnu(a,b,lut,acc,iorder)
+  FUNCTION integrate_lut(a,b,f,lut,acc,iorder)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls
     IMPLICIT NONE
-    REAL :: integrate_gnu
-    REAL, INTENT(IN) :: a, b, acc
-    INTEGER, INTENT(IN) :: iorder
-    TYPE(halomod), INTENT(IN) :: lut
-    INTEGER :: i, j
-    INTEGER :: n
-    REAL :: x, dx
-    REAL :: f1, f2, fx
-    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=30
-
-    IF(a==b) THEN
-
-       !Fix the answer to zero if the integration limits are identical
-       integrate_gnu=0.
-
-    ELSE
-
-       !Set the sum variable for the integration
-       sum_2n=0.d0
-       sum_n=0.d0
-       sum_old=0.d0
-       sum_new=0.d0
-
-       DO j=1,jmax
-          
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
-          n=1+2**(j-1)
-
-          !Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
-
-          IF(j==1) THEN
-             
-             !The first go is just the trapezium of the end points
-             f1=g_nu(a,lut)
-             f2=g_nu(b,lut)
-             sum_2n=0.5d0*(f1+f2)*dx
-             sum_new=sum_2n
-             
-          ELSE
-
-             !Loop over only new even points to add these to the integral
-             DO i=2,n,2
-                x=a+(b-a)*REAL(i-1)/REAL(n-1)
-                fx=g_nu(x,lut)
-                sum_2n=sum_2n+fx
-             END DO
-
-             !Now create the total using the old and new parts
-             sum_2n=sum_n/2.d0+sum_2n*dx
-
-             !Now calculate the new sum depending on the integration order
-             IF(iorder==1) THEN  
-                sum_new=sum_2n
-             ELSE IF(iorder==3) THEN         
-                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
-             ELSE
-                STOP 'INTEGRATE_FNU: Error, iorder specified incorrectly'
-             END IF
-
-          END IF
-
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
-             EXIT
-          ELSE IF(j==jmax) THEN
-             STOP 'INTEGRATE_FNU: Integration timed out'
-          ELSE
-             !Integral has not converged so store old sums and reset sum variables
-             sum_old=sum_new
-             sum_n=sum_2n
-             sum_2n=0.d0
-          END IF
-
-       END DO
-
-       integrate_gnu=REAL(sum_new)
-
-    END IF
-
-  END FUNCTION integrate_gnu
-
-  FUNCTION integrate_gbnu(a,b,lut,acc,iorder)
-
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
-    IMPLICIT NONE
-    REAL :: integrate_gbnu
+    REAL :: integrate_lut
     REAL, INTENT(IN) :: a, b, acc
     INTEGER, INTENT(IN) :: iorder
     TYPE(halomod), INTENT(IN) :: lut
@@ -4107,10 +4204,18 @@ CONTAINS
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
+    INTERFACE
+       REAL FUNCTION f(nu,lut)
+         IMPORT :: halomod
+         REAL, INTENT(IN) :: nu
+         TYPE(halomod), INTENT(IN) :: lut
+       END FUNCTION f
+    END INTERFACE
+
     IF(a==b) THEN
 
        !Fix the answer to zero if the integration limits are identical
-       integrate_gbnu=0.
+       integrate_lut=0.
 
     ELSE
 
@@ -4132,8 +4237,8 @@ CONTAINS
           IF(j==1) THEN
              
              !The first go is just the trapezium of the end points
-             f1=gb_nu(a,lut)
-             f2=gb_nu(b,lut)
+             f1=f(a,lut)
+             f2=f(b,lut)
              sum_2n=0.5d0*(f1+f2)*dx
              sum_new=sum_2n
              
@@ -4142,7 +4247,7 @@ CONTAINS
              !Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=a+(b-a)*REAL(i-1)/REAL(n-1)
-                fx=gb_nu(x,lut)
+                fx=f(x,lut)
                 sum_2n=sum_2n+fx
              END DO
 
@@ -4155,7 +4260,7 @@ CONTAINS
              ELSE IF(iorder==3) THEN         
                 sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
              ELSE
-                STOP 'INTEGRATE_FNU: Error, iorder specified incorrectly'
+                STOP 'INTEGRATE_LUT: Error, iorder specified incorrectly'
              END IF
 
           END IF
@@ -4163,7 +4268,7 @@ CONTAINS
           IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
              EXIT
           ELSE IF(j==jmax) THEN
-             STOP 'INTEGRATE_FNU: Integration timed out'
+             STOP 'INTEGRATE_LUT: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new
@@ -4173,11 +4278,112 @@ CONTAINS
 
        END DO
 
-       integrate_gbnu=REAL(sum_new)
+       integrate_lut=REAL(sum_new)
 
     END IF
 
-  END FUNCTION integrate_gbnu
+  END FUNCTION integrate_lut
+
+  FUNCTION integrate_lut_cosm(a,b,f,lut,cosm,acc,iorder)
+
+    !Integrates between a and b until desired accuracy is reached
+    !Stores information to reduce function calls
+    IMPLICIT NONE
+    REAL :: integrate_lut_cosm
+    REAL, INTENT(IN) :: a, b, acc
+    INTEGER, INTENT(IN) :: iorder
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER :: i, j
+    INTEGER :: n
+    REAL :: x, dx
+    REAL :: f1, f2, fx
+    DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
+    
+    INTEGER, PARAMETER :: jmin=5
+    INTEGER, PARAMETER :: jmax=30
+
+    INTERFACE
+       REAL FUNCTION f(nu,lut,cosm)
+         IMPORT :: halomod
+         IMPORT :: cosmology
+         REAL, INTENT(IN) :: nu
+         TYPE(halomod), INTENT(IN) :: lut
+         TYPE(cosmology), INTENT(INOUT) :: cosm
+       END FUNCTION f
+    END INTERFACE
+
+    IF(a==b) THEN
+
+       !Fix the answer to zero if the integration limits are identical
+       integrate_lut_cosm=0.
+
+    ELSE
+
+       !Set the sum variable for the integration
+       sum_2n=0.d0
+       sum_n=0.d0
+       sum_old=0.d0
+       sum_new=0.d0
+
+       DO j=1,jmax
+          
+          !Note, you need this to be 1+2**n for some integer n
+          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+          n=1+2**(j-1)
+
+          !Calculate the dx interval for this value of 'n'
+          dx=(b-a)/REAL(n-1)
+
+          IF(j==1) THEN
+             
+             !The first go is just the trapezium of the end points
+             f1=f(a,lut,cosm)
+             f2=f(b,lut,cosm)
+             sum_2n=0.5d0*(f1+f2)*dx
+             sum_new=sum_2n
+             
+          ELSE
+
+             !Loop over only new even points to add these to the integral
+             DO i=2,n,2
+                x=a+(b-a)*REAL(i-1)/REAL(n-1)
+                fx=f(x,lut,cosm)
+                sum_2n=sum_2n+fx
+             END DO
+
+             !Now create the total using the old and new parts
+             sum_2n=sum_n/2.d0+sum_2n*dx
+
+             !Now calculate the new sum depending on the integration order
+             IF(iorder==1) THEN  
+                sum_new=sum_2n
+             ELSE IF(iorder==3) THEN         
+                sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
+             ELSE
+                STOP 'INTEGRATE_LUT: Error, iorder specified incorrectly'
+             END IF
+
+          END IF
+
+          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+             EXIT
+          ELSE IF(j==jmax) THEN
+             STOP 'INTEGRATE_LUT: Integration timed out'
+          ELSE
+             !Integral has not converged so store old sums and reset sum variables
+             sum_old=sum_new
+             sum_n=sum_2n
+             sum_2n=0.d0
+          END IF
+
+       END DO
+
+       integrate_lut_cosm=REAL(sum_new)
+
+    END IF
+
+  END FUNCTION integrate_lut_cosm
 
   FUNCTION integrate_scatter(c,dc,ih,k,z,m,rv,lut,cosm,acc,iorder)
 
@@ -4253,7 +4459,7 @@ CONTAINS
              ELSE IF(iorder==3) THEN         
                 sum_new=(4.d0*sum_2n-sum_n)/3.d0 !This is Simpson's rule and cancels error
              ELSE
-                STOP 'INTEGRATE_FNU: Error, iorder specified incorrectly'
+                STOP 'INTEGRATE_SCATTER: Error, iorder specified incorrectly'
              END IF
 
           END IF
@@ -4261,7 +4467,7 @@ CONTAINS
           IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
              EXIT
           ELSE IF(j==jmax) THEN
-             STOP 'INTEGRATE_FNU: Integration timed out'
+             STOP 'INTEGRATE_SCATTER: Integration timed out'
           ELSE
              !Integral has not converged so store old sums and reset sum variables
              sum_old=sum_new

@@ -58,6 +58,8 @@ set format x
 
 unset log y
 set yrange [*:*]
+#set yrange [0.98:1.02]
+#set yrange [0:2]
 set format y
 set ylabel 'P_{new}(k) / P_{old}(k)'
 

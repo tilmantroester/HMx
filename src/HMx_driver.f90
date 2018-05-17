@@ -141,9 +141,9 @@ PROGRAM HMx_driver
         kmin=1e-3
         kmax=1e4
      ELSE IF(imode==17) THEN
-        nk=128
+        nk=200
         kmin=1e-3
-        kmax=1e2
+        kmax=1e4
      ELSE
         STOP 'HMx_driver: Error, imode specified incorrectly'
      END IF
