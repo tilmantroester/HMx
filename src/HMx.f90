@@ -25,7 +25,7 @@ MODULE HMx
      !REAL, ALLOCATABLE :: log_m(:)
      REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
-     REAL :: nc, ns, ng, nh
+     REAL :: rho_c, rho_s, rho_g, rho_HI
      INTEGER :: n
      CHARACTER(len=256) :: name
   END TYPE halomod
@@ -65,24 +65,20 @@ CONTAINS
 
     !Set the halo types
     IMPLICIT NONE
-    INTEGER, INTENT(OUT) :: ip(2)
-    INTEGER :: i, j
+    INTEGER, INTENT(OUT) :: ip
+    INTEGER :: i
 
     INTEGER, PARAMETER :: halo_min_i=-1
     INTEGER, PARAMETER :: halo_max_i=12
 
-    DO i=1,2
-
-       WRITE(*,fmt='(A20,I3)') 'SET_HALO_TYPE: Choose field: ', i
-       WRITE(*,*) '========================='
-       DO j=halo_min_i,halo_max_i
-          WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(halo_type(j))
-       END DO
-       READ(*,*) ip(i)
-       WRITE(*,*) '========================='
-       WRITE(*,*)
-       
+    WRITE(*,fmt='(A30,I3)') 'SET_HALO_TYPE: Choose halo type'
+    WRITE(*,*) '========================='
+    DO i=halo_min_i,halo_max_i
+       WRITE(*,fmt='(I3,A3,A30)') i, '- ', TRIM(halo_type(i))
     END DO
+    READ(*,*) ip
+    WRITE(*,*) '========================='
+    WRITE(*,*)
 
   END SUBROUTINE set_halo_type
 
@@ -1352,27 +1348,22 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: Missing g(nu)b(nu) at high end:', REAL(lut%gbmax)
     END IF
 
-    !Get the densities
-    rhom=comoving_matter_density(cosm)
-    rhoc=comoving_critical_density(a,cosm)
-
     !Smallest nu to consider because there are no galaxies below this halo mass
     nu_min=nu_M(cosm%mgal,a,lut,cosm)
-
-    !Calculate the comoving number densities of galaxies
-    lut%nc=rhom*integrate_lut_cosm(nu_min,large_nu,nbar_cen_integrand,lut,cosm,acc_HMx,3)
-    lut%ns=rhom*integrate_lut_cosm(nu_min,large_nu,nbar_sat_integrand,lut,cosm,acc_HMx,3)
-    lut%ng=lut%nc+lut%ns
+    lut%rho_c=rhobar(nu_min,large_nu,rhobar_central_integrand,lut,cosm)
+    lut%rho_s=rhobar(nu_min,large_nu,rhobar_satellite_integrand,lut,cosm)
+    lut%rho_g=lut%rho_c+lut%rho_s
     IF(verbose) THEN
-       WRITE(*,*) 'HALOMOD_INIT: Comoving density of central galaxies [(Mpc/h)^-3]:', REAL(lut%nc)
-       WRITE(*,*) 'HALOMOD_INIT: Comoving density of satellite galaxies [(Mpc/h)^-3]:', REAL(lut%ns)
-       WRITE(*,*) 'HALOMOD_INIT: Comoving density of all galaxies [(Mpc/h)^-3]:', REAL(lut%ng)
+       WRITE(*,*) 'HALOMOD_INIT: Comoving density of central galaxies [(Mpc/h)^-3]:', REAL(lut%rho_c)
+       WRITE(*,*) 'HALOMOD_INIT: Comoving density of satellite galaxies [(Mpc/h)^-3]:', REAL(lut%rho_s)
+       WRITE(*,*) 'HALOMOD_INIT: Comoving density of all galaxies [(Mpc/h)^-3]:', REAL(lut%rho_g)
     END IF
 
+    !Calculate the normalisation constant for HI
     nu_min=nu_M(cosm%HImin,a,lut,cosm)
     nu_max=nu_M(cosm%HImax,a,lut,cosm)
-    lut%nh=rhom*integrate_lut_cosm(nu_min,nu_max,nbar_HI_integrand,lut,cosm,acc_HMx,3)
-    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: HI normalisation factor [(Mpc/h)^-3]:', REAL(lut%nh)
+    lut%rho_HI=rhobar(nu_min,nu_max,rhobar_HI_integrand,lut,cosm)
+    IF(verbose) WRITE(*,*) 'HALOMOD_INIT: HI normalisation factor [log10(rho/(Msun/h)/(Mpc/h)^3)]:', REAL(log10(lut%rho_HI))
 
     !Calculate the total stellar mass fraction
     IF(verbose) THEN
@@ -1415,7 +1406,11 @@ CONTAINS
        WRITE(*,*) 'HALOMOD_INIT: One-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
        WRITE(*,*) 'HALOMOD_INIT: Done'
        WRITE(*,*)
-    END IF   
+    END IF
+    
+    !Get the densities
+    rhom=comoving_matter_density(cosm)
+    rhoc=comoving_critical_density(a,cosm)
 
     !Calculate Delta = 200, 500 and Delta_c = 200, 500 quantities
     CALL convert_mass_definition(lut%rv,lut%c,lut%m,Dv,1.,lut%r500,lut%c500,lut%m500,500.,1.,lut%n)
@@ -1469,60 +1464,69 @@ CONTAINS
 
   END FUNCTION M_nu
 
-  FUNCTION nbar_sat_integrand(nu,lut,cosm)
+  REAL FUNCTION rhobar_central_integrand(nu,lut,cosm)
 
+    !Integrand for the number density of central galaxies
     IMPLICIT NONE
-    REAL :: nbar_sat_integrand
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: M
 
     M=M_nu(nu,lut)    
-    nbar_sat_integrand=N_satellites(M,cosm)*g_nu(nu,lut)/M
+    rhobar_central_integrand=N_centrals(M,cosm)*g_nu(nu,lut)/M
     
-  END FUNCTION nbar_sat_integrand
+  END FUNCTION rhobar_central_integrand
 
-  FUNCTION nbar_cen_integrand(nu,lut,cosm)
+  REAL FUNCTION rhobar_satellite_integrand(nu,lut,cosm)
 
+    !Integrand for the number density of satellite galaxies
     IMPLICIT NONE
-    REAL :: nbar_cen_integrand
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: M
 
     M=M_nu(nu,lut)    
-    nbar_cen_integrand=N_centrals(M,cosm)*g_nu(nu,lut)/M
+    rhobar_satellite_integrand=N_satellites(M,cosm)*g_nu(nu,lut)/M
     
-  END FUNCTION nbar_cen_integrand
+  END FUNCTION rhobar_satellite_integrand
 
-  FUNCTION nbar_HI_integrand(nu,lut,cosm)
+  REAL FUNCTION rhobar_HI_integrand(nu,lut,cosm)
 
+    !Integrand for the mean HI density
     IMPLICIT NONE
-    REAL :: nbar_HI_integrand
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(IN) :: lut
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: M
 
     M=M_nu(nu,lut)    
-    nbar_HI_integrand=HI_fraction(M,cosm)*g_nu(nu,lut)/M
+    rhobar_HI_integrand=HI_fraction(M,cosm)*g_nu(nu,lut)
     
-  END FUNCTION nbar_HI_integrand
+  END FUNCTION rhobar_HI_integrand
 
-!!$  FUNCTION nbar_gal_integrand(nu,lut,cosm)
-!!$
-!!$    IMPLICIT NONE
-!!$    REAL :: nbar_gal_integrand
-!!$    REAL, INTENT(IN) :: nu
-!!$    TYPE(halomod), INTENT(IN) :: lut
-!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
-!!$   
-!!$    nbar_gal_integrand=nbar_cen_integrand(nu,lut,cosm)+nbar_sat_integrand(nu,lut,cosm)
-!!$    
-!!$  END FUNCTION nbar_gal_integrand
+  REAL FUNCTION rhobar(nu_min,nu_max,integrand,lut,cosm)
 
+    !Calculate the mean density of a tracer
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: nu_min, nu_max
+    TYPE(halomod), INTENT(IN) :: lut
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    INTERFACE
+       REAL FUNCTION integrand(M,lut,cosm)
+         IMPORT :: halomod, cosmology
+         REAL, INTENT(IN) :: M
+         TYPE(halomod), INTENT(IN) :: lut
+         TYPE(cosmology), INTENT(INOUT) :: cosm
+       END FUNCTION integrand
+    END INTERFACE
+    
+    rhobar=comoving_matter_density(cosm)*integrate_lut_cosm(nu_min,nu_max,integrand,lut,cosm,acc_HMx,3)
+    
+  END FUNCTION rhobar
+    
   FUNCTION one_halo_amplitude(lut,cosm)
 
     !Calculates the amplitude of the shot-noise plateau of the one-halo term
@@ -2097,6 +2101,7 @@ CONTAINS
 
   FUNCTION win_type(real_space,itype,ipnh,k,z,m,rv,rs,lut,cosm)
 
+    !Selects the halo profile type
     IMPLICIT NONE
     REAL :: win_type
     REAL, INTENT(IN) :: k, z, m, rv, rs
@@ -2155,6 +2160,7 @@ CONTAINS
 
   FUNCTION win_total(real_space,ipnh,k,z,m,rv,rs,lut,cosm)
 
+    !The halo profile of all the matter
     IMPLICIT NONE
     REAL :: win_total
     LOGICAL, INTENT(IN) :: real_space
@@ -2169,6 +2175,7 @@ CONTAINS
 
   FUNCTION win_DMONLY(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !Halo profile for all matter under the assumption that it is all CDM
     IMPLICIT NONE
     REAL :: win_DMONLY
     LOGICAL, INTENT(IN) :: real_space
@@ -2218,6 +2225,7 @@ CONTAINS
 
   FUNCTION win_CDM(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !The halo profile for CDM
     IMPLICIT NONE
     REAL :: win_CDM
     LOGICAL, INTENT(IN) :: real_space
@@ -2261,6 +2269,7 @@ CONTAINS
 
   FUNCTION win_gas(real_space,ipnh,k,z,m,rv,rs,lut,cosm)
 
+    !Halo profile for gas
     IMPLICIT NONE
     REAL :: win_gas
     LOGICAL, INTENT(IN) :: real_space
@@ -2275,6 +2284,7 @@ CONTAINS
 
   FUNCTION win_star(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !Halo profile for stars
     IMPLICIT NONE
     REAL :: win_star
     LOGICAL, INTENT(IN) :: real_space
@@ -2337,7 +2347,7 @@ CONTAINS
 
   FUNCTION win_boundgas(real_space,itype,k,z,m,rv,rs,lut,cosm)
 
-    !Window function for the pressure of the bound component
+    !Halo profile for the pressure of the bound component
     IMPLICIT NONE
     REAL :: win_boundgas
     LOGICAL, INTENT(IN) :: real_space
@@ -2429,6 +2439,7 @@ CONTAINS
 
   FUNCTION win_freegas(real_space,itype,ipnh,k,z,m,rv,rs,lut,cosm)
 
+    !Halo profile for the free gas component
     IMPLICIT NONE
     REAL :: win_freegas
     LOGICAL, INTENT(IN) :: real_space
@@ -2668,7 +2679,7 @@ CONTAINS
 
   FUNCTION win_pressure(real_space,ipnh,k,z,m,rv,rs,lut,cosm)
 
-    !Window function for bound + unbound pressures
+    !Halo pressure profile function for the sum of bound + unbound pressures
     IMPLICIT NONE
     REAL :: win_pressure
     LOGICAL, INTENT(IN) :: real_space
@@ -2689,6 +2700,7 @@ CONTAINS
 
   FUNCTION win_void(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !Void profile
     IMPLICIT NONE
     REAL :: win_void
     LOGICAL, INTENT(IN) :: real_space
@@ -2729,6 +2741,7 @@ CONTAINS
 
   FUNCTION win_compensated_void(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !Profile for compensated voids
     IMPLICIT NONE
     REAL:: win_compensated_void
     LOGICAL, INTENT(IN) :: real_space
@@ -2769,6 +2782,7 @@ CONTAINS
 
   FUNCTION win_centrals(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !Halo profile for central galaxies
     IMPLICIT NONE
     REAL :: win_centrals
     LOGICAL, INTENT(IN) :: real_space
@@ -2784,9 +2798,6 @@ CONTAINS
     crap=lut%sigv
     crap=cosm%A
 
-    !Need to change this to be correct for central galaxy overdensity
-    !Need to divide by \bar{n}_cen
-
     !Delta functions
     irho=0
 
@@ -2795,16 +2806,19 @@ CONTAINS
 
     IF(real_space) THEN
        r=k
-       win_centrals=N_centrals(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_centrals=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
        win_centrals=win_centrals/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE      
-       win_centrals=N_centrals(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%nc
+       win_centrals=win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%rho_c
     END IF
+
+    win_centrals=N_centrals(m,cosm)*win_centrals
 
   END FUNCTION win_centrals
 
   FUNCTION win_satellites(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !Halo profile for satellite galaxies
     IMPLICIT NONE
     REAL :: win_satellites
     LOGICAL, INTENT(IN) :: real_space
@@ -2820,9 +2834,6 @@ CONTAINS
     crap=lut%sigv
     crap=cosm%A
 
-    !Need to change this to be correct for satellite galaxy overdensity
-    !Need to divide by \bar{n}_sat
-
     !NFW profile
     irho=5
 
@@ -2831,16 +2842,19 @@ CONTAINS
 
     IF(real_space) THEN
        r=k
-       win_satellites=N_satellites(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_satellites=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
        win_satellites=win_satellites/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE
-       win_satellites=N_satellites(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%ns
+       win_satellites=win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%rho_s
     END IF
 
+    win_satellites=N_satellites(m,cosm)*win_satellites
+    
   END FUNCTION win_satellites
 
   FUNCTION win_galaxies(real_space,k,z,m,rv,rs,lut,cosm)
 
+    !Halo profile for all galaxies
     IMPLICIT NONE
     REAL :: win_galaxies
     LOGICAL, INTENT(IN) :: real_space
@@ -2913,9 +2927,6 @@ CONTAINS
     crap=lut%sigv
     crap=cosm%A
 
-    !Need to change this to be correct for satellite galaxy overdensity
-    !Need to divide by \bar{n}_sat
-
     !NFW profile
     irho=5
 
@@ -2924,11 +2935,14 @@ CONTAINS
 
     IF(real_space) THEN
        r=k
-       win_HI=HI_fraction(m,cosm)*rho(r,rmin,rmax,rv,rs,zero,zero,irho)
+       win_HI=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
        win_HI=win_HI/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
     ELSE
-       win_HI=HI_fraction(m,cosm)*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%nh
+       !win_HI=win_norm(k,rmin,rmax,rv,rs,zero,zero,irho) !Wrong, but is what I first sent Richard and Kiyo
+       win_HI=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/lut%rho_HI
     END IF
+
+    win_HI=HI_fraction(m,cosm)*win_HI
 
   END FUNCTION win_HI
 
@@ -3058,6 +3072,10 @@ CONTAINS
        ELSE IF(irho==19) THEN
           !Smooth profile (not sure this is physical)
           win_norm=0.
+       ELSE IF(irho==20) THEN
+          !Exponential profile
+          re=p1
+          win_norm=1./(1.+(k*re)**2)**2
        ELSE
           !Numerical integral over the density profile (slower)
           win_norm=winint(k,rmin,rmax,rv,rs,p1,p2,irho)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
@@ -3117,6 +3135,7 @@ CONTAINS
     !17 - Power-law profile
     !18 - Cubic profile: r^-3
     !19 - Smooth profile (rho = 0, not really physical)
+    !20 - Exponential profile
 
     IMPLICIT NONE
     REAL :: rho
@@ -3241,6 +3260,10 @@ CONTAINS
        ELSE IF(irho==19) THEN
           !Smooth profile
           rho=0.
+       ELSE IF(irho==20) THEN
+          !Exponential profile (HI from Padmanabhan et al. 2017)
+          re=p1
+          rho=exp(-r/re)
        ELSE
           STOP 'RHO: Error, irho not specified correctly'
        END IF

@@ -11,7 +11,7 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
   REAL, ALLOCATABLE :: z_tab(:)
   INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa
-  INTEGER :: ip(2), ix(2), ixx(2)
+  INTEGER :: ip(2), ix(2), ixx(2), ihalo
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2, a1, a2
   TYPE(cosmology) :: cosm
@@ -78,6 +78,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '15 - 3D spectra for cosmo-OWLS models'
      WRITE(*,*) '16 - 3D spectra for BAHAMAS models'
      WRITE(*,*) '17 - 3D spectra for user choice of fields'
+     WRITE(*,*) '18 - 3D bias'
      READ(*,*) imode
      WRITE(*,*) '======================'
      WRITE(*,*)
@@ -124,29 +125,18 @@ PROGRAM HMx_driver
         CLOSE(8)
      END IF
 
-  ELSE IF(imode==1 .OR. imode==17) THEN
+  ELSE IF(imode==1) THEN
 
      !Assigns the cosmological model
      icosmo=1
      CALL assign_cosmology(icosmo,cosm)
-
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     !CALL initialise_cosmology(verbose,cosm)
      IF(verbose) CALL print_cosmology(cosm)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-     IF(imode==1) THEN
-        nk=200
-        kmin=1e-3
-        kmax=1e4
-     ELSE IF(imode==17) THEN
-        nk=200
-        kmin=1e-3
-        kmax=1e4
-     ELSE
-        STOP 'HMx_driver: Error, imode specified incorrectly'
-     END IF
+     nk=200
+     kmin=1e-3
+     kmax=1e4
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
@@ -158,20 +148,108 @@ PROGRAM HMx_driver
      a=1./(1.+a)
      na=nz
 
-     IF(imode==1) THEN
-        !ip = -1 sets the DMONLY profiles
-        ip=-1
-     ELSE IF(imode==17) THEN
-        CALL set_halo_type(ip)
-     ELSE
-        STOP 'HMx_driver: Error, imode specified incorrectly'
-     END IF
-
-     ihm=-1
+     ip=-1 !Set DMONLY profiles
+     ihm=-1 !User chooses halo model
      CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
+
+  ELSE IF(imode==17) THEN
+
+     !Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm)
+
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     IF(verbose) CALL print_cosmology(cosm)
+
+     !Set number of k points and k range (log spaced)
+     !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
+     nk=200
+     kmin=1e-3
+     kmax=1e4
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     !Set the number of redshifts and range (linearly spaced) and convert z -> a
+     nz=16
+     zmin=0.
+     zmax=4.
+     CALL fill_array(zmin,zmax,a,nz)
+     a=1./(1.+a)
+     na=nz
+
+     !Choose the field types
+     DO i=1,2
+        WRITE(*,*) 'HMx_driver: Choose halo', i
+        CALL set_halo_type(ip(i))
+     END DO
+
+     !User chooses halo model
+     ihm=-1
+     
+     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+
+     base='data/power'
+     CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
+
+  ELSE IF(imode==18) THEN
+
+     !Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm)
+
+     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     !CALL initialise_cosmology(verbose,cosm)
+     IF(verbose) CALL print_cosmology(cosm)
+
+     !Set number of k points and k range (log spaced)
+     !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
+     nk=200
+     kmin=1e-3
+     kmax=1e4
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     !Set the number of redshifts and range (linearly spaced) and convert z -> a
+     nz=16
+     zmin=0.
+     zmax=4.
+     CALL fill_array(zmin,zmax,a,nz)
+     a=1./(1.+a)
+     na=nz
+
+     !Select field type for bias study
+     CALL set_halo_type(ihalo)
+
+     !User chooses halo model
+     ihm=-1
+
+     DO j=1,3
+
+        IF(j==1) THEN
+           !DMONLY-DMONLY
+           ip(1)=-1
+           ip(2)=-1
+           base='bias/power_mm'
+        ELSE IF(j==2) THEN
+           !DMONLY-field
+           ip(1)=ihalo
+           ip(2)=-1
+           base='bias/power_mf'
+        ELSE IF(j==3) THEN
+           !field-field
+           ip(1)=ihalo
+           ip(2)=ihalo
+           base='bias/power_ff'
+        END IF
+        
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
+
+     END DO
+
 
   ELSE IF(imode==2 .OR. imode==15 .OR. imode==16) THEN
 

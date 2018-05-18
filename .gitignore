@@ -42,6 +42,7 @@ variations/
 winint/
 BAHAMAS/
 hydro/
+bias/
 
 # Library update script
 src/update_library.sh*

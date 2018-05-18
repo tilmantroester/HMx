@@ -106,8 +106,8 @@ CONTAINS
     cosm%mgal=1e13
 
     !Default values for the HI parameters
-    cosm%HImin=1e12
-    cosm%HImax=1e14
+    cosm%HImin=1e9
+    cosm%HImax=1e12
 
     !Set all 'has' logicals to FALSE
     cosm%is_init=.FALSE.
@@ -295,6 +295,8 @@ CONTAINS
     WRITE(*,*) '===================================='
     WRITE(*,*) 'COSMOLOGY: HOD'
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_gal):', log10(cosm%mgal)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_-):', log10(cosm%HImin)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_+):', log10(cosm%HImax)
     WRITE(*,*) '===================================='
     WRITE(*,*) 'COSMOLOGY: Baryon Model'
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
@@ -374,7 +376,7 @@ CONTAINS
 
     cosm%age=age_of_universe(cosm)
     IF(verbose_cosmology) THEN
-       WRITE(*,*) 'INIT_COSMOLOGY: age [Gyrs/h]:', REAL(cosm%age)
+       WRITE(*,*) 'INIT_COSMOLOGY: age of Universe [Gyrs/h]:', REAL(cosm%age)
        WRITE(*,*)
     END IF
 
@@ -1903,8 +1905,6 @@ CONTAINS
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    !LOGICAL, PARAMETER :: verbose=.TRUE.
-
     IF(cosm%has_growth .EQV. .FALSE.) CALL init_growth(cosm)
     IF(a==1.) THEN
        grow=1.
@@ -1928,20 +1928,20 @@ CONTAINS
 
   FUNCTION growth_rate(a,cosm)
 
-    !Unnormalised growth function
+    !Growth rate: dln(g) / dln(a)
     IMPLICIT NONE
     REAL :: growth_rate
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%has_growth .EQV. .FALSE.) CALL init_growth(cosm)    
-    growth_rate=exp(find(log(a),cosm%a_growth,cosm%growth_rate,cosm%n_growth,3,3,2))
+    growth_rate=find(log(a),cosm%a_growth,cosm%growth_rate,cosm%n_growth,3,3,2)
 
   END FUNCTION growth_rate
 
   FUNCTION acc_growth(a,cosm)
 
-    !Unnormalised growth function
+    !Accumulated growth function: int_0^a g(a)/a da
     IMPLICIT NONE
     REAL :: acc_growth
     REAL, INTENT(IN) :: a
@@ -1954,7 +1954,7 @@ CONTAINS
 
   FUNCTION growth_rate_Linder(a,cosm)
 
-    !Approximation for the growth rate
+    !Approximation for the growth rate from Linder xxxx.xxxx
     IMPLICIT NONE
     REAL :: growth_rate_Linder
     REAL, INTENT(IN) :: a
@@ -1975,7 +1975,7 @@ CONTAINS
 
   FUNCTION growth_Linder_integrand(a,cosm)
 
-    !Integrand for the approximate growth integral
+    !Integrand for the approximate growth integral using Linder approximate growth rate
     IMPLICIT NONE
     REAL :: growth_Linder_integrand
     REAL, INTENT(IN) :: a
@@ -2006,23 +2006,20 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Om_mz, Om_vz, Om_m, Om_v
 
+    !Get all necessary Omega values
     Om_mz=Omega_m_norad(a,cosm)
     Om_vz=Omega_v(a,cosm)+Omega_w(a,cosm)
-    
-    !growth_CPT=a*Om_mz/((Om_mz**(4./7.))-Om_v+(1.+Om_mz/2.)*(1.+Om_vz/70.))
-
     Om_m=cosm%Om_m
     Om_v=cosm%Om_v+cosm%Om_w
-    
-    !Normalise
-    ! growth_CPT=growth_CPT/(Om_m/((Om_m**(4./7.))-Om_v+(1.+Om_m/2.)*(1.+Om_v/70.)))
 
+    !Now call CPT twice, second time to normalise it
     growth_CPT=CPT(a,Om_mz,Om_vz)/CPT(1.,Om_m,Om_v)
 
   END FUNCTION growth_CPT
 
   FUNCTION CPT(a,Om_m,Om_v)
 
+    !The main CPT approximation from 1992
     IMPLICIT NONE
     REAL :: CPT
     REAL, INTENT(IN) :: a, Om_m, Om_v
@@ -2037,42 +2034,47 @@ CONTAINS
 
     !Fills a table of the growth function vs. a
     IMPLICIT NONE
-    !LOGICAL, INTENT(IN) :: verbose
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i, na
-    REAL :: a, norm
+    REAL :: a
     REAL, ALLOCATABLE :: d_tab(:), v_tab(:), a_tab(:)
     REAL :: ainit, amax, dinit, vinit
     REAL :: g0, f0, bigG0
 
-    INTEGER, PARAMETER :: n=64 !Number of entries for growth tables
+    INTEGER, PARAMETER :: n=128 !Number of entries for growth tables
 
-    !The calculation should start at a z when Om_m(z)=1., so that the assumption
+    !TODO: Figure out why if I set amax=10, rather than amax=1, I start getting weird f(a) around a=0.001
+
+    !The calculation should start at a z when Omega_m(a)=1, so that the assumption
     !of starting in the g\propto a growing mode is valid (this will not work for early DE)
     !Maximum a should be a=1. unless considering models in the future
     ainit=1e-3
     amax=1.
 
-    !These set the initial conditions to be the Om_m=1. growing mode
+    !! First do growth factor and growth rate !!
+    
+    !These set the initial conditions to be the Omega_m(a)=1 growing mode
     dinit=ainit
     vinit=1.
 
-    !Setup a cosmology with no radiation parameter for this integration
-    !cosm_norad=cosm
-    !cosm_norad%Om_r=0.
+    !Write some useful information to the screen
+    IF(verbose_cosmology) THEN
+       WRITE(*,*) 'INIT_GROWTH: Solving growth equation'
+       WRITE(*,*) 'INIT_GROWTH: Minimum scale factor:', ainit
+       WRITE(*,*) 'INIT_GROWTH: Maximum scale factor:', amax
+       WRITE(*,*) 'INIT_GROWTH: Number of points for look-up tables:', n
+    END IF
 
-    IF(verbose_cosmology) WRITE(*,*) 'INIT_GROWTH: Solving growth equation'
-    !CALL ODE_adaptive_cosmology(d_tab,v_tab,0.,a_tab,cosm_norad,ainit,amax,dinit,vinit,fd,fv,acc_cosm,3,.FALSE.)
+    !Solve the ODE
     CALL ODE_adaptive_cosmology(d_tab,v_tab,0.,a_tab,cosm,ainit,amax,dinit,vinit,fd,fv,acc_cosm,3,.FALSE.)
     IF(verbose_cosmology) WRITE(*,*) 'INIT_GROWTH: ODE done'
     na=SIZE(a_tab)
 
-    !Convert dv/da to f = dlng/dlna for later
+    !Convert dv/da to f = dlng/dlna for later, so v_tab should really be f_tab from now on
     v_tab=v_tab*a_tab/d_tab
 
     !Normalise so that g(z=0)=1
-    norm=find(1.,a_tab,d_tab,na,3,3,2)
-    cosm%gnorm=norm
+    cosm%gnorm=find(1.,a_tab,d_tab,na,3,3,2)
     IF(verbose_cosmology) WRITE(*,*) 'INIT_GROWTH: unnormalised growth at z=0:', REAL(cosm%gnorm)
     d_tab=d_tab/cosm%gnorm   
 
@@ -2089,20 +2091,21 @@ CONTAINS
     DO i=1,n
        a=progression(ainit,amax,i,n)
        cosm%a_growth(i)=a
-       cosm%growth(i)=find(a,a_tab,d_tab,na,3,3,2)
-       cosm%growth_rate(i)=find(a,a_tab,v_tab,na,3,3,2)
+       cosm%growth(i)=exp(find(log(a),log(a_tab),log(d_tab),na,3,3,2))
+       cosm%growth_rate(i)=find(log(a),log(a_tab),v_tab,na,3,3,2)
     END DO
-    g0=find(1.,cosm%a_growth,cosm%growth,n,3,3,2)
-    f0=find(1.,cosm%a_growth,cosm%growth_rate,n,3,3,2)
-    IF(verbose_cosmology) WRITE(*,*) 'INIT_GROWTH: normalised growth at z=0:', g0
-    IF(verbose_cosmology) WRITE(*,*) 'INIT_GROWTH: growth rate at z=0:', f0
 
-    !Table integration to calculate G(a)=int_0^a g(a')/a' da'
+    !! !!
+ 
+    !! Table integration to calculate G(a)=int_0^a g(a')/a' da' !!
+
+    !Allocate array
     ALLOCATE(cosm%acc_growth(n))
+
+    !Set to zero, because I have an x=x+y thing later on
     cosm%acc_growth=0.
     
-    !Do the integral up to table position i
-    !This fills the accumulated growth table
+    !Do the integral up to table position i, which fills the accumulated growth table
     DO i=1,n
 
        !Do the integral using the arrays
@@ -2110,28 +2113,31 @@ CONTAINS
           cosm%acc_growth(i)=integrate_table(cosm%a_growth,cosm%gnorm*cosm%growth/cosm%a_growth,n,1,i,3)
        END IF
        
-       !Them add on the section that is missing from the beginning
+       !Then add on the section that is missing from the beginning
        !NB. g(a=0)/0 = 1, so you just add on a rectangle of height g*a/a=g
        cosm%acc_growth(i)=cosm%acc_growth(i)+cosm%gnorm*cosm%growth(1)
-       !WRITE(*,*) i, cosm%a_growth(i), cosm%gnorm*cosm%growth(i), cosm%acc_growth(i)
        
     END DO
-    !STOP
 
-    !Write some more stuff about accumulated growth to the screen
-    bigG0=find(1.,cosm%a_growth,cosm%acc_growth,n,3,3,2)
+    !! !!
+
+    !Write stuff about growth parameter at a=1 to the screen    
     IF(verbose_cosmology) THEN
+       f0=find(1.,cosm%a_growth,cosm%growth_rate,n,3,3,2)
+       g0=find(1.,cosm%a_growth,cosm%growth,n,3,3,2)
+       bigG0=find(1.,cosm%a_growth,cosm%acc_growth,n,3,3,2)      
+       WRITE(*,*) 'INIT_GROWTH: normalised growth at z=0:', g0
+       WRITE(*,*) 'INIT_GROWTH: growth rate at z=0:', f0
        WRITE(*,*) 'INIT_GROWTH: integrated growth at z=0:', bigG0
        WRITE(*,*)
     END IF
 
-    !Make the tables log for easier interpolation
+    !Make the some of the tables log for easier interpolation
     cosm%a_growth=log(cosm%a_growth)
     cosm%growth=log(cosm%growth)
-    cosm%growth_rate=log(cosm%growth_rate)
     cosm%acc_growth=log(cosm%acc_growth)
 
-    !Set the flag to true so that this subroutine is only called once!
+    !Set the flag to true so that this subroutine is only called once
     cosm%has_growth=.TRUE.
 
   END SUBROUTINE init_growth
@@ -2691,7 +2697,6 @@ CONTAINS
        ifail=0
 
        DO i=1,n-1
-          !CALL ODE_advance_cosmology(x1,x2,v1,v2,t1,t2,fx,fv,imeth)
           CALL ODE_advance_cosmology(x8(i),x8(i+1),v8(i),v8(i+1),t8(i),t8(i+1),fx,fv,imeth,kk,cosm)
        END DO
 
@@ -2721,8 +2726,6 @@ CONTAINS
        END IF
 
        IF(ifail==0) THEN
-          WRITE(*,*) 'ODE: Integration complete in steps:', n-1
-          WRITE(*,*)
           IF(ALLOCATED(x)) DEALLOCATE(x)
           IF(ALLOCATED(v)) DEALLOCATE(v)
           IF(ALLOCATED(t)) DEALLOCATE(t)
@@ -2733,7 +2736,6 @@ CONTAINS
           EXIT
        END IF
 
-       WRITE(*,*) 'ODE: Integration at:', n-1
        ALLOCATE(xh(n),th(n),vh(n))
        xh=x8
        vh=v8

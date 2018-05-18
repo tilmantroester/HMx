@@ -18,6 +18,7 @@ pmin=1e-7
 pmax=1e4
 set log y
 set yrange [pmin:pmax]
+#set yrange [*:*]
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 
