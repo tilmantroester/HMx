@@ -4,6 +4,25 @@ MODULE special_functions
 
 CONTAINS
 
+  FUNCTION Legendre_Polynomial(n,x)
+
+    IMPLICIT NONE
+    REAL :: Legendre_Polynomial
+    REAL, INTENT(IN) :: x
+    INTEGER, INTENT(IN) :: n
+
+    IF(n==0) THEN
+       Legendre_Polynomial=1.
+    ELSE IF(n==2) THEN
+       Legendre_Polynomial=(3.*(x**2.)-1.)/2.
+    ELSE IF(n==4) THEN
+       Legendre_Polynomial=(35.*(x**4.)-30.*(x**2.)+3.)/8.
+    ELSE
+       STOP 'LEGENDRE_POLYNOMIAL: polynomial of this order not stored'
+    END IF
+
+  END FUNCTION Legendre_Polynomial
+
   FUNCTION factorial(n)
 
     IMPLICIT NONE
@@ -309,14 +328,20 @@ CONTAINS
     
   END FUNCTION Gaussian
 
-  FUNCTION lognormal(x,mu,siglog)
+  FUNCTION lognormal(x,mean_x,sigma_lnx)
 
-    !A normalised lognormal [x: 0->inf]
+    !A normalised lognormal [x: 0->inf], function of x
+    !mean_x: <x>
+    !log_sigma is sigma for ln(x)
     IMPLICIT NONE
     REAL :: lognormal
-    REAL, INTENT(IN) :: x, mu, siglog
+    REAL, INTENT(IN) :: x, mean_x, sigma_lnx
+    REAL :: mu, sigma
+    
+    sigma=sigma_lnx
+    mu=log(mean_x)-0.5*sigma**2
 
-    lognormal=Gaussian(log(x),log(mu),siglog)/x
+    lognormal=Gaussian(log(x),mu,sigma)/x
 
   END FUNCTION lognormal
 

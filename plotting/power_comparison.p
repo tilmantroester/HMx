@@ -23,7 +23,7 @@ set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 
 #File to compare against
-if(!exists('com')){com='power_HMcode_standard.txt'}
+if(!exists('com')){com='benchmarks/power_HMcode_Mead.txt'}
 
 new='data/power_full.dat'
 p1h='data/power_1halo.dat'

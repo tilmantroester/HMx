@@ -46,7 +46,7 @@ if(!exists('isim')){sim=4}
 #simulation(n,sim,type1,type2)=sprintf('/Users/Mead/Physics/cosmo-OWLS/power/N%i/%s_%s_%s_power.dat',n,sim,type1,type2)
 simulation_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
 simulation_titles="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
-simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
+simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M512/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
 sim_name=word(simulation_names,sim)
 sim_title=word(simulation_titles,sim)
 print 'Comparing to simulation (set with *isim*): '.sim_title.''
@@ -263,9 +263,11 @@ set rmargin at screen ratio_right
 
 set xlabel klab
 set format x
+#set xrange [*:*]
 
 set ylabel 'P_{i,j}(k) / P_{DMONLY}(k)'
 set yrange [d_ratio_min*dy:d_ratio_max/dy]
+#set yrange [*:*]
 
 set key top left
 
@@ -278,7 +280,7 @@ plot for [i=1:n] '<paste '.power(param,i,'dd').' '.dmonly.'' u 1:(column(cp)/col
      for [i=1:n] '<paste '.power(param,i,'ds').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti,\
      '<paste '.simulation(sim_name,snap,dsim,gsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti,\
-     '<paste '.simulation(sim_name,snap,dsim,ssim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(cs+Ls))) w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,ssim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti
 
 unset label
 

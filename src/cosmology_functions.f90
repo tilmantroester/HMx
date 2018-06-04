@@ -24,11 +24,12 @@ MODULE cosmology_functions
      REAL, ALLOCATABLE :: r(:), a_r(:) !Arrays for distance
      REAL, ALLOCATABLE :: plin(:), k_plin(:) !Arrays for input linear P(k)
      REAL, ALLOCATABLE :: a_dcDv(:), dc(:), Dv(:) !Arrays for spherical-collapse parameters
-     INTEGER :: n_sigma, n_growth, n_r, nplin, n_dcDv !Array entries
+     INTEGER :: n_sigma, n_growth, n_r, n_plin, n_dcDv !Array entries
      REAL :: gnorm
      CHARACTER(len=256) :: name = ""
-     LOGICAL :: has_distance, has_growth, has_sigma, has_spherical
-     LOGICAL :: is_normalised, is_init, external_plin     
+     LOGICAL :: has_distance, has_growth, has_sigma, has_spherical, has_power
+     LOGICAL :: is_normalised, is_init
+     LOGICAL :: external_plin     
   END TYPE cosmology
 
 CONTAINS
@@ -84,7 +85,7 @@ CONTAINS
     cosm%n=0.96
     cosm%w=-1.
     cosm%wa=0.
-    cosm%T_CMB=2.73
+    cosm%T_CMB=2.725
     cosm%z_CMB=1100.
     cosm%neff=3.046
 
@@ -114,6 +115,7 @@ CONTAINS
     cosm%has_distance=.FALSE.
     cosm%has_growth=.FALSE.
     cosm%has_sigma=.FALSE.
+    cosm%has_power=.FALSE.
     cosm%has_spherical=.FALSE.
     cosm%is_normalised=.FALSE.
     cosm%external_plin=.FALSE.    
@@ -218,9 +220,11 @@ CONTAINS
     rho_g=(4.*SBconst*cosm%T_CMB**4/c_light**3)
     Om_g_h2=rho_g*(8.*pi*bigG/3.)/H0**2
     cosm%Om_r=Om_g_h2*(1.+0.227*cosm%neff)/cosm%h**2
+    !cosm%Om_r=0.
 
-    !Correction to matter for radiation to maintain flatness
-    cosm%Om_m=cosm%Om_m-cosm%Om_r
+    !Correction to for radiation to maintain flatness
+    !cosm%Om_m=cosm%Om_m-cosm%Om_r
+    cosm%Om_v=cosm%Om_v-cosm%Om_r
 
     WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology assigned'
     WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology: ', TRIM(cosm%name)
@@ -251,6 +255,9 @@ CONTAINS
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', REAL(cosm%wa)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sigma_8:', REAL(cosm%sig8)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_s:', REAL(cosm%n)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'T_CMB / K:', REAL(cosm%T_CMB)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', REAL(cosm%z_CMB)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_eff:', REAL(cosm%neff)
     WRITE(*,*) '===================================='
     WRITE(*,*) 'COSMOLOGY: Derived parameters'
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%Om
@@ -298,7 +305,7 @@ CONTAINS
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_-):', log10(cosm%HImin)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_+):', log10(cosm%HImax)
     WRITE(*,*) '===================================='
-    WRITE(*,*) 'COSMOLOGY: Baryon Model'
+    WRITE(*,*) 'COSMOLOGY: Baryon model'
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
@@ -443,7 +450,6 @@ CONTAINS
   FUNCTION comoving_critical_density(a,cosm)
 
     !Comoving critical density in (Msun/h) / (Mpc/h)^3
-    !This constant is (3/8pi) x H0^2/G
     IMPLICIT NONE
     REAL :: comoving_critical_density
     REAL, INTENT(IN) :: a
@@ -456,7 +462,6 @@ CONTAINS
   FUNCTION physical_critical_density(a,cosm)
 
     !Physical critical density in (Msun/h) / (Mpc/h)^3
-    !This constant is (3/8pi) x H0^2/G
     IMPLICIT NONE
     REAL :: physical_critical_density
     REAL, INTENT(IN) :: a
@@ -469,7 +474,6 @@ CONTAINS
   FUNCTION comoving_matter_density(cosm)
 
     !Comoving matter density in (Msun/h) / (Mpc/h)^3
-    !This constant is (3/8pi) x H0^2/G x Omega_m(z=0)
     !Not a function of redshift!
     IMPLICIT NONE
     REAL :: comoving_matter_density
@@ -482,7 +486,6 @@ CONTAINS
   FUNCTION physical_matter_density(a,cosm)
 
     !Physical matter density in (Msun/h) / (Mpc/h)^3
-    !This constant is (3/8pi) x H0^2/G x Omega_m(z=0)
     IMPLICIT NONE
     REAL :: physical_matter_density
     REAL, INTENT(IN) :: a
@@ -1168,9 +1171,31 @@ CONTAINS
 
   END FUNCTION Tk
 
+  REAL FUNCTION Tk_defw(k,cosm)
+
+    !This function was written by John Peacock
+    !The DEFW transfer function approximation
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k
+    TYPE(cosmology), INTENT(IN) :: cosm
+    REAL :: keff, q, tk
+    DOUBLE PRECISION :: q8, tk8
+
+    keff=0.172+0.011*log(cosm%gamma/0.36)*log(cosm%gamma/0.36)
+    q=1.e-20 + k/cosm%gamma
+    q8=1.e-20 + keff/cosm%gamma
+    tk=1./(1.+(6.4*q+(3.0*q)**1.5+(1.7*q)**2)**1.13)**(1./1.13)
+    tk8=1./(1.+(6.4*q8+(3.0*q8)**1.5+(1.7*q8)**2)**1.13)**(1./1.13)
+
+    tk_defw=tk/REAL(tk8)
+
+  END FUNCTION Tk_defw
+
   FUNCTION Tk_eh(yy,cosm)
 
-    !Eisenstein & Hu fitting function
+    USE special_functions
+
+    !Eisenstein & Hu fitting function (arXiv: 9709112)
     !JP - the astonishing D.J. Eisenstein & W. Hu fitting formula (ApJ 496 605 [1998])
     !JP - remember I use k/h, whereas they use pure k, Om_m is cdm + baryons
     IMPLICIT NONE
@@ -1185,61 +1210,70 @@ CONTAINS
     REAL :: f, fac
     REAL :: c1, c2, tc
     REAL :: bb, bn, ss, tb
-    REAL :: Om_m, Om_b, h
+    REAL :: Om_m, Om_b, h, Omh2, Obh2
 
+    !Define some useful variables
     Om_m=cosm%Om_m
     Om_b=cosm%Om_b
     h=cosm%h
+    Omh2=Om_m*h**2
+    Obh2=Om_b*h**2
 
+    !Wave-number
     rk=yy*h
 
+    !2.718...
     e=exp(1.)
 
-    thet=2.728/2.7
-    b1=0.313*(Om_m*h*h)**(-0.419)*(1+0.607*(Om_m*h*h)**0.674)
-    b2=0.238*(Om_m*h*h)**0.223
-    zd=1291.*(1+b1*(Om_b*h*h)**b2)*(Om_m*h*h)**0.251/(1.+0.659*(Om_m*h*h)**0.828)
-    ze=2.50e4*Om_m*h*h/thet**4.
-    rd=31500.*Om_b*h*h/thet**4./zd !Should this be 1+zd (Steven Murray enquirey)?
-    re=31500.*Om_b*h*h/thet**4./ze
-    rke=7.46e-2*Om_m*h*h/thet**2.
-    s=(2./3./rke)*sqrt(6./re)*log((sqrt(1.+rd)+sqrt(rd+re))/(1+sqrt(re)))
-    rks=1.6*( (Om_b*h*h)**0.52 ) * ( (Om_m*h*h)**0.73 ) * (1.+(10.4*Om_m*h*h)**(-0.95))
+    !CMB temperature (Section 2)
+    thet=cosm%T_CMB/2.7
+    
+    b1=0.313*(Omh2)**(-0.419)*(1.+0.607*(Omh2)**0.674) !Equation (4)
+    b2=0.238*(Omh2)**0.223 !Equation (4)
+    zd=1291.*(1.+b1*(Obh2)**b2)*(Omh2)**0.251/(1.+0.659*(Omh2)**0.828) !Drag redshift; equation (4)
+    ze=2.50e4*Omh2/thet**4 !z_eq; equation (2)
+    rd=31500.*Obh2/thet**4/(1.+zd) !Equation (5); changed from /zd -> /(1+zd) because it lines up with http://background.uchicago.edu/~whu/transfer/tf_fit.c (thanks Steven Murray)
+    re=31500.*Obh2/thet**4/ze !Equation (5)
+    rke=7.46e-2*Omh2/thet**2 !k_eq; equation (3)
+    s=(2./3./rke)*sqrt(6./re)*log((sqrt(1.+rd)+sqrt(rd+re))/(1.+sqrt(re))) !Sound horizon at drag; equation (6)
+    rks=1.6*( (Obh2)**0.52 ) * ( (Omh2)**0.73 ) * (1.+(10.4*Omh2)**(-0.95)) !Silk k; equation(7)
 
-    q=rk/13.41/rke
+    q=rk/13.41/rke !Equation (10)
 
-    y=(1.+ze)/(1.+zd)
-    g=y*(-6.*sqrt(1+y)+(2.+3.*y)*log((sqrt(1.+y)+1.)/(sqrt(1.+y)-1.)))
-    ab=g*2.07*rke*s/(1.+rd)**(0.75)
+    y=(1.+ze)/(1.+zd) !y that enters in equation G(y) in equations (14) and (15)
+    g=y*(-6.*sqrt(1.+y)+(2.+3.*y)*log((sqrt(1.+y)+1.)/(sqrt(1.+y)-1.))) !Equation (15)
+    ab=g*2.07*rke*s/(1.+rd)**(0.75) !Equation (14)
 
-    a1=(46.9*Om_m*h*h)**0.670*(1+(32.1*Om_m*h*h)**(-0.532))
-    a2=(12.0*Om_m*h*h)**0.424*(1+(45.0*Om_m*h*h)**(-0.582))
-    ac=(a1**(-Om_b/Om_m)) * (a2**(-(Om_b/Om_m)**3.))
+    a1=(46.9*Omh2)**0.670*(1+(32.1*Omh2)**(-0.532)) !Equation (11)
+    a2=(12.0*Omh2)**0.424*(1+(45.0*Omh2)**(-0.582)) !Equation (11)
+    ac=(a1**(-Om_b/Om_m)) * (a2**(-(Om_b/Om_m)**3)) !Equation (11)
 
-    b1=0.944/(1+(458.*Om_m*h*h)**(-0.708))
-    b2=(0.395*Om_m*h*h)**(-0.0266)
-    bc=1./(1.+b1*((1.-Om_b/Om_m)**b2-1.))
+    b1=0.944/(1.+(458.*Omh2)**(-0.708)) !Equation (12)
+    b2=(0.395*Omh2)**(-0.0266) !Equation (12)
+    bc=1./(1.+b1*((1.-Om_b/Om_m)**b2-1.)) !Equation (12)
 
-    f=1./(1.+(rk*s/5.4)**4.)
+    f=1./(1.+(rk*s/5.4)**4) !Equation (18)
 
-    c1=14.2 + 386./(1.+69.9*q**1.08)
-    c2=14.2/ac + 386./(1.+69.9*q**1.08)
-    tc=f*log(e+1.8*bc*q)/(log(e+1.8*bc*q)+c1*q*q) +(1.-f)*log(e+1.8*bc*q)/(log(e+1.8*bc*q)+c2*q*q)
+    c1=14.2 + 386./(1.+69.9*q**1.08) !Equation (20) without alpha_c in the 14.2/alpha_c first bit
+    c2=14.2/ac + 386./(1.+69.9*q**1.08) !Equation (20) (C function should have explicity alpha_c dependence in paper)
+    tc=f*log(e+1.8*bc*q)/(log(e+1.8*bc*q)+c1*q**2) +(1.-f)*log(e+1.8*bc*q)/(log(e+1.8*bc*q)+c2*q**2) !Equation (17)
 
-    bb=0.5+(Om_b/Om_m) + (3.-2.*Om_b/Om_m)*sqrt((17.2*Om_m*h*h)**2.+1.)
-    bn=8.41*(Om_m*h*h)**0.435
-    ss=s/(1.+(bn/rk/s)**3.)**(1./3.)
-    tb=log(e+1.8*q)/(log(e+1.8*q)+c1*q*q)/(1+(rk*s/5.2)**2.)
+    bb=0.5+(Om_b/Om_m) + (3.-2.*Om_b/Om_m)*sqrt((17.2*Omh2)**2+1.) !Equation (24)
+    bn=8.41*(Omh2)**0.435 !Equation (23)
+    ss=s/(1.+(bn/rk/s)**3)**(1./3.) !Equation (22)
+    tb=log(e+1.8*q)/(log(e+1.8*q)+c1*q**2)/(1.+(rk*s/5.2)**2) !First term in equation (21)
     !IF((rk/rks**1.4)>7.) THEN
     !   fac=0.
     !ELSE
     !Removed this IF statement as it produced a discontinuity in P_lin(k) as cosmology
     !was varied - thanks David Copeland for pointing this out
-    fac=exp(-(rk/rks)**1.4)
+    fac=exp(-(rk/rks)**1.4) !Silk-damping factor from equation (21)
     !END IF
-    tb=(tb+ab*fac/(1.+(bb/rk/s)**3.))*sin(rk*ss)/rk/ss
+    
+    !tb=(tb+ab*fac/(1.+(bb/rk/s)**3))*sin(rk*ss)/rk/ss !Equation (21)
+    tb=(tb+ab*fac/(1.+(bb/rk/s)**3))*sinc(rk*ss) !Equation (21)
 
-    tk_eh=real((Om_b/Om_m)*tb+(1-Om_b/Om_m)*tc)
+    tk_eh=real((Om_b/Om_m)*tb+(1.-Om_b/Om_m)*tc) !The weighted mean of baryon and CDM transfer functions
 
   END FUNCTION TK_EH
 
@@ -1253,9 +1287,9 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     REAL, PARAMETER :: kmax=1e8
-    !LOGICAL, PARAMETER :: verbose=.TRUE.
 
-    !IF(cosm%has_power .EQV. .FALSE.) CALL init_power(cosm)
+    !Using init_power seems to provide no significant speed improvements to HMx
+    !IF((cosm%has_power .EQV. .FALSE.) .AND. (cosm%external_plin .EQV. .FALSE.)) CALL init_power(cosm)
 
     IF(k==0.) THEN
        !If p_lin happens to be foolishly called for 0 mode
@@ -1269,8 +1303,8 @@ CONTAINS
        !If investigating effects caused by a finite box size
        p_lin=0.
     ELSE
-       IF(cosm%external_plin) THEN
-          p_lin=cosm%A**2*exp(find(log(k),cosm%k_plin,cosm%plin,cosm%nplin,3,3,2))
+       IF(cosm%external_plin .OR. cosm%has_power) THEN
+          p_lin=cosm%A**2*exp(find(log(k),cosm%k_plin,cosm%plin,cosm%n_plin,3,3,2))
        ELSE
           !In this case get the power from the transfer function
           p_lin=(cosm%A**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))
@@ -1280,6 +1314,34 @@ CONTAINS
     END IF
 
   END FUNCTION p_lin
+
+  SUBROUTINE init_power(cosm)
+
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER :: i
+    REAL :: k
+    
+    REAL, PARAMETER :: kmin=1e-3
+    REAL, PARAMETER :: kmax=1e2
+    INTEGER, PARAMETER :: n_plin=256
+
+    cosm%n_plin=n_plin
+    
+    ALLOCATE(cosm%k_plin(cosm%n_plin),cosm%plin(cosm%n_plin))
+
+    DO i=1,cosm%n_plin
+       k=progression_log(kmin,kmax,i,cosm%n_plin)
+       cosm%k_plin(i)=k
+       cosm%plin(i)=(Tk(k,cosm)**2)*k**(cosm%n+3.)
+    END DO
+
+    cosm%k_plin=log(cosm%k_plin)
+    cosm%plin=log(cosm%plin)
+
+    cosm%has_power=.TRUE.
+    
+  END SUBROUTINE init_power
 
   SUBROUTINE init_sigma(cosm)
 
@@ -1323,8 +1385,8 @@ CONTAINS
     DO i=1,nsig
 
        !Equally spaced r in log
-       !r=exp(log(rmin)+log(rmax/rmin)*float(i-1)/float(nsig-1))
-       r=exp(progression(log(rmin),log(rmax),i,nsig))
+       !r=exp(progression(log(rmin),log(rmax),i,nsig))
+       r=progression_log(rmin,rmax,i,nsig)
 
        !sig=sigma(r,0.,cosm)
        IF(r>=rsplit) THEN
@@ -2360,26 +2422,17 @@ CONTAINS
     REAL, ALLOCATABLE :: d(:), a(:), v(:)
     REAL, ALLOCATABLE :: dnl(:), vnl(:), rnl(:)
     REAL, ALLOCATABLE :: a_coll(:), r_coll(:)
-    INTEGER :: i, j, k, k2
-    !INTEGER :: iw, img
-    !TYPE(cosmology) :: cosm_norad
-    !INTEGER :: icol    
+    INTEGER :: i, j, k, k2   
 
     REAL, PARAMETER :: amax=2. !Maximum scale factor to consider
     REAL, PARAMETER :: dmin=1e-7 !Minimum starting value for perturbation
     REAL, PARAMETER :: dmax=1e-3 !Maximum starting value for perturbation
     INTEGER, PARAMETER :: m=128 !Number of collapse scale-factors to try to calculate (you usually get fewer)
-    INTEGER, PARAMETER :: n=1e5 !Number of points for ODE calculations (needs to be large (~1e5) to capture final stages of collapse
+    INTEGER, PARAMETER :: n=100000 !Number of points for ODE calculations (needs to be large (~1e5) to capture final stages of collapse
 
     IF(verbose_cosmology) WRITE(*,*) 'SPHERICAL_COLLAPSE: Doing integration'
 
-    !icol=0
-
-    !Number of collapse 'a' to calculate
-    !Actually you get fewer than this because some d do not collapse (DE)
-    !dmin=1e-7
-    !dmax=1e-3
-    !m=100
+    !Allocate arrays
     IF(ALLOCATED(cosm%a_dcDv)) DEALLOCATE(cosm%a_dcDv)
     IF(ALLOCATED(cosm%dc)) DEALLOCATE(cosm%dc)
     IF(ALLOCATED(cosm%Dv)) DEALLOCATE(cosm%Dv)
@@ -2395,36 +2448,23 @@ CONTAINS
     END IF
 
     !BCs for integration. Note ainit=dinit means that collapse should occur around a=1 for dmin
-    !amax should be slightly greater than 1 to ensure at least a few points for a>0.9 (i.e not to miss out a=1)
-    !vinit=1 is EdS growing mode solution
+    !amax should be slightly greater than 1 to ensure at least a few points for a>0.9 (i.e not to miss out a=1)    
     ainit=dmin
-    !amax=2.
-    vinit=1.*(dmin/ainit)
+    vinit=1.*(dmin/ainit) !vinit=1 is EdS growing mode solution
 
-    !Setup a cosmology with no radiation parameter for this integration
-    !cosm_norad=cosm
-    !cosm_norad%Om_r=0.
-
+    !Now loop over all initial density fluctuations
     DO j=1,m       
 
        !log range of initial delta
        dinit=progression_log(dmin,dmax,j,m)
 
-       !WRITE(*,*) j, dinit
-
        !Do both with the same a1 and a2 and using the same number of time steps
        !This means that arrays a, and anl will be identical, which simplifies calculation
-       !CALL ode_crass(dnl,vnl,a,0.,ainit,amax,dinit,vinit,n,3,1,1,cosm)
        CALL ODE_spherical(dnl,vnl,0.,a,cosm,ainit,amax,dinit,vinit,fd,fvnl,n,3,.TRUE.)
        DEALLOCATE(a)
-       !CALL ode_crass(d,v,a,0.,ainit,amax,dinit,vinit,n,3,0,1,cosm)
        CALL ODE_spherical(d,v,0.,a,cosm,ainit,amax,dinit,vinit,fd,fv,n,3,.TRUE.)
 
-       !DO i=1,n
-       !   WRITE(*,*) a(i), d(i), dnl(i)
-       !END DO
-
-       !If this condtion is met then collapse occured some time a<amax
+       !If this condition is met then collapse occured some time a<amax
        IF(dnl(n)==0.) THEN
 
           !! delta_c calcualtion !!
@@ -2445,7 +2485,6 @@ CONTAINS
           END DO
 
           !Cut away parts of the arrays for a>ac
-          !WRITE(*,*) 'MK:', n, k
           CALL amputate(a,n,k)
           CALL amputate(d,n,k)
           CALL amputate(dnl,n,k)
@@ -2497,8 +2536,6 @@ CONTAINS
 
           !!
 
-          !WRITE(*,*) j, ac, dc, Dv
-
           cosm%a_dcDv(j)=ac
           cosm%dc(j)=dc
           cosm%Dv(j)=Dv
@@ -2541,7 +2578,6 @@ CONTAINS
        WRITE(*,*)
     END IF
 
-    !WRITE(*,*) 'CRUD:', m, cosm%n_dcDv
     CALL amputate(cosm%a_dcDv,m,cosm%n_dcDv)
     CALL amputate(cosm%dc,m,cosm%n_dcDv)
     CALL amputate(cosm%Dv,m,cosm%n_dcDv)
@@ -2603,10 +2639,10 @@ CONTAINS
 
     !Fill time array
     IF(ilog) THEN
-       CALL fill_array8(log(ti),log(tf),t8,n)
+       CALL fill_array_double(log(ti),log(tf),t8,n)
        t8=exp(t8)
     ELSE
-       CALL fill_array8(ti,tf,t8,n)
+       CALL fill_array_double(ti,tf,t8,n)
     END IF
 
     DO i=1,n-1
@@ -2688,10 +2724,10 @@ CONTAINS
 
        !Fill time array
        IF(ilog) THEN
-          CALL fill_array8(log(ti),log(tf),t8,n)
+          CALL fill_array_double(log(ti),log(tf),t8,n)
           t8=exp(t8)
        ELSE
-          CALL fill_array8(ti,tf,t8,n)
+          CALL fill_array_double(ti,tf,t8,n)
        END IF
 
        ifail=0

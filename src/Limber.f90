@@ -1,6 +1,5 @@
 MODULE Limber
 
-  !USE cosdef
   USE constants
   USE array_operations
   USE interpolate

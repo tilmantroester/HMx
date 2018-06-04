@@ -43,6 +43,7 @@ winint/
 BAHAMAS/
 hydro/
 bias/
+benchmarks/
 
 # Library update script
 src/update_library.sh*

@@ -1,7 +1,5 @@
 MODULE random_numbers
 
-  USE constants
-  
   IMPLICIT NONE
   
 CONTAINS
@@ -39,17 +37,12 @@ CONTAINS
     INTEGER :: random_integer
     INTEGER, INTENT(IN) :: i1, i2
     INTEGER :: n
-    REAL :: ran
     REAL :: rand !Necessary to define for ifort
 
     !Range for the number
     n=1+i2-i1
 
-    !Random number between 0 and 1
-    !Do I really need both 'ran' and 'rand'?
-    ran=rand(0)
-
-    random_integer=i1-1+CEILING(ran*float(n))
+    random_integer=i1-1+CEILING(rand(0)*REAL(n))
 
   END FUNCTION random_integer
 
@@ -59,7 +52,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: random_uniform
     REAL, INTENT(IN) :: x1,x2
-    REAL :: rand !I think this needs to be definted for ifort
+    REAL :: rand !I think this needs to be defined for ifort
 
     !Rand is some inbuilt function
     random_uniform=x1+(x2-x1)*(rand(0))
@@ -82,12 +75,31 @@ CONTAINS
   FUNCTION random_Lorentzian()
 
     !Produces a Lorentzian-distributed random number
+    USE constants
     IMPLICIT NONE
     REAL :: random_Lorentzian
 
     random_Lorentzian=tan(random_uniform(0.,pi/2.))
 
   END FUNCTION random_Lorentzian
+
+  FUNCTION random_Gaussian_pair(mean,sigma)
+    
+    !Gets a pair of Gaussian random numbers
+    USE constants
+    IMPLICIT NONE
+    REAL :: random_Gaussian_pair(2)
+    REAL, INTENT(IN) :: mean, sigma
+    REAL :: r, theta
+
+    r=random_Rayleigh(sigma)
+    theta=random_uniform(0.,twopi)
+
+    !Both of these numbers are Gaussian
+    random_Gaussian_pair(1)=r*sin(theta)+mean
+    random_Gaussian_pair(2)=r*cos(theta)+mean
+
+  END FUNCTION random_Gaussian_pair
 
   FUNCTION random_Gaussian(mean,sigma)
     
@@ -97,34 +109,35 @@ CONTAINS
     REAL, INTENT(IN) :: mean, sigma
     REAL :: G(2)
 
-    !This is wasteful as r*sin(theta) is also Gaussian (independantly)!
-    G=random_Gaussian_both(mean,sigma)
+    !This is wasteful as there is a second, independent Gaussian random number
+    G=random_Gaussian_pair(mean,sigma)
     random_Gaussian=G(1)
 
   END FUNCTION random_Gaussian
 
-  FUNCTION random_Gaussian_both(mean,sigma)
+  FUNCTION random_lognormal(mean_x,sigma_lnx)
     
-    !Gets a pair of Gaussian random numbers
+    !Gets a single Gaussian random number
+    !mean_x: <x>
+    !sigma_lnx: rms of the logarithm of x
     IMPLICIT NONE
-    REAL :: random_Gaussian_both(2)
-    REAL, INTENT(IN) :: mean, sigma
-    REAL :: r, theta
+    REAL :: random_lognormal
+    REAL, INTENT(IN) :: mean_x, sigma_lnx
+    REAL :: mu, sigma, G(2)
 
-    r=random_Rayleigh(sigma)
-    theta=random_uniform(0.,2.*pi)
+    sigma=sigma_lnx
+    mu=log(mean_x)-0.5*sigma**2
 
-    !Both of these numbers are Gaussian
-    random_Gaussian_both(1)=r*sin(theta)+mean
-    random_Gaussian_both(2)=r*cos(theta)+mean
+    !This is wasteful as there is a second, independent Gaussian random number
+    G=random_Gaussian_pair(mu,sigma)
+    random_lognormal=exp(G(1))
 
-  END FUNCTION random_Gaussian_both
+  END FUNCTION random_lognormal
 
-  FUNCTION random_exponential(mean)
+  REAL FUNCTION random_exponential(mean)
 
     !Produces a exponentially-distributed random number
     IMPLICIT NONE
-    REAL :: random_exponential
     REAL, INTENT(IN) :: mean
 
     !small is introducted because there will be problems here if log(0) is ever called
@@ -134,14 +147,23 @@ CONTAINS
 
   END FUNCTION random_exponential
 
-  FUNCTION random_polynomial(n)
+  REAL FUNCTION random_polynomial(n)
 
     !Generate a polynomailly distributed number [x:0->1]
     IMPLICIT NONE
-    REAL :: random_polynomial, n
+    REAL, INTENT(IN) :: n
 
     random_polynomial=(random_uniform(0.,1.))**(1./(n+1))
 
   END FUNCTION random_polynomial
+
+  REAL FUNCTION random_theta()
+
+    !A random spherical angle such that the space is equally populated
+    IMPLICIT NONE
+
+    random_theta=acos(random_uniform(-1.,1.))
+
+  END FUNCTION random_theta
 
 END MODULE random_numbers

@@ -19,12 +19,11 @@ PROGRAM HMx_driver
   TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
-  CHARACTER(len=256) :: mode
-  INTEGER :: imode, icosmo, iowl
+  CHARACTER(len=256) :: mode, hm
+  INTEGER :: imode, icosmo, iowl, ihm
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
-  INTEGER :: ihm=4
 
   !Baryon stuff
   REAL :: param_min, param_max, param
@@ -53,6 +52,13 @@ PROGRAM HMx_driver
      READ(mode,*) imode
   END IF
 
+  CALL get_command_argument(2,hm)
+  IF(hm=='') THEN
+     ihm=-1
+  ELSE
+     READ(hm,*) ihm
+  END IF
+
   !Initial space
   WRITE(*,*)
 
@@ -79,6 +85,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '16 - 3D spectra for BAHAMAS models'
      WRITE(*,*) '17 - 3D spectra for user choice of fields'
      WRITE(*,*) '18 - 3D bias'
+     WRITE(*,*) '19 - CCL comparison'
      READ(*,*) imode
      WRITE(*,*) '======================'
      WRITE(*,*)
@@ -87,7 +94,7 @@ PROGRAM HMx_driver
   IF(imode==0) THEN
 
      !Set number of k points and k range (log spaced)
-     nk=200
+     nk=128
      kmin=1e-3
      kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
@@ -106,8 +113,8 @@ PROGRAM HMx_driver
      z=0.
 
      !Initiliasation for the halomodel calcualtion
-     ihm=-1
-     CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
+     !ihm=-1
+     CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
 
      !Do the halo-model calculation
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
@@ -125,6 +132,58 @@ PROGRAM HMx_driver
         CLOSE(8)
      END IF
 
+  ELSE IF(imode==19) THEN
+
+     !Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e1
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     !Set the halo model to that for CCL tests
+     ihm=9
+
+     DO j=1,3
+
+        !Assigns the cosmological model
+        IF(j==1) icosmo=1
+        IF(j==2) icosmo=2
+        IF(j==3) icosmo=3
+        CALL assign_cosmology(icosmo,cosm)
+
+        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        IF(verbose) CALL print_cosmology(cosm)   
+
+        DO i=1,2
+
+           !Sets the redshift
+           IF(i==1) THEN
+              z=0.
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z0.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z0.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z0.txt'
+           ELSE IF(i==2) THEN
+              z=1.
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z1.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z1.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z1.txt'
+           END IF
+
+           !Initialise the halo-model calculation
+           CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
+
+           !Do the halo-model calculation
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
+
+           !Write out the results
+           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+
+        END DO
+
+     END DO
+
   ELSE IF(imode==1) THEN
 
      !Assigns the cosmological model
@@ -134,9 +193,9 @@ PROGRAM HMx_driver
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-     nk=200
+     nk=128
      kmin=1e-3
-     kmax=1e4
+     kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
@@ -149,7 +208,7 @@ PROGRAM HMx_driver
      na=nz
 
      ip=-1 !Set DMONLY profiles
-     ihm=-1 !User chooses halo model
+     !ihm=-1 !User chooses halo model
      CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
      base='data/power'
@@ -166,9 +225,9 @@ PROGRAM HMx_driver
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-     nk=200
+     nk=128
      kmin=1e-3
-     kmax=1e4
+     kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
@@ -185,10 +244,11 @@ PROGRAM HMx_driver
         WRITE(*,*) 'HMx_driver: Choose halo', i
         CALL set_halo_type(ip(i))
      END DO
+     !WRITE(*,*) 'IP:', ip
+     !STOP
 
      !User chooses halo model
-     ihm=-1
-     
+     !ihm=-1     
      CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
      base='data/power'
@@ -206,9 +266,9 @@ PROGRAM HMx_driver
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-     nk=200
+     nk=128
      kmin=1e-3
-     kmax=1e4
+     kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
@@ -224,7 +284,7 @@ PROGRAM HMx_driver
      CALL set_halo_type(ihalo)
 
      !User chooses halo model
-     ihm=-1
+     !ihm=-1
 
      DO j=1,3
 
@@ -269,7 +329,7 @@ PROGRAM HMx_driver
         z_tab(4)=2.0
      
         !Set number of k points and k range (log spaced)
-        nk=200
+        nk=128
         kmin=1e-3
         kmax=1e2
         CALL fill_array(log(kmin),log(kmax),k,nk)
@@ -417,7 +477,7 @@ PROGRAM HMx_driver
            z=z_tab(j)
            
            !Initiliasation for the halomodel calcualtion
-           CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
+           CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
 
            !Runs the diagnostics
            IF(imode==2) THEN
@@ -509,7 +569,7 @@ PROGRAM HMx_driver
         IF(j==4) z=2.0
 
         !Initiliasation for the halomodel calcualtion
-        CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
+        CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -545,7 +605,7 @@ PROGRAM HMx_driver
      !Create spectra for 'all matter' and 'pressure' and their cross
 
      !Set number of k points and k range (log spaced)
-     nk=200
+     nk=128
      kmin=1e-3
      kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
@@ -564,7 +624,7 @@ PROGRAM HMx_driver
      IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halomodel calcualtion
-     CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
+     CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
 
      !Runs the diagnostics
      dir='diagnostics'
@@ -715,7 +775,7 @@ PROGRAM HMx_driver
         CALL write_distances(cosm)
 
         !Write out diagnostics
-        CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)
+        CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
 
         !dir='diagnostics'
         !CALL halo_diagnostics(z,lut,cosm,dir)
@@ -962,7 +1022,7 @@ PROGRAM HMx_driver
               z=redshift_a(a(j))
 
               !Initiliasation for the halomodel calcualtion
-              CALL halomod_init(ihm,m1,m2,z,lut,cosm,verbose)
+              CALL init_halomod(ihm,m1,m2,z,lut,cosm,verbose)
               CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm,verbose)
 
               !Write progress to screen
@@ -1264,8 +1324,8 @@ PROGRAM HMx_driver
 
      !Set number of k points and k range (log spaced)
      nk=128
-     kmin=1.e-3
-     kmax=1.e1
+     kmin=1e-3
+     kmax=1e1
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
@@ -1282,7 +1342,7 @@ PROGRAM HMx_driver
      IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halo-model calcualtion
-     CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose)  
+     CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)  
 
      !DMONLY
      j1=-1
@@ -1362,7 +1422,7 @@ PROGRAM HMx_driver
            !DO NOT DELETE - needs to be here to restore default cosmology on each loop
            !Initiliasation for the halo-model calcualtion
            CALL init_cosmology(cosm)
-           CALL halomod_init(ihm,mmin,mmax,z,lut,cosm,verbose) 
+           CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose) 
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later
