@@ -15,7 +15,7 @@ PROGRAM HMx_driver
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2, a1, a2
   TYPE(cosmology) :: cosm
-  TYPE(halomod) :: lut
+  TYPE(halomod) :: hmod
   TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
@@ -114,20 +114,20 @@ PROGRAM HMx_driver
 
      !Initiliasation for the halomodel calcualtion
      !ihm=-1
-     CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
+     CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
      !Do the halo-model calculation
-     CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
+     CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
 
      !Write out the results
      outfile='data/power.dat'
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Write the one-void term if necessary
-     IF(lut%voids) THEN
+     IF(hmod%voids) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
-           WRITE(8,*) k(i), p_1v(k(i),lut)
+           WRITE(8,*) k(i), p_1v(k(i),hmod)
         END DO
         CLOSE(8)
      END IF
@@ -172,10 +172,10 @@ PROGRAM HMx_driver
            END IF
 
            !Initialise the halo-model calculation
-           CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
+           CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
            !Do the halo-model calculation
-           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
 
            !Write out the results
            CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
@@ -477,14 +477,14 @@ PROGRAM HMx_driver
            z=z_tab(j)
            
            !Initiliasation for the halomodel calcualtion
-           CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
+           CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
            !Runs the diagnostics
            IF(imode==2) THEN
               dir='diagnostics'
-              CALL halo_diagnostics(z,lut,cosm,dir)
-              CALL halo_definitions(z,lut,dir)
-              CALL halo_properties(z,lut,dir)
+              CALL halo_diagnostics(z,hmod,cosm,dir)
+              CALL halo_definitions(z,hmod,dir)
+              CALL halo_properties(z,hmod,dir)
            END IF
 
            IF(imode==2) THEN
@@ -523,7 +523,7 @@ PROGRAM HMx_driver
               IF(j==4) outfile='BAHAMAS/power_DMONLY_z2.0_00.dat'
            END IF
            WRITE(*,*) -1, -1, TRIM(outfile)
-           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
            CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
            !Loop over matter types and do auto- and cross-spectra
@@ -539,7 +539,7 @@ PROGRAM HMx_driver
                  WRITE(*,*) j1, j2, TRIM(outfile)
 
                  !Do the calculation and write P(k) to disk
-                 CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
+                 CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
                  CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
 
               END DO
@@ -569,13 +569,13 @@ PROGRAM HMx_driver
         IF(j==4) z=2.0
 
         !Initiliasation for the halomodel calcualtion
-        CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
+        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
-        CALL halo_diagnostics(z,lut,cosm,dir)
-        CALL halo_definitions(z,lut,dir)
-        CALL halo_properties(z,lut,dir)
+        CALL halo_diagnostics(z,hmod,cosm,dir)
+        CALL halo_definitions(z,hmod,dir)
+        CALL halo_properties(z,hmod,dir)
 
      END DO
 
@@ -624,13 +624,13 @@ PROGRAM HMx_driver
      IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halomodel calcualtion
-     CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
+     CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
      !Runs the diagnostics
      dir='diagnostics'
-     CALL halo_diagnostics(z,lut,cosm,dir)
-     CALL halo_definitions(z,lut,dir)
-     CALL halo_properties(z,lut,dir)
+     CALL halo_diagnostics(z,hmod,cosm,dir)
+     CALL halo_definitions(z,hmod,dir)
+     CALL halo_properties(z,hmod,dir)
 
      !File base and extension
      base='data/power_'
@@ -668,7 +668,7 @@ PROGRAM HMx_driver
 
         WRITE(*,fmt='(3I5,A30)') j, j1, j2, TRIM(outfile)
 
-        CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
+        CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
         CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
 
      END DO
@@ -775,12 +775,12 @@ PROGRAM HMx_driver
         CALL write_distances(cosm)
 
         !Write out diagnostics
-        CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)
+        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
         !dir='diagnostics'
-        !CALL halo_diagnostics(z,lut,cosm,dir)
-        !CALL halo_definitions(z,lut,dir)
-        !CALL halo_properties(z,lut,dir)
+        !CALL halo_diagnostics(z,hmod,cosm,dir)
+        !CALL halo_definitions(z,hmod,dir)
+        !CALL halo_properties(z,hmod,dir)
 
         CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
@@ -1007,8 +1007,8 @@ PROGRAM HMx_driver
            !Set the code to not 'correct' the two-halo power for missing
            !mass when doing the calcultion binned in halo mass
            !STOP 'HMx: Extreme caution here, need to set ip2h=0, but it is defined as parameter in HMx.f90'
-           !IF((icumulative .EQV. .FALSE.) .AND. i>1) lut%ip2h=0
-           IF((icumulative .EQV. .TRUE.) .AND. i>0) lut%ip2h=0
+           !IF((icumulative .EQV. .FALSE.) .AND. i>1) hmod%ip2h=0
+           IF((icumulative .EQV. .TRUE.) .AND. i>0) hmod%ip2h=0
            
            WRITE(*,fmt='(A16)') 'HMx: Mass range'
            WRITE(*,fmt='(A16,I5)') 'HMx: Iteration:', i
@@ -1022,8 +1022,8 @@ PROGRAM HMx_driver
               z=redshift_a(a(j))
 
               !Initiliasation for the halomodel calcualtion
-              CALL init_halomod(ihm,m1,m2,z,lut,cosm,verbose)
-              CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),lut,cosm,verbose)
+              CALL init_halomod(ihm,m1,m2,z,hmod,cosm,verbose)
+              CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),hmod,cosm,verbose)
 
               !Write progress to screen
               IF(j==1) THEN
@@ -1342,13 +1342,13 @@ PROGRAM HMx_driver
      IF(verbose) CALL print_cosmology(cosm)
 
      !Initiliasation for the halo-model calcualtion
-     CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose)  
+     CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)  
 
      !DMONLY
      j1=-1
      j2=-1
      outfile='variations/DMONLY.dat'
-     CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,verbose)
+     CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Prevents warning
@@ -1422,7 +1422,7 @@ PROGRAM HMx_driver
            !DO NOT DELETE - needs to be here to restore default cosmology on each loop
            !Initiliasation for the halo-model calcualtion
            CALL init_cosmology(cosm)
-           CALL init_halomod(ihm,mmin,mmax,z,lut,cosm,verbose) 
+           CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose) 
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later
@@ -1439,7 +1439,7 @@ PROGRAM HMx_driver
               ext='.dat'
               outfile=number_file2(base,ipa,mid,i,ext)
               mass=10.**j
-              CALL write_halo_profiles(mass,z,lut,cosm,outfile)
+              CALL write_halo_profiles(mass,z,hmod,cosm,outfile)
            END DO
 
            !Write out halo mass fraction information
@@ -1508,7 +1508,7 @@ PROGRAM HMx_driver
               WRITE(*,fmt='(4I5,F14.7,A50)') ipa, i, j1, j2, param, TRIM(outfile)
 
               !Do the halo-model calculation and write to file
-              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,lut,cosm,.FALSE.)
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
               CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
 
            END DO
