@@ -37,7 +37,7 @@ set xrange [ellmin:ellmax]
 clmin=1e-14
 clmax=2e-12
 set log y
-set ylabel 'C('.ell.')'
+#set ylabel 'C_{i,j}('.ell.')'
 #set yrange [clmin:clmax]
 set yrange [*:*]
 
@@ -55,8 +55,8 @@ icl=2
 #Number of simulation curves to make
 n=words(sims)
 
-if(icl==1){p1=0; p2=0; p3=0; ylab='C('.ell.')'                                 ; c=2; clmin=1e-14; clmax=2e-12; set key top right}
-if(icl==2){p1=1; p2=1; p3=1; ylab=''.ell.'('.ell.'+1)C('.ell.') / 2{/Symbol p}'; c=3; clmin=1e-10; clmax=1e-7; set key bottom right}
+if(icl==1){p1=0; p2=0; p3=0; ylab='C_{i,j}('.ell.')'                                 ; c=2; clmin=1e-14; clmax=2e-12; set key top right}
+if(icl==2){p1=1; p2=1; p3=1; ylab=''.ell.'('.ell.'+1)C_{i,j}('.ell.') / 2{/Symbol p}'; c=3; clmin=1e-10; clmax=1e-7; set key bottom right}
 
 set ylabel ylab
 set yrange [clmin:clmax]

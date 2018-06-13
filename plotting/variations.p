@@ -430,9 +430,9 @@ set label dplab at graph 0.03,0.6
 set label pplab at graph 0.03,0.3
 
 plot for [j=1:words(types_pressure)] for [i=1:n] '<paste '.power(param,i,word(types_pressure,j)).' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti,\
-     '<paste '.simulation(sim_name,snap,dsim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti,\
-     '<paste '.simulation(sim_name,snap,psim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:(column(cs)/column(cs+Ls)) w p pt 2 lc 'black' noti
+     '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,dsim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti,\
+     '<paste '.simulation(sim_name,snap,psim,psim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti
 
 unset label
 

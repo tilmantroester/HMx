@@ -4,33 +4,37 @@ MODULE cosmology_functions
   USE constants
 
   IMPLICIT NONE
-  REAL, PARAMETER :: acc_cosm=1e-4
-  INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
-  REAL, PARAMETER :: Lbox=400. !Simulation box size
-  LOGICAL, PARAMETER :: verbose_cosmology=.TRUE.
 
-  !Contains cosmological parameters that need only be calculated once
+  !Contains cosmological parameters that only need to be calculated once
   TYPE cosmology     
-     REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa !Primary parameters
+     REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa, m_wdm, YHe !Primary parameters
      REAL :: z_CMB, T_CMB, neff, Om_r, age, horizon !Secondary parameters
      REAL :: Om, k, Om_k, Om_c, A !Derived parameters
+     REAL :: YH, mue, mup, epfac !Derived thermal parameters
      REAL :: a1, a2, ns, ws, am, dm, wm !DE parameters     
      REAL :: Om_ws, as, a1n, a2n !Derived DE parameters
      REAL :: alpha, eps, Gamma, M0, Astar, whim !Baryon parameters
      REAL :: mgal, HImin, HImax !HOD parameters
      INTEGER :: iw !Switches
-     REAL, ALLOCATABLE :: sigma(:), r_sigma(:) !Arrays for sigma(R)
-     REAL, ALLOCATABLE :: a_growth(:), growth(:), growth_rate(:), acc_growth(:) !Arrays for growth
+     REAL, ALLOCATABLE :: log_sigma(:), log_r_sigma(:) !Arrays for sigma(R)
+     REAL, ALLOCATABLE :: log_a_growth(:), log_growth(:), growth_rate(:), log_acc_growth(:) !Arrays for growth
      REAL, ALLOCATABLE :: r(:), a_r(:) !Arrays for distance
-     REAL, ALLOCATABLE :: plin(:), k_plin(:) !Arrays for input linear P(k)
-     REAL, ALLOCATABLE :: a_dcDv(:), dc(:), Dv(:) !Arrays for spherical-collapse parameters
+     REAL, ALLOCATABLE :: log_plin(:), log_k_plin(:) !Arrays for input linear P(k)
+     REAL, ALLOCATABLE :: log_a_dcDv(:), dc(:), Dv(:) !Arrays for spherical-collapse parameters
      INTEGER :: n_sigma, n_growth, n_r, n_plin, n_dcDv !Array entries
      REAL :: gnorm
      CHARACTER(len=256) :: name = ""
+     LOGICAL :: wdm
      LOGICAL :: has_distance, has_growth, has_sigma, has_spherical, has_power
-     LOGICAL :: is_normalised, is_init
+     LOGICAL :: is_init, is_normalised
      LOGICAL :: external_plin     
   END TYPE cosmology
+
+  !Global parameters
+  REAL, PARAMETER :: acc_cosm=1e-4 !Accuacy for the integrations
+  INTEGER, PARAMETER :: ibox=0 !Consider the simulation volume
+  REAL, PARAMETER :: Lbox=400. !Simulation box size
+  LOGICAL, PARAMETER :: verbose_cosmology=.TRUE. !Global verbose parameter
 
 CONTAINS
 
@@ -44,7 +48,7 @@ CONTAINS
     REAL :: Om_c, Om_g_h2, rho_g
 
     !Names of pre-defined cosmologies    
-    INTEGER, PARAMETER :: ncosmo=13
+    INTEGER, PARAMETER :: ncosmo=14
     CHARACTER(len=256) :: names(0:ncosmo)
     names(0)='User defined'
     names(1)='Boring'
@@ -60,6 +64,7 @@ CONTAINS
     names(11)='IDE10'
     names(12)='LCDM (user)'
     names(13)='w(a)CDM (user)'
+    names(14)='Boring WDM'
 
     IF(icosmo==-1) THEN
        WRITE(*,*) 'ASSIGN_COSMOLOGY: Choose cosmological model'
@@ -85,28 +90,38 @@ CONTAINS
     cosm%n=0.96
     cosm%w=-1.
     cosm%wa=0.
-    cosm%T_CMB=2.725
-    cosm%z_CMB=1100.
+    cosm%T_CMB=2.725 !CMB temperature [K]
+    cosm%z_CMB=1100. !Redshift of the last-scatting surface
     cosm%neff=3.046
 
     !Default dark energy is Lambda
     cosm%iw=1
 
+    !Default to have no WDM
+    cosm%wdm=.FALSE.
+    cosm%m_wdm=1. !WDM mass [keV]
+
+    !Gas parameters
+    cosm%YHe=0.24 !Helium mass fraction
+
     !Initially set the normalisation to 1
     cosm%A=1.
 
     !Default values of baryon parameters
-    cosm%alpha=0.52
+    !TODO: These should eventually be HMx parameters
+    cosm%alpha=1.
     cosm%eps=1.
     cosm%Gamma=1.17
-    cosm%M0=1e14
-    cosm%Astar=0.02
-    cosm%whim=1e6
+    cosm%M0=1e14 !Halo mass that has lost half gas
+    cosm%Astar=0.02 !Maximum star-formation efficiency
+    cosm%whim=1e6 !WHIM temperature [K]
 
     !Default values of the HOD parameters
+    !TODO: These should eventually be HMx parameters
     cosm%mgal=1e13
 
     !Default values for the HI parameters
+    !TODO: These should eventually be HMx parameters
     cosm%HImin=1e9
     cosm%HImax=1e12
 
@@ -212,6 +227,8 @@ CONTAINS
        READ(*,*) cosm%w
        WRITE(*,*) 'wa:'
        READ(*,*) cosm%wa
+    ELSE IF(icosmo==14) THEN
+       cosm%wdm=.TRUE.
     ELSE
        STOP 'ASSIGN_COSMOLOGY: Error, icosmo not specified correctly'
     END IF
@@ -220,10 +237,8 @@ CONTAINS
     rho_g=(4.*SBconst*cosm%T_CMB**4/c_light**3)
     Om_g_h2=rho_g*(8.*pi*bigG/3.)/H0**2
     cosm%Om_r=Om_g_h2*(1.+0.227*cosm%neff)/cosm%h**2
-    !cosm%Om_r=0.
 
-    !Correction to for radiation to maintain flatness
-    !cosm%Om_m=cosm%Om_m-cosm%Om_r
+    !Correction to vacuum density in order for radiation to maintain flatness
     cosm%Om_v=cosm%Om_v-cosm%Om_r
 
     WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology assigned'
@@ -231,8 +246,6 @@ CONTAINS
     WRITE(*,*)
 
     CALL init_cosmology(cosm)
-
-    CALL normalise_power(cosm)
 
   END SUBROUTINE assign_cosmology
 
@@ -255,15 +268,23 @@ CONTAINS
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', REAL(cosm%wa)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sigma_8:', REAL(cosm%sig8)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_s:', REAL(cosm%n)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'T_CMB / K:', REAL(cosm%T_CMB)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'T_CMB [K]:', REAL(cosm%T_CMB)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', REAL(cosm%z_CMB)
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_eff:', REAL(cosm%neff)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Y_He:', REAL(cosm%YHe)
+    IF(cosm%wdm) THEN
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'm_wdm [keV]:', REAL(cosm%m_wdm)
+    END IF
     WRITE(*,*) '===================================='
     WRITE(*,*) 'COSMOLOGY: Derived parameters'
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%Om
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%Om_c
     WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%Om_k
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k [Mpc/h]^-2:', REAL(cosm%k)       
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k [Mpc/h]^-2:', REAL(cosm%k)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Y_H:', REAL(cosm%YH)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_p:', REAL(cosm%mup)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_e:', REAL(cosm%mue)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'ep_fac:', REAL(cosm%epfac)
     WRITE(*,*) '===================================='
     IF(cosm%iw==1) THEN
        WRITE(*,*) 'COSMOLOGY: Vacuum energy'
@@ -323,6 +344,7 @@ CONTAINS
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Xs, f1, f2
+    !REAL :: sigi
 
     !Derived cosmological parameters    
     cosm%Om_c=cosm%Om_m-cosm%Om_b-cosm%Om_nu!-cosm%Om_r
@@ -334,11 +356,22 @@ CONTAINS
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_c:', REAL(cosm%Om_c)
        WRITE(*,*) 'INIT_COSMOLOGY: Omega:', REAL(cosm%Om)
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_k:', REAL(cosm%Om_k)
-       WRITE(*,*) 'INIT_COSMOLOGY: k [Mpc/h]^-2:', REAL(cosm%k)       
-       !WRITE(*,*)
+       WRITE(*,*) 'INIT_COSMOLOGY: k [Mpc/h]^-2:', REAL(cosm%k)
     END IF
 
-    !Change flags
+    !Gas parameters
+    cosm%YH=1.-cosm%YHe !Hydrogen mass density
+    cosm%mup=4./(5.*cosm%YH+3.) !Nuclear mass per particle (~0.588 if fH=0.76)
+    cosm%mue=2./(1.+cosm%YH) !Nuclear mass per electron (~1.136 if fH=0.76)
+    cosm%epfac=2.*(1.+cosm%YH)/(5.*cosm%YH+3.) !Thermal -> electron pressure conversion; ratio of electron density to total particle density; (~0.518 if fH=0.76)
+
+    IF(verbose_cosmology) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: Y_H:', REAL(cosm%YH)
+       WRITE(*,*) 'INIT_COSMOLOGY: mu_p:', REAL(cosm%mup)
+       WRITE(*,*) 'INIT_COSMOLOGY: mu_e:', REAL(cosm%mue)
+       WRITE(*,*) 'INIT_COSMOLOGY: ep_fac:', REAL(cosm%epfac)
+    END IF
+    
     cosm%is_init=.TRUE.
 
     !Dark energy models
@@ -381,11 +414,13 @@ CONTAINS
        cosm%a2=cosm%as*(f1/f2)**(1./(3.*(1.+cosm%ws)))
     END IF
 
-    cosm%age=age_of_universe(cosm)
-    IF(verbose_cosmology) THEN
-       WRITE(*,*) 'INIT_COSMOLOGY: age of Universe [Gyrs/h]:', REAL(cosm%age)
-       WRITE(*,*)
-    END IF
+    !Not sure this is necessary
+    !Cacluate the age of the universe
+    !cosm%age=age_of_universe(cosm)
+    !IF(verbose_cosmology) THEN
+    !   WRITE(*,*) 'INIT_COSMOLOGY: age of Universe [Gyrs/h]:', REAL(cosm%age)
+    !   WRITE(*,*)
+    !END IF
 
     !Ensure deallocate distances
     cosm%has_distance=.FALSE.
@@ -394,22 +429,61 @@ CONTAINS
 
     !Ensure deallocate growth
     cosm%has_growth=.FALSE.
-    IF(ALLOCATED(cosm%a_growth))    DEALLOCATE(cosm%a_growth)
-    IF(ALLOCATED(cosm%growth))      DEALLOCATE(cosm%growth)
-    IF(ALLOCATED(cosm%growth_rate)) DEALLOCATE(cosm%growth_rate)
-    IF(ALLOCATED(cosm%acc_growth))  DEALLOCATE(cosm%acc_growth)
+    IF(ALLOCATED(cosm%log_a_growth))    DEALLOCATE(cosm%log_a_growth)
+    IF(ALLOCATED(cosm%log_growth))      DEALLOCATE(cosm%log_growth)
+    IF(ALLOCATED(cosm%growth_rate))     DEALLOCATE(cosm%growth_rate)
+    IF(ALLOCATED(cosm%log_acc_growth))  DEALLOCATE(cosm%log_acc_growth)
 
     !Ensure deallocate sigma
     cosm%has_sigma=.FALSE.
-    IF(ALLOCATED(cosm%r_sigma)) DEALLOCATE(cosm%r_sigma)
-    IF(ALLOCATED(cosm%sigma))   DEALLOCATE(cosm%sigma)
+    IF(ALLOCATED(cosm%log_r_sigma)) DEALLOCATE(cosm%log_r_sigma)
+    IF(ALLOCATED(cosm%log_sigma))   DEALLOCATE(cosm%log_sigma)
 
-    !Initially set the normalisation to 1
-    cosm%is_normalised=.FALSE.
-    cosm%A=1.
+    !Ensure deallocate plin
+    cosm%has_power=.FALSE.
+    IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
+    IF(ALLOCATED(cosm%log_plin))   DEALLOCATE(cosm%log_plin)
 
-    !Fill the tables of g(z)
-    !CALL init_growth(verbose,cosm)
+    cosm%has_spherical=.FALSE.
+    IF(ALLOCATED(cosm%log_a_dcDv)) DEALLOCATE(cosm%log_a_dcDv)
+    IF(ALLOCATED(cosm%dc))         DEALLOCATE(cosm%dc)
+    IF(ALLOCATED(cosm%Dv))         DEALLOCATE(cosm%Dv)
+
+    IF(verbose_cosmology) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: Done'
+       WRITE(*,*)
+    END IF
+    
+!!$    !Set the power normalisation to unity initially
+!!$    !cosm%is_normalised=.FALSE.
+!!$    cosm%A=1.
+!!$
+!!$    !Calculate the initial sigma_8 value (will not be correct)
+!!$    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
+!!$
+!!$    IF(verbose_cosmology) WRITE(*,*) 'INIT_COSMOLOGY Initial sigma_8:', REAL(sigi)
+!!$
+!!$    !Reset the normalisation to give the correct sigma8
+!!$    cosm%A=cosm%sig8/sigi
+!!$    !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
+!!$
+!!$    !Recalculate sigma8, should be correct this time
+!!$    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
+!!$
+!!$    !Write to screen
+!!$    IF(verbose_cosmology) THEN
+!!$       WRITE(*,*) 'INIT_COSMOLOGY Normalisation factor:', REAL(cosm%A)
+!!$       WRITE(*,*) 'INIT_COSMOLOGY Target sigma_8:', REAL(cosm%sig8)
+!!$       WRITE(*,*) 'INIT_COSMOLOGY Final sigma_8 (calculated):', REAL(sigi)
+!!$       WRITE(*,*) 'INIT_COSMOLOGY Complete'
+!!$       WRITE(*,*)
+!!$    END IF
+!!$
+!!$    !Change flag
+!!$    cosm%is_normalised=.TRUE.
+
+    !Normalise the power spectrum
+    CALL normalise_power(cosm)
 
   END SUBROUTINE init_cosmology
 
@@ -443,6 +517,7 @@ CONTAINS
        WRITE(*,*)
     END IF
 
+    !Change the flag
     cosm%is_normalised=.TRUE.
 
   END SUBROUTINE normalise_power
@@ -559,11 +634,10 @@ CONTAINS
     
   END FUNCTION AH_norad
 
-  FUNCTION Omega_m(a,cosm)
+  REAL FUNCTION Omega_m(a,cosm)
 
-    !This calculates Omega_m variations with z!
+    !This calculates Omega_m variations with a
     IMPLICIT NONE
-    REAL :: Omega_m
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -571,11 +645,11 @@ CONTAINS
 
   END FUNCTION Omega_m
 
-  FUNCTION Omega_m_norad(a,cosm)
+  REAL FUNCTION Omega_m_norad(a,cosm)
 
-    !This calculates Omega_m variations with z!
+    !This calculates Omega_m variations with a, but ignoring any radiation component
+    !This ensures that Omega_m_norad(a->0) -> 1
     IMPLICIT NONE
-    REAL :: Omega_m_norad
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -583,11 +657,32 @@ CONTAINS
 
   END FUNCTION Omega_m_norad
 
-  FUNCTION Omega_nu(a,cosm)
+  REAL FUNCTION Omega_b(a,cosm)
 
-    !This calculates Omega_m variations with z!
+    !This calculates Omega_m variations with a
     IMPLICIT NONE
-    REAL :: Omega_nu
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    Omega_b=cosm%Om_b*a**(-3)/Hubble2(a,cosm)
+
+  END FUNCTION Omega_b
+
+  REAL FUNCTION Omega_c(a,cosm)
+
+    !This calculates Omega_c variations with a
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    Omega_c=cosm%Om_c*a**(-3)/Hubble2(a,cosm)
+
+  END FUNCTION Omega_c
+
+  REAL FUNCTION Omega_nu(a,cosm)
+
+    !This calculates Omega_nu variations with a, assuming that nu scales like matter
+    IMPLICIT NONE
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -595,11 +690,10 @@ CONTAINS
 
   END FUNCTION Omega_nu
 
-  FUNCTION Omega_r(a,cosm)
+  REAL FUNCTION Omega_r(a,cosm)
 
-    !This calculates Omega_r variations with z!
+    !This calculates Omega_r variations with a
     IMPLICIT NONE
-    REAL :: Omega_r
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -608,11 +702,10 @@ CONTAINS
 
   END FUNCTION Omega_r
 
-  FUNCTION Omega_v(a,cosm)
+  REAL FUNCTION Omega_v(a,cosm)
 
-    !This calculates Omega_v variations with z!
+    !This calculates Omega_v variations with a
     IMPLICIT NONE
-    REAL :: Omega_v
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -620,11 +713,10 @@ CONTAINS
 
   END FUNCTION Omega_v
 
-  FUNCTION Omega_w(a,cosm)
+  REAL FUNCTION Omega_w(a,cosm)
 
-    !This calculates Omega_w variations with z!
+    !This calculates Omega_w variations with a
     IMPLICIT NONE
-    REAL :: Omega_w
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -632,11 +724,9 @@ CONTAINS
 
   END FUNCTION Omega_w
 
-  FUNCTION Omega(a,cosm)
+  REAL FUNCTION Omega(a,cosm)
 
-    !This calculates total Omega variations with z!
-    IMPLICIT NONE
-    REAL :: Omega
+    !This calculates total Omega variations with a
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -869,6 +959,7 @@ CONTAINS
     REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
+    IF(cosm%has_distance .EQV. .FALSE.) CALL init_distances(cosm)
     redshift_r=redshift_a(find(r,cosm%r,cosm%a_r,cosm%n_r,3,3,2))
 
   END FUNCTION redshift_r
@@ -1169,6 +1260,9 @@ CONTAINS
 
     Tk=Tk_eh(k,cosm)
 
+    !Damp if considering WDM
+    IF(cosm%wdm) Tk=Tk*Tk_wdm(k,cosm)
+
   END FUNCTION Tk
 
   REAL FUNCTION Tk_defw(k,cosm)
@@ -1277,6 +1371,23 @@ CONTAINS
 
   END FUNCTION TK_EH
 
+  REAL FUNCTION Tk_wdm(k,cosm)
+
+    !Warm dark matter 'correction' to the standard transfer function
+    !This version and equation references were taken from arxiv:1605.05973
+    !Originally from Bode et al. (2001; arixv:0010389)
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: alpha, mu
+
+    alpha=0.074*0.7*cosm%m_wdm**(-1.15) !alpha from equation (5), units Mpc/h
+    mu=1.12 !mu from equation (4), dimensionless
+
+    Tk_wdm=(1.+(alpha*k)**(2.*mu))**(-5./mu) !Equation (2)
+    
+  END FUNCTION Tk_wdm
+
   FUNCTION p_lin(k,a,cosm)
 
     !Linear matter power spectrum
@@ -1304,7 +1415,7 @@ CONTAINS
        p_lin=0.
     ELSE
        IF(cosm%external_plin .OR. cosm%has_power) THEN
-          p_lin=cosm%A**2*exp(find(log(k),cosm%k_plin,cosm%plin,cosm%n_plin,3,3,2))
+          p_lin=cosm%A**2*exp(find(log(k),cosm%log_k_plin,cosm%log_plin,cosm%n_plin,3,3,2))
        ELSE
           !In this case get the power from the transfer function
           p_lin=(cosm%A**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))
@@ -1317,28 +1428,39 @@ CONTAINS
 
   SUBROUTINE init_power(cosm)
 
+    !Fill a look-up table for the linear power spectrum
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
     REAL :: k
-    
+
+    !PARAMETERS
     REAL, PARAMETER :: kmin=1e-3
     REAL, PARAMETER :: kmax=1e2
     INTEGER, PARAMETER :: n_plin=256
 
+    !Set the numer of points in the look-up tables
+    !Note you need to have enough to resolve the BAO well
+    !Probably some non-log/linear spacing would be best (CAMB does this)
     cosm%n_plin=n_plin
-    
-    ALLOCATE(cosm%k_plin(cosm%n_plin),cosm%plin(cosm%n_plin))
 
+    !Allocate arrays
+    IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
+    IF(ALLOCATED(cosm%log_plin)) DEALLOCATE(cosm%log_plin)
+    ALLOCATE(cosm%log_k_plin(cosm%n_plin),cosm%log_plin(cosm%n_plin))
+
+    !Get values for the linear power spectrum
     DO i=1,cosm%n_plin
        k=progression_log(kmin,kmax,i,cosm%n_plin)
-       cosm%k_plin(i)=k
-       cosm%plin(i)=(Tk(k,cosm)**2)*k**(cosm%n+3.)
+       cosm%log_k_plin(i)=k
+       cosm%log_plin(i)=(Tk(k,cosm)**2)*k**(cosm%n+3.)
     END DO
 
-    cosm%k_plin=log(cosm%k_plin)
-    cosm%plin=log(cosm%plin)
+    !Take logarithms
+    cosm%log_k_plin=log(cosm%log_k_plin)
+    cosm%log_plin=log(cosm%log_plin)
 
+    !Change the flag to true
     cosm%has_power=.TRUE.
     
   END SUBROUTINE init_power
@@ -1349,35 +1471,35 @@ CONTAINS
     !It is used only in look-up for further calculations of sigma(r) and not otherwise!
     !and prevents a large number of calls to the sigint functions
     IMPLICIT NONE
-    !LOGICAL, INTENT(IN) :: verbose
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL, ALLOCATABLE :: rtab(:), sigtab(:)
-    REAL :: r, sig
+    REAL :: r, sigma
     INTEGER :: i
 
     !These values of 'r' work fine for any power spectrum of cosmological importance
     !Having nsig as a 2** number is most efficient for the look-up routines
     !rmin and rmax need to be decided in advance and are chosen such that
     !R vs. sigma(R) is a power-law below and above these values of R   
-    INTEGER, PARAMETER :: nsig=64 !Number of entries for sigma(R) tables
+    INTEGER, PARAMETER :: nsig=128 !Number of entries for sigma(R) tables
     REAL, PARAMETER :: rmin=1e-4 !Minimum r value (NB. sigma(R) needs to be power-law below)
     REAL, PARAMETER :: rmax=1e3 !Maximum r value (NB. sigma(R) needs to be power-law above)
-    !INTEGER, PARAMETER :: iorder=3 !Order for integration
     REAL, PARAMETER :: rsplit=1e-2 !Scale split between integration methods
 
-    IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
+    !IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
 
-    !These must be not allocated before sigma calculations otherwise when sigma(r) is called
-    !otherwise sigma(R) looks for the result in the tables
-    IF(ALLOCATED(cosm%r_sigma)) DEALLOCATE(cosm%r_sigma)
-    IF(ALLOCATED(cosm%sigma))   DEALLOCATE(cosm%sigma)
+    IF(cosm%wdm) STOP 'INIT_SIGMA: This will crash with WDM'
 
+    !Deallocate tables if they are already allocated
+    IF(ALLOCATED(cosm%log_r_sigma)) DEALLOCATE(cosm%log_r_sigma)
+    IF(ALLOCATED(cosm%log_sigma))   DEALLOCATE(cosm%log_sigma)
+
+    !Allocate arrays
     cosm%n_sigma=nsig
-    ALLOCATE(rtab(nsig),sigtab(nsig))
+    ALLOCATE(cosm%log_r_sigma(nsig),cosm%log_sigma(nsig))
 
+    !Write crud
     IF(verbose_cosmology) THEN
        WRITE(*,*) 'INIT_SIGMA: Filling sigma interpolation table'
-       WRITE(*,*) 'INIT_SIGMA: R minimum [Mpc/h]:', rmin !If I put REAL() here I get an error with goslow for some reason!?
+       WRITE(*,*) 'INIT_SIGMA: R minimum [Mpc/h]:', REAL(rmin) !If I put REAL() here I get an error with goslow for some reason!?
        WRITE(*,*) 'INIT_SIGMA: R maximum [Mpc/h]:', REAL(rmax)
        WRITE(*,*) 'INIT_SIGMA: number of points:', nsig
     END IF
@@ -1385,36 +1507,33 @@ CONTAINS
     DO i=1,nsig
 
        !Equally spaced r in log
-       !r=exp(progression(log(rmin),log(rmax),i,nsig))
        r=progression_log(rmin,rmax,i,nsig)
 
-       !sig=sigma(r,0.,cosm)
+       !Integration method changes depending on r to make this as fast as possible
        IF(r>=rsplit) THEN
-          sig=sqrt(sigma_integral0(r,1.,cosm,acc_cosm))
+          sigma=sqrt(sigma_integral0(r,1.,cosm,acc_cosm))
        ELSE IF(r<rsplit) THEN
-          sig=sqrt(sigma_integral1(r,1.,cosm,acc_cosm)+sigma_integral2(r,1.,cosm,acc_cosm))
+          sigma=sqrt(sigma_integral1(r,1.,cosm,acc_cosm)+sigma_integral2(r,1.,cosm,acc_cosm))
        ELSE
           STOP 'INIT_SIGMA: Error, something went wrong'
        END IF
 
-       rtab(i)=r
-       sigtab(i)=sig
+       !Fill look-up tables
+       cosm%log_r_sigma(i)=r
+       cosm%log_sigma(i)=sigma
 
     END DO
 
-    !Must be allocated after the sigtab calulation above
-    ALLOCATE(cosm%r_sigma(nsig),cosm%sigma(nsig))
-
-    cosm%r_sigma=log(rtab)
-    cosm%sigma=log(sigtab)
-
-    DEALLOCATE(rtab,sigtab)
+    !Make the tables logarithmic
+    cosm%log_r_sigma=log(cosm%log_r_sigma)
+    cosm%log_sigma=log(cosm%log_sigma)
 
     IF(verbose_cosmology) THEN
        WRITE(*,*) 'INIT_SIGMA: Done'
        WRITE(*,*)
     END IF
 
+    !Change flag so that it is known that the look-up tables are filled
     cosm%has_sigma=.TRUE.
 
   END SUBROUTINE init_sigma
@@ -1427,11 +1546,9 @@ CONTAINS
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    !LOGICAL, PARAMETER :: verbose=.TRUE.
-
-    IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
+    !IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
     IF(cosm%has_sigma .EQV. .FALSE.) CALL init_sigma(cosm)
-    sigma=grow(a,cosm)*exp(find(log(r),cosm%r_sigma,cosm%sigma,cosm%n_sigma,3,3,2))
+    sigma=grow(a,cosm)*exp(find(log(r),cosm%log_r_sigma,cosm%log_sigma,cosm%n_sigma,3,3,2))
 
   END FUNCTION sigma
 
@@ -1466,8 +1583,7 @@ CONTAINS
     REAL :: k, y, w_hat
 
     INTERFACE
-       FUNCTION f(x)
-         REAL :: f
+       REAL FUNCTION f(x)
          REAL, INTENT(IN) :: x
        END FUNCTION f
     END INTERFACE
@@ -1475,10 +1591,10 @@ CONTAINS
     !Integrand to the sigma integral in terms of t. Defined by k=(1/t-1)/f(R) where f(R) is *any* function
 
     IF(t==0.) THEN
-       !t=0 corresponds to k=infintiy when W(kR)=0.
+       !t=0 corresponds to k=infintiy when W(kR)=0
        sigma_integrand_transformed=0.
     ELSE IF(t==1.) THEN
-       !t=1 corresponds to k=0. when P(k)=0.
+       !t=1 corresponds to k=0 when P(k)=0
        sigma_integrand_transformed=0.
     ELSE
        !f(R) can be *any* function of R here to improve integration speed
@@ -1826,7 +1942,7 @@ CONTAINS
     REAL, INTENT(IN) :: R, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
+    !IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
     sigmaV=sigmaV_integral(R,a,cosm,acc_cosm)
 
   END FUNCTION sigmaV
@@ -1971,7 +2087,7 @@ CONTAINS
     IF(a==1.) THEN
        grow=1.
     ELSE       
-       grow=exp(find(log(a),cosm%a_growth,cosm%growth,cosm%n_growth,3,3,2))
+       grow=exp(find(log(a),cosm%log_a_growth,cosm%log_growth,cosm%n_growth,3,3,2))
     END IF
 
   END FUNCTION grow
@@ -1997,7 +2113,7 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%has_growth .EQV. .FALSE.) CALL init_growth(cosm)    
-    growth_rate=find(log(a),cosm%a_growth,cosm%growth_rate,cosm%n_growth,3,3,2)
+    growth_rate=find(log(a),cosm%log_a_growth,cosm%growth_rate,cosm%n_growth,3,3,2)
 
   END FUNCTION growth_rate
 
@@ -2010,7 +2126,7 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%has_growth .EQV. .FALSE.) CALL init_growth(cosm)    
-    acc_growth=exp(find(log(a),cosm%a_growth,cosm%acc_growth,cosm%n_growth,3,3,2))
+    acc_growth=exp(find(log(a),cosm%log_a_growth,cosm%log_acc_growth,cosm%n_growth,3,3,2))
 
   END FUNCTION acc_growth
 
@@ -2141,19 +2257,19 @@ CONTAINS
     d_tab=d_tab/cosm%gnorm   
 
     !Allocate arrays
-    IF(ALLOCATED(cosm%a_growth))    DEALLOCATE(cosm%a_growth)
-    IF(ALLOCATED(cosm%growth))      DEALLOCATE(cosm%growth)
-    IF(ALLOCATED(cosm%growth_rate)) DEALLOCATE(cosm%growth_rate)
-    IF(ALLOCATED(cosm%acc_growth))  DEALLOCATE(cosm%acc_growth)
+    IF(ALLOCATED(cosm%log_a_growth))    DEALLOCATE(cosm%log_a_growth)
+    IF(ALLOCATED(cosm%log_growth))      DEALLOCATE(cosm%log_growth)
+    IF(ALLOCATED(cosm%growth_rate))     DEALLOCATE(cosm%growth_rate)
+    IF(ALLOCATED(cosm%log_acc_growth))  DEALLOCATE(cosm%log_acc_growth)
     cosm%n_growth=n
 
     !This downsamples the tables that come out of the ODE solver (which can be a bit long)
     !Could use some table-interpolation routine here to save time
-    ALLOCATE(cosm%a_growth(n),cosm%growth(n),cosm%growth_rate(n))
+    ALLOCATE(cosm%log_a_growth(n),cosm%log_growth(n),cosm%growth_rate(n))
     DO i=1,n
        a=progression(ainit,amax,i,n)
-       cosm%a_growth(i)=a
-       cosm%growth(i)=exp(find(log(a),log(a_tab),log(d_tab),na,3,3,2))
+       cosm%log_a_growth(i)=a
+       cosm%log_growth(i)=exp(find(log(a),log(a_tab),log(d_tab),na,3,3,2))
        cosm%growth_rate(i)=find(log(a),log(a_tab),v_tab,na,3,3,2)
     END DO
 
@@ -2162,22 +2278,22 @@ CONTAINS
     !! Table integration to calculate G(a)=int_0^a g(a')/a' da' !!
 
     !Allocate array
-    ALLOCATE(cosm%acc_growth(n))
+    ALLOCATE(cosm%log_acc_growth(n))
 
     !Set to zero, because I have an x=x+y thing later on
-    cosm%acc_growth=0.
+    cosm%log_acc_growth=0.
     
     !Do the integral up to table position i, which fills the accumulated growth table
     DO i=1,n
 
        !Do the integral using the arrays
        IF(i>1) THEN
-          cosm%acc_growth(i)=integrate_table(cosm%a_growth,cosm%gnorm*cosm%growth/cosm%a_growth,n,1,i,3)
+          cosm%log_acc_growth(i)=integrate_table(cosm%log_a_growth,cosm%gnorm*cosm%log_growth/cosm%log_a_growth,n,1,i,3)
        END IF
        
        !Then add on the section that is missing from the beginning
        !NB. g(a=0)/0 = 1, so you just add on a rectangle of height g*a/a=g
-       cosm%acc_growth(i)=cosm%acc_growth(i)+cosm%gnorm*cosm%growth(1)
+       cosm%log_acc_growth(i)=cosm%log_acc_growth(i)+cosm%gnorm*cosm%log_growth(1)
        
     END DO
 
@@ -2185,9 +2301,9 @@ CONTAINS
 
     !Write stuff about growth parameter at a=1 to the screen    
     IF(verbose_cosmology) THEN
-       f0=find(1.,cosm%a_growth,cosm%growth_rate,n,3,3,2)
-       g0=find(1.,cosm%a_growth,cosm%growth,n,3,3,2)
-       bigG0=find(1.,cosm%a_growth,cosm%acc_growth,n,3,3,2)      
+       f0=find(1.,cosm%log_a_growth,cosm%growth_rate,n,3,3,2)
+       g0=find(1.,cosm%log_a_growth,cosm%log_growth,n,3,3,2)
+       bigG0=find(1.,cosm%log_a_growth,cosm%log_acc_growth,n,3,3,2)      
        WRITE(*,*) 'INIT_GROWTH: normalised growth at z=0:', g0
        WRITE(*,*) 'INIT_GROWTH: growth rate at z=0:', f0
        WRITE(*,*) 'INIT_GROWTH: integrated growth at z=0:', bigG0
@@ -2195,9 +2311,9 @@ CONTAINS
     END IF
 
     !Make the some of the tables log for easier interpolation
-    cosm%a_growth=log(cosm%a_growth)
-    cosm%growth=log(cosm%growth)
-    cosm%acc_growth=log(cosm%acc_growth)
+    cosm%log_a_growth=log(cosm%log_a_growth)
+    cosm%log_growth=log(cosm%log_growth)
+    cosm%log_acc_growth=log(cosm%log_acc_growth)
 
     !Set the flag to true so that this subroutine is only called once
     cosm%has_growth=.TRUE.
@@ -2389,10 +2505,10 @@ CONTAINS
 
     IF(cosm%has_spherical .EQV. .FALSE.) CALL init_spherical_collapse(cosm)
     
-    IF(a<cosm%a_dcDv(1)) THEN
+    IF(log(a)<cosm%log_a_dcDv(1)) THEN
        dc_spherical=dc0
     ELSE
-       dc_spherical=find(log(a),log(cosm%a_dcDv),cosm%dc,cosm%n_dcDv,3,3,2)
+       dc_spherical=find(log(a),cosm%log_a_dcDv,cosm%dc,cosm%n_dcDv,3,3,2)
     END IF
 
   END FUNCTION dc_spherical
@@ -2405,10 +2521,10 @@ CONTAINS
 
     IF(cosm%has_spherical .EQV. .FALSE.) CALL init_spherical_collapse(cosm)
     
-    IF(a<cosm%a_dcDv(1)) THEN
+    IF(log(a)<cosm%log_a_dcDv(1)) THEN
        Dv_spherical=Dv0
     ELSE
-       Dv_spherical=find(log(a),log(cosm%a_dcDv),cosm%Dv,cosm%n_dcDv,3,3,2)
+       Dv_spherical=find(log(a),cosm%log_a_dcDv,cosm%Dv,cosm%n_dcDv,3,3,2)
     END IF
 
   END FUNCTION Dv_spherical
@@ -2433,11 +2549,11 @@ CONTAINS
     IF(verbose_cosmology) WRITE(*,*) 'SPHERICAL_COLLAPSE: Doing integration'
 
     !Allocate arrays
-    IF(ALLOCATED(cosm%a_dcDv)) DEALLOCATE(cosm%a_dcDv)
-    IF(ALLOCATED(cosm%dc)) DEALLOCATE(cosm%dc)
-    IF(ALLOCATED(cosm%Dv)) DEALLOCATE(cosm%Dv)
-    ALLOCATE(cosm%a_dcDv(m),cosm%dc(m),cosm%Dv(m))
-    cosm%a_dcDv=0.
+    IF(ALLOCATED(cosm%log_a_dcDv)) DEALLOCATE(cosm%log_a_dcDv)
+    IF(ALLOCATED(cosm%dc))         DEALLOCATE(cosm%dc)
+    IF(ALLOCATED(cosm%Dv))         DEALLOCATE(cosm%Dv)
+    ALLOCATE(cosm%log_a_dcDv(m),cosm%dc(m),cosm%Dv(m))
+    cosm%log_a_dcDv=0.
     cosm%dc=0.
     cosm%Dv=0.
 
@@ -2536,7 +2652,7 @@ CONTAINS
 
           !!
 
-          cosm%a_dcDv(j)=ac
+          cosm%log_a_dcDv(j)=ac
           cosm%dc(j)=dc
           cosm%Dv(j)=Dv
 
@@ -2552,7 +2668,8 @@ CONTAINS
 
     IF(verbose_cosmology) WRITE(*,*) 'SPHERICAL COLLAPSE: calculation complete'
 
-    CALL reverse(cosm%a_dcDv,m)
+    !Reverse the arrays so that they run lowest a to highest a
+    CALL reverse(cosm%log_a_dcDv,m)
     CALL reverse(cosm%dc,m)
     CALL reverse(cosm%Dv,m)
 
@@ -2569,7 +2686,7 @@ CONTAINS
 
     !Calculate the maximum sizes for these new arrays
     DO i=1,m
-       IF(cosm%a_dcDv(i)==0.) EXIT
+       IF(cosm%log_a_dcDv(i)==0.) EXIT
     END DO
     cosm%n_dcDv=i-1
 
@@ -2578,10 +2695,15 @@ CONTAINS
        WRITE(*,*)
     END IF
 
-    CALL amputate(cosm%a_dcDv,m,cosm%n_dcDv)
+    !Remove bits of the array that are unnecessary
+    CALL amputate(cosm%log_a_dcDv,m,cosm%n_dcDv)
     CALL amputate(cosm%dc,m,cosm%n_dcDv)
     CALL amputate(cosm%Dv,m,cosm%n_dcDv)
 
+    !Take a logarithm
+    cosm%log_a_dcDv=log(cosm%log_a_dcDv)
+
+    !Set the flag
     cosm%has_spherical=.TRUE.
 
   END SUBROUTINE init_spherical_collapse

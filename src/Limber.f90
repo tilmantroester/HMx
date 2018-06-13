@@ -4,7 +4,6 @@ MODULE Limber
   USE array_operations
   USE interpolate
   USE cosmology_functions
-  USE HMx
 
   IMPLICIT NONE
 
@@ -89,6 +88,7 @@ CONTAINS
   SUBROUTINE xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
 
     !Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
+    USE HMx !TODO: Remove this explicit HMx dependence, it cannot be necessary
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2), ihm
     INTEGER, INTENT(IN) :: nl
@@ -348,7 +348,6 @@ CONTAINS
        DO j=1,lmax
 
           l=REAL(j)
-          !Cl=exp(find(log(l),log(l_tab),log(Cl_tab),nl,3,3,2))
           Cl=exp(find(log(l),logl,logCl,nl,3,3,2))
 
           xi0=xi0+(2.*l+1.)*Cl*Bessel(0,l*theta)

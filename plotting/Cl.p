@@ -36,7 +36,7 @@ if(icl==2){c=3; A=1.; n=0.}
 if(icl==3){c=2; A=1./pi; n=1.}
 
 ellmin=1e0
-ellmax=1e5
+ellmax=1e4
 set log x
 set xrange [ellmin:ellmax]
 set mxtics 10

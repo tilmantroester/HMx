@@ -26,6 +26,11 @@ print 'Available z = 0.0, 0.5, 1.0, 2.0'
 print 'Your z = ', z
 print ''
 
+m=13
+print 'Example file: ', file(m,z)
+print 'Example UPP: ', UPP(m,z)
+print ''
+
 #Title for individual plots
 tits(m,z)=sprintf('M = 10^{%i} h^{-1} M_{'.msun.'}; z = %1.1f',m,z)
 
