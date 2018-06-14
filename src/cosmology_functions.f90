@@ -2373,8 +2373,6 @@ CONTAINS
     !To prevent compile-time warning
     crap=k
 
-    !f1=3.*omega_c(a)*(1.+mu(a))*d*(1.+d)/(2.*(a**2.))
-    !f1=3.*Omega_m(a,cosm)*G_nl(d,a,cosm)*d*(1.+d)/(2.*(a**2.))
     f1=3.*Omega_m_norad(a,cosm)*d*(1.+d)/(2.*(a**2))
     f2=-(2.+AH_norad(a,cosm)/Hubble2_norad(a,cosm))*(v/a)
     f3=4.*(v**2)/(3.*(1.+d))
@@ -2398,6 +2396,7 @@ CONTAINS
   FUNCTION Dv_BryanNorman(a,cosm)
 
     !Bryan & Norman (1998) spherical over-density fitting function
+    !Here overdensity is defined relative to the background matter density, rather than the critical density
     IMPLICIT NONE
     REAL :: Dv_BryanNorman
     REAL :: x, Om_m
