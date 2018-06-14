@@ -2830,7 +2830,7 @@ CONTAINS
        irho=7
        rstar=0.1*rv
        p1=rstar
-       rmax=10.*rstar !Set so that not too much bigger than rstar, otherwise bumps integration goes tits
+       rmax=rv !Set so that not too much bigger than rstar, otherwise bumps integration goes tits
     ELSE IF(imod==2) THEN
        !Schneider (2015), following Mohammed (2014)
        irho=9
@@ -3256,7 +3256,7 @@ CONTAINS
     IMPLICIT NONE
     REAL :: win_norm
     REAL, INTENT(IN) :: rmin, rmax, k, rv, rs, p1, p2
-    REAL :: re
+    REAL :: re, f1, f2, rstar, kstar
     INTEGER, INTENT(IN) :: irho
 
     IF(k==0.) THEN
@@ -3277,6 +3277,19 @@ CONTAINS
        ELSE IF(irho==5) THEN
           !Analytic for NFW
           win_norm=win_NFW(k,rmax,rs)
+       ELSE IF(irho==7) THEN
+          !Analytic for Fedeli (2014) stellar profile
+          rstar=p1
+          kstar=k*rstar
+          f1=kstar-exp(-rmax/rstar)*(sin(k*rmax)+kstar*cos(k*rmax))
+          f2=kstar*(1.+kstar**2)
+          win_norm=f1/f2
+          !win_norm=1./(1.+(k*rstar)**2) !bigRstar -> infinity limit (rmax >> rstar)
+       ELSE IF(irho==9) THEN
+          STOP 'WIN_NORM: Double check this result for irho=9'
+          !Only valid if rmin=0 and rmax=inf
+          rstar=p1
+          win_norm=(sqrt(pi)/2.)*erf(k*rstar)/(k*rstar)
        ELSE IF(irho==10) THEN
           !For ejected gas profile
           re=p1
@@ -3929,17 +3942,17 @@ CONTAINS
 
   FUNCTION normalisation(rmin,rmax,rv,rs,p1,p2,irho)
 
-    !This calculates the normalisation of a halo of concentration c
-    !See your notes for details of what this means!
+    !This calculates the normalisation of a halo
+    !This is \int dr 4pir^2rho(r) between rmin and rmax
 
-    !Factors of 4pi have been *RESTORED*
-
+    !Profile results
     ! 0 - Delta function (M = 1)
     ! 1 - Isothermal (M = 4pi*rv)
     ! 2 - Top hat (M = (4pi/3)*rv^3)
     ! 3 - Moore (M = (8pi/3)*rv^3*ln(1+c^1.5)/c^3)
     ! 4,5 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
     ! 6 - Beta model with beta=2/3 (M = 4*pi*rs^3*(rv/rs-atan(rv/rs)))
+    ! 7 - Fedeli stellar model (M = 4*pi*rstar^2 * [1-exp(-rmax/rstar)*(1.+rmax/rstar)]
     ! 9 - Stellar profile (Schneider (2015)
     !10 - Ejected gas profile (Schneider 2015)
     !16 - Isothermal shell (M = 4pi*(rmax-rmin))
@@ -3962,7 +3975,7 @@ CONTAINS
        !Top hat
        normalisation=4.*pi*(rmax**3-rmin**3)/3.
     ELSE IF(irho==3) THEN
-       !Moore
+       !Moore et al. (1999)
        IF(rmin .NE. 0.) THEN
           normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
        ELSE
@@ -3970,7 +3983,7 @@ CONTAINS
           normalisation=(2./3.)*4.*pi*(rs**3)*log(1.+cmax**1.5)
        END IF
     ELSE IF(irho==4 .OR. irho==5) THEN
-       !NFW
+       !NFW (1997)
        IF(rmin .NE. 0.) THEN
           normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
        ELSE
@@ -3985,14 +3998,25 @@ CONTAINS
           cmax=rmax/rs
           normalisation=4.*pi*(rs**3)*(cmax-atan(cmax))
        END IF
+    ELSE IF(irho==7) THEN
+       !Fedeli (2014) stellar model
+       IF(rmin .NE. 0) THEN
+          !I could actually derive an analytical expression here if this was ever necessary
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          !This would be even easier if rmax -> infinity (just 4*pi*rstar^2)
+          rstar=p1
+          normalisation=4.*pi*(rstar**3)*(1.-exp(-rmax/rstar)*(1.+rmax/rstar))
+          !normalisation=4.*pi*rstar**3 !rmax/rstar -> infinity limit (rmax >> rstar)
+       END IF
     ELSE IF(irho==9) THEN
-       !Stellar profile from Schneider (2015)       
+       !Stellar profile from Schneider & Teyssier (2015)       
        IF(rmin .NE. 0.) THEN
           normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
        ELSE
           !Assumed to go on to r -> infinity
           rstar=p1
-          normalisation=4.*pi*rstar*sqrt(pi)
+          normalisation=4.*(pi**(3./2.))*rstar
        END IF
     ELSE IF(irho==10) THEN
        !Ejected gas profile from Schneider (2015)
@@ -4059,6 +4083,8 @@ CONTAINS
 
     !Sheth & Tormen (1999) halo bias (equation 12 in 9901122)
     !Comes from peak-background split
+    !Haloes defined with SO relative to mean matter density with SC Delta_v relation
+    !A redshift dependent delta_c is used for barrier height, again from SC
     IMPLICIT NONE
     REAL :: b_st
     REAL, INTENT(IN) :: nu
@@ -4199,10 +4225,10 @@ CONTAINS
 
   FUNCTION g_st(nu)
 
-    !Sheth & Tormen (1999) mass function!
-    !Note I use nu=dc/sigma(M) and this Sheth & Tormen (1999) use nu=(dc/sigma)^2
-    !This accounts for some small differences
-    !Equation (10) in arXiv:9901122
+    !Sheth & Tormen (1999) mass function, equation (10) in arXiv:9901122
+    !Note I use nu=dc/sigma(M) and this Sheth & Tormen (1999) use nu=(dc/sigma)^2, which accounts for some small differences
+    !Haloes defined with SO relative to mean matter density with SC Delta_v relation
+    !A redshift dependent delta_c is used for barrier height, again from SC
     IMPLICIT NONE
     REAL :: g_st
     REAL, INTENT(IN) :: nu
@@ -4211,7 +4237,7 @@ CONTAINS
     REAL, PARAMETER :: q=0.707
     REAL, PARAMETER :: A=0.21616
 
-    g_st=A*(1.+((q*nu*nu)**(-p)))*exp(-q*nu*nu/2.)
+    g_st=A*(1.+((q*nu**2)**(-p)))*exp(-q*nu**2/2.)
 
   END FUNCTION g_st
 
@@ -4223,7 +4249,7 @@ CONTAINS
     REAL, INTENT(IN) :: nu
     REAL :: alpha, beta, gamma, phi, eta
 
-    !Hard-coded z=0.
+    !Hard-coded at z=0.
     REAL, PARAMETER :: z=0.
     REAL, PARAMETER :: Dv=200.
 
@@ -4235,8 +4261,6 @@ CONTAINS
     REAL, PARAMETER :: gamma0(n)=[0.864,0.922,0.987,1.09,1.20,1.34,1.50,1.68,1.81]
     REAL, PARAMETER :: phi0(n)=[-0.729,-0.789,-0.910,-1.05,-1.20,-1.26,-1.45,-1.50,-1.49]
     REAL, PARAMETER :: eta0(n)=[-0.243,-0.261,-0.261,-0.273,-0.278,-0.301,-0.301,-0.319,-0.336]
-
-    STOP 'B_TINKER: Be careful, redshift dependence is missing'
 
     !Delta_v dependence
     alpha=find(Dv,Delta_v,alpha0,n,3,3,2)

@@ -309,10 +309,11 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==2 .OR. imode==15 .OR. imode==16) THEN
 
-     !Compare to cosmo-OWLS models
+     !Make cross/auto power spectra of all different components of haloes as well as pressure
 
-     IF(imode==2)  THEN
-
+     !Generic hydro
+     IF(imode==2) THEN     
+        
         !Only do one 'model' here
         n=1
 
@@ -330,7 +331,8 @@ PROGRAM HMx_driver
         kmax=1e2
         CALL fill_array(log(kmin),log(kmax),k,nk)
         k=exp(k)
-        
+
+     !cosmo-OWLS
      ELSE IF(imode==15) THEN
 
         !Do from REF, NOCOOL, AGN, AGN 8.5, AGN 8.7
@@ -345,8 +347,9 @@ PROGRAM HMx_driver
         infile='/Users/Mead/Physics/cosmo-OWLS/power/N800/DMONLY_all_all_power.dat'
         CALL get_k_values(infile,k,nk)
 
+     !BAHAMAS
      ELSE IF(imode==16) THEN
-        
+       
         !Do AGN, AGN-lo and AGN-hi
         n=3
 

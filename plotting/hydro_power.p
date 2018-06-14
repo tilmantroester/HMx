@@ -18,9 +18,15 @@ print 'icomp = 3: Generic hydro, no comparison simulation'
 print 'icomp = '.icomp.''
 print ''
 
-if(icomp==1){sims='cosmo-OWLS'; Om_m=0.272; Om_b=0.0455}
-if(icomp==2){sims='BAHAMAS'; Om_m=0.2793; Om_b=0.0463}
-if(icomp==3){sims=''; Om_m=0.3; Om_b=0.05}
+if(icomp==1){print 'Twat; icomp=1 does not work'; exit}
+
+#if(icomp==1){sims='cosmo-OWLS'; Om_m=0.272; Om_b=0.0455}
+if(icomp==2){sims='BAHAMAS'}
+if(icomp==3){sims=''}
+
+# cosmological parameters (only used for plotting Om_b/Om_m lines)
+Om_m=0.2793
+Om_b=0.0463
 Om_c=Om_m-Om_b
 print 'Omega_m: ', Om_m
 print 'Omega_b: ', Om_b
