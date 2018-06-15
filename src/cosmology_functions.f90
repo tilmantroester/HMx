@@ -343,6 +343,8 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Xs, f1, f2
 
+    IF(verbose_cosmology) WRITE(*,*) 'INIT_COSMOLOGY: Calculating derived parameters'
+
     !Derived cosmological parameters    
     cosm%Om_c=cosm%Om_m-cosm%Om_b-cosm%Om_nu
     cosm%Om=cosm%Om_m+cosm%Om_v+cosm%Om_r+cosm%Om_w
@@ -360,13 +362,11 @@ CONTAINS
     cosm%YH=1.-cosm%YHe !Hydrogen mass density
     cosm%mup=4./(5.*cosm%YH+3.) !Nuclear mass per particle (~0.588 if fH=0.76)
     cosm%mue=2./(1.+cosm%YH) !Nuclear mass per electron (~1.136 if fH=0.76)
-    !cosm%epfac=2.*(1.+cosm%YH)/(5.*cosm%YH+3.) !Thermal -> electron pressure conversion; ratio of electron density to total particle density; (~0.518 if fH=0.76)
 
     IF(verbose_cosmology) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: Y_H:', REAL(cosm%YH)
        WRITE(*,*) 'INIT_COSMOLOGY: mu_p:', REAL(cosm%mup)
        WRITE(*,*) 'INIT_COSMOLOGY: mu_e:', REAL(cosm%mue)
-       !WRITE(*,*) 'INIT_COSMOLOGY: ep_fac:', REAL(cosm%epfac)
     END IF
     
     cosm%is_init=.TRUE.
@@ -411,14 +411,6 @@ CONTAINS
        cosm%a2=cosm%as*(f1/f2)**(1./(3.*(1.+cosm%ws)))
     END IF
 
-    !Not sure this is necessary
-    !Cacluate the age of the universe
-    !cosm%age=age_of_universe(cosm)
-    !IF(verbose_cosmology) THEN
-    !   WRITE(*,*) 'INIT_COSMOLOGY: age of Universe [Gyrs/h]:', REAL(cosm%age)
-    !   WRITE(*,*)
-    !END IF
-
     !Ensure deallocate distances
     cosm%has_distance=.FALSE.
     IF(ALLOCATED(cosm%r)) DEALLOCATE(cosm%r)
@@ -438,8 +430,9 @@ CONTAINS
 
     !Ensure deallocate plin
     cosm%has_power=.FALSE.
-    IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
-    IF(ALLOCATED(cosm%log_plin))   DEALLOCATE(cosm%log_plin)
+    !Deallocating arrays here might be bad with cosmosis
+    !IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
+    !IF(ALLOCATED(cosm%log_plin))   DEALLOCATE(cosm%log_plin)
 
     cosm%has_spherical=.FALSE.
     IF(ALLOCATED(cosm%log_a_dcDv)) DEALLOCATE(cosm%log_a_dcDv)
@@ -489,6 +482,8 @@ CONTAINS
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: sigi
+
+    IF(verbose_cosmology) WRITE(*,*) 'NORMALISE_POWER: Normalising power to get correct sigma_8'
 
     !Set the power normalisation to unity initially
     cosm%A=1.
@@ -1495,7 +1490,7 @@ CONTAINS
 
     !Write crud
     IF(verbose_cosmology) THEN
-       WRITE(*,*) 'INIT_SIGMA: Filling sigma interpolation table'
+       WRITE(*,*) 'INIT_SIGMA: Filling sigma(R) interpolation table'
        WRITE(*,*) 'INIT_SIGMA: R minimum [Mpc/h]:', REAL(rmin) !If I put REAL() here I get an error with goslow for some reason!?
        WRITE(*,*) 'INIT_SIGMA: R maximum [Mpc/h]:', REAL(rmax)
        WRITE(*,*) 'INIT_SIGMA: number of points:', nsig

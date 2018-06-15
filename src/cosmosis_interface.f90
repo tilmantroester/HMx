@@ -88,7 +88,7 @@ function setup(options) result(result)
 
     HMx_config%cosm%iw = HMx_config%iw
 
-    !Mead - added these because otherwise they are not defined
+    !Mead: added these because otherwise they are not defined
     HMx_config%cosm%om_w = 0.
     HMx_config%cosm%om_r = 0.
 
