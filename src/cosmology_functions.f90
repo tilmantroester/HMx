@@ -7,10 +7,11 @@ MODULE cosmology_functions
 
   !Contains cosmological parameters that only need to be calculated once
   TYPE cosmology     
-     REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa, m_wdm, YHe !Primary parameters
+     REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa, inv_m_wdm, YH !Primary parameters
+     REAL :: Om_v_unmodified !Needed for radiation correction
      REAL :: z_CMB, T_CMB, neff, Om_r, age, horizon !Secondary parameters
      REAL :: Om, k, Om_k, Om_c, A !Derived parameters
-     REAL :: YH, mue, mup!, epfac !Derived thermal parameters
+     REAL :: mue, mup!, epfac !Derived thermal parameters
      REAL :: a1, a2, ns, ws, am, dm, wm !DE parameters     
      REAL :: Om_ws, as, a1n, a2n !Derived DE parameters
      REAL :: alpha, eps, Gamma, M0, Astar, whim !Baryon parameters
@@ -24,7 +25,6 @@ MODULE cosmology_functions
      INTEGER :: n_sigma, n_growth, n_r, n_plin, n_dcDv !Array entries
      REAL :: gnorm
      CHARACTER(len=256) :: name = ""
-     LOGICAL :: wdm
      LOGICAL :: has_distance, has_growth, has_sigma, has_spherical, has_power
      LOGICAL :: is_init, is_normalised
      LOGICAL :: external_plin     
@@ -38,9 +38,95 @@ MODULE cosmology_functions
 
 CONTAINS
 
+   SUBROUTINE print_cosmology(cosm)
+
+    !Prints the cosmological parameters to the screen
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
+    WRITE(*,*) '===================================='
+    WRITE(*,*) 'COSMOLOGY: Standard parameters'
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', REAL(cosm%Om_m)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_b:', REAL(cosm%Om_b)    
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v:', REAL(cosm%Om_v)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_w:', REAL(cosm%Om_w)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_r:', REAL(cosm%Om_r)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'h:', REAL(cosm%h)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_0:', REAL(cosm%w)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', REAL(cosm%wa)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sigma_8:', REAL(cosm%sig8)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_s:', REAL(cosm%n)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'T_CMB [K]:', REAL(cosm%T_CMB)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', REAL(cosm%z_CMB)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_eff:', REAL(cosm%neff)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Y_H:', REAL(cosm%YH)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', '1/m_wdm [keV]:', REAL(cosm%inv_m_wdm)
+    WRITE(*,*) '===================================='
+    WRITE(*,*) 'COSMOLOGY: Derived parameters'
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%Om
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%Om_c
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%Om_k
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k [Mpc/h]^-2:', REAL(cosm%k)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_p:', REAL(cosm%mup)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_e:', REAL(cosm%mue)
+    WRITE(*,*) '===================================='
+    IF(cosm%iw==1) THEN
+       WRITE(*,*) 'COSMOLOGY: Vacuum energy'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w:', -1.
+    ELSE IF(cosm%iw==2) THEN
+       WRITE(*,*) 'COSMOLOGY: QUICC dark energy prescription'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w0:', cosm%w
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'wm:', cosm%wm
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'am:', cosm%am
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'dm:', cosm%dm
+    ELSE IF(cosm%iw==3) THEN
+       WRITE(*,*) 'COSMOLOGY: w(a) = w0+wa(1.-a)'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w0:', cosm%w
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'wa:', cosm%wa
+    ELSE IF(cosm%iw==4) THEN
+       WRITE(*,*) 'COSMOLOGY: Constant w'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w:', cosm%w
+    ELSE IF(cosm%iw==5) THEN
+       WRITE(*,*) 'COSMOLOGY: IDE I'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%as
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n*:', cosm%ns
+    ELSE IF(cosm%iw==6) THEN
+       WRITE(*,*) 'COSMOLOGY: IDE II'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%as
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n*:', cosm%ns
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a1^n (derived):', cosm%a1n
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a2^n (derived):', cosm%a2n
+    ELSE IF(cosm%iw==7) THEN
+       WRITE(*,*) 'COSMOLOGY: IDE III'
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%a1
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w*:', cosm%ws
+    END IF
+    WRITE(*,*) '===================================='
+    WRITE(*,*) 'COSMOLOGY: HOD'
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_gal):', log10(cosm%mgal)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_-):', log10(cosm%HImin)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_+):', log10(cosm%HImax)
+    WRITE(*,*) '===================================='
+    WRITE(*,*) 'COSMOLOGY: Baryon model'
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
+    IF(cosm%M0 .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
+    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
+    IF(cosm%whim .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(WHIM):', log10(cosm%whim)
+    WRITE(*,*) '===================================='
+    WRITE(*,*)
+
+  END SUBROUTINE print_cosmology
+
   SUBROUTINE assign_cosmology(icosmo,cosm)
 
     !Assigns the cosmological parameters
+    !This routine only assigns parameters, it does not do *any* calculations
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(INOUT) :: icosmo    
@@ -93,17 +179,16 @@ CONTAINS
     cosm%T_CMB=2.725 !CMB temperature [K]
     cosm%z_CMB=1100. !Redshift of the last-scatting surface
     cosm%neff=3.046 !Effective number of relativistic neutrinos
-    cosm%YHe=0.24 !Helium mass fraction
+    cosm%YH=0.76 !Hydrogen mass fraction
+
+    !Default to use internal linear P(k) from Eisenstein & Hu
+    cosm%external_plin=.FALSE.
 
     !Default dark energy is Lambda
     cosm%iw=1
 
     !Default to have no WDM
-    cosm%wdm=.FALSE.
-    cosm%m_wdm=1. !WDM mass [keV]   
-
-    !Initially set the normalisation to 1
-    cosm%A=1.
+    cosm%inv_m_wdm=0. !Inverse WDM mass [1/keV]   
 
     !Default values of baryon parameters
     !TODO: These should eventually be HMx parameters
@@ -122,16 +207,6 @@ CONTAINS
     !TODO: These should eventually be HMx parameters
     cosm%HImin=1e9
     cosm%HImax=1e12
-
-    !Set all 'has' logicals to FALSE
-    cosm%is_init=.FALSE.
-    cosm%has_distance=.FALSE.
-    cosm%has_growth=.FALSE.
-    cosm%has_sigma=.FALSE.
-    cosm%has_power=.FALSE.
-    cosm%has_spherical=.FALSE.
-    cosm%is_normalised=.FALSE.
-    cosm%external_plin=.FALSE.    
 
     IF(icosmo==0) THEN
        STOP 'TODO: implement user decision here'
@@ -226,18 +301,14 @@ CONTAINS
        WRITE(*,*) 'wa:'
        READ(*,*) cosm%wa
     ELSE IF(icosmo==14) THEN
-       cosm%wdm=.TRUE.
+       cosm%inv_m_wdm=1.
     ELSE
        STOP 'ASSIGN_COSMOLOGY: Error, icosmo not specified correctly'
     END IF
 
-    !Radiation density
-    rho_g=(4.*SBconst*cosm%T_CMB**4/c_light**3)
-    Om_g_h2=rho_g*(8.*pi*bigG/3.)/H0**2
-    cosm%Om_r=Om_g_h2*(1.+0.227*cosm%neff)/cosm%h**2
-
-    !Correction to vacuum density in order for radiation to maintain flatness
-    cosm%Om_v=cosm%Om_v-cosm%Om_r
+    !Need to create this because Omega_v is changed later to maintain flatness
+    cosm%Om_v_unmodified=cosm%Om_v
+    cosm%Om_v=0.
 
     WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology assigned'
     WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology: ', TRIM(cosm%name)
@@ -247,105 +318,36 @@ CONTAINS
 
   END SUBROUTINE assign_cosmology
 
-  SUBROUTINE print_cosmology(cosm)
-
-    !Prints the cosmological parameters to the screen
-    IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-
-    WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
-    WRITE(*,*) '===================================='
-    WRITE(*,*) 'COSMOLOGY: Standard parameters'
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', REAL(cosm%Om_m)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_b:', REAL(cosm%Om_b)    
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v:', REAL(cosm%Om_v)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_w:', REAL(cosm%Om_w)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_r:', REAL(cosm%Om_r)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'h:', REAL(cosm%h)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_0:', REAL(cosm%w)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', REAL(cosm%wa)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sigma_8:', REAL(cosm%sig8)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_s:', REAL(cosm%n)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'T_CMB [K]:', REAL(cosm%T_CMB)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', REAL(cosm%z_CMB)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_eff:', REAL(cosm%neff)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Y_He:', REAL(cosm%YHe)
-    IF(cosm%wdm) THEN
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'm_wdm [keV]:', REAL(cosm%m_wdm)
-    END IF
-    WRITE(*,*) '===================================='
-    WRITE(*,*) 'COSMOLOGY: Derived parameters'
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%Om
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%Om_c
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%Om_k
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k [Mpc/h]^-2:', REAL(cosm%k)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Y_H:', REAL(cosm%YH)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_p:', REAL(cosm%mup)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_e:', REAL(cosm%mue)
-    !WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'ep_fac:', REAL(cosm%epfac)
-    WRITE(*,*) '===================================='
-    IF(cosm%iw==1) THEN
-       WRITE(*,*) 'COSMOLOGY: Vacuum energy'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w:', -1.
-    ELSE IF(cosm%iw==2) THEN
-       WRITE(*,*) 'COSMOLOGY: QUICC dark energy prescription'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w0:', cosm%w
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'wm:', cosm%wm
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'am:', cosm%am
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'dm:', cosm%dm
-    ELSE IF(cosm%iw==3) THEN
-       WRITE(*,*) 'COSMOLOGY: w(a) = w0+wa(1.-a)'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w0:', cosm%w
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'wa:', cosm%wa
-    ELSE IF(cosm%iw==4) THEN
-       WRITE(*,*) 'COSMOLOGY: Constant w'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w:', cosm%w
-    ELSE IF(cosm%iw==5) THEN
-       WRITE(*,*) 'COSMOLOGY: IDE I'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%as
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n*:', cosm%ns
-    ELSE IF(cosm%iw==6) THEN
-       WRITE(*,*) 'COSMOLOGY: IDE II'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%as
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n*:', cosm%ns
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a1^n (derived):', cosm%a1n
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a2^n (derived):', cosm%a2n
-    ELSE IF(cosm%iw==7) THEN
-       WRITE(*,*) 'COSMOLOGY: IDE III'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'a*:', cosm%a1
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w*:', cosm%ws
-    END IF
-    WRITE(*,*) '===================================='
-    WRITE(*,*) 'COSMOLOGY: HOD'
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_gal):', log10(cosm%mgal)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_-):', log10(cosm%HImin)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_+):', log10(cosm%HImax)
-    WRITE(*,*) '===================================='
-    WRITE(*,*) 'COSMOLOGY: Baryon model'
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
-    IF(cosm%M0 .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
-    WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
-    IF(cosm%whim .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(WHIM):', log10(cosm%whim)
-    WRITE(*,*) '===================================='
-    WRITE(*,*)
-
-  END SUBROUTINE print_cosmology
-
   SUBROUTINE init_cosmology(cosm)
 
     !Calcualtes derived parameters
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Xs, f1, f2
+    REAL :: rho_g, Om_g_h2
 
-    IF(verbose_cosmology) WRITE(*,*) 'INIT_COSMOLOGY: Calculating derived parameters'
+    IF(verbose_cosmology) WRITE(*,*) 'INIT_COSMOLOGY: Calcuating radiation density'
 
-    !Derived cosmological parameters    
+    ! Calculate radiation density
+    rho_g=(4.*SBconst*cosm%T_CMB**4/c_light**3)
+    Om_g_h2=rho_g*(8.*pi*bigG/3.)/H0**2
+    cosm%Om_r=Om_g_h2*(1.+0.227*cosm%neff)/cosm%h**2
+
+    IF(verbose_cosmology) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: Omega_r:', cosm%Om_r  
+       WRITE(*,*) 'INIT_COSMOLOGY: Altering vacuum density to account for radiation'
+       WRITE(*,*) 'INIT_COSMOLOGY: Omega_v prior to change:', cosm%Om_v_unmodified
+    END IF
+
+    ! Correction to vacuum density in order for radiation to maintain flatness
+    cosm%Om_v=cosm%Om_v_unmodified-cosm%Om_r    
+
+    If(verbose_cosmology) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: Omega_v post change:', cosm%Om_v
+       WRITE(*,*) 'INIT_COSMOLOGY: Calculating derived parameters'
+    END IF
+
+    ! Derived cosmological parameters    
     cosm%Om_c=cosm%Om_m-cosm%Om_b-cosm%Om_nu
     cosm%Om=cosm%Om_m+cosm%Om_v+cosm%Om_r+cosm%Om_w
     cosm%Om_k=1.-cosm%Om
@@ -358,20 +360,18 @@ CONTAINS
        WRITE(*,*) 'INIT_COSMOLOGY: k [Mpc/h]^-2:', REAL(cosm%k)
     END IF
 
-    !Gas parameters
-    cosm%YH=1.-cosm%YHe !Hydrogen mass density
-    cosm%mup=4./(5.*cosm%YH+3.) !Nuclear mass per particle (~0.588 if fH=0.76)
-    cosm%mue=2./(1.+cosm%YH) !Nuclear mass per electron (~1.136 if fH=0.76)
+    ! Gas parameters
+    cosm%mup=4./(5.*cosm%YH+3.) ! Nuclear mass per particle (~0.588 if fH=0.76)
+    cosm%mue=2./(1.+cosm%YH) ! Nuclear mass per electron (~1.136 if fH=0.76)
 
     IF(verbose_cosmology) THEN
-       WRITE(*,*) 'INIT_COSMOLOGY: Y_H:', REAL(cosm%YH)
        WRITE(*,*) 'INIT_COSMOLOGY: mu_p:', REAL(cosm%mup)
        WRITE(*,*) 'INIT_COSMOLOGY: mu_e:', REAL(cosm%mue)
     END IF
     
     cosm%is_init=.TRUE.
 
-    !Dark energy models
+    ! Dark energy models
     IF(cosm%iw==5) THEN
        !STOP 'INIT_COSMOLOGY: IDE I does not work yet'
        !WRITE(*,*) H2(astar), X(astar)
@@ -411,30 +411,31 @@ CONTAINS
        cosm%a2=cosm%as*(f1/f2)**(1./(3.*(1.+cosm%ws)))
     END IF
 
-    !Ensure deallocate distances
+    ! Ensure deallocate distances
     cosm%has_distance=.FALSE.
     IF(ALLOCATED(cosm%r)) DEALLOCATE(cosm%r)
     IF(ALLOCATED(cosm%a_r)) DEALLOCATE(cosm%a_r)
 
-    !Ensure deallocate growth
+    ! Ensure deallocate growth
     cosm%has_growth=.FALSE.
     IF(ALLOCATED(cosm%log_a_growth))    DEALLOCATE(cosm%log_a_growth)
     IF(ALLOCATED(cosm%log_growth))      DEALLOCATE(cosm%log_growth)
     IF(ALLOCATED(cosm%growth_rate))     DEALLOCATE(cosm%growth_rate)
     IF(ALLOCATED(cosm%log_acc_growth))  DEALLOCATE(cosm%log_acc_growth)
 
-    !Ensure deallocate sigma
+    ! Ensure deallocate sigma
     cosm%has_sigma=.FALSE.
     IF(ALLOCATED(cosm%log_r_sigma)) DEALLOCATE(cosm%log_r_sigma)
     IF(ALLOCATED(cosm%log_sigma))   DEALLOCATE(cosm%log_sigma)
 
-    !Ensure deallocate plin
+    ! Ensure deallocate plin
     cosm%has_power=.FALSE.
     IF(cosm%external_plin .EQV. .FALSE.) THEN
        IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
        IF(ALLOCATED(cosm%log_plin))   DEALLOCATE(cosm%log_plin)
     END IF
 
+    ! Ensure delloacte spherical-collapse arrays
     cosm%has_spherical=.FALSE.
     IF(ALLOCATED(cosm%log_a_dcDv)) DEALLOCATE(cosm%log_a_dcDv)
     IF(ALLOCATED(cosm%dc))         DEALLOCATE(cosm%dc)
@@ -444,37 +445,14 @@ CONTAINS
        WRITE(*,*) 'INIT_COSMOLOGY: Done'
        WRITE(*,*)
     END IF
-    
-!!$    !Set the power normalisation to unity initially
-!!$    !cosm%is_normalised=.FALSE.
-!!$    cosm%A=1.
-!!$
-!!$    !Calculate the initial sigma_8 value (will not be correct)
-!!$    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
-!!$
-!!$    IF(verbose_cosmology) WRITE(*,*) 'INIT_COSMOLOGY Initial sigma_8:', REAL(sigi)
-!!$
-!!$    !Reset the normalisation to give the correct sigma8
-!!$    cosm%A=cosm%sig8/sigi
-!!$    !cosm%A=391.0112 !Appropriate for sig8=0.8 in the boring model (for tests)
-!!$
-!!$    !Recalculate sigma8, should be correct this time
-!!$    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
-!!$
-!!$    !Write to screen
-!!$    IF(verbose_cosmology) THEN
-!!$       WRITE(*,*) 'INIT_COSMOLOGY Normalisation factor:', REAL(cosm%A)
-!!$       WRITE(*,*) 'INIT_COSMOLOGY Target sigma_8:', REAL(cosm%sig8)
-!!$       WRITE(*,*) 'INIT_COSMOLOGY Final sigma_8 (calculated):', REAL(sigi)
-!!$       WRITE(*,*) 'INIT_COSMOLOGY Complete'
-!!$       WRITE(*,*)
-!!$    END IF
-!!$
-!!$    !Change flag
-!!$    cosm%is_normalised=.TRUE.
 
     !Normalise the power spectrum
-    IF(cosm%external_plin .EQV. .FALSE.) CALL normalise_power(cosm)
+    IF(cosm%external_plin .EQV. .FALSE.) THEN
+       CALL normalise_power(cosm)
+    ELSE
+       cosm%A=1.
+       cosm%is_normalised=.TRUE.
+    END IF
 
   END SUBROUTINE init_cosmology
 
@@ -484,15 +462,16 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: sigi
 
-    IF(verbose_cosmology) WRITE(*,*) 'NORMALISE_POWER: Normalising power to get correct sigma_8'
-
-    !Set the power normalisation to unity initially
+    !This needs to be set here for the sigma routines below to work
     cosm%A=1.
 
     !Calculate the initial sigma_8 value (will not be correct)
     sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
 
-    IF(verbose_cosmology) WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)
+    IF(verbose_cosmology) THEN
+       WRITE(*,*) 'NORMALISE_POWER: Normalising power to get correct sigma_8'
+       WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)
+    END IF
 
     !Reset the normalisation to give the correct sigma8
     cosm%A=cosm%sig8/sigi
@@ -1253,8 +1232,8 @@ CONTAINS
 
     Tk=Tk_eh(k,cosm)
 
-    !Damp if considering WDM
-    IF(cosm%wdm) Tk=Tk*Tk_wdm(k,cosm)
+    !Damp transfer function if considering WDM
+    IF(cosm%inv_m_wdm .NE. 0.) Tk=Tk*Tk_wdm(k,cosm)
 
   END FUNCTION Tk
 
@@ -1372,9 +1351,11 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: k
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: alpha, mu
+    REAL :: alpha, mu, m_wdm
 
-    alpha=0.074*0.7*cosm%m_wdm**(-1.15) !alpha from equation (5), units Mpc/h
+    m_wdm=1./cosm%inv_m_wdm
+
+    alpha=0.074*0.7*m_wdm**(-1.15) !alpha from equation (5), units Mpc/h
     mu=1.12 !mu from equation (4), dimensionless
 
     Tk_wdm=(1.+(alpha*k)**(2.*mu))**(-5./mu) !Equation (2)
@@ -1479,7 +1460,7 @@ CONTAINS
 
     !IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
 
-    IF(cosm%wdm) STOP 'INIT_SIGMA: This will crash with WDM'
+    IF(cosm%inv_m_wdm .NE. 0.) STOP 'INIT_SIGMA: This will crash with WDM'
 
     !Deallocate tables if they are already allocated
     IF(ALLOCATED(cosm%log_r_sigma)) DEALLOCATE(cosm%log_r_sigma)

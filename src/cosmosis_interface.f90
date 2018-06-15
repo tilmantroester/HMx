@@ -29,11 +29,11 @@ function setup(options) result(result)
   use cosmosis_modules
   implicit none
 
-  !Arguments
+  ! Arguments
   integer(cosmosis_block), value :: options
-  !Return value
+  ! Return value
   type(c_ptr) :: result
-  !Variables
+  ! Variables
   integer(cosmosis_status) :: status
   type(HMx_setup_config), pointer :: HMx_config
   integer :: verbose
@@ -84,20 +84,20 @@ function setup(options) result(result)
   status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
   status = datablock_get_int_default(options, option_section, "verbose", 1, verbose)
   status = datablock_get_int_default(options, option_section, "hmcode_corrections", 0, HMx_config%ihm)
-  status = datablock_get_int_default(options, option_section, "de_type", 1, HMx_config%iw)
+  status = datablock_get_int_default(options, option_section, "de_type", 1, HMx_config%iw) ! Mead: Not sure this should be here
 
-  HMx_config%cosm%iw = HMx_config%iw
+  HMx_config%cosm%iw = HMx_config%iw ! Mead: Not sure this should be here
 
-  !Mead: added these because otherwise they are not defined
-  HMx_config%cosm%om_w = 0.
-  HMx_config%cosm%om_r = 0.
+  ! Mead: added these because otherwise they are not defined
+  !HMx_config%cosm%om_w = 0.
+  !HMx_config%cosm%om_r = 0.
 
   HMx_config%verbose = verbose > 0
 
-  !Create k array (log spacing)
+  ! Create k array (log spacing)
   call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
   HMx_config%k = exp(HMx_config%k)
-  !Create a arrays. The projection module wants increasing z, so a is decreasing
+  ! Create a arrays. The projection module wants increasing z, so a is decreasing
   call fill_array(HMx_config%amax, HMx_config%amin, HMx_config%a, HMx_config%nz)
 
   result = c_loc(HMx_config)
@@ -130,7 +130,7 @@ function execute(block, config) result(status)
 
   ! Cosmology parameters
   status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, HMx_config%cosm%om_m)
-  status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v)
+  status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v_unmodified) ! Mead: changed this to *unmodified* Omega_v
   status = datablock_get_double_default(block, cosmological_parameters_section, "omega_b", 0.05, HMx_config%cosm%om_b)
   status = datablock_get_double_default(block, cosmological_parameters_section, "omega_nu", 0.0, HMx_config%cosm%om_nu)
   status = datablock_get_double_default(block, cosmological_parameters_section, "h0", 0.7, HMx_config%cosm%h)
@@ -141,16 +141,19 @@ function execute(block, config) result(status)
   status = datablock_get_double_default(block, cosmological_parameters_section, "neff", 3.046, HMx_config%cosm%neff)
   status = datablock_get_double_default(block, cosmological_parameters_section, "T_cmb", 2.73, HMx_config%cosm%T_cmb)
   status = datablock_get_double_default(block, cosmological_parameters_section, "z_cmb", 1100.0, HMx_config%cosm%z_cmb)
-  status = datablock_get_double_default(block, cosmological_parameters_section, "Y_He", 0.24, HMx_config%cosm%YHe)
-
+  status = datablock_get_double_default(block, cosmological_parameters_section, "Y_H", 0.76, HMx_config%cosm%YH)
+  status = datablock_get_double_default(block, cosmological_parameters_section, "omega_w", 0., HMx_config%cosm%om_w)
+  status = datablock_get_double_default(block, cosmological_parameters_section, "inv_m_wdm", 0., HMx_config%cosm%inv_m_wdm)
+  
   ! Baryon parameters
   status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
   status = datablock_get_double_default(block, halo_model_parameters_section, "log10_eps", 0.0, log10_eps)
   status = datablock_get_double_default(block, halo_model_parameters_section, "Gamma", 1.18, HMx_config%cosm%Gamma)
-  status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", 14.08, log10_M0)
+  status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", 14., log10_M0)
   status = datablock_get_double_default(block, halo_model_parameters_section, "Astar", 0.02, HMx_config%cosm%Astar)
   status = datablock_get_double_default(block, halo_model_parameters_section, "log10_whim", 6.0, log10_whim)
 
+  ! Exponentiate those parameters that will be explored in log space
   HMx_config%cosm%eps = 10**log10_eps
   HMx_config%cosm%M0 = 10**log10_M0
   HMx_config%cosm%whim = 10**log10_whim
@@ -227,14 +230,14 @@ function cleanup(config) result(status)
   use cosmosis_modules
   use HMx_setup
 
-  !Arguments
+  ! Arguments
   type(c_ptr), value :: config
-  !Return value
+  ! Return value
   integer(cosmosis_status) :: status
-  !Variables
+  ! Variables
   type(HMx_setup_config), pointer :: HMx_config  
 
-  !Free memory allocated in the setup function
+  ! Free memory allocated in the setup function
   call c_f_pointer(config, HMx_config)
   !deallocate(HMx_config)
 
