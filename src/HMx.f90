@@ -3401,11 +3401,12 @@ CONTAINS
        ELSE IF(irho==21 .OR. irho==22 .OR. irho==23) THEN
           !Komatsu & Seljak (2001) profile
           Gamma=p1
-          c=rv/rs
-          eta0=2.235+0.202*(c-5.)-1.16e-3*(c-5.)**2
-          f1=(3./eta0)*((Gamma-1.)/Gamma)
-          f2=log(1.+c)/c-1./(1.+c)
-          B=f1/f2
+          !c=rv/rs
+          !eta0=2.235+0.202*(c-5.)-1.16e-3*(c-5.)**2
+          !f1=(3./eta0)*((Gamma-1.)/Gamma)
+          !f2=log(1.+c)/c-1./(1.+c)
+          !B=f1/f2
+          B=1.
           y=r/rs
           rho=(1.-B*(1.-log(1.+y)/y))
           IF(irho==21) THEN

@@ -430,12 +430,20 @@ PROGRAM HMx_driver
            name='AGN'
            fname='AGN'
            !! Best fit on 04/05/2018 !!
-           cosm%alpha=2.*0.474
-           cosm%eps=10**(-0.068)
-           cosm%Gamma=1.202
-           cosm%M0=10**13.843
+           !cosm%alpha=2.*0.474
+           !cosm%eps=10**(-0.068)
+           !cosm%Gamma=1.202
+           !cosm%M0=10**13.843
+           !cosm%Astar=0.029
+           !cosm%whim=10**6.316
+           !! !!
+           !! Best fit on 15/06/2018 !!
+           cosm%alpha=0.309
+           cosm%eps=10**(-0.093)
+           cosm%Gamma=1.120
+           cosm%M0=10**13.887
            cosm%Astar=0.029
-           cosm%whim=10**6.316
+           cosm%whim=10**5.772
            !! !!
         ELSE IF(imode==16 .AND. iowl==2) THEN
            name='AGN low'
@@ -448,6 +456,14 @@ PROGRAM HMx_driver
            cosm%Astar=0.031
            cosm%whim=10**6.329
            !! !!
+           !! Crash on 15/06/2018 !!
+           cosm%alpha=0.37037
+           cosm%eps=1.02551
+           cosm%Gamma=1.16262
+           cosm%M0=10**14.05
+           cosm%Astar=0.0317
+           cosm%whim=10**5.836
+           !! !!
         ELSE IF(imode==16 .AND. iowl==3) THEN
            name='AGN high'
            fname='AGN-hi'
@@ -458,6 +474,14 @@ PROGRAM HMx_driver
            cosm%M0=10**14.329
            cosm%Astar=0.026
            cosm%whim=10**6.359
+           !! !!
+           !! Best fit on 15/06/2018 !!
+           cosm%alpha=0.333
+           cosm%eps=10**(-0.219)
+           cosm%Gamma=1.105
+           cosm%M0=10**(14.379)
+           cosm%Astar=0.026
+           cosm%whim=10**5.818
            !! !!
         END IF
 

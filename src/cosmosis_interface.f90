@@ -84,16 +84,15 @@ function setup(options) result(result)
   status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
   status = datablock_get_int_default(options, option_section, "verbose", 1, verbose)
   status = datablock_get_int_default(options, option_section, "hmcode_corrections", 0, HMx_config%ihm)
-  !status = datablock_get_int_default(options, option_section, "de_type", 1, HMx_config%iw) ! Mead: Not sure this cosmological thing should be here
 
   ! Mead: Added these
-  !HMx_config%cosm%iw = HMx_config%iw ! Mead: Not sure this cosmological thing should be here
   HMX_config%cosm%verbose = verbose > 0 ! Mead: Not sure this cosmological thing should be here
   HMx_config%verbose = verbose > 0 ! Mead: Not sure this cosmological thing should be here
 
   ! Create k array (log spacing)
   call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
   HMx_config%k = exp(HMx_config%k)
+  
   ! Create a arrays. The projection module wants increasing z, so a is decreasing
   call fill_array(HMx_config%amax, HMx_config%amin, HMx_config%a, HMx_config%nz)
 
