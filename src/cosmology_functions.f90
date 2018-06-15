@@ -2304,7 +2304,6 @@ CONTAINS
        WRITE(*,*) 'INIT_GROWTH: normalised growth at z=0:', g0
        WRITE(*,*) 'INIT_GROWTH: growth rate at z=0:', f0
        WRITE(*,*) 'INIT_GROWTH: integrated growth at z=0:', bigG0
-       WRITE(*,*)
     END IF
 
     !Make the some of the tables log for easier interpolation
