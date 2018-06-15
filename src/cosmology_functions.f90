@@ -342,10 +342,9 @@ CONTAINS
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Xs, f1, f2
-    !REAL :: sigi
 
     !Derived cosmological parameters    
-    cosm%Om_c=cosm%Om_m-cosm%Om_b-cosm%Om_nu!-cosm%Om_r
+    cosm%Om_c=cosm%Om_m-cosm%Om_b-cosm%Om_nu
     cosm%Om=cosm%Om_m+cosm%Om_v+cosm%Om_r+cosm%Om_w
     cosm%Om_k=1.-cosm%Om
     cosm%k=(cosm%Om-1.)/(Hdist**2)
