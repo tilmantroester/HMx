@@ -84,16 +84,12 @@ function setup(options) result(result)
   status = datablock_get_int_default(options, option_section, "compute_p_lin", 1, HMx_config%compute_p_lin)
   status = datablock_get_int_default(options, option_section, "verbose", 1, verbose)
   status = datablock_get_int_default(options, option_section, "hmcode_corrections", 0, HMx_config%ihm)
-  status = datablock_get_int_default(options, option_section, "de_type", 1, HMx_config%iw) ! Mead: Not sure this should be here
+  !status = datablock_get_int_default(options, option_section, "de_type", 1, HMx_config%iw) ! Mead: Not sure this cosmological thing should be here
 
-  HMx_config%cosm%iw = HMx_config%iw ! Mead: Not sure this should be here
-
-  ! Mead: added these because otherwise they are not defined
-  !HMx_config%cosm%om_w = 0.
-  !HMx_config%cosm%om_r = 0.
-
-  HMX_config%cosm%verbose = verbose > 0 !Mead: Not sure this should be here
-  HMx_config%verbose = verbose > 0
+  ! Mead: Added these
+  !HMx_config%cosm%iw = HMx_config%iw ! Mead: Not sure this cosmological thing should be here
+  HMX_config%cosm%verbose = verbose > 0 ! Mead: Not sure this cosmological thing should be here
+  HMx_config%verbose = verbose > 0 ! Mead: Not sure this cosmological thing should be here
 
   ! Create k array (log spacing)
   call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
@@ -148,6 +144,7 @@ function execute(block, config) result(status)
   status = datablock_get_double_default(block, cosmological_parameters_section, "m_gal", 1e13, HMx_config%cosm%mgal)
   status = datablock_get_double_default(block, cosmological_parameters_section, "HImin", 1e9, HMx_config%cosm%HImin)
   status = datablock_get_double_default(block, cosmological_parameters_section, "HImax", 1e12, HMx_config%cosm%HImax)
+  status = datablock_get_double_default(block, cosmological_parameters_section, "de_type", 1, HMx_config%cosm%iw)
   
   ! Baryon parameters
   status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
@@ -161,6 +158,8 @@ function execute(block, config) result(status)
   HMx_config%cosm%eps = 10**log10_eps
   HMx_config%cosm%M0 = 10**log10_M0
   HMx_config%cosm%whim = 10**log10_whim
+
+  ! MEAD: I think I should add anything with a 'cosm' here from setup above
 
   if(HMx_config%compute_p_lin == 0) then
      status = datablock_get_double_grid(block, matter_power_lin_section, &
