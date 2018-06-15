@@ -2546,7 +2546,7 @@ CONTAINS
        !convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
        win_boundgas=win_boundgas*(rho0/(mp*cosm%mue))*(kb*T0) !Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
        win_boundgas=win_boundgas/(eV*cm**(-3)) !Change units to pressure in [eV/cm^3]
-       win_boundgas=win_boundgas*cosm%epfac !Convert from total thermal pressure to electron pressure
+       win_boundgas=win_boundgas*cosm%mue/cosm%mup !Convert from total thermal pressure to electron pressure
 
     ELSE
 
@@ -2781,7 +2781,7 @@ CONTAINS
                 !Factors to convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
                 win_freegas=win_freegas*(rho0/(mp*cosm%mup))*(kb*T0) !Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
                 win_freegas=win_freegas/(eV*cm**(-3)) !Change units to pressure in [eV/cm^3]
-                win_freegas=win_freegas*cosm%epfac !Convert from total thermal pressure to electron pressure
+                win_freegas=win_freegas*cosm%mue/cosm%mup !Convert from total thermal pressure to electron pressure
 
              END IF
 
