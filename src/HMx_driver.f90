@@ -25,7 +25,6 @@ PROGRAM HMx_driver
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
-  !REAL :: c, Delta, mi, mf, rv, y
 
   !Baryon stuff
   REAL :: param_min, param_max, param
@@ -106,10 +105,10 @@ PROGRAM HMx_driver
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
      !Assigns the cosmological model
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !Sets the redshift
      z=0.
@@ -152,10 +151,10 @@ PROGRAM HMx_driver
         IF(j==1) icosmo=1
         IF(j==2) icosmo=2
         IF(j==3) icosmo=3
-        CALL assign_cosmology(icosmo,cosm)
+        CALL assign_cosmology(icosmo,cosm,verbose)
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        IF(verbose) CALL print_cosmology(cosm)   
+        CALL print_cosmology(cosm)
 
         DO i=1,2
 
@@ -189,8 +188,8 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      !icosmo=-1
-     CALL assign_cosmology(icosmo,cosm)
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL print_cosmology(cosm)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
@@ -218,10 +217,10 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      icosmo=1
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
@@ -257,11 +256,11 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      icosmo=1
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
@@ -376,7 +375,7 @@ PROGRAM HMx_driver
         IF(imode==2)  icosmo=4
         IF(imode==15) icosmo=2
         IF(imode==16) icosmo=4
-        CALL assign_cosmology(icosmo,cosm)
+        CALL assign_cosmology(icosmo,cosm,verbose)
 
         !cosmo-OWLS
         IF(imode==15 .AND. iowl==1) THEN
@@ -467,7 +466,7 @@ PROGRAM HMx_driver
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL init_cosmology(cosm)
-        IF(verbose) CALL print_cosmology(cosm)
+        CALL print_cosmology(cosm)
 
         DO j=1,nz
 
@@ -549,11 +548,11 @@ PROGRAM HMx_driver
   ELSE IF(imode==3) THEN
 
      !Assigns the cosmological model
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !Loop over redshifts
      DO j=1,4
@@ -612,11 +611,11 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      icosmo=2
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !File base and extension
      base='data/power_'
@@ -720,7 +719,7 @@ PROGRAM HMx_driver
      CALL set_xcorr_type(ix,ip)
 
      !Assign the cosmological model
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Set the k range
      kmin=1e-3
@@ -780,7 +779,7 @@ PROGRAM HMx_driver
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         !CALL initialise_cosmology(verbose,cosm)
-        IF(verbose) CALL print_cosmology(cosm)
+        CALL print_cosmology(cosm)
 
         !Initialise the lensing part of the calculation
         !CALL initialise_distances(verbose,cosm)
@@ -894,7 +893,7 @@ PROGRAM HMx_driver
            cosm%sig8=progression(sig8min,sig8max,i,ncos)
            CALL init_cosmology(cosm)
 
-           IF(verbose) CALL print_cosmology(cosm)
+           CALL print_cosmology(cosm)
            !CALL initialise_distances(verbose,cosm)
 
            CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
@@ -955,7 +954,7 @@ PROGRAM HMx_driver
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         !CALL initialise_cosmology(verbose,cosm)
-        IF(verbose) CALL print_cosmology(cosm)
+        CALL print_cosmology(cosm)
 
         !Initialise the lensing part of the calculation
         !CALL initialise_distances(verbose,cosm)
@@ -1106,7 +1105,7 @@ PROGRAM HMx_driver
 
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         !CALL initialise_cosmology(verbose,cosm)
-        IF(verbose) CALL print_cosmology(cosm)
+        CALL print_cosmology(cosm)
 
         CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
 
@@ -1219,7 +1218,7 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      icosmo=3
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
      !cosm%alpha=0.485
      cosm%alpha=2.
      cosm%eps=10**0.103
@@ -1230,7 +1229,7 @@ PROGRAM HMx_driver
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      CALL init_cosmology(cosm)
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !Initialise the lensing part of the calculation
      !CALL initialise_distances(verbose,cosm)
@@ -1285,11 +1284,11 @@ PROGRAM HMx_driver
      !Calculate the cross-correlation coefficient
 
      !Assign the cosmology
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !Initialise the lensing part of the calculation
      !CALL initialise_distances(verbose,cosm)
@@ -1346,11 +1345,11 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      icosmo=4
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
-     IF(verbose) CALL print_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      !Initiliasation for the halo-model calcualtion
      CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)  
@@ -1373,12 +1372,12 @@ PROGRAM HMx_driver
 
         !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Reassigns the cosmological model
-        CALL assign_cosmology(icosmo,cosm)
+        CALL assign_cosmology(icosmo,cosm,verbose)
 
         !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         !CALL initialise_cosmology(verbose,cosm)
-        IF(verbose) CALL print_cosmology(cosm) 
+        CALL print_cosmology(cosm) 
         
         !Set maximum and minimum parameter values and linear or log range
         IF(ipa==1) THEN
@@ -1532,7 +1531,7 @@ PROGRAM HMx_driver
 
      !Set the cosmology
      icosmo=3
-     CALL assign_cosmology(icosmo,cosm)
+     CALL assign_cosmology(icosmo,cosm,verbose)
      CALL print_cosmology(cosm)
 
      !Set the halo model
@@ -1624,5 +1623,129 @@ CONTAINS
     WRITE(*,*)
     
   END SUBROUTINE YinZhe_Fig1
+
+   SUBROUTINE write_power(k,pow_lin,pow_2h,pow_1h,pow,nk,output,verbose)
+
+    IMPLICIT NONE
+    CHARACTER(len=*), INTENT(IN) :: output
+    INTEGER, INTENT(IN) :: nk
+    REAL, INTENT(IN) :: k(nk), pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
+    LOGICAL, INTENT(IN) :: verbose
+    INTEGER :: i
+
+    IF(verbose) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
+
+    !Loop over k values
+    !Fill the tables with one- and two-halo terms as well as total
+    OPEN(7,file=output)
+    DO i=1,nk       
+       WRITE(7,fmt='(5ES20.10)') k(i), pow_lin(i), pow_2h(i), pow_1h(i), pow(i)
+    END DO
+    CLOSE(7)
+
+    IF(verbose) THEN
+       WRITE(*,*) 'WRITE_POWER: Done'
+       WRITE(*,*)
+    END IF
+
+  END SUBROUTINE write_power
+
+  SUBROUTINE write_power_a_multiple(k,a,pow_lin,pow_2h,pow_1h,pow_full,nk,na,base,verbose)
+
+    IMPLICIT NONE
+    CHARACTER(len=*), INTENT(IN) :: base
+    INTEGER, INTENT(IN) :: nk, na
+    REAL, INTENT(IN) :: k(nk), a(na), pow_lin(nk,na), pow_2h(nk,na), pow_1h(nk,na), pow_full(nk,na)
+    LOGICAL, INTENT(IN) :: verbose
+    REAL :: pow(nk,na)
+    INTEGER :: i
+    CHARACTER(len=512) :: output
+    LOGICAL :: verbose2
+
+    DO i=1,4
+       IF(i==1) THEN
+          output=TRIM(base)//'_linear.dat'
+          pow=pow_lin
+       ELSE IF(i==2) THEN
+          output=TRIM(base)//'_2halo.dat'
+          pow=pow_2h
+       ELSE IF(i==3) THEN
+          output=TRIM(base)//'_1halo.dat'
+          pow=pow_1h
+       ELSE IF(i==4) THEN
+          output=TRIM(base)//'_full.dat'
+          pow=pow_full
+       ELSE
+          STOP 'WRITE_POWER_A_MULTIPLE: Error, something went FUBAR'
+       END IF
+       IF(i==1) THEN
+          verbose2=verbose
+       ELSE
+          verbose2=.FALSE.
+       END IF
+       CALL write_power_a(k,a,pow,nk,na,output,verbose2)
+    END DO
+
+  END SUBROUTINE write_power_a_multiple
+
+  SUBROUTINE write_power_a(k,a,pow,nk,na,output,verbose)
+
+    IMPLICIT NONE
+    CHARACTER(len=*), INTENT(IN) :: output
+    INTEGER, INTENT(IN) :: nk, na
+    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
+    LOGICAL, INTENT(IN) :: verbose
+    INTEGER :: i, j
+
+    !Print to screen
+    IF(verbose) THEN
+       WRITE(*,*) 'WRITE_POWER_A: The first entry of the file is hashes - #####'
+       WRITE(*,*) 'WRITE_POWER_A: The remainder of the first row are the scale factors - a'
+       WRITE(*,*) 'WRITE_POWER_A: The remainder of the first column are the wave numbers - k'
+       WRITE(*,*) 'WRITE_POWER_A: Each row then gives the power at that k and a'
+       WRITE(*,*) 'WRITE_POWER_A: Output:', TRIM(output)
+    END IF
+
+    !Write out data to files
+    OPEN(7,file=output)
+    DO i=0,nk
+       IF(i==0) THEN
+          WRITE(7,fmt='(A20,40F20.10)') '#####', (a(j), j=1,na)
+       ELSE
+          WRITE(7,fmt='(F20.10,40E20.10)') k(i), (pow(i,j), j=1,na)
+       END IF
+    END DO
+    CLOSE(7)
+
+    !Print to screen
+    IF(verbose) THEN
+       WRITE(*,*) 'WRITE_POWER_A: Done'
+       WRITE(*,*)
+    END IF
+
+  END SUBROUTINE write_power_a
+
+  SUBROUTINE write_distances(cosm)
+
+    ! Write file of z vs. r(z)
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    CHARACTER(len=256) :: output
+    INTEGER :: i
+    REAL :: z
+
+    ! Now write the results of r(z) calculation
+    output='projection/distance.dat'
+    WRITE(*,*) 'WRITE_DISTANCE: Writing r(a): ', TRIM(output)
+    OPEN(7,file=output)
+    DO i=1,cosm%n_r
+       z=redshift_a(cosm%a_r(i))
+       WRITE(7,*) z, cosm%r(i), f_k(cosm%r(i),cosm)
+    END DO
+    CLOSE(7)
+    WRITE(*,*) 'WRITE_DISTANCE: Done'
+    WRITE(*,*)
+
+  END SUBROUTINE write_distances
 
 END PROGRAM HMx_driver

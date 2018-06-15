@@ -92,6 +92,7 @@ function setup(options) result(result)
   !HMx_config%cosm%om_w = 0.
   !HMx_config%cosm%om_r = 0.
 
+  HMX_config%cosm%verbose = verbose > 0 !Mead: Not sure this should be here
   HMx_config%verbose = verbose > 0
 
   ! Create k array (log spacing)
@@ -144,6 +145,9 @@ function execute(block, config) result(status)
   status = datablock_get_double_default(block, cosmological_parameters_section, "Y_H", 0.76, HMx_config%cosm%YH)
   status = datablock_get_double_default(block, cosmological_parameters_section, "omega_w", 0., HMx_config%cosm%om_w)
   status = datablock_get_double_default(block, cosmological_parameters_section, "inv_m_wdm", 0., HMx_config%cosm%inv_m_wdm)
+  status = datablock_get_double_default(block, cosmological_parameters_section, "m_gal", 1e13, HMx_config%cosm%mgal)
+  status = datablock_get_double_default(block, cosmological_parameters_section, "HImin", 1e9, HMx_config%cosm%HImin)
+  status = datablock_get_double_default(block, cosmological_parameters_section, "HImax", 1e12, HMx_config%cosm%HImax)
   
   ! Baryon parameters
   status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)

@@ -23,11 +23,12 @@ MODULE HMx
      REAL :: n_c, n_s, n_g, rho_HI
      INTEGER :: n
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions
+     !LOGICAL :: verbose
      CHARACTER(len=256) :: name
   END TYPE halomod
 
   !Global parameters
-  REAL, PARAMETER :: acc_HMx=1e-3 !Global accuracy parameter
+  REAL, PARAMETER :: acc_HMx=1e-3 !Global halo-model accuracy parameter
   INTEGER, PARAMETER :: n_hmod=128 !Number of mass entries in look-up table
   REAL, PARAMETER :: large_nu=6. !Upper limit for some nu integrations
 
@@ -323,107 +324,6 @@ CONTAINS
     END IF
 
   END SUBROUTINE calculate_halomod_k
-
-  SUBROUTINE write_power(k,pow_lin,pow_2h,pow_1h,pow,nk,output,verbose)
-
-    IMPLICIT NONE
-    CHARACTER(len=*), INTENT(IN) :: output
-    INTEGER, INTENT(IN) :: nk
-    REAL, INTENT(IN) :: k(nk), pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
-    LOGICAL, INTENT(IN) :: verbose
-    INTEGER :: i
-
-    IF(verbose) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
-
-    !Loop over k values
-    !Fill the tables with one- and two-halo terms as well as total
-    OPEN(7,file=output)
-    DO i=1,nk       
-       WRITE(7,fmt='(5ES20.10)') k(i), pow_lin(i), pow_2h(i), pow_1h(i), pow(i)
-    END DO
-    CLOSE(7)
-
-    IF(verbose) THEN
-       WRITE(*,*) 'WRITE_POWER: Done'
-       WRITE(*,*)
-    END IF
-
-  END SUBROUTINE write_power
-
-  SUBROUTINE write_power_a_multiple(k,a,pow_lin,pow_2h,pow_1h,pow_full,nk,na,base,verbose)
-
-    IMPLICIT NONE
-    CHARACTER(len=*), INTENT(IN) :: base
-    INTEGER, INTENT(IN) :: nk, na
-    REAL, INTENT(IN) :: k(nk), a(na), pow_lin(nk,na), pow_2h(nk,na), pow_1h(nk,na), pow_full(nk,na)
-    LOGICAL, INTENT(IN) :: verbose
-    REAL :: pow(nk,na)
-    INTEGER :: i
-    CHARACTER(len=512) :: output
-    LOGICAL :: verbose2
-
-    DO i=1,4
-       IF(i==1) THEN
-          output=TRIM(base)//'_linear.dat'
-          pow=pow_lin
-       ELSE IF(i==2) THEN
-          output=TRIM(base)//'_2halo.dat'
-          pow=pow_2h
-       ELSE IF(i==3) THEN
-          output=TRIM(base)//'_1halo.dat'
-          pow=pow_1h
-       ELSE IF(i==4) THEN
-          output=TRIM(base)//'_full.dat'
-          pow=pow_full
-       ELSE
-          STOP 'WRITE_POWER_A_MULTIPLE: Error, something went FUBAR'
-       END IF
-       IF(i==1) THEN
-          verbose2=verbose
-       ELSE
-          verbose2=.FALSE.
-       END IF
-       CALL write_power_a(k,a,pow,nk,na,output,verbose2)
-    END DO
-
-  END SUBROUTINE write_power_a_multiple
-
-  SUBROUTINE write_power_a(k,a,pow,nk,na,output,verbose)
-
-    IMPLICIT NONE
-    CHARACTER(len=*), INTENT(IN) :: output
-    INTEGER, INTENT(IN) :: nk, na
-    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
-    LOGICAL, INTENT(IN) :: verbose
-    INTEGER :: i, j
-
-    !Print to screen
-    IF(verbose) THEN
-       WRITE(*,*) 'WRITE_POWER_A: The first entry of the file is hashes - #####'
-       WRITE(*,*) 'WRITE_POWER_A: The remainder of the first row are the scale factors - a'
-       WRITE(*,*) 'WRITE_POWER_A: The remainder of the first column are the wave numbers - k'
-       WRITE(*,*) 'WRITE_POWER_A: Each row then gives the power at that k and a'
-       WRITE(*,*) 'WRITE_POWER_A: Output:', TRIM(output)
-    END IF
-
-    !Write out data to files
-    OPEN(7,file=output)
-    DO i=0,nk
-       IF(i==0) THEN
-          WRITE(7,fmt='(A20,40F20.10)') '#####', (a(j), j=1,na)
-       ELSE
-          WRITE(7,fmt='(F20.10,40E20.10)') k(i), (pow(i,j), j=1,na)
-       END IF
-    END DO
-    CLOSE(7)
-
-    !Print to screen
-    IF(verbose) THEN
-       WRITE(*,*) 'WRITE_POWER_A: Done'
-       WRITE(*,*)
-    END IF
-
-  END SUBROUTINE write_power_a
 
   SUBROUTINE halo_diagnostics(z,hmod,cosm,dir)
 
@@ -1093,6 +993,8 @@ CONTAINS
     names(9)='CCL tests'
     names(10)='Comparison of mass conversions with Wayne Hu code'
     names(11)='Standard halo-model calculation (Seljak 2000) but with UPP'
+
+    IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
     !Default options
 
@@ -1295,6 +1197,7 @@ CONTAINS
 
     IF(verbose) THEN
        WRITE(*,*) 'ASSIGN_HALOMOD: ', TRIM(names(ihm))
+       WRITE(*,*) 'ASSIGN_HALOMOD: Done'
        WRITE(*,*)
     END IF
     
