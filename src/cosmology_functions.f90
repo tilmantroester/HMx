@@ -430,9 +430,10 @@ CONTAINS
 
     !Ensure deallocate plin
     cosm%has_power=.FALSE.
-    !Deallocating arrays here might be bad with cosmosis
-    !IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
-    !IF(ALLOCATED(cosm%log_plin))   DEALLOCATE(cosm%log_plin)
+    IF(cosm%external_plin .EQV. .FALSE.) THEN
+       IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
+       IF(ALLOCATED(cosm%log_plin))   DEALLOCATE(cosm%log_plin)
+    END IF
 
     cosm%has_spherical=.FALSE.
     IF(ALLOCATED(cosm%log_a_dcDv)) DEALLOCATE(cosm%log_a_dcDv)
@@ -473,7 +474,7 @@ CONTAINS
 !!$    cosm%is_normalised=.TRUE.
 
     !Normalise the power spectrum
-    CALL normalise_power(cosm)
+    IF(cosm%external_plin .EQV. .FALSE.) CALL normalise_power(cosm)
 
   END SUBROUTINE init_cosmology
 
