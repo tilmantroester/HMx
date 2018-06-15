@@ -174,7 +174,7 @@ CONTAINS
     
     !Loop over k values
     !TODO: add OMP support properly. What is private and what is shared? CHECK THIS!
-    !$OMP PARALLEL DO DEFAULT(SHARED), private(k,pow_2h,pow_1h,pow,plin)
+!!$OMP PARALLEL DO DEFAULT(SHARED), private(k,pow_2h,pow_1h,pow,plin)
     DO i=1,nk
 
        !Tilman added this for the CosmoSIS wrapper
@@ -188,7 +188,7 @@ CONTAINS
        CALL calculate_halomod_k(itype1,itype2,k(i),z,pow_2h(i),pow_1h(i),pow(i),plin,hmod,cosm)
 
     END DO
-    !$OMP END PARALLEL DO
+!!$OMP END PARALLEL DO
     
     IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_HALOMOD: Done'
