@@ -134,7 +134,7 @@ CONTAINS
     cosm%external_plin=.FALSE.    
 
     IF(icosmo==0) THEN
-       STOP 'Need to implement user decision here'
+       STOP 'TODO: implement user decision here'
     ELSE IF(icosmo==1) THEN
        !Boring - do nothing
     ELSE IF(icosmo==2) THEN
