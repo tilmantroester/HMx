@@ -88,6 +88,8 @@ function setup(options) result(result)
 
     HMx_config%cosm%iw = HMx_config%iw
 
+    HMx_config%cosm%om_w = 0.
+
     HMx_config%verbose = verbose > 0
 
     !Create k array (log spacing)
