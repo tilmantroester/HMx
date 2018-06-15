@@ -510,7 +510,7 @@ CONTAINS
        WRITE(*,*) 'NORMALISE_POWER: Normalisation factor:', REAL(cosm%A)
        WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', REAL(cosm%sig8)
        WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', REAL(sigi)
-       WRITE(*,*) 'NORMALISE_POWER: Complete'
+       WRITE(*,*) 'NORMALISE_POWER: Done'
        WRITE(*,*)
     END IF
 
@@ -2314,6 +2314,11 @@ CONTAINS
 
     !Set the flag to true so that this subroutine is only called once
     cosm%has_growth=.TRUE.
+
+    IF(verbose_cosmology) THEN
+       WRITE(*,*) 'INIT_GROWTH: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE init_growth
 
