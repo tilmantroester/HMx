@@ -429,7 +429,7 @@ PROGRAM HMx_driver
         IF(imode==16 .AND. iowl==1) THEN
            name='AGN'
            fname='AGN'
-           !! Best fit on 04/05/2018 !!
+           !! Best z=0 fit on 04/05/2018 !!
            !cosm%alpha=2.*0.474
            !cosm%eps=10**(-0.068)
            !cosm%Gamma=1.202
@@ -437,51 +437,51 @@ PROGRAM HMx_driver
            !cosm%Astar=0.029
            !cosm%whim=10**6.316
            !! !!
-           !! Best fit on 15/06/2018 !!
-           cosm%alpha=0.309
-           cosm%eps=10**(-0.093)
-           cosm%Gamma=1.120
-           cosm%M0=10**13.887
-           cosm%Astar=0.029
-           cosm%whim=10**5.772
-           !! !!
-        ELSE IF(imode==16 .AND. iowl==2) THEN
-           name='AGN low'
-           fname='AGN-lo'
-           !! Best fit on 04/05/2018 !!
-           cosm%alpha=2.*0.440
-           cosm%eps=10**(-0.022)
-           cosm%Gamma=1.196
-           cosm%M0=10**13.542
-           cosm%Astar=0.031
-           cosm%whim=10**6.329
-           !! !!
-           !! Crash on 15/06/2018 !!
-           cosm%alpha=0.37037
-           cosm%eps=1.02551
-           cosm%Gamma=1.16262
-           cosm%M0=10**14.05
-           cosm%Astar=0.0317
-           cosm%whim=10**5.836
+           !! Best z=0 fit on 15/06/2018 !!
+           cosm%alpha=0.446
+           cosm%eps=10**(0.005)
+           cosm%Gamma=1.544
+           cosm%M0=10**(12.919)
+           cosm%Astar=0.028
+           cosm%whim=10**(5.261)
            !! !!
         ELSE IF(imode==16 .AND. iowl==3) THEN
            name='AGN high'
            fname='AGN-hi'
-           !! Best fit on 04/05/2018 !!
-           cosm%alpha=2.*0.528
-           cosm%eps=10**0.164
-           cosm%Gamma=1.208
-           cosm%M0=10**14.329
-           cosm%Astar=0.026
-           cosm%whim=10**6.359
+           !! Best z=0 fit on 04/05/2018 !!
+           !cosm%alpha=2.*0.528
+           !cosm%eps=10**0.164
+           !cosm%Gamma=1.208
+           !cosm%M0=10**14.329
+           !cosm%Astar=0.026
+           !cosm%whim=10**6.359
            !! !!
-           !! Best fit on 15/06/2018 !!
-           cosm%alpha=0.333
-           cosm%eps=10**(-0.219)
-           cosm%Gamma=1.105
-           cosm%M0=10**(14.379)
-           cosm%Astar=0.026
-           cosm%whim=10**5.818
+           !! Best z=0 fit on 15/06/2018 !!
+           cosm%alpha=0.471
+           cosm%eps=10**(-0.067)
+           cosm%Gamma=1.916
+           cosm%M0=10**(13.607)
+           cosm%Astar=0.025
+           cosm%whim=10**(5.337)
+           !! !!
+        ELSE IF(imode==16 .AND. iowl==2) THEN
+           name='AGN low'
+           fname='AGN-lo'
+           !! Best z=0 fit on 04/05/2018 !!
+           !cosm%alpha=2.*0.440
+           !cosm%eps=10**(-0.022)
+           !cosm%Gamma=1.196
+           !cosm%M0=10**13.542
+           !cosm%Astar=0.031
+           !cosm%whim=10**6.329
+           !! !!
+           !! Best z=0 15/06/2018 !!
+           cosm%alpha=0.452
+           cosm%eps=10**(0.055)
+           cosm%Gamma=1.598
+           cosm%M0=10**(12.161)
+           cosm%Astar=0.031
+           cosm%whim=10**(5.077)
            !! !!
         END IF
 
