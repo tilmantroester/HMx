@@ -144,7 +144,7 @@ function execute(block, config) result(status)
   status = datablock_get_double_default(block, cosmological_parameters_section, "m_gal", 1e13, HMx_config%cosm%mgal)
   status = datablock_get_double_default(block, cosmological_parameters_section, "HImin", 1e9, HMx_config%cosm%HImin)
   status = datablock_get_double_default(block, cosmological_parameters_section, "HImax", 1e12, HMx_config%cosm%HImax)
-  status = datablock_get_double_default(block, cosmological_parameters_section, "de_type", 1, HMx_config%cosm%iw)
+  status =    datablock_get_int_default(block, cosmological_parameters_section, "de_type", 1, HMx_config%cosm%iw)
   
   ! Baryon parameters
   status = datablock_get_double_default(block, halo_model_parameters_section, "alpha", 1.0, HMx_config%cosm%alpha)
