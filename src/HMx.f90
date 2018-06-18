@@ -2265,7 +2265,7 @@ CONTAINS
 
     !Set the DMONLY halo model
     !1 - Analyical NFW
-    !2 - Non-analytical NFW (for testing W(k) functions)
+    !2 - Non-analytical NFW (good for testing W(k) functions)
     !3 - Tophat
     !4 - Delta function
     INTEGER, PARAMETER :: imod=1
@@ -2361,7 +2361,7 @@ CONTAINS
 
   FUNCTION win_boundgas(real_space,itype,k,z,m,rv,rs,hmod,cosm)
 
-    !Halo profile for the electron pressure of the bound component
+    ! Halo profile for the electron pressure of the bound component
     IMPLICIT NONE
     REAL :: win_boundgas
     LOGICAL, INTENT(IN) :: real_space
@@ -2369,27 +2369,27 @@ CONTAINS
     REAL, INTENT(IN) :: k, z, m, rv, rs
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: rho0, T0, r, gamma
+    REAL :: rho0, T0, r
     REAL :: rmin, rmax, p1, p2
     INTEGER :: irho_density, irho_electron_pressure
     REAL :: crap
 
-    !Select model
-    !1 - Simplified Komatsu & Seljak (2001) gas model
-    !2 - Isothermal beta model
-    !3 - Full Komatsu & Seljak (2001) gas model
+    ! Select model
+    ! 1 - Simplified Komatsu & Seljak (2001) gas model
+    ! 2 - Isothermal beta model
+    ! 3 - Full Komatsu & Seljak (2001) gas model
     INTEGER, PARAMETER :: imod=1
 
-    !Stop compile-time warnings
+    ! Stop compile-time warnings
     crap=z
     crap=hmod%sigv
 
-    !Initially set the halo parameters to zero
+    ! Initially set the halo parameters to zero
     p1=0.
     p2=0.
 
     IF(imod==1 .OR. imod==3) THEN
-       !Set KS profile
+       ! Set KS profile
        IF(imod==1) THEN
           irho_density=11
           irho_electron_pressure=13
@@ -2399,11 +2399,10 @@ CONTAINS
        END IF
        rmin=0.
        rmax=rv
-       Gamma=cosm%Gamma
-       p1=Gamma
+       p1=cosm%Gamma
     ELSE IF(imod==2) THEN
-       irho_density=6 !Set cored isothermal profile with beta=2/3 
-       irho_electron_pressure=irho_density !okay to use density for electron pressure because temperature is constant
+       irho_density=6 ! Set cored isothermal profile with beta=2/3 
+       irho_electron_pressure=irho_density ! okay to use density for electron pressure because temperature is constant
        rmin=0.
        rmax=rv
     ELSE        
@@ -2412,13 +2411,13 @@ CONTAINS
 
     IF(itype==1) THEN
 
-       !Density profile of bound gas
+       ! Density profile of bound gas
        IF(real_space) THEN
           r=k
           win_boundgas=rho(r,rmin,rmax,rv,rs,p1,p2,irho_density)
           win_boundgas=win_boundgas/normalisation(rmin,rmax,rv,rs,p1,p2,irho_density)
        ELSE
-          !Properly normalise and convert to overdensity
+          ! Properly normalise and convert to overdensity
           win_boundgas=m*win_norm(k,rmin,rmax,rv,rs,p1,p2,irho_density)/comoving_matter_density(cosm)
        END IF
 
@@ -2426,30 +2425,29 @@ CONTAINS
 
     ELSE IF(itype==2) THEN
 
-       !Electron pressure profile of bound gas
+       ! Electron pressure profile of bound gas
        IF(real_space) THEN
           r=k
           win_boundgas=rho(r,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)
        ELSE
-          !The electron pressure window is T(r) x rho_e(r), we want unnormalised, so multiply by normalisation
-          win_boundgas=win_norm(k,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)*normalisation(rmin,rmax,rv,rs,p1,p2,irho_electron_pressure) 
+          ! The electron pressure window is T(r) x rho_e(r), we want unnormalised, so multiply through by normalisation
+          ! TODO: Can I make the code more efficient here by having an unnorm window function?
+          !win_boundgas=win_norm(k,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)*normalisation(rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)
+          win_boundgas=winint(k,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)
        END IF
 
-       !Calculate the value of the density profile prefactor
-       !also change units from cosmological to SI
+       ! Calculate the value of the density profile prefactor and change units from cosmological to SI
        rho0=m*halo_boundgas_fraction(m,cosm)/normalisation(rmin,rmax,rv,rs,p1,p2,irho_density)
        rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL*4 if you use mpc**3
        rho0=rho0*cosm%h**2 !Absorb factors of h, so now [kg/m^3]
 
-       !Calculate the value of the temperature prefactor    
-       !T0=(1.+z)*cosm%alpha*virial_temperature(m,rv,cosm)
-       !TODO: Why was the (1.+z) factor here?!?
-       T0=cosm%alpha*virial_temperature(m,rv,cosm) !In [K]
+       ! Calculate the value of the temperature prefactor [K]
+       T0=cosm%alpha*virial_temperature(m,rv,cosm)
 
-       !convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
-       win_boundgas=win_boundgas*(rho0/(mp*cosm%mue))*(kb*T0) !Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
-       win_boundgas=win_boundgas/(eV*cm**(-3)) !Change units to pressure in [eV/cm^3]
-       win_boundgas=win_boundgas*cosm%mue/cosm%mup !Convert from total thermal pressure to electron pressure
+       ! Convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
+       win_boundgas=win_boundgas*(rho0/(mp*cosm%mue))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
+       win_boundgas=win_boundgas/(eV*cm**(-3)) ! Change units to pressure in [eV/cm^3]
+       win_boundgas=win_boundgas*cosm%mue/cosm%mup ! Convert from total thermal pressure to electron pressure
 
     ELSE
 
@@ -2469,7 +2467,7 @@ CONTAINS
     REAL, INTENT(IN) :: k, z, m, rv, rs
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: re, rmin, rmax, r, A, gamma, rho0, rhov, T0, p1, p2, beta, c, thing, m0
+    REAL :: re, rmin, rmax, r, A, rho0, rhov, T0, p1, p2, beta, c, thing, m0
     INTEGER :: irho_density, irho_electron_pressure
     LOGICAL :: match_electron_pressure
 
@@ -2548,8 +2546,7 @@ CONTAINS
              irho_electron_pressure=13 !KS
              rmin=rv
              rmax=2.*rv
-             Gamma=cosm%Gamma
-             p1=Gamma
+             p1=cosm%Gamma
 
           ELSE IF(imod==5) THEN
 
@@ -2570,9 +2567,8 @@ CONTAINS
 
                 !Calculate the KS index at the virial radius
                 c=rv/rs
-                Gamma=cosm%Gamma
                 beta=(c-(1.+c)*log(1.+c))/((1.+c)*log(1.+c))
-                beta=beta/(Gamma-1.) !This is the power-law index at the virial radius for the KS gas profile
+                beta=beta/(cosm%Gamma-1.) !This is the power-law index at the virial radius for the KS gas profile
                 p1=beta
                 !WRITE(*,*) 'Beta:', beta, log10(m)
                 IF(beta<=-3.) beta=-2.9 !If beta<-3 then there is only a finite amount of gas allowed in the free component

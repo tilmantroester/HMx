@@ -377,6 +377,11 @@ PROGRAM HMx_driver
         IF(imode==16) icosmo=4
         CALL assign_cosmology(icosmo,cosm,verbose)
 
+        !Generic hydro
+        !IF(imode==2) THEN
+        !   cosm%Gamma=1.5
+        !END IF
+
         !cosmo-OWLS
         IF(imode==15 .AND. iowl==1) THEN
            name='REF'
@@ -574,8 +579,10 @@ PROGRAM HMx_driver
      !Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
 
+     !TODO: Remove this
+     !cosm%Gamma=1.2
+
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     !CALL initialise_cosmology(verbose,cosm)
      CALL print_cosmology(cosm)
 
      !Loop over redshifts
