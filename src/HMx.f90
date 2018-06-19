@@ -1205,8 +1205,8 @@ CONTAINS
 
   SUBROUTINE init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
-    !Halo-model initialisation routine
-    !The computes other tables necessary for the one-halo integral
+    ! Halo-model initialisation routine
+    ! The computes other tables necessary for the one-halo integral
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ihm
     REAL, INTENT(IN) :: z
@@ -1215,19 +1215,21 @@ CONTAINS
     TYPE(halomod), INTENT(OUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
-    REAL :: Dv, dc, m, nu, R, sig, A0, rhom, rhoc, frac, a
+    REAL :: Dv, dc, m, nu, R, sig, A0, frac, a
+
+    LOGICAL, PARAMETER :: slow=.FALSE.
 
     CALL assign_halomod(ihm,hmod,verbose)
 
-    !Set flags to false
+    ! Set flags to false
     hmod%has_galaxies=.FALSE.
     hmod%has_HI=.FALSE.
     hmod%has_mass_conversions=.FALSE.
 
-    !Get the scale factor
+    ! Get the scale factor
     a=scale_factor_z(z)
 
-    !Find value of sigma_v
+    ! Find value of sigma_v
     hmod%sigv=sqrt(sigmaV(0.,a,cosm)/3.)
     hmod%sigv100=sqrt(sigmaV(100.,a,cosm)/3.)
     hmod%sig8z=sigma(8.,a,cosm)
@@ -1242,7 +1244,6 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: sigma_8(z):', REAL(hmod%sig8z)
     END IF
 
-    !Remove this if HMOD is INTENT(OUT)
     IF(ALLOCATED(hmod%rr)) CALL deallocate_HMOD(hmod)
     CALL allocate_HMOD(hmod,n_hmod)
 
@@ -1264,14 +1265,14 @@ CONTAINS
 
     IF(verbose) WRITE(*,*) 'INIT_HALOMOD: M, R, nu, sigma tables filled'
 
-    !Get delta_c
+    ! Get delta_c
     dc=delta_c(a,hmod,cosm)
 
-    !Fill virial radius table using real radius table
+    ! Fill virial radius table using real radius table
     Dv=Delta_v(a,hmod,cosm)
     hmod%rv=hmod%rr/(Dv**(1./3.))
 
-    !Write some useful information to the screen
+    ! Write some useful information to the screen
     IF(verbose) THEN
        WRITE(*,*) 'INIT_HALOMOD: virial radius tables filled'
        WRITE(*,*) 'INIT_HALOMOD: Delta_v:', REAL(Dv)
@@ -1285,22 +1286,21 @@ CONTAINS
     END IF
 
     !Calculate missing mass things if necessary
-    !Actually, you only need to calculate gbmin really, so the rest could be removed if speed is an issue
     IF(hmod%ip2h_corr==2 .OR. hmod%ip2h_corr==3) THEN 
-       hmod%gmin=1.-integrate_hmod(hmod%nu(1),large_nu,g_nu,hmod,acc_HMx,3)
-       hmod%gmax=integrate_hmod(hmod%nu(hmod%n),large_nu,g_nu,hmod,acc_HMx,3)
+       IF(slow) hmod%gmin=1.-integrate_hmod(hmod%nu(1),large_nu,g_nu,hmod,acc_HMx,3)
+       IF(slow) hmod%gmax=integrate_hmod(hmod%nu(hmod%n),large_nu,g_nu,hmod,acc_HMx,3)
        hmod%gbmin=1.-integrate_hmod(hmod%nu(1),large_nu,gb_nu,hmod,acc_HMx,3)
-       hmod%gbmax=integrate_hmod(hmod%nu(hmod%n),large_nu,gb_nu,hmod,acc_HMx,3)
+       IF(slow) hmod%gbmax=integrate_hmod(hmod%nu(hmod%n),large_nu,gb_nu,hmod,acc_HMx,3)
        IF(verbose) THEN
-          WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
-          WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
+          IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
+          IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
           WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at low end:', REAL(hmod%gbmin)
-          WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax)
+          IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax)
        END IF
     END IF
        
-    !Calculate the total stellar mass fraction
-    IF(verbose) THEN
+    ! Calculate the total stellar mass fraction
+    IF(slow) THEN
        !ALLOCATE(integrand(hmod%n))
        !DO i=1,hmod%n
        !   integrand(i)=halo_fraction(3,hmod%m(i),cosm)*g_nu(hmod%nu(i),hmod)
@@ -1309,11 +1309,11 @@ CONTAINS
        !frac=total_stellar_mass_fraction(hmod,cosm)
        !WRITE(*,*) 'INIT_HALOMOD: Total stellar mass fraction:', frac
        frac=total_stellar_mass_fraction(hmod,cosm)
-       WRITE(*,*) 'INIT_HALOMOD: Total stellar mass fraction:', frac
+       IF(verbose) WRITE(*,*) 'INIT_HALOMOD: Total stellar mass fraction:', frac
     END IF
 
-    !Find non-linear radius and scale
-    !This is defined as nu(M_star)=1 *not* sigma(M_star)=1, so depends on delta_c
+    ! Find non-linear radius and scale
+    ! This is defined as nu(M_star)=1 *not* sigma(M_star)=1, so depends on delta_c
     hmod%rnl=r_nl(hmod)
     hmod%mnl=mass_r(hmod%rnl,cosm)
     hmod%knl=1./hmod%rnl
@@ -1337,23 +1337,18 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: Maximum concentration:', REAL(hmod%c(1))
     END IF
 
-    A0=one_halo_amplitude(hmod,cosm)
+    IF(slow) THEN
+       A0=one_halo_amplitude(hmod,cosm)
+       IF(verbose) THEN
+          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [Mpc/h]^3:', REAL(A0)
+          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
+       END IF
+    END IF
+
     IF(verbose) THEN
-       WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [Mpc/h]^3:', REAL(A0)
-       WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
        WRITE(*,*) 'INIT_HALOMOD: Done'
        WRITE(*,*)
     END IF
-    
-    !Get the densities
-    rhom=comoving_matter_density(cosm)
-    rhoc=comoving_critical_density(a,cosm)
-
-    !Calculate Delta = 200, 500 and Delta_c = 200, 500 quantities
-    !CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,1.,hmod%r500,hmod%c500,hmod%m500,500.,1.,hmod%n)
-    !CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,1.,hmod%r200,hmod%c200,hmod%m200,200.,1.,hmod%n)
-    !CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,rhom,hmod%r500c,hmod%c500c,hmod%m500c,500.,rhoc,hmod%n)
-    !CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,rhom,hmod%r200c,hmod%c200c,hmod%m200c,200.,rhoc,hmod%n)
 
     IF(verbose) CALL print_halomodel_parameters(a,hmod,cosm)
 
@@ -2432,8 +2427,8 @@ CONTAINS
        ELSE
           ! The electron pressure window is T(r) x rho_e(r), we want unnormalised, so multiply through by normalisation
           ! TODO: Can I make the code more efficient here by having an unnorm window function?
-          !win_boundgas=win_norm(k,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)*normalisation(rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)
-          win_boundgas=winint(k,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)
+          win_boundgas=win_norm(k,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)*normalisation(rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)
+          !win_boundgas=winint(k,rmin,rmax,rv,rs,p1,p2,irho_electron_pressure)
        END IF
 
        ! Calculate the value of the density profile prefactor and change units from cosmological to SI
@@ -3271,7 +3266,7 @@ CONTAINS
     REAL :: rho
     REAL, INTENT(IN) :: r, rmin, rmax, rv, rs, p1, p2 !Standard profile parameters
     INTEGER, INTENT(IN) :: irho
-    REAL :: y, ct, t, c, beta, Gamma, r500c, rt, A, re, rstar, eta0, B !Derived parameters
+    REAL :: y, ct, t, c, beta, Gamma, r500c, rt, A, re, rstar, B!, eta0 !Derived parameters
     REAL :: f1, f2
     REAL :: crap
 
@@ -3397,11 +3392,12 @@ CONTAINS
        ELSE IF(irho==21 .OR. irho==22 .OR. irho==23) THEN
           !Komatsu & Seljak (2001) profile
           Gamma=p1
-          c=rv/rs
-          eta0=2.235+0.202*(c-5.)-1.16e-3*(c-5.)**2
-          f1=(3./eta0)*((Gamma-1.)/Gamma)
-          f2=log(1.+c)/c-1./(1.+c)
-          B=f1/f2
+          !c=rv/rs
+          !eta0=2.235+0.202*(c-5.)-1.16e-3*(c-5.)**2
+          !f1=(3./eta0)*((Gamma-1.)/Gamma)
+          !f2=log(1.+c)/c-1./(1.+c)
+          !B=f1/f2
+          B=1.
           y=r/rs
           rho=1.-B*(1.-log(1.+y)/y)
           IF(irho==21) THEN

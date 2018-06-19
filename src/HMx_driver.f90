@@ -3,6 +3,7 @@ PROGRAM HMx_driver
   USE HMx
   USE Limber
   USE file_info
+  USE random_numbers
 
   !Parameter definitions
   IMPLICIT NONE
@@ -72,7 +73,7 @@ PROGRAM HMx_driver
      WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
      WRITE(*,*) ' 2 - Produce all halo components cross and auto spectra'
      WRITE(*,*) ' 3 - Run diagnostics'
-     WRITE(*,*) ' 4 - NOT SUPPORTED: Do random cosmologies for bug testing'
+     WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
      WRITE(*,*) ' 5 - NOT SUPPORTED: Pressure field comparison'
      WRITE(*,*) ' 6 - n(z) check'
      WRITE(*,*) ' 7 - Do cross correlation'
@@ -378,9 +379,10 @@ PROGRAM HMx_driver
         CALL assign_cosmology(icosmo,cosm,verbose)
 
         !Generic hydro
-        !IF(imode==2) THEN
-        !   cosm%Gamma=1.5
-        !END IF
+        IF(imode==2) THEN
+           cosm%Gamma=1.17
+           CALL init_cosmology(cosm)
+        END IF
 
         !cosmo-OWLS
         IF(imode==15 .AND. iowl==1) THEN
@@ -615,16 +617,53 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==4) THEN
 
-     STOP 'HMX_DRIVER: Error, imode=4 random mode not implemented yet'
-
      !Ignore this, only useful for bug tests
      CALL RNG_set(0)
 
-     !Only not uncommented to suppress compile-time warnings
+     !Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     !Assigns the cosmological model
+     CALL assign_cosmology(icosmo,cosm,verbose)
+
+     !Sets the redshift
+     z=0.
+
      DO
-        CALL random_cosmology(cosm)   
+
+        CALL random_baryon_parameters(cosm)
+
+        CALL init_cosmology(cosm)
+
+        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        CALL print_cosmology(cosm)
+
+        !Initiliasation for the halomodel calcualtion
+        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+
+        WRITE(*,fmt='(A12,6F12.6)') 'Parameters:', cosm%alpha, cosm%eps, cosm%Gamma, log10(cosm%M0), cosm%Astar, log10(cosm%whim)
+
+        !Do the halo-model calculation
+        DO j1=0,6
+           DO j2=j1,6
+              IF(j1==1 .OR. j1==4 .OR. j1==5) CYCLE
+              IF(j2==1 .OR. j2==4 .OR. j2==5) CYCLE
+              WRITE(*,*) 'Halo types:', j1, j2
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
+              DO i=1,nk
+                 IF(ISNAN(pow_full(i))) STOP 'HMX_DRIVER: Error, NaN found in pow_full array'
+              END DO
+           END DO
+        END DO
+
+        WRITE(*,*)
+
      END DO
-     !Ignore this, only useful for bug tests
 
   ELSE IF(imode==5) THEN
 
@@ -1778,5 +1817,98 @@ CONTAINS
     WRITE(*,*)
 
   END SUBROUTINE write_distances
+
+  SUBROUTINE random_cosmology(cosm)
+
+    !Generate some random cosmological parameter
+    USE random_numbers
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    REAL, PARAMETER :: Om_m_min=0.1
+    REAL, PARAMETER :: Om_m_max=1.
+
+    REAL, PARAMETER :: Om_b_on_Om_m_min=0.05
+    REAL, PARAMETER :: Om_b_on_Om_m_max=0.5
+
+    REAL, PARAMETER :: n_min=0.5
+    REAL, PARAMETER :: n_max=1.5
+
+    REAL, PARAMETER :: h_min=0.4
+    REAL, PARAMETER :: h_max=1.2
+
+    REAL, PARAMETER :: w_min=-1.5
+    REAL, PARAMETER :: w_max=-0.5
+
+    REAL, PARAMETER :: wa_min=0.
+    REAL, PARAMETER :: wa_max=0.
+
+    REAL, PARAMETER :: sig8_min=0.2
+    REAL, PARAMETER :: sig8_max=1.5
+
+    cosm%Om_m=random_uniform(Om_m_min,Om_m_max)
+
+    !Enforce flatness
+    cosm%Om_v_unmodified=1.-cosm%Om_m
+
+    cosm%Om_b=cosm%Om_m*random_uniform(Om_b_on_Om_m_min,Om_b_on_Om_m_max)
+
+    cosm%n=random_uniform(n_min,n_max)
+
+    cosm%h=random_uniform(h_min,h_max)
+
+    cosm%w=random_uniform(w_min,w_max)
+
+    cosm%wa=random_uniform(wa_min,wa_max)
+
+    cosm%sig8=random_uniform(sig8_min,sig8_max)
+
+  END SUBROUTINE random_cosmology
+
+  SUBROUTINE random_baryon_parameters(cosm)
+
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    REAL, PARAMETER :: alpha_min=0.05
+    REAL, PARAMETER :: alpha_max=2.5
+
+    !REAL, PARAMETER :: eps_min=10**(-1.5)
+    !REAL, PARAMETER :: eps_max=10**(1.5)
+    !REAL, PARAMETER :: eps_min=0.5
+    !REAL, PARAMETER :: eps_max=2.0
+    REAL, PARAMETER :: eps_min=1.
+    REAL, PARAMETER :: eps_max=1.
+
+    REAL, PARAMETER :: Gamma_min=1.05
+    REAL, PARAMETER :: Gamma_max=1.2
+    !REAL, PARAMETER :: Gamma_min=1.15
+    !REAL, PARAMETER :: Gamma_max=1.20
+
+    REAL, PARAMETER :: M0_min=10**(12.)
+    REAL, PARAMETER :: M0_max=10**(15.)
+
+    REAL, PARAMETER :: Astar_min=0.002
+    REAL, PARAMETER :: Astar_max=0.2
+
+    REAL, PARAMETER :: whim_min=10**(5.)
+    REAL, PARAMETER :: whim_max=10**(7.)
+    
+    cosm%alpha=random_uniform(alpha_min,alpha_max)
+
+    cosm%eps=random_uniform(log(eps_min),log(eps_max))
+    cosm%eps=exp(cosm%eps)
+
+    cosm%Gamma=random_uniform(Gamma_min,Gamma_max)
+
+    cosm%M0=random_uniform(log(M0_min),log(M0_max))
+    cosm%M0=exp(cosm%M0)
+    
+    cosm%Astar=random_uniform(Astar_min,Astar_max)
+
+    cosm%whim=random_uniform(log(whim_min),log(whim_max))
+    cosm%whim=exp(cosm%whim)
+    
+  END SUBROUTINE random_baryon_parameters
 
 END PROGRAM HMx_driver
