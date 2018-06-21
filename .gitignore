@@ -44,6 +44,7 @@ BAHAMAS/
 hydro/
 bias/
 benchmarks/
+Mead2017/
 
 # Library update script
 src/update_library.sh*

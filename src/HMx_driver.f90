@@ -12,7 +12,7 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
   REAL, ALLOCATABLE :: z_tab(:)
-  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa
+  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ii
   INTEGER :: ip(2), ix(2), ixx(2), ihalo
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2, a1, a2
@@ -22,11 +22,14 @@ PROGRAM HMx_driver
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
   CHARACTER(len=256) :: mode, halomodel, red, cosmo
-  INTEGER :: imode, icosmo, iowl, ihm
+  INTEGER :: imode, icosmo, iowl, ihm, irho, imeth
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
-
+  REAL :: c, rmin, rmax, rv, rs, p1, p2
+  REAL :: t1, t2, w, w0
+  LOGICAL :: timing
+  
   !Baryon stuff
   REAL :: param_min, param_max, param
   LOGICAL :: ilog
@@ -67,8 +70,8 @@ PROGRAM HMx_driver
 
   !Choose mode
   IF(imode==-1) THEN
-     WRITE(*,*) 'HMx: Choose what to do'
-     WRITE(*,*) '======================'
+     WRITE(*,*) 'HMx_DRIVER: Choose what to do'
+     WRITE(*,*) '============================='
      WRITE(*,*) ' 0 - Matter power spectrum at z = 0'
      WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
      WRITE(*,*) ' 2 - Produce all halo components cross and auto spectra'
@@ -90,8 +93,11 @@ PROGRAM HMx_driver
      WRITE(*,*) '18 - 3D bias'
      WRITE(*,*) '19 - CCL comparison'
      WRITE(*,*) '20 - Make Ma et al. (2015) Fig. 1'
+     WRITE(*,*) '21 - W(k) integrand diagnostics'
+     WRITE(*,*) '22 - Time W(k) integration methods'
+     WRITE(*,*) '23 - Produce results from Mead (2017)'
      READ(*,*) imode
-     WRITE(*,*) '======================'
+     WRITE(*,*) '============================'
      WRITE(*,*)
   END IF
 
@@ -378,12 +384,6 @@ PROGRAM HMx_driver
         IF(imode==16) icosmo=4
         CALL assign_cosmology(icosmo,cosm,verbose)
 
-        !Generic hydro
-        IF(imode==2) THEN
-           cosm%Gamma=1.17
-           CALL init_cosmology(cosm)
-        END IF
-
         !cosmo-OWLS
         IF(imode==15 .AND. iowl==1) THEN
            name='REF'
@@ -607,14 +607,6 @@ PROGRAM HMx_driver
 
      END DO
 
-     !Stuff for diagnosing problems with the window function integrand
-     !output='winint/integrand.dat'
-     !irho=14
-     !rv=1.
-     !rs=0.25
-     !rmax=rv
-     !CALL winint_diagnostics(rmax,rv,rs,irho,output)
-
   ELSE IF(imode==4) THEN
 
      !Ignore this, only useful for bug tests
@@ -759,7 +751,7 @@ PROGRAM HMx_driver
 
      !n(z) normalisation check
 
-     WRITE(*,*) 'HMx: Checking n(z) functions'
+     WRITE(*,*) 'HMx_DRIVER: Checking n(z) functions'
      WRITE(*,*)
 
      nnz=7
@@ -771,12 +763,12 @@ PROGRAM HMx_driver
         IF(i==5) nz=7
         IF(i==6) nz=8
         IF(i==7) nz=9
-        WRITE(*,*) 'HMx: n(z) number:', nz
+        WRITE(*,*) 'HMx_DRIVER: n(z) number:', nz
         WRITE(*,*)
         CALL get_nz(nz,lens)
-        WRITE(*,*) 'HMx: n(z) integral (linear):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,1)
-        WRITE(*,*) 'HMx: n(z) integral (quadratic):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,2)
-        WRITE(*,*) 'HMx: n(z) integral (cubic):', integrate_table(lens%z_nz,lens%nz,lens%nnz,2,lens%nnz,3)
+        WRITE(*,*) 'HMx_DRIVER: n(z) integral (linear):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,1)
+        WRITE(*,*) 'HMx_DRIVER: n(z) integral (quadratic):', integrate_table(lens%z_nz,lens%nz,lens%nnz,1,lens%nnz,2)
+        WRITE(*,*) 'HMx_DRIVER: n(z) integral (cubic):', integrate_table(lens%z_nz,lens%nz,lens%nnz,2,lens%nnz,3)
         WRITE(*,*)
      END DO
 
@@ -831,18 +823,18 @@ PROGRAM HMx_driver
         ALLOCATE(xi(3,nth))
      END IF
 
-     WRITE(*,*) 'HMx: Cross-correlation information'
-     WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
-     WRITE(*,*) 'HMx: Profile type 1: ', TRIM(halo_type(ip(1)))
-     WRITE(*,*) 'HMx: Profile type 2: ', TRIM(halo_type(ip(2)))
-     WRITE(*,*) 'HMx: cross-correlation type 1: ', TRIM(xcorr_type(ix(1)))
-     WRITE(*,*) 'HMx: cross-correlation type 2: ', TRIM(xcorr_type(ix(2)))
-     WRITE(*,*) 'HMx: P(k) minimum k [h/Mpc]:', REAL(kmin)
-     WRITE(*,*) 'HMx: P(k) maximum k [h/Mpc]:', REAL(kmax)
-     WRITE(*,*) 'HMx: minimum a:', REAL(amin)
-     WRITE(*,*) 'HMx: maximum a:', REAL(amax)
-     WRITE(*,*) 'HMx: minimum ell:', REAL(lmin)
-     WRITE(*,*) 'HMx: maximum ell:', REAL(lmax)
+     WRITE(*,*) 'HMx_DRIVER: Cross-correlation information'
+     WRITE(*,*) 'HMx_DRIVER: output directiory: ', TRIM(dir)
+     WRITE(*,*) 'HMx_DRIVER: Profile type 1: ', TRIM(halo_type(ip(1)))
+     WRITE(*,*) 'HMx_DRIVER: Profile type 2: ', TRIM(halo_type(ip(2)))
+     WRITE(*,*) 'HMx_DRIVER: cross-correlation type 1: ', TRIM(xcorr_type(ix(1)))
+     WRITE(*,*) 'HMx_DRIVER: cross-correlation type 2: ', TRIM(xcorr_type(ix(2)))
+     WRITE(*,*) 'HMx_DRIVER: P(k) minimum k [h/Mpc]:', REAL(kmin)
+     WRITE(*,*) 'HMx_DRIVER: P(k) maximum k [h/Mpc]:', REAL(kmax)
+     WRITE(*,*) 'HMx_DRIVER: minimum a:', REAL(amin)
+     WRITE(*,*) 'HMx_DRIVER: maximum a:', REAL(amax)
+     WRITE(*,*) 'HMx_DRIVER: minimum ell:', REAL(lmin)
+     WRITE(*,*) 'HMx_DRIVER: maximum ell:', REAL(lmax)
      WRITE(*,*)     
 
      IF(imode==7) THEN
@@ -889,12 +881,12 @@ PROGRAM HMx_driver
         r2=maxdist(proj)!proj%rs
 
         !Write to screen
-        WRITE(*,*) 'HMx: Computing C(l)'
-        WRITE(*,*) 'HMx: ell min:', REAL(ell(1))
-        WRITE(*,*) 'HMx: ell max:', REAL(ell(nl))
-        WRITE(*,*) 'HMx: number of ell:', nl
-        WRITE(*,*) 'HMx: lower limit of Limber integral [Mpc/h]:', REAL(r1)
-        WRITE(*,*) 'HMx: upper limit of Limber integral [Mpc/h]:', REAL(r2)
+        WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
+        WRITE(*,*) 'HMx_DRIVER: ell min:', REAL(ell(1))
+        WRITE(*,*) 'HMx_DRIVER: ell max:', REAL(ell(nl))
+        WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
+        WRITE(*,*) 'HMx_DRIVER: lower limit of Limber integral [Mpc/h]:', REAL(r1)
+        WRITE(*,*) 'HMx_DRIVER: upper limit of Limber integral [Mpc/h]:', REAL(r2)
         WRITE(*,*)
 
         !Loop over all types of C(l) to create
@@ -905,24 +897,24 @@ PROGRAM HMx_driver
 
            !Write information to screen
            IF(j==1) THEN
-              WRITE(*,*) 'HMx: Doing linear'
+              WRITE(*,*) 'HMx_DRIVER: Doing linear'
               outfile=TRIM(dir)//'cl_linear.dat'
               powa=powa_lin
            ELSE IF(j==2) THEN
-              WRITE(*,*) 'HMx: Doing 2-halo'
+              WRITE(*,*) 'HMx_DRIVER: Doing 2-halo'
               outfile=TRIM(dir)//'cl_2halo.dat'
               powa=powa_2h
            ELSE IF(j==3) THEN
-              WRITE(*,*) 'HMx: Doing 1-halo'
+              WRITE(*,*) 'HMx_DRIVER: Doing 1-halo'
               outfile=TRIM(dir)//'cl_1halo.dat'
               powa=powa_1h
            ELSE IF(j==4) THEN
-              WRITE(*,*) 'HMx: Doing full'
+              WRITE(*,*) 'HMx_DRIVER: Doing full'
               outfile=TRIM(dir)//'cl_full.dat'
               powa=powa_full
            END IF
 
-           WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
+           WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
            !Actually calculate the C(ell)
            CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
@@ -937,7 +929,7 @@ PROGRAM HMx_driver
               IF(j==2) outfile=TRIM(dir)//'xi_2halo.dat'
               IF(j==3) outfile=TRIM(dir)//'xi_1halo.dat'
               IF(j==4) outfile=TRIM(dir)//'xi_full.dat'
-              WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
+              WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
               !Actually calculate the xi(theta)
               CALL calculate_xi(theta,xi,nth,ell,Cell,nl,NINT(lmax))
@@ -946,7 +938,7 @@ PROGRAM HMx_driver
            END IF
 
         END DO
-        WRITE(*,*) 'HMx: Done'
+        WRITE(*,*) 'HMx_DRIVER: Done'
         WRITE(*,*)
 
      ELSE IF(imode==8) THEN
@@ -980,10 +972,10 @@ PROGRAM HMx_driver
            ALLOCATE(Cell(nl))
 
            !Write to screen
-           WRITE(*,*) 'HMx: Computing C(l)'
-           WRITE(*,*) 'HMx: ell min:', REAL(ell(1))
-           WRITE(*,*) 'HMx: ell max:', REAL(ell(nl))
-           WRITE(*,*) 'HMx: number of ell:', nl
+           WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
+           WRITE(*,*) 'HMx_DRIVER: ell min:', REAL(ell(1))
+           WRITE(*,*) 'HMx_DRIVER: ell max:', REAL(ell(nl))
+           WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
            WRITE(*,*)
 
            !Loop over all types of C(l) to create
@@ -991,29 +983,29 @@ PROGRAM HMx_driver
            base=TRIM(dir)//'cosmology_'
            DO j=1,4
               IF(j==1) THEN
-                 WRITE(*,*) 'HMx: Doing C(l) linear'
+                 WRITE(*,*) 'HMx_DRIVER: Doing C(l) linear'
                  ext='_cl_linear.dat'
                  powa=powa_lin
               ELSE IF(j==2) THEN
-                 WRITE(*,*) 'HMx: Doing C(l) 2-halo'
+                 WRITE(*,*) 'HMx_DRIVER: Doing C(l) 2-halo'
                  ext='_cl_2halo.dat'
                  powa=powa_2h
               ELSE IF(j==3) THEN
-                 WRITE(*,*) 'HMx: Doing C(l) 1-halo'
+                 WRITE(*,*) 'HMx_DRIVER: Doing C(l) 1-halo'
                  ext='_cl_1halo.dat'
                  powa=powa_1h
               ELSE IF(j==4) THEN
-                 WRITE(*,*) 'HMx: Doing C(l) full'
+                 WRITE(*,*) 'HMx_DRIVER: Doing C(l) full'
                  ext='_cl_full.dat'
                  powa=powa_full
               END IF           
               outfile=number_file(base,i,ext)
-              WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
+              WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
               !Actually calculate the C(l)
               CALL calculate_Cell(0.,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
            END DO
-           WRITE(*,*) 'HMx: Done'
+           WRITE(*,*) 'HMx_DRIVER: Done'
            WRITE(*,*)
 
         END DO
@@ -1087,14 +1079,14 @@ PROGRAM HMx_driver
 
            !Set the code to not 'correct' the two-halo power for missing
            !mass when doing the calcultion binned in halo mass
-           !STOP 'HMx: Extreme caution here, need to set ip2h=0, but it is defined as parameter in HMx.f90'
+           !STOP 'HMx_DRIVER: Extreme caution here, need to set ip2h=0, but it is defined as parameter in HMx.f90'
            !IF((icumulative .EQV. .FALSE.) .AND. i>1) hmod%ip2h=0
            IF((icumulative .EQV. .TRUE.) .AND. i>0) hmod%ip2h=0
            
-           WRITE(*,fmt='(A16)') 'HMx: Mass range'
-           WRITE(*,fmt='(A16,I5)') 'HMx: Iteration:', i
-           WRITE(*,fmt='(A21,2ES15.7)') 'HMx: M_min [Msun/h]:', m1
-           WRITE(*,fmt='(A21,2ES15.7)') 'HMx: M_max [Msun/h]:', m2
+           WRITE(*,fmt='(A16)') 'HMx_DRIVER: Mass range'
+           WRITE(*,fmt='(A16,I5)') 'HMx_DRIVER: Iteration:', i
+           WRITE(*,fmt='(A21,2ES15.7)') 'HMx_DRIVER: M_min [Msun/h]:', m1
+           WRITE(*,fmt='(A21,2ES15.7)') 'HMx_DRIVER: M_max [Msun/h]:', m2
            WRITE(*,*)
 
            !Loop over redshifts
@@ -1126,7 +1118,7 @@ PROGRAM HMx_driver
               ext='_power'
               outfile=number_file2(base,NINT(log10(m1)),mid,NINT(log10(m2)),ext)
            END IF
-           WRITE(*,*) 'HMx: File: ', TRIM(outfile)
+           WRITE(*,*) 'HMx_DRIVER: File: ', TRIM(outfile)
            !CALL write_power_a(k,a,powa,nk,na,output)
 
            !Loop over all types of C(l) to create
@@ -1158,13 +1150,13 @@ PROGRAM HMx_driver
 
               IF(i>0) outfile=number_file2(base,NINT(log10(m1)),mid,NINT(log10(m2)),ext)
 
-              WRITE(*,*) 'HMx: File: ', TRIM(outfile)
+              WRITE(*,*) 'HMx_DRIVER: File: ', TRIM(outfile)
 
               CALL calculate_Cell(0.,maxdist(proj),ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
               CALL write_Cell(ell,Cell,nl,outfile)
 
            END DO
-           WRITE(*,*) 'HMx: Done'
+           WRITE(*,*) 'HMx_DRIVER: Done'
            WRITE(*,*)
 
         END DO
@@ -1188,10 +1180,10 @@ PROGRAM HMx_driver
         CALL write_projection_kernels(proj,cosm)
 
         !Write to screen
-        WRITE(*,*) 'HMx: Computing C(l)'
-        WRITE(*,*) 'HMx: ell min:', REAL(ell(1))
-        WRITE(*,*) 'HMx: ell max:', REAL(ell(nl))
-        WRITE(*,*) 'HMx: number of ell:', nl
+        WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
+        WRITE(*,*) 'HMx_DRIVER: ell min:', REAL(ell(1))
+        WRITE(*,*) 'HMx_DRIVER: ell max:', REAL(ell(nl))
+        WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
         WRITE(*,*)
 
         zmin=0.
@@ -1216,13 +1208,13 @@ PROGRAM HMx_driver
               r2=comoving_distance(a2,cosm)
            END IF
 
-           WRITE(*,*) 'HMx:', i
+           WRITE(*,*) 'HMx_DRIVER:', i
            IF(i>0) THEN
-              WRITE(*,*) 'HMx: z1:', REAL(z1)
-              WRITE(*,*) 'HMx: z2:', REAL(z2)
+              WRITE(*,*) 'HMx_DRIVER: z1:', REAL(z1)
+              WRITE(*,*) 'HMx_DRIVER: z2:', REAL(z2)
            END IF
-           WRITE(*,*) 'HMx: r1 [Mpc/h]:', REAL(r1)
-           WRITE(*,*) 'HMx: r2 [Mpc/h]:', REAL(r2)
+           WRITE(*,*) 'HMx_DRIVER: r1 [Mpc/h]:', REAL(r1)
+           WRITE(*,*) 'HMx_DRIVER: r2 [Mpc/h]:', REAL(r2)
 
            !Loop over all types of C(l) to create
            dir='data/'
@@ -1254,7 +1246,7 @@ PROGRAM HMx_driver
               ELSE IF(i>0 .AND. icumulative) THEN
                  outfile=number_file2(base,0,mid,i,ext)
               END IF
-              WRITE(*,*) 'HMx: Output: ', TRIM(outfile)
+              WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
               !This crashes for the low r2 values for some reason
               !Only a problem if lmax ~ 10^5
@@ -1267,16 +1259,16 @@ PROGRAM HMx_driver
 
         END DO
 
-        WRITE(*,*) 'HMx: Done'
+        WRITE(*,*) 'HMx_DRIVER: Done'
         WRITE(*,*)
 
      ELSE IF(imode==11) THEN
 
-        STOP 'HMx: Error, breakdown in radius is not supported yet'
+        STOP 'HMx_DRIVER: Error, breakdown in radius is not supported yet'
 
      ELSE
 
-        STOP 'HMx: Error, you have specified the mode incorrectly'
+        STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
 
      END IF
 
@@ -1315,11 +1307,11 @@ PROGRAM HMx_driver
      ell=exp(ell)
      ALLOCATE(Cell(nl))
 
-     WRITE(*,*) 'HMx: Cross-correlation information'
-     WRITE(*,*) 'HMx: output directiory: ', TRIM(dir)
-     WRITE(*,*) 'HMx: minimum ell:', REAL(lmin)
-     WRITE(*,*) 'HMx: maximum ell:', REAL(lmax)
-     WRITE(*,*) 'HMx: number of ell:', nl
+     WRITE(*,*) 'HMx_DRIVER: Cross-correlation information'
+     WRITE(*,*) 'HMx_DRIVER: output directiory: ', TRIM(dir)
+     WRITE(*,*) 'HMx_DRIVER: minimum ell:', REAL(lmin)
+     WRITE(*,*) 'HMx_DRIVER: maximum ell:', REAL(lmax)
+     WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
      WRITE(*,*)
 
      !Loop over the triad
@@ -1344,7 +1336,7 @@ PROGRAM HMx_driver
         CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
 
-        WRITE(*,*) 'HMx: Done'
+        WRITE(*,*) 'HMx_DRIVER: Done'
         WRITE(*,*)
 
      END DO
@@ -1403,9 +1395,9 @@ PROGRAM HMx_driver
      m=9
 
      !Set number of k points and k range (log spaced)
-     nk=128
      kmin=1e-3
      kmax=1e1
+     nk=128
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
@@ -1611,10 +1603,123 @@ PROGRAM HMx_driver
 
      !Make the Figure
      CALL YinZhe_Fig1(z,hmod,cosm)
+
+  ELSE IF(imode==21) THEN
+
+     !Stuff for diagnosing problems with the window function integrand
+     outfile='winint/integrand.dat'
+     irho=11
+     rv=1.
+     c=4.
+     rs=rv/c
+     p1=1.18
+     p2=0.
+     rmin=0.
+     rmax=rv
+     CALL winint_diagnostics(rmin,rmax,rv,rs,p1,p2,irho,outfile)
+
+  ELSE IF(imode==22) THEN
+
+     !k range
+     kmin=1e-2
+     kmax=1e3
+     nk=512
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     !Halo parameters
+     rv=1.
+     c=4.
+     rs=rv/c
+     p1=1.5
+     p2=0.
+     irho=11
+     rmin=0.
+     rmax=rv
+
+     CALL winint_speed_tests(k,nk,rmin,rmax,rv,rs,p1,p2,irho)
+
+  ELSE IF(imode==23) THEN
+
+     ! Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e1
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     ! Set the redshift
+     z=0.
+
+     ! Directory for output
+     dir='Mead2017'
+
+     ! Set the halo model
+     ihm=12
+
+     ! Loop over cosmologies
+     DO i=1,9
+
+        IF(i==1) THEN
+           ! LCDM
+           icosmo=1
+           outfile='LCDM'
+        ELSE IF(i==2) THEN
+           ! OCDM
+           icosmo=5
+           outfile='OCDM'
+        ELSE IF(i==3) THEN
+           ! EdS
+           icosmo=15
+           outfile='SCDM'
+        ELSE IF(i==4) THEN
+           ! w = -0.7
+           icosmo=16
+           outfile='w-0.7'
+        ELSE IF(i==5) THEN
+           ! w = -1.3
+           icosmo=17
+           outfile='w-1.3'
+        ELSE IF(i==6) THEN
+           ! wa = 0.5
+           icosmo=18
+           outfile='wa0.5'
+        ELSE IF(i==7) THEN
+           ! wa = -0.5
+           icosmo=19
+           outfile='wa-0.5'
+        ELSE IF(i==8) THEN
+           ! w = -0.7; wa = -1.5
+           icosmo=20
+           outfile='w0-0.7wa-1.5'
+        ELSE IF(i==9) THEN
+           ! w = -1.3; wa = 0.5
+           icosmo=21
+           outfile='w0-1.3wa0.5'
+        END IF
+
+        ! Assigns the cosmological model
+        CALL assign_cosmology(icosmo,cosm,verbose)
+
+        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        CALL print_cosmology(cosm)
+
+        ! Initiliasation for the halomodel calcualtion
+        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+
+        ! Do the halo-model calculation
+        CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+
+        ! Write out the results
+        outfile=TRIM(dir)//'/power_'//TRIM(outfile)//'.dat'
+        CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+
+     END DO
      
   ELSE
 
-     STOP 'HMx: Error, you have specified the mode incorrectly'
+     STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
 
   END IF
 
@@ -1849,7 +1954,7 @@ CONTAINS
     cosm%Om_m=random_uniform(Om_m_min,Om_m_max)
 
     !Enforce flatness
-    cosm%Om_v_unmodified=1.-cosm%Om_m
+    cosm%Om_v=1.-cosm%Om_m
 
     cosm%Om_b=cosm%Om_m*random_uniform(Om_b_on_Om_m_min,Om_b_on_Om_m_max)
 
@@ -1875,13 +1980,13 @@ CONTAINS
 
     !REAL, PARAMETER :: eps_min=10**(-1.5)
     !REAL, PARAMETER :: eps_max=10**(1.5)
-    !REAL, PARAMETER :: eps_min=0.5
-    !REAL, PARAMETER :: eps_max=2.0
-    REAL, PARAMETER :: eps_min=1.
-    REAL, PARAMETER :: eps_max=1.
+    REAL, PARAMETER :: eps_min=0.5
+    REAL, PARAMETER :: eps_max=2.0
+    !REAL, PARAMETER :: eps_min=1.
+    !REAL, PARAMETER :: eps_max=1.
 
     REAL, PARAMETER :: Gamma_min=1.05
-    REAL, PARAMETER :: Gamma_max=1.2
+    REAL, PARAMETER :: Gamma_max=2.00
     !REAL, PARAMETER :: Gamma_min=1.15
     !REAL, PARAMETER :: Gamma_max=1.20
 

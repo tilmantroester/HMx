@@ -2,7 +2,7 @@ reset
 
 file='winint/integrand.dat'
 
-set xlabel 'r / (h^{-1} Mpc)'
+set xlabel 'r / r_v'
 
 set ylabel '4{/Symbol p}r^2 sinc(kr) {/Symbol r}(r)'
 

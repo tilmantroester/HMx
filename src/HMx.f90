@@ -28,9 +28,10 @@ MODULE HMx
   END TYPE halomod
 
   !Global parameters
-  REAL, PARAMETER :: acc_HMx=1e-3 !Global halo-model accuracy parameter
-  INTEGER, PARAMETER :: n_hmod=128 !Number of mass entries in look-up table
-  REAL, PARAMETER :: large_nu=6. !Upper limit for some nu integrations
+  REAL, PARAMETER :: acc_HMx=1e-3 ! Halo-model accuracy parameter
+  INTEGER, PARAMETER :: n_hmod=128 ! Number of mass entries in look-up table
+  REAL, PARAMETER :: large_nu=6. ! Upper limit for some nu integrations
+  INTEGER, PARAMETER :: imeth_win=3 ! Winint method
 
 CONTAINS
 
@@ -811,9 +812,9 @@ CONTAINS
     IF(hmod%iconc==4) WRITE(*,*) 'Virial denity Duffy et al. (2008) concentration-mass relation'
 
     !Concentration-mass relation correction
-    IF(hmod%iDolag==1) WRITE(*,*) 'No concentration-mass correction'
-    IF(hmod%iDolag==2) WRITE(*,*) 'Dolag (2004) concentration-mass correction'
-    IF(hmod%iDolag==3) WRITE(*,*) 'Dolag (2004) concentration-mass correction with 1.5 exponent'
+    IF(hmod%iDolag==1) WRITE(*,*) 'No concentration-mass correction for dark energy'
+    IF(hmod%iDolag==2) WRITE(*,*) 'Dolag (2004) dark energy halo concentration correction'
+    IF(hmod%iDolag==3) WRITE(*,*) 'Dolag (2004) dark energy halo concentration correction with 1.5 exponent'
 
     !delta_c
     IF(hmod%idc==1) WRITE(*,*) 'Fixed delta_c = 1.686'
@@ -980,7 +981,7 @@ CONTAINS
     INTEGER :: i
 
     !Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=11 !Number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=12 !Number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate halo-model calculation (Mead et al. 2016)'
     names(2)='Basic halo-model calculation (Two-halo term is linear)'
@@ -992,7 +993,8 @@ CONTAINS
     names(8)='Including scatter in halo properties at fixed mass'
     names(9)='CCL tests'
     names(10)='Comparison of mass conversions with Wayne Hu code'
-    names(11)='Standard halo-model calculation (Seljak 2000) but with UPP'
+    names(11)='Standard halo-model calculation (Seljak 2000) but with UPP for electron pressure'
+    names(12)='Spherical collapse used for Mead 2017 results'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -1189,7 +1191,14 @@ CONTAINS
        hmod%idc=1
        hmod%iDv=1
     ELSE IF(ihm==11) THEN
+       !11 - UPP
        hmod%use_UPP=.TRUE.
+    ELSE IF(ihm==12) THEN
+       !12 - Spherical-collapse model to produce Mead (2017) results
+       hmod%iconc=1
+       hmod%idc=5
+       hmod%iDv=5
+       hmod%iDolag=2 ! This seems not to be important for these results
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -1702,13 +1711,13 @@ CONTAINS
 
   END FUNCTION virial_radius
 
-  FUNCTION effective_index(hmod,cosm)
+  REAL FUNCTION effective_index(hmod,cosm)
 
     !Power spectrum slope a the non-linear scale
     IMPLICIT NONE
-    REAL :: effective_index
-    TYPE(cosmology) :: cosm
-    TYPE(halomod) :: hmod
+    !REAL :: effective_index
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    TYPE(halomod), INTENT(INOUT) :: hmod
 
     !Numerical differentiation to find effective index at collapse
     effective_index=-3.-derivative_table(log(hmod%rnl),log(hmod%rr),log(hmod%sig**2),hmod%n,3,3)
@@ -1726,11 +1735,8 @@ CONTAINS
     REAL, INTENT(IN) :: z
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm    
-    TYPE(cosmology) :: cosm_lcdm
-    REAL :: mstar, ainf, g_lcdm, g_wcdm, m, zc
+    REAL :: mstar, m, zc
     INTEGER :: i
-
-    REAL, PARAMETER :: zinf=10. !The redshift considered to be infinite
 
     !iconc = 1: Full Bullock et al. (2001)
     !iconc = 2: Simple Bullock et al. (2001)
@@ -1772,38 +1778,51 @@ CONTAINS
        hmod%c(i)=hmod%c(i)*(1.+(cosm%eps-1.)*halo_boundgas_fraction(m,cosm)/(cosm%Om_b/cosm%Om_m))
 
     END DO
-    
-    !Dolag2004 prescription for adding DE dependence
-    IF(hmod%iDolag==2 .OR. hmod%iDolag==3) THEN
 
-       !The 'infinite' scale factor
-       ainf=scale_factor_z(zinf)
-
-       !Save the growth function in the current cosmology
-       g_wcdm=grow(ainf,cosm)
-
-       !Make a LCDM cosmology
-       cosm_lcdm=cosm
-       cosm_lcdm%has_growth=.FALSE.
-       cosm_lcdm%w=-1.
-       cosm_lcdm%wa=0.
-       cosm_lcdm%Om_w=0.
-       cosm_lcdm%Om_v=1.-cosm%Om_m !Added this so that 'making a LCDM cosmology' works for curved models.
-
-       !Needs to use grow_int explicitly in case tabulated values are stored
-       !g_lcdm=growint(ainf,cosm_lcdm,acc_HMx)
-       g_lcdm=growth_Linder(ainf,cosm)
-       
-       !Changed this to a power of 1.5, which produces more accurate results for extreme DE
-       IF(hmod%iDolag==2) THEN
-          hmod%c=hmod%c*g_wcdm/g_lcdm
-       ELSE IF(hmod%iDolag==3) THEN
-          hmod%c=hmod%c*((g_wcdm/g_lcdm)**1.5)
-       END IF
-
-    END IF
+    ! Dolag2004 prescription for adding DE dependence
+    IF(hmod%iDolag==2 .OR. hmod%iDolag==3) CALL Dolag_correction(hmod,cosm)
     
   END SUBROUTINE fill_halo_concentration
+
+  SUBROUTINE Dolag_correction(hmod,cosm)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: g_LCDM, g_wCDM, ainf, f
+    TYPE(cosmology) :: cosm_LCDM
+
+    REAL, PARAMETER :: zinf=100. ! I changed this from 10 -> 100 to make it more infinite, I used zinf=10 for Mead (2017)!
+
+    ! The 'infinite' scale factor
+    ainf=scale_factor_z(zinf)
+
+    ! Save the growth function in the current cosmology
+    g_wCDM=grow(ainf,cosm)
+
+    ! Make a flat LCDM cosmology and calculate growth
+    cosm_LCDM=cosm
+    cosm_LCDM%iw=1
+    cosm_LCDM%w=-1.
+    cosm_LCDM%wa=0.
+    cosm_LCDM%Om_w=0.
+    cosm_LCDM%Om_v=1.-cosm%Om_m ! Added this so that 'making a LCDM cosmology' works for curved models.
+    cosm_LCDM%verbose=.FALSE.
+    CALL init_cosmology(cosm_LCDM) ! This is **essential**, does some unncessary P(k) normalisation
+    g_LCDM=growth_Linder(ainf,cosm_LCDM)
+    f=g_wCDM/g_LCDM
+    
+    !WRITE(*,*) 'DOLAG_CORRECTION:', f
+    !STOP
+
+    ! Changed this to a power of 1.5, which produces more accurate results for extreme DE
+    IF(hmod%iDolag==2) THEN
+       hmod%c=hmod%c*f
+    ELSE IF(hmod%iDolag==3) THEN
+       hmod%c=hmod%c*f**1.5
+    END IF
+    
+  END SUBROUTINE Dolag_correction
 
   FUNCTION conc_Bullock(z,zc)
 
@@ -1829,11 +1848,11 @@ CONTAINS
     REAL :: af, zf, RHS, a, growz
     INTEGER :: i
 
-    REAL, PARAMETER :: f=0.01**(1./3.) !This is the f=0.01 parameter in the Bullock realtion sigma(fM,z)
+    REAL, PARAMETER :: f=0.01**(1./3.) ! This is the f=0.01 parameter in the Bullock realtion sigma(fM,z)
 
     a=scale_factor_z(z)
 
-    !Fills up a table for sigma(fM) for Bullock c(m) relation    
+    ! Fills up a table for sigma(fM) for Bullock c(m) relation    
     IF(hmod%iconc==1) THEN
        DO i=1,hmod%n
           hmod%sigf(i)=sigma(hmod%rr(i)*f,a,cosm)
@@ -1841,17 +1860,17 @@ CONTAINS
        !IF(verbose) WRITE(*,*) 'INIT_HALOMOD: sigma_f tables filled'
     END IF
 
-    !Do numerical inversion
+    ! Do numerical inversion
     DO i=1,hmod%n
 
-       !I don't think this is really consistent with dc varying as a function of z
-       !but the change will *probably* be very small
+       ! I don't think this is really consistent with dc varying as a function of z
+       ! but the change will *probably* be *very* small
        dc=delta_c(a,hmod,cosm)
 
        RHS=dc*grow(a,cosm)/hmod%sigf(i)
        
-       !growz=find(a,af_tab,grow_tab,cosm%ng,3,3,2)
-       !growz=exp(find(log(a),cosm%a_growth,cosm%growth,cosm%n_growth,3,3,2))
+       ! growz=find(a,af_tab,grow_tab,cosm%ng,3,3,2)
+       ! growz=exp(find(log(a),cosm%a_growth,cosm%growth,cosm%n_growth,3,3,2))
        growz=grow(a,cosm)
 
        IF(RHS>growz) THEN
@@ -1912,12 +1931,12 @@ CONTAINS
     
   END FUNCTION conc_Duffy_virial
 
-  FUNCTION mass_r(r,cosm)
+  REAL FUNCTION mass_r(r,cosm)
 
     !Calcuates the mass contains in a sphere of comoving radius 'r' in a homogeneous universe
     IMPLICIT NONE
-    REAL :: mass_r, r
-    TYPE(cosmology) :: cosm
+    REAL, INTENT(IN) :: r
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     !Relation between mean cosmological mass and radius
     mass_r=(4.*pi/3.)*comoving_matter_density(cosm)*(r**3)
@@ -3097,7 +3116,7 @@ CONTAINS
        r=k
        UPP=rho(r,rmin,rmax,rv,rs,r500c,zero,irho)
     ELSE
-       UPP=winint(k,rmin,rmax,rv,rs,r500c,zero,irho)
+       UPP=winint(k,rmin,rmax,rv,rs,r500c,zero,irho,imeth_win)
     END IF
 
     !Upp, P(x), equation 4.1 in Ma et al. (2015)
@@ -3200,7 +3219,7 @@ CONTAINS
           win_norm=1./(1.+(k*re)**2)**2
        ELSE
           !Numerical integral over the density profile (slower)
-          win_norm=winint(k,rmin,rmax,rv,rs,p1,p2,irho)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+          win_norm=winint(k,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
        END IF
 
     END IF
@@ -3418,19 +3437,18 @@ CONTAINS
 
   END FUNCTION rho
 
-  FUNCTION winint(k,rmin,rmax,rv,rs,p1,p2,irho)
+  FUNCTION winint(k,rmin,rmax,rv,rs,p1,p2,irho,imeth)
 
     !Calculates W(k,M)
     IMPLICIT NONE
     REAL :: winint
     REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
-    INTEGER, INTENT(IN) :: irho
+    INTEGER, INTENT(IN) :: irho, imeth
 
     !Integration order
     INTEGER, PARAMETER :: iorder=3
 
     !Integration method
-    INTEGER, PARAMETER :: imeth=3 
     !imeth = 1 - normal integration
     !imeth = 2 - bumps with normal integration
     !imeth = 3 - storage integration
@@ -3447,8 +3465,7 @@ CONTAINS
     IF(imeth==1) THEN
        winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx)
     ELSE IF(imeth==2 .OR. imeth==4 .OR. imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
-       IF(rmin .NE. 0.) STOP 'WININT: This cannot cope with rmin to rmax - probably could be fixed quickly'
-       winint=winint_bumps(k,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx,imeth)
+       winint=winint_bumps(k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx,imeth)
     ELSE IF(imeth==3) THEN
        winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx)
     ELSE
@@ -3457,47 +3474,50 @@ CONTAINS
 
   END FUNCTION winint
 
-!!$  SUBROUTINE winint_diagnostics(rmin,rmax,rv,rs,irho,outfile)
-!!$
-!!$    !Write out the winint integrand as a function of k
-!!$    IMPLICIT NONE
-!!$    REAL, INTENT(IN) :: rmin, rmax, rv, rs
-!!$    INTEGER, INTENT(IN) :: irho
-!!$    CHARACTER(len=256), INTENT(IN) :: outfile
-!!$    INTEGER :: i, j
-!!$    REAL :: r, k
-!!$    REAL, ALLOCATABLE :: integrand(:)
-!!$
-!!$    REAL, PARAMETER :: kmin=1d-1
-!!$    REAL, PARAMETER :: kmax=1d2
-!!$    INTEGER, PARAMETER :: nr=256 !Number of points in r
-!!$    INTEGER, PARAMETER :: nk=16 !Number of points in k
-!!$
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: Doing these'
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: maximum r [Mpc/h]:', REAL(rmax)
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: virial radius [Mpc/h]:', REAL(rv)
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: scale radius [Mpc/h]:', REAL(rs)
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: concentration:', REAL(rv/rs)
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: profile number:', irho
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: outfile: ', TRIM(outfile)
-!!$
-!!$    ALLOCATE(integrand(nk))
-!!$    
-!!$    OPEN(7,file=outfile)
-!!$    DO i=1,nr
-!!$       r=progression(0.,rmax,i,nr)
-!!$       DO j=1,nk
-!!$          k=exp(progression(log(kmin),log(kmax),j,nk))
-!!$          integrand(j)=winint_integrand(rmin,rmax,r,rv,rs,irho)*sinc(r*k)
-!!$       END DO
-!!$       WRITE(7,*) r, (integrand(j), j=1,nk)
-!!$    END DO
-!!$    CLOSE(7)
-!!$
-!!$    WRITE(*,*) 'WININT_DIAGNOSTICS: Done'
-!!$    WRITE(*,*)
-!!$    
-!!$  END SUBROUTINE winint_diagnostics
+  SUBROUTINE winint_diagnostics(rmin,rmax,rv,rs,p1,p2,irho,outfile)
+
+    !Write out the winint integrand as a function of k
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: rmin, rmax, rv, rs, p1, p2
+    INTEGER, INTENT(IN) :: irho
+    CHARACTER(len=256), INTENT(IN) :: outfile
+    INTEGER :: i, j
+    REAL :: r, k
+    REAL, ALLOCATABLE :: integrand(:)
+
+    REAL, PARAMETER :: kmin=1d-1
+    REAL, PARAMETER :: kmax=1d2
+    INTEGER, PARAMETER :: nr=256 !Number of points in r
+    INTEGER, PARAMETER :: nk=16 !Number of points in k
+
+    WRITE(*,*) 'WININT_DIAGNOSTICS: Doing these'
+    WRITE(*,*) 'WININT_DIAGNOSTICS: minimum r [Mpc/h]:', REAL(rmin)
+    WRITE(*,*) 'WININT_DIAGNOSTICS: maximum r [Mpc/h]:', REAL(rmax)
+    WRITE(*,*) 'WININT_DIAGNOSTICS: virial radius [Mpc/h]:', REAL(rv)
+    WRITE(*,*) 'WININT_DIAGNOSTICS: scale radius [Mpc/h]:', REAL(rs)
+    WRITE(*,*) 'WININT_DIAGNOSTICS: concentration:', REAL(rv/rs)
+    WRITE(*,*) 'WININT_DIAGNOSTICS: halo parameter 1:', p1
+    WRITE(*,*) 'WININT_DIAGNOSTICS: halo parameter 2:', p2
+    WRITE(*,*) 'WININT_DIAGNOSTICS: profile number:', irho
+    WRITE(*,*) 'WININT_DIAGNOSTICS: outfile: ', TRIM(outfile)
+
+    ALLOCATE(integrand(nk))
+    
+    OPEN(7,file=outfile)
+    DO i=1,nr
+       r=progression(0.,rmax,i,nr)
+       DO j=1,nk
+          k=exp(progression(log(kmin),log(kmax),j,nk))
+          integrand(j)=winint_integrand(r,rmin,rmax,rv,rs,p1,p2,irho)*sinc(r*k)
+       END DO
+       WRITE(7,*) r/rv, (integrand(j), j=1,nk)
+    END DO
+    CLOSE(7)
+
+    WRITE(*,*) 'WININT_DIAGNOSTICS: Done'
+    WRITE(*,*)
+    
+  END SUBROUTINE winint_diagnostics
 
   FUNCTION winint_normal(a,b,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
 
@@ -3685,16 +3705,16 @@ CONTAINS
 
   END FUNCTION winint_store
 
-  FUNCTION winint_bumps(k,rmax,rv,rs,p1,p2,irho,iorder,acc,imeth)
+  FUNCTION winint_bumps(k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc,imeth)
 
     !Integration routine to calculate the normalised halo FT
     IMPLICIT NONE
     REAL :: winint_bumps
-    REAL, INTENT(IN) :: k, rmax, rv, rs, p1, p2
+    REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
     INTEGER, INTENT(IN) :: iorder, imeth
     REAL, INTENT(IN) :: acc
-    REAL :: sum, w, rn, rmin
+    REAL :: sum, w, rn
     REAL :: r1, r2
     REAL :: a3, a2, a1, a0
     REAL :: x1, x2, x3, x4
@@ -3704,7 +3724,7 @@ CONTAINS
     INTEGER, PARAMETER :: nlim=3 !Do the bumps approximation after this number of bumps
 
     !This MUST be set to zero for this routine
-    rmin=0.
+    IF(rmin .NE. 0.) STOP 'WININT_BUMPS: Error, rmin must be zero'
 
     !Calculate the number of nodes of sinc(k*rmax) for 0<=r<=rmax
     n=FLOOR(k*rmax/pi)
@@ -3765,11 +3785,11 @@ CONTAINS
                 w=w+(k**2)*(a3*(r2**3+r1**3)+a2*(r2**2+r1**2)+a1*(r2+r1)+2.*a0)
                 w=w*((-1)**i)/k**4
              ELSE
-                STOP 'BUMPS: Error, imeth specified incorrectly'
+                STOP 'WININT_BUMPS: Error, imeth specified incorrectly'
              END IF
           END IF
        ELSE
-          STOP 'BUMPS: Error, imeth specified incorrectly'
+          STOP 'WININT_BUMPS: Error, imeth specified incorrectly'
        END IF
 
        !WRITE(*,*) i, REAL(r1), REAL(r2), REAL(w)
@@ -3789,13 +3809,11 @@ CONTAINS
   FUNCTION winint_integrand(r,rmin,rmax,rv,rs,p1,p2,irho)
 
     !The integrand for the W(k) integral
-    !Note that the sinc function is not included
+    !Note that the sinc function is *not* included
     IMPLICIT NONE
     REAL :: winint_integrand
     REAL, INTENT(IN) :: r, rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
-    !REAL, PARAMETER :: rmin=0.
-    !REAL, PARAMETER :: rmax=1d8 !Some large number
 
     IF(r==0.) THEN
        winint_integrand=4.*pi*rhor2at0(irho)
@@ -3872,7 +3890,7 @@ CONTAINS
     ELSE IF(irho==3) THEN
        !Moore et al. (1999)
        IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
        ELSE
           cmax=rmax/rs
           normalisation=(2./3.)*4.*pi*(rs**3)*log(1.+cmax**1.5)
@@ -3880,7 +3898,7 @@ CONTAINS
     ELSE IF(irho==4 .OR. irho==5) THEN
        !NFW (1997)
        IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
        ELSE
           cmax=rmax/rs
           normalisation=4.*pi*(rs**3)*NFW_factor(cmax)!(log(1.+cmax)-cmax/(1.+cmax))
@@ -3888,7 +3906,7 @@ CONTAINS
     ELSE IF(irho==6) THEN
        !Beta model with beta=2/3
        IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
        ELSE
           cmax=rmax/rs
           normalisation=4.*pi*(rs**3)*(cmax-atan(cmax))
@@ -3897,7 +3915,7 @@ CONTAINS
        !Fedeli (2014) stellar model
        IF(rmin .NE. 0) THEN
           !I could actually derive an analytical expression here if this was ever necessary
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
        ELSE
           !This would be even easier if rmax -> infinity (just 4*pi*rstar^2)
           rstar=p1
@@ -3907,7 +3925,7 @@ CONTAINS
     ELSE IF(irho==9) THEN
        !Stellar profile from Schneider & Teyssier (2015)       
        IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
        ELSE
           !Assumed to go on to r -> infinity
           rstar=p1
@@ -3918,7 +3936,7 @@ CONTAINS
        !Assumed to go on to r -> infinity
        !IF(rmin .NE. 0.) STOP 'NORMALISATION: Error, normalisation of Schneider (2015) gas profile assumed to be from 0 -> inf
        IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
        ELSE
           !Assumed to go on to r -> infinity
           re=p1
@@ -3936,7 +3954,7 @@ CONTAINS
     ELSE
        !Otherwise need to do the integral numerically
        !k=0 gives normalisation
-       normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho)
+       normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
     END IF
 
   END FUNCTION normalisation
@@ -4225,7 +4243,7 @@ CONTAINS
     REAL :: halo_fraction
     INTEGER, INTENT(IN) :: itype
     REAL, INTENT(IN) :: m
-    TYPE(cosmology) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm
 
     If(itype==-1 .OR. itype==0) THEN
        halo_fraction=1.
@@ -4794,5 +4812,85 @@ CONTAINS
     scatter_integrand=wk(1)*wk(2)*pc
     
   END FUNCTION scatter_integrand
+
+  SUBROUTINE winint_speed_tests(k,nk,rmin,rmax,rv,rs,p1,p2,irho)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k(nk), rmin, rmax, rv, rs, p1, p2
+    INTEGER, INTENT(IN) :: nk, irho
+    CHARACTER(len=256) :: base, ext, outfile
+    INTEGER :: j, i, ii, imeth, n, ntime
+    LOGICAL :: timing
+    REAL :: t1, t2, w
+
+    REAL, PARAMETER :: seconds=2. ! How many seconds should each timing test take (approximate)
+
+    base='winint/results_'
+    ext='.dat'
+
+    !j=1 - Time calculation
+    !j=2 - Write calculation out
+    DO j=1,2
+
+       IF(j==1) timing=.FALSE.
+       IF(j==2) THEN
+          timing=.TRUE.
+          WRITE(*,*) 'WININT_SPEED_TESTS: Doing this many evaluations for timing test:', ntime
+          WRITE(*,*)
+       END IF
+
+       DO imeth=1,7
+
+          WRITE(*,*) 'WININT_SPEED_TESTS: Method:', imeth
+          IF(imeth==1) WRITE(*,*) 'WININT_SPEED_TESTS: winint_normal'
+          IF(imeth==2) WRITE(*,*) 'WININT_SPEED_TESTS: winint_normal - bumps'
+          IF(imeth==3) WRITE(*,*) 'WININT_SPEED_TESTS: winint_store'
+          IF(imeth==4) WRITE(*,*) 'WININT_SPEED_TESTS: winint_store - bumps'
+          IF(imeth==5) WRITE(*,*) 'WININT_SPEED_TESTS: linear - bumps'
+          IF(imeth==6) WRITE(*,*) 'WININT_SPEED_TESTS: cubic - bumps'
+          IF(imeth==7) WRITE(*,*) 'WININT_SPEED_TESTS: hybrid'
+
+          IF(timing .EQV. .FALSE.) THEN
+             outfile=number_file(base,imeth,ext)
+             WRITE(*,*) 'WININT_SPEED_TESTS: Writing data: ', TRIM(outfile)
+             OPEN(7,file=outfile)            
+             n=1
+             IF(imeth==1) CALL cpu_time(t1)
+          ELSE
+             CALL cpu_time(t1)
+             n=ntime
+          END IF
+
+          ! Loop over number of iterations
+          DO ii=1,n
+
+             ! Loop over wave number and do integration
+             DO i=1,nk
+                w=winint(k(i),rmin,rmax,rv,rs,p1,p2,irho,imeth)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+                IF(.NOT. timing) THEN
+                   WRITE(7,*) k(i), w
+                END IF
+             END DO
+
+          END DO
+
+          IF(.NOT. timing) THEN
+             CLOSE(7)
+             IF(imeth==1) THEN
+                CALL cpu_time(t2)
+                ntime=CEILING(seconds/(t2-t1))
+             END IF
+          ELSE
+             CALL cpu_time(t2)
+             WRITE(*,*) 'WININT_SPEED_TESTS: Time [s]:', t2-t1
+          END IF
+
+          WRITE(*,*)
+
+       END DO
+
+    END DO
+
+  END SUBROUTINE winint_speed_tests
 
 END MODULE HMx

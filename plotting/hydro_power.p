@@ -50,6 +50,7 @@ print 'iplot = 3: Power spectrum suppression plot'
 print 'iplot = 4: Power spectrum residual plot'
 print 'iplot = 5: Power spectrum components'
 print 'iplot = 6: Pressure spectrum'
+print 'iplot = 7: Power spectrum with k^1.5 units'
 print 'iplot = '.iplot.''
 print ''
 
@@ -185,6 +186,47 @@ plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      hmpk(hmpk_name,z,0,1) u 1:(column(d)) w l lw 3 dt 2 lc col2 noti,\
      hmpk(hmpk_name,z,0,2) u 1:(column(d)) w l lw 3 dt 2 lc col3 noti,\
      hmpk(hmpk_name,z,0,3) u 1:(column(d)) w l lw 3 dt 2 lc col4 noti
+
+}
+
+if(iplot==7){
+
+pow=1.5
+
+#Delta^2(k)/k^1.5 range
+pmin=1e-4
+pmax=1e2
+set log y
+set yrange [pmin:pmax]
+set format y '10^{%T}'
+set ylabel '{/Symbol D}_{i,j}^2(k) / [k / h^{-1} Mpc]^{1.5}'
+set mytics 10
+
+if(print==1){
+outfile(name,z)=sprintf('%s_z%1.1f_power.eps',name,z)
+set output outfile(data_name,z)
+}
+
+#set title 'Comparison of '.sims.' '.hm_name.' simulation to halo-model predictions'
+
+set key bottom right
+
+plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
+     NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
+     data(data_name,mesh,snap,fld0,fld0) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 7 lc col1 noti,\
+     data(data_name,mesh,snap,fld1,fld1) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 7 lc col2 noti,\
+     data(data_name,mesh,snap,fld2,fld2) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 7 lc col3 noti,\
+     data(data_name,mesh,snap,fld3,fld3) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 7 lc col4 noti,\
+     data(data_name,mesh,snap,fld0,fld1) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 6 lc col2 noti,\
+     data(data_name,mesh,snap,fld0,fld2) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 6 lc col3 noti,\
+     data(data_name,mesh,snap,fld0,fld3) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 6 lc col4 noti,\
+     hmpk(hmpk_name,z,0,0) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col1 ti 'All matter',\
+     hmpk(hmpk_name,z,1,1) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col2 ti 'CDM',\
+     hmpk(hmpk_name,z,2,2) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col3 ti 'Gas',\
+     hmpk(hmpk_name,z,3,3) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col4 ti 'Stars',\
+     hmpk(hmpk_name,z,0,1) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 2 lc col2 noti,\
+     hmpk(hmpk_name,z,0,2) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 2 lc col3 noti,\
+     hmpk(hmpk_name,z,0,3) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 2 lc col4 noti
 
 }
 

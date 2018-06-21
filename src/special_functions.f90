@@ -165,7 +165,7 @@ CONTAINS
     ELSE IF(x>x2) THEN
        smoothblob=0.
     ELSE
-       smoothblob=(1.+cos(2.*pi*(x-x1)/(x2-x1)))/2.
+       smoothblob=(1.+cos(twopi*(x-x1)/(x2-x1)))/2.
        smoothblob=(1.-smoothblob)**n
     END IF
 
@@ -320,7 +320,7 @@ CONTAINS
     REAL :: f1, f2
 
     f1=exp(-((x-mu)**2)/(2.*sigma**2))
-    f2=sigma*sqrt(2.*pi)
+    f2=sigma*sqrt(twopi)
 
     Gaussian=f1/f2
 
