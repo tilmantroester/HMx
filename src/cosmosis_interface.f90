@@ -126,7 +126,7 @@ function execute(block, config) result(status)
 
   ! Cosmology parameters
   status = datablock_get_double_default(block, cosmological_parameters_section, "omega_m", 0.3, HMx_config%cosm%om_m)
-  status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v_unmodified) ! Mead: changed this to *unmodified* Omega_v
+  status = datablock_get_double_default(block, cosmological_parameters_section, "omega_lambda", 1.0-HMx_config%cosm%om_m, HMx_config%cosm%om_v) ! Mead: changed this to *unmodified* Omega_v
   status = datablock_get_double_default(block, cosmological_parameters_section, "omega_b", 0.05, HMx_config%cosm%om_b)
   status = datablock_get_double_default(block, cosmological_parameters_section, "omega_nu", 0.0, HMx_config%cosm%om_nu)
   status = datablock_get_double_default(block, cosmological_parameters_section, "h0", 0.7, HMx_config%cosm%h)
