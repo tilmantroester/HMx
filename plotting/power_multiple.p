@@ -76,6 +76,9 @@ print('')
 #Actual plot
 set title tits
 plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti#,\
+     file_2halo u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 1 lc palette noti,\
+     file_1halo u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 1 lc palette noti
+#,\
      f(x) w l lw 3 dt 2 lc -1 noti
 
 #plot file_2halo  u 1:(column(nh+1)):(real(nh-1)/real(nh)) w l lw 2 dt 2 lc palette,\

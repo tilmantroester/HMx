@@ -378,131 +378,200 @@ PROGRAM HMx_driver
 
      DO iowl=1,n
 
-        !Assigns the cosmological model
-        IF(imode==2)  icosmo=4
-        IF(imode==15) icosmo=2
-        IF(imode==16) icosmo=4
-        CALL assign_cosmology(icosmo,cosm,verbose)
-
-        !cosmo-OWLS
-        IF(imode==15 .AND. iowl==1) THEN
-           name='REF'
-           fname=name
-           !From my fitting by eye
-           cosm%alpha=2.
-           cosm%eps=1.
-           cosm%Gamma=1.24
-           cosm%M0=1e13
-           cosm%Astar=0.055
-        ELSE IF(imode==15 .AND. iowl==2) THEN
-           name='NOCOOL'
-           fname=name
-           !From my fitting by eye
-           cosm%alpha=2.
-           cosm%eps=1.
-           cosm%Gamma=1.1
-           cosm%M0=0.
-           cosm%Astar=0.
-        ELSE IF(imode==15 .AND. iowl==3) THEN
-           name='AGN'
-           fname=name
-           !From Tilman's preliminary results
-           cosm%alpha=0.52
-           cosm%eps=1.
-           cosm%Gamma=1.17
-           cosm%M0=1.047e14
-           cosm%Astar=0.02
-        ELSE IF(imode==15 .AND. iowl==4) THEN
-           name='AGN 8.5'
-           fname='AGN8p5'
-           !From Tilman's preliminary results
-           cosm%alpha=0.56
-           cosm%eps=1.
-           cosm%Gamma=1.19
-           cosm%M0=3.548e14
-           cosm%Astar=0.01
-        ELSE IF(imode==15 .AND. iowl==5) THEN
-           name='AGN 8.7'
-           fname='AGN8p7'
-           !From Tilman's preliminary results
-           cosm%alpha=0.53
-           cosm%eps=1.
-           cosm%Gamma=1.21
-           cosm%M0=7.586e14
-           cosm%Astar=0.01
-        END IF
-
-        !BAHAMAS
-        IF(imode==16 .AND. iowl==1) THEN
-           name='AGN'
-           fname='AGN'
-           !! Best z=0 fit on 04/05/2018 !!
-           !cosm%alpha=2.*0.474
-           !cosm%eps=10**(-0.068)
-           !cosm%Gamma=1.202
-           !cosm%M0=10**13.843
-           !cosm%Astar=0.029
-           !cosm%whim=10**6.316
-           !! !!
-           !! Best z=0 fit on 15/06/2018 !!
-           cosm%alpha=0.446
-           cosm%eps=10**(0.005)
-           cosm%Gamma=1.544
-           cosm%M0=10**(12.919)
-           cosm%Astar=0.028
-           cosm%whim=10**(5.261)
-           !! !!
-        ELSE IF(imode==16 .AND. iowl==3) THEN
-           name='AGN high'
-           fname='AGN-hi'
-           !! Best z=0 fit on 04/05/2018 !!
-           !cosm%alpha=2.*0.528
-           !cosm%eps=10**0.164
-           !cosm%Gamma=1.208
-           !cosm%M0=10**14.329
-           !cosm%Astar=0.026
-           !cosm%whim=10**6.359
-           !! !!
-           !! Best z=0 fit on 15/06/2018 !!
-           cosm%alpha=0.471
-           cosm%eps=10**(-0.067)
-           cosm%Gamma=1.916
-           cosm%M0=10**(13.607)
-           cosm%Astar=0.025
-           cosm%whim=10**(5.337)
-           !! !!
-        ELSE IF(imode==16 .AND. iowl==2) THEN
-           name='AGN low'
-           fname='AGN-lo'
-           !! Best z=0 fit on 04/05/2018 !!
-           !cosm%alpha=2.*0.440
-           !cosm%eps=10**(-0.022)
-           !cosm%Gamma=1.196
-           !cosm%M0=10**13.542
-           !cosm%Astar=0.031
-           !cosm%whim=10**6.329
-           !! !!
-           !! Best z=0 15/06/2018 !!
-           cosm%alpha=0.452
-           cosm%eps=10**(0.055)
-           cosm%Gamma=1.598
-           cosm%M0=10**(12.161)
-           cosm%Astar=0.031
-           cosm%whim=10**(5.077)
-           !! !!
-        END IF
-
-        IF(imode==15) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
-        IF(imode==16) WRITE(*,*) 'Comparing to BAHAMAS model: ', TRIM(name)
-
-        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        CALL init_cosmology(cosm)
-        CALL print_cosmology(cosm)
-
         DO j=1,nz
 
            z=z_tab(j)
+
+           !Assigns the cosmological model
+           IF(imode==2)  icosmo=4
+           IF(imode==15) icosmo=2
+           IF(imode==16) icosmo=4
+           CALL assign_cosmology(icosmo,cosm,verbose)
+
+           IF(imode==15) THEN
            
+              !cosmo-OWLS
+              IF(imode==15 .AND. iowl==1) THEN
+                 name='REF'
+                 fname=name
+                 !From my fitting by eye
+                 cosm%alpha=2.
+                 cosm%eps=1.
+                 cosm%Gamma=1.24
+                 cosm%M0=1e13
+                 cosm%Astar=0.055
+              ELSE IF(imode==15 .AND. iowl==2) THEN
+                 name='NOCOOL'
+                 fname=name
+                 !From my fitting by eye
+                 cosm%alpha=2.
+                 cosm%eps=1.
+                 cosm%Gamma=1.1
+                 cosm%M0=0.
+                 cosm%Astar=0.
+              ELSE IF(imode==15 .AND. iowl==3) THEN
+                 name='AGN'
+                 fname=name
+                 !From Tilman's preliminary results
+                 cosm%alpha=0.52
+                 cosm%eps=1.
+                 cosm%Gamma=1.17
+                 cosm%M0=1.047e14
+                 cosm%Astar=0.02
+              ELSE IF(imode==15 .AND. iowl==4) THEN
+                 name='AGN 8.5'
+                 fname='AGN8p5'
+                 !From Tilman's preliminary results
+                 cosm%alpha=0.56
+                 cosm%eps=1.
+                 cosm%Gamma=1.19
+                 cosm%M0=3.548e14
+                 cosm%Astar=0.01
+              ELSE IF(imode==15 .AND. iowl==5) THEN
+                 name='AGN 8.7'
+                 fname='AGN8p7'
+                 !From Tilman's preliminary results
+                 cosm%alpha=0.53
+                 cosm%eps=1.
+                 cosm%Gamma=1.21
+                 cosm%M0=7.586e14
+                 cosm%Astar=0.01
+              END IF
+
+              !Need to do this after cosmological parameters are changed
+              CALL init_cosmology(cosm)
+              CALL print_cosmology(cosm)
+
+           END IF
+
+           !BAHAMAS
+           IF(imode==16) THEN
+
+              IF(iowl==1) THEN
+                 name='AGN'
+                 fname='AGN'
+                 !! Best z=0 fit on 04/05/2018 !!
+                 !cosm%alpha=2.*0.474
+                 !cosm%eps=10**(-0.068)
+                 !cosm%Gamma=1.202
+                 !cosm%M0=10**13.843
+                 !cosm%Astar=0.029
+                 !cosm%whim=10**6.316
+                 !! !!
+                 !! Best z=0 fit on 21/06/2018 !!
+                 ihm=4
+                 IF(z==0.) THEN
+                    cosm%alpha=0.379
+                    cosm%eps=10**(-0.064)
+                    cosm%Gamma=1.206
+                    cosm%M0=10**(13.818)
+                    cosm%Astar=0.029
+                    cosm%whim=10**(5.752)
+                 ELSE IF(z==0.5) THEN
+                    cosm%alpha=0.537
+                    cosm%eps=10**(-0.213)
+                    cosm%Gamma=1.163
+                    cosm%M0=10**(13.963)
+                    cosm%Astar=0.024
+                    cosm%whim=10**(5.749)
+                 ELSE IF(z==1. .OR. z==2.) THEN
+                    cosm%alpha=0.664
+                    cosm%eps=10**(-0.394)
+                    cosm%Gamma=1.152
+                    cosm%M0=10**(13.973)
+                    cosm%Astar=0.007
+                    cosm%whim=10**(5.648)
+                 END IF
+                 !! !!
+                 
+              ELSE IF(iowl==3) THEN
+                 
+                 name='AGN high'
+                 fname='AGN-hi'
+                 !! Best z=0 fit on 04/05/2018 !!
+                 !cosm%alpha=2.*0.528
+                 !cosm%eps=10**0.164
+                 !cosm%Gamma=1.208
+                 !cosm%M0=10**14.329
+                 !cosm%Astar=0.026
+                 !cosm%whim=10**6.359
+                 !! !!
+                 !! Best z=0 fit on 21/06/2018 !!
+                 ihm=4
+                 IF(z==0.) THEN
+                    cosm%alpha=0.421
+                    cosm%eps=10**(-0.159)
+                    cosm%Gamma=1.211
+                    cosm%M0=10**(14.313)
+                    cosm%Astar=0.026
+                    cosm%whim=10**(5.800)
+                 ELSE IF(z==0.5) THEN
+                    cosm%alpha=0.617
+                    cosm%eps=10**(-0.491)
+                    cosm%Gamma=1.170
+                    cosm%M0=10**(14.451)
+                    cosm%Astar=0.022
+                    cosm%whim=10**(5.848)
+                 ELSE IF(z==1. .OR. z==2.) THEN
+                    cosm%alpha=1.038
+                    cosm%eps=10**(-0.455)
+                    cosm%Gamma=1.397
+                    cosm%M0=10**(14.560)
+                    cosm%Astar=0.007
+                    cosm%whim=10**(5.786)
+                 END IF
+                 !! !!
+                 
+              ELSE IF(iowl==2) THEN
+                 
+                 name='AGN low'
+                 fname='AGN-lo'
+                 !! Best z=0 fit on 04/05/2018 !!
+                 !cosm%alpha=2.*0.440
+                 !cosm%eps=10**(-0.022)
+                 !cosm%Gamma=1.196
+                 !cosm%M0=10**13.542
+                 !cosm%Astar=0.031
+                 !cosm%whim=10**6.329
+                 !! !!
+                 !! Best z=0 21/06/2018 !!
+                 ihm=4
+                 IF(z==0.) THEN
+                    cosm%alpha=0.353
+                    cosm%eps=10**(-0.020)
+                    cosm%Gamma=1.199
+                    cosm%M0=10**(13.511)
+                    cosm%Astar=0.031
+                    cosm%whim=10**(5.764)
+                 ELSE IF(z==0.5) THEN
+                    cosm%alpha=0.492
+                    cosm%eps=10**(-0.107)
+                    cosm%Gamma=1.159
+                    cosm%M0=10**(13.662)
+                    cosm%Astar=0.025
+                    cosm%whim=10**(5.720)
+                 ELSE IF(z==1. .OR. z==2.) THEN
+                    cosm%alpha=0.432
+                    cosm%eps=10**(-0.424)
+                    cosm%Gamma=1.089
+                    cosm%M0=10**(13.687)
+                    cosm%Astar=0.010
+                    cosm%whim=10**(5.786)
+                 END IF
+                 !! !!
+              END IF
+
+              !Need to do this after cosmological parameters are changed  
+              CALL init_cosmology(cosm)
+              CALL print_cosmology(cosm)
+
+           END IF
+
+           IF(imode==15) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
+           IF(imode==16) WRITE(*,*) 'Comparing to BAHAMAS model: ', TRIM(name)
+
+           
+              
            !Initiliasation for the halomodel calcualtion
            CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 

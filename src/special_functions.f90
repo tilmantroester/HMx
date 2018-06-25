@@ -4,6 +4,30 @@ MODULE special_functions
 
 CONTAINS
 
+  REAL FUNCTION sigmoid_tanh(x)
+
+    ! A function that smoothly transitions from 0 to 1 around x
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: x
+
+    sigmoid_tanh=0.5*(1.+tanh(x))
+    
+  END FUNCTION sigmoid_tanh
+
+  REAL FUNCTION sigmoid_log(x,a)
+
+    ! A function that smoothly transitions from 0 to 1 around x
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: x, a
+    REAL :: xp, xm
+
+    xp=x**a
+    xm=x**(-a)
+    
+    sigmoid_log=0.5*(1.+(xp-xm)/(xp+xm))
+    
+  END FUNCTION sigmoid_log
+
   FUNCTION Legendre_Polynomial(n,x)
 
     IMPLICIT NONE

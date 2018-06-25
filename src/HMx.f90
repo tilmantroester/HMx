@@ -316,8 +316,24 @@ CONTAINS
 
     !Alpha is set to one sometimes, which is just the standard halo-model sum of terms
     !No need to have an IF statement around this
-    alp=alpha_transition(hmod,cosm)
-    pfull=(p2h**alp+p1h**alp)**(1./alp)
+    IF(hmod%itrans==2 .OR. hmod%itrans==3 .OR. hmod%itrans==4 .OR. hmod%itrans==6) THEN
+       IF(p2h<0. .OR. p1h<0.) THEN
+          IF(hmod%itrans==6) THEN
+             pfull=p2h+p1h
+          ELSE
+             WRITE(*,*) 'P_2h:', p2h
+             WRITE(*,*) 'P_1h:', p1h
+             STOP 'CALCULATE_HALOMOD_K: Error, either p2h or p1h is less than zero, this is a problem for the smoothed transition'
+          END IF
+       ELSE
+          alp=alpha_transition(hmod,cosm)    
+          pfull=(p2h**alp+p1h**alp)**(1./alp)
+       END IF     
+    ELSE IF(hmod%itrans==5) THEN
+       pfull=p2h+sigmoid_log(1.*k/hmod%knl,1.)*(p1h-p2h)
+    ELSE
+       pfull=p2h+p1h
+    END IF
 
     !If we are worrying about voids...
     IF(hmod%voids) THEN
@@ -325,7 +341,7 @@ CONTAINS
     END IF
 
   END SUBROUTINE calculate_halomod_k
-
+    
   SUBROUTINE halo_diagnostics(z,hmod,cosm,dir)
 
     !Writes out to file a whole set of halo diagnostics
@@ -746,10 +762,7 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(hmod%itrans==1) THEN
-       !Set to 1 for the standard halo model addition of one- and two-halo terms
-       alpha_transition=1.
-    ELSE IF(hmod%itrans==2) THEN
+    IF(hmod%itrans==2) THEN
        !From Mead et al. (2015)   
        !This uses the top-hat defined neff in contrast to the neff in HALOFIT
        alpha_transition=2.93*1.77**hmod%neff     
@@ -757,11 +770,11 @@ CONTAINS
        !From Mead et al. (2016)
        !This uses the top-hat defined neff in contrast to the neff in HALOFIT
        alpha_transition=3.24*1.85**hmod%neff 
-    ELSE IF(hmod%itrans==4) THEN
+    ELSE IF(hmod%itrans==4 .OR. hmod%itrans==6) THEN
        !Specially for HMx, exponentiated Mead et al. (2016) result
        alpha_transition=(3.24*1.85**hmod%neff)**2.5
     ELSE
-       STOP 'ALPHA_TRANSITION: Error, itran defined incorrectly'
+       alpha_transition=1.
     END IF
 
     !Catches values of alpha that are crazy
@@ -863,6 +876,8 @@ CONTAINS
     IF(hmod%itrans==2) WRITE(*,*) 'Smoothed transition from Mead et al. (2015)'
     IF(hmod%itrans==3) WRITE(*,*) 'Smoothed transition from Mead et al. (2016)'
     IF(hmod%itrans==4) WRITE(*,*) 'Experimental smoothed transition for HMx'
+    IF(hmod%itrans==5) WRITE(*,*) 'Tanh transition with k_nl'
+    IF(hmod%itrans==6) WRITE(*,*) 'Experimental smoothed transition for HMx with safeguards for negative terms'
 
     IF(hmod%use_UPP) WRITE(*,*) 'Using UPP for all electron pressure calculations'
 
@@ -981,7 +996,7 @@ CONTAINS
     INTEGER :: i
 
     !Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=12 !Number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=13 !Number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate halo-model calculation (Mead et al. 2016)'
     names(2)='Basic halo-model calculation (Two-halo term is linear)'
@@ -995,6 +1010,7 @@ CONTAINS
     names(10)='Comparison of mass conversions with Wayne Hu code'
     names(11)='Standard halo-model calculation (Seljak 2000) but with UPP for electron pressure'
     names(12)='Spherical collapse used for Mead 2017 results'
+    names(13)='Experimental log-tanh transition'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -1078,6 +1094,8 @@ CONTAINS
     !2 - Mead et al. (2015)
     !3 - Mead et al. (2016)
     !4 - New HMx transition
+    !5 - Tanh transition
+    !6 - New HMx transition with safeguards for negative terms
     hmod%itrans=1
 
     !Use the Dolag c(M) correction for dark energy?
@@ -1143,16 +1161,14 @@ CONTAINS
        !3 - Standard halo-model calculation (Seljak 2000)
        !This is the default, so do nothing here
     ELSE IF(ihm==4 .OR. ihm==6) THEN
-       !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed one- to two-halo transition and one-halo damping
+       !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed two- to one-halo transition and one-halo damping
        !6 - Half-accurate halo-model calculation (Mead et al. 2015, 2016)
-       hmod%itrans=4
+       hmod%itrans=6
        hmod%ikstar=2
        hmod%i1hdamp=3
-       hmod%ikstar=2
        IF(ihm==6) THEN
           hmod%idc=3
           hmod%iDv=3
-          hmod%iDolag=3
        END IF
     ELSE IF(ihm==5) THEN
        !5 - Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed and Bullock c(M)
@@ -1199,6 +1215,9 @@ CONTAINS
        hmod%idc=5
        hmod%iDv=5
        hmod%iDolag=2 ! This seems not to be important for these results
+    ELSE IF(ihm==13) THEN
+       !13 - Experimental log-tanh transition
+       hmod%itrans=5
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -2049,7 +2068,7 @@ CONTAINS
     END IF
 
     !For some extreme cosmologies frac>1. so this must be added to prevent p_2h<0.
-    IF(p_2h<0.) p_2h=0.
+    IF(p_2h<0.) WRITE(*,*) 'P_2h: Caution! P_2h < 0., this used to be fixed by setting p_2h=0. explicitly'
 
   END FUNCTION p_2h
 
@@ -3199,7 +3218,7 @@ CONTAINS
           win_norm=f1/f2
           !win_norm=1./(1.+(k*rstar)**2) !bigRstar -> infinity limit (rmax >> rstar)
        ELSE IF(irho==9) THEN
-          STOP 'WIN_NORM: Double check this result for irho=9'
+          !STOP 'WIN_NORM: Double check this result for irho=9'
           !Only valid if rmin=0 and rmax=inf
           rstar=p1
           win_norm=(sqrt(pi)/2.)*erf(k*rstar)/(k*rstar)
