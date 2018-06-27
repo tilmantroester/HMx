@@ -12,7 +12,7 @@ MODULE HMx
 
   !Halo-model stuff that needs to be recalculated for each new z
   TYPE halomod
-     INTEGER :: ip2h, ibias, imf, iconc, iDolag, iAs, ip2h_corr
+     INTEGER :: ip2h, ibias, imf, iconc, iDolag, iAs, ip2h_corr, ikb
      INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans, iscatter
      LOGICAL :: voids, use_UPP, smooth_freegas
      REAL, ALLOCATABLE :: c(:), rv(:), nu(:), sig(:), zc(:), m(:), rr(:), sigf(:), log_m(:)
@@ -796,22 +796,27 @@ CONTAINS
     WRITE(*,*) '==========================='
     WRITE(*,*) TRIM(hmod%name)
 
-    !Form of the two-halo term
+    ! Form of the two-halo term
     IF(hmod%ip2h==1) WRITE(*,*) 'Linear two-halo term'
     IF(hmod%ip2h==2) WRITE(*,*) 'Standard two-halo term (Seljak 2000)'
 
-    !Order to go to in halo bias
+    ! Order to go to in halo bias
     IF(hmod%ip2h .NE. 1) THEN
        IF(hmod%ibias==1) WRITE(*,*) 'Linear halo bias'
        IF(hmod%ibias==2) WRITE(*,*) 'Second-order halo bias'
     END IF
 
-    !Correction for missing low-mass haloes
+    ! Correction for missing low-mass haloes
     IF(hmod%ip2h .NE. 1) THEN
        IF(hmod%ip2h_corr==1) WRITE(*,*) 'No two-halo correction applied for missing low-mass haloes'
        IF(hmod%ip2h_corr==2) WRITE(*,*) 'Two-halo term corrected by adding missing g(nu)b(nu)' 
        IF(hmod%ip2h_corr==3) WRITE(*,*) 'Two-halo term corrected via delta function at low mass end'      
     END IF
+
+    ! Scale-dependent halo bias
+    IF(hmod%ikb==1) WRITE(*,*) 'Scale-independent halo bias'
+    IF(hmod%ikb==2) WRITE(*,*) 'Scale-dependent halo bias fudge from Fedeli (2014b)'
+    IF(hmod%ikb==3) WRITE(*,*) 'Scale-dependent halo bias fudge'
 
     !Halo mass function
     IF(hmod%imf==1) WRITE(*,*) 'Press & Schecter (1974) mass function'
@@ -996,7 +1001,7 @@ CONTAINS
     INTEGER :: i
 
     !Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=13 !Number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=14 !Number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate halo-model calculation (Mead et al. 2016)'
     names(2)='Basic halo-model calculation (Two-halo term is linear)'
@@ -1006,11 +1011,12 @@ CONTAINS
     names(6)='Half-accurate halo-model calculation (Mead et al. 2015, 2016)'
     names(7)='Accurate halo-model calculation (Mead et al. 2015)'
     names(8)='Including scatter in halo properties at fixed mass'
-    names(9)='CCL tests'
+    names(9)='Parameters for CCL tests'
     names(10)='Comparison of mass conversions with Wayne Hu code'
     names(11)='Standard halo-model calculation (Seljak 2000) but with UPP for electron pressure'
-    names(12)='Spherical collapse used for Mead 2017 results'
+    names(12)='Spherical collapse used for Mead (2017) results'
     names(13)='Experimental log-tanh transition'
+    names(14)='Experimental scale-dependent halo bias'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -1027,6 +1033,12 @@ CONTAINS
     !2 - Add value of missing integral assuming that W(k)=1
     !3 - Put the missing part of the integrand as a delta function at lower mass limit
     hmod%ip2h_corr=3
+
+    !Scale dependent halo bias
+    !1 - None
+    !2 - From Fedeli (2014b)
+    !3 - My own experimental model
+    hmod%ikb=1
 
     !Order of halo bias to go to
     !1 - Linear order (standard)
@@ -1073,7 +1085,7 @@ CONTAINS
     !2 - Mead et al. (2015)
     hmod%ieta=1
 
-    !kstar for one-halo term large-scale damping
+    !k* for one-halo term large-scale damping
     !1 - No
     !2 - Mead et al. (2015)
     hmod%ikstar=1
@@ -1101,7 +1113,7 @@ CONTAINS
     !Use the Dolag c(M) correction for dark energy?
     !1 - No
     !2 - Yes, exactly as in Dolag et al. (2004)
-    !3 - Yes, 1.5 power correction
+    !3 - Yes, as in Dolage et al. (2004) but with a ^1.5 power
     hmod%iDolag=2
 
     !Scatter in halo properties at fixed mass
@@ -1218,6 +1230,11 @@ CONTAINS
     ELSE IF(ihm==13) THEN
        !13 - Experimental log-tanh transition
        hmod%itrans=5
+    ELSE IF(ihm==14) THEN
+       !14 - Experimental scale-dependent halo bias
+       hmod%ikb=3
+       hmod%ikstar=2
+       hmod%i1hdamp=3
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -2056,19 +2073,28 @@ CONTAINS
 
     END IF
 
-    !Two-halo damping parameters
-    sigv=hmod%sigv
-    frac=fdamp(a,hmod,cosm)
-
     !Apply the damping to the two-halo term
-    IF(frac==0.) THEN
-       p_2h=p_2h
-    ELSE
-       p_2h=p_2h*(1.-frac*(tanh(k*sigv/sqrt(ABS(frac))))**2)
+    IF(hmod%i2hdamp .NE. 1) THEN
+       !Two-halo damping parameters
+       sigv=hmod%sigv
+       frac=fdamp(a,hmod,cosm)
+       IF(frac==0.) THEN
+          p_2h=p_2h
+       ELSE
+          p_2h=p_2h*(1.-frac*(tanh(k*sigv/sqrt(ABS(frac))))**2)
+       END IF
+    END IF
+       
+    IF(hmod%ikb==2) THEN
+       ! Fedeli (2014b) 'scale-dependent halo bias'
+       p_2h=p_2h*(1.+k)**0.54
+    ELSE IF(hmod%ikb==3) THEN
+       ! My own experimental model
+       p_2h=p_2h*(1.+(k/hmod%knl))**0.5
     END IF
 
     !For some extreme cosmologies frac>1. so this must be added to prevent p_2h<0.
-    IF(p_2h<0.) WRITE(*,*) 'P_2h: Caution! P_2h < 0., this used to be fixed by setting p_2h=0. explicitly'
+    IF(p_2h<0.) STOP 'P_2h: Caution! P_2h < 0., this used to be fixed by setting p_2h=0. explicitly'
 
   END FUNCTION p_2h
 

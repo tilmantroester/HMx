@@ -447,118 +447,261 @@ PROGRAM HMx_driver
            !BAHAMAS
            IF(imode==16) THEN
 
+              ! Set the halo model
+              ihm=14
+
               IF(iowl==1) THEN
+
+                 ! Simulation name and file name
                  name='AGN'
                  fname='AGN'
-                 !! Best z=0 fit on 04/05/2018 !!
-                 !cosm%alpha=2.*0.474
-                 !cosm%eps=10**(-0.068)
-                 !cosm%Gamma=1.202
-                 !cosm%M0=10**13.843
-                 !cosm%Astar=0.029
-                 !cosm%whim=10**6.316
-                 !! !!
-                 !! Best z=0 fit on 21/06/2018 !!
-                 ihm=4
-                 IF(z==0.) THEN
-                    cosm%alpha=0.379
-                    cosm%eps=10**(-0.064)
-                    cosm%Gamma=1.206
-                    cosm%M0=10**(13.818)
-                    cosm%Astar=0.029
-                    cosm%whim=10**(5.752)
-                 ELSE IF(z==0.5) THEN
-                    cosm%alpha=0.537
-                    cosm%eps=10**(-0.213)
-                    cosm%Gamma=1.163
-                    cosm%M0=10**(13.963)
-                    cosm%Astar=0.024
-                    cosm%whim=10**(5.749)
-                 ELSE IF(z==1. .OR. z==2.) THEN
-                    cosm%alpha=0.664
-                    cosm%eps=10**(-0.394)
-                    cosm%Gamma=1.152
-                    cosm%M0=10**(13.973)
-                    cosm%Astar=0.007
-                    cosm%whim=10**(5.648)
+  
+                 ! Best z=0 fit on 21/06/2018
+                 IF(ihm==4) THEN
+                    
+                    IF(z==0.) THEN
+                       cosm%alpha=0.379
+                       cosm%eps=10**(-0.064)
+                       cosm%Gamma=1.206
+                       cosm%M0=10**(13.818)
+                       cosm%Astar=0.029
+                       cosm%whim=10**(5.752)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.537
+                       cosm%eps=10**(-0.213)
+                       cosm%Gamma=1.163
+                       cosm%M0=10**(13.963)
+                       cosm%Astar=0.024
+                       cosm%whim=10**(5.749)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.664
+                       cosm%eps=10**(-0.394)
+                       cosm%Gamma=1.152
+                       cosm%M0=10**(13.973)
+                       cosm%Astar=0.007
+                       cosm%whim=10**(5.648)
+                    END IF
+                    
+                 ELSE IF(ihm==6) THEN
+                    
+                    IF(z==0.) THEN
+                       cosm%alpha=0.195
+                       cosm%eps=10**(-0.484)
+                       cosm%Gamma=1.399
+                       cosm%M0=10**(13.807)
+                       cosm%Astar=0.020
+                       cosm%whim=10**(6.049)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.619
+                       cosm%eps=10**(-0.309)
+                       cosm%Gamma=1.507
+                       cosm%M0=10**(14.937)
+                       cosm%Astar=0.021
+                       cosm%whim=10**(5.987)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.384
+                       cosm%eps=10**(-0.475)
+                       cosm%Gamma=1.183
+                       cosm%M0=10**(14.562)
+                       cosm%Astar=0.017
+                       cosm%whim=10**(5.796)
+                    END IF
+                    
+                 ELSE IF(ihm==3 .OR. ihm==14) THEN
+                    
+                     IF(z==0.) THEN
+                       cosm%alpha=0.428
+                       cosm%eps=10**(0.015)
+                       cosm%Gamma=1.287
+                       cosm%M0=10**(13.233)
+                       cosm%Astar=0.030
+                       cosm%whim=10**(5.404)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.742
+                       cosm%eps=10**(0.148)
+                       cosm%Gamma=1.516
+                       cosm%M0=10**(12.688)
+                       cosm%Astar=0.026
+                       cosm%whim=10**(5.531)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.830
+                       cosm%eps=10**(0.169)
+                       cosm%Gamma=1.487
+                       cosm%M0=10**(12.004)
+                       cosm%Astar=0.024
+                       cosm%whim=10**(5.643)
+                    END IF
+                    
                  END IF
-                 !! !!
                  
               ELSE IF(iowl==3) THEN
-                 
+
+                 ! Simulation name and file name
                  name='AGN high'
                  fname='AGN-hi'
-                 !! Best z=0 fit on 04/05/2018 !!
-                 !cosm%alpha=2.*0.528
-                 !cosm%eps=10**0.164
-                 !cosm%Gamma=1.208
-                 !cosm%M0=10**14.329
-                 !cosm%Astar=0.026
-                 !cosm%whim=10**6.359
-                 !! !!
-                 !! Best z=0 fit on 21/06/2018 !!
-                 ihm=4
-                 IF(z==0.) THEN
-                    cosm%alpha=0.421
-                    cosm%eps=10**(-0.159)
-                    cosm%Gamma=1.211
-                    cosm%M0=10**(14.313)
-                    cosm%Astar=0.026
-                    cosm%whim=10**(5.800)
-                 ELSE IF(z==0.5) THEN
-                    cosm%alpha=0.617
-                    cosm%eps=10**(-0.491)
-                    cosm%Gamma=1.170
-                    cosm%M0=10**(14.451)
-                    cosm%Astar=0.022
-                    cosm%whim=10**(5.848)
-                 ELSE IF(z==1. .OR. z==2.) THEN
-                    cosm%alpha=1.038
-                    cosm%eps=10**(-0.455)
-                    cosm%Gamma=1.397
-                    cosm%M0=10**(14.560)
-                    cosm%Astar=0.007
-                    cosm%whim=10**(5.786)
+
+                 ! Best z=0 fit on 21/06/2018
+                 IF(ihm==4) THEN
+
+                    IF(z==0.) THEN
+                       cosm%alpha=0.421
+                       cosm%eps=10**(-0.160)
+                       cosm%Gamma=1.211
+                       cosm%M0=10**(14.313)
+                       cosm%Astar=0.026
+                       cosm%whim=10**(5.800)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.617
+                       cosm%eps=10**(-0.491)
+                       cosm%Gamma=1.170
+                       cosm%M0=10**(14.451)
+                       cosm%Astar=0.022
+                       cosm%whim=10**(5.848)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=1.038
+                       cosm%eps=10**(-0.455)
+                       cosm%Gamma=1.397
+                       cosm%M0=10**(14.560)
+                       cosm%Astar=0.007
+                       cosm%whim=10**(5.780)
+                    END IF
+
+                 ELSE IF(ihm==6) THEN
+
+                    IF(z==0.) THEN
+                       cosm%alpha=0.302
+                       cosm%eps=10**(-0.429)
+                       cosm%Gamma=1.339
+                       cosm%M0=10**(14.662)
+                       cosm%Astar=0.026
+                       cosm%whim=10**(6.080)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.751
+                       cosm%eps=10**(-0.013)
+                       cosm%Gamma=1.502
+                       cosm%M0=10**(14.958)
+                       cosm%Astar=0.014
+                       cosm%whim=10**(5.959)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.371
+                       cosm%eps=10**(-0.127)
+                       cosm%Gamma=1.101
+                       cosm%M0=10**(14.966)
+                       cosm%Astar=0.018
+                       cosm%whim=10**(6.040)
+                    END IF
+
+                 ELSE IF(ihm==3 .OR. ihm==14) THEN
+
+                    IF(z==0.) THEN
+                       cosm%alpha=0.528
+                       cosm%eps=10**(0.038)
+                       cosm%Gamma=1.505
+                       cosm%M0=10**(13.638)
+                       cosm%Astar=0.027
+                       cosm%whim=10**(5.078)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.742
+                       cosm%eps=10**(0.125)
+                       cosm%Gamma=1.547
+                       cosm%M0=10**(13.481)
+                       cosm%Astar=0.024
+                       cosm%whim=10**(5.786)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.918
+                       cosm%eps=10**(0.289)
+                       cosm%Gamma=1.996
+                       cosm%M0=10**(13.022)
+                       cosm%Astar=0.022
+                       cosm%whim=10**(5.849)
+                    END IF
+
                  END IF
-                 !! !!
                  
               ELSE IF(iowl==2) THEN
-                 
+
+                 ! Simulation name and file name
                  name='AGN low'
                  fname='AGN-lo'
-                 !! Best z=0 fit on 04/05/2018 !!
-                 !cosm%alpha=2.*0.440
-                 !cosm%eps=10**(-0.022)
-                 !cosm%Gamma=1.196
-                 !cosm%M0=10**13.542
-                 !cosm%Astar=0.031
-                 !cosm%whim=10**6.329
-                 !! !!
-                 !! Best z=0 21/06/2018 !!
-                 ihm=4
-                 IF(z==0.) THEN
-                    cosm%alpha=0.353
-                    cosm%eps=10**(-0.020)
-                    cosm%Gamma=1.199
-                    cosm%M0=10**(13.511)
-                    cosm%Astar=0.031
-                    cosm%whim=10**(5.764)
-                 ELSE IF(z==0.5) THEN
-                    cosm%alpha=0.492
-                    cosm%eps=10**(-0.107)
-                    cosm%Gamma=1.159
-                    cosm%M0=10**(13.662)
-                    cosm%Astar=0.025
-                    cosm%whim=10**(5.720)
-                 ELSE IF(z==1. .OR. z==2.) THEN
-                    cosm%alpha=0.432
-                    cosm%eps=10**(-0.424)
-                    cosm%Gamma=1.089
-                    cosm%M0=10**(13.687)
-                    cosm%Astar=0.010
-                    cosm%whim=10**(5.786)
+                 
+                 ! Best z=0 21/06/2018
+                 IF(ihm==4) THEN
+
+                    IF(z==0.) THEN
+                       cosm%alpha=0.353
+                       cosm%eps=10**(-0.020)
+                       cosm%Gamma=1.199
+                       cosm%M0=10**(13.511)
+                       cosm%Astar=0.031
+                       cosm%whim=10**(5.764)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.492
+                       cosm%eps=10**(-0.107)
+                       cosm%Gamma=1.159
+                       cosm%M0=10**(13.662)
+                       cosm%Astar=0.025
+                       cosm%whim=10**(5.720)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.432
+                       cosm%eps=10**(-0.424)
+                       cosm%Gamma=1.089
+                       cosm%M0=10**(13.687)
+                       cosm%Astar=0.010
+                       cosm%whim=10**(5.786)
+                    END IF
+
+                 ELSE IF(ihm==6) THEN
+
+                    IF(z==0.) THEN
+                       cosm%alpha=0.181
+                       cosm%eps=10**(-0.489)
+                       cosm%Gamma=1.432
+                       cosm%M0=10**(13.632)
+                       cosm%Astar=0.023
+                       cosm%whim=10**(6.099)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.420
+                       cosm%eps=10**(-0.413)
+                       cosm%Gamma=1.467
+                       cosm%M0=10**(14.606)
+                       cosm%Astar=0.021
+                       cosm%whim=10**(5.874)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.715
+                       cosm%eps=10**(-0.405)
+                       cosm%Gamma=1.154
+                       cosm%M0=10**(14.786)
+                       cosm%Astar=0.019
+                       cosm%whim=10**(5.434)
+                    END IF
+
+                 ELSE IF(ihm==3 .OR. ihm==14) THEN
+
+                    IF(z==0.) THEN
+                       cosm%alpha=0.409
+                       cosm%eps=10**(0.045)
+                       cosm%Gamma=1.275
+                       cosm%M0=10**(12.737)
+                       cosm%Astar=0.032
+                       cosm%whim=10**(5.357)
+                    ELSE IF(z==0.5) THEN
+                       cosm%alpha=0.698
+                       cosm%eps=10**(0.159)
+                       cosm%Gamma=1.393
+                       cosm%M0=10**(12.012)
+                       cosm%Astar=0.028
+                       cosm%whim=10**(5.491)
+                    ELSE IF(z==1. .OR. z==2.) THEN
+                       cosm%alpha=0.832
+                       cosm%eps=10**(0.312)
+                       cosm%Gamma=1.344
+                       cosm%M0=10**(12.020)
+                       cosm%Astar=0.025
+                       cosm%whim=10**(5.723)
+                    END IF
+
                  END IF
-                 !! !!
+
               END IF
 
               !Need to do this after cosmological parameters are changed  
@@ -569,9 +712,7 @@ PROGRAM HMx_driver
 
            IF(imode==15) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
            IF(imode==16) WRITE(*,*) 'Comparing to BAHAMAS model: ', TRIM(name)
-
-           
-              
+            
            !Initiliasation for the halomodel calcualtion
            CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
 
