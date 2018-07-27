@@ -125,6 +125,7 @@ CONTAINS
     !Do the halo-model calculation
     DO i=na,1,-1
        z=redshift_a(a(i))
+       CALL assign_halomod(ihm,hmod,verbose2)
        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose2)       
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,compute_p_lin)
        IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'       
