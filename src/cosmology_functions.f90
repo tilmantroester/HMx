@@ -13,7 +13,7 @@ MODULE cosmology_functions
      REAL :: mue, mup ! Derived thermal parameters
      REAL :: a1, a2, ns, ws, am, dm, wm ! DE parameters     
      REAL :: Om_ws, as, a1n, a2n ! Derived DE parameters
-     REAL :: alpha, eps, Gamma, M0, Astar, whim ! Baryon parameters
+     REAL :: alpha, eps, Gamma, M0, Astar, whim, rstar, sstar, mstar ! Baryon parameters
      REAL :: mgal, HImin, HImax ! HOD parameters
      REAL :: Lbox ! Box size
      INTEGER :: iw, ibox ! Switches
@@ -132,7 +132,7 @@ CONTAINS
 
   SUBROUTINE assign_cosmology(icosmo,cosm,verbose)
 
-    ! Assigns the cosmological parameters
+    ! Assigns the 'primary' cosmological parameters (primary according to my definition)
     ! This routine *only* assigns parameters, it does not do *any* calculations
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -141,7 +141,7 @@ CONTAINS
     INTEGER :: i
     REAL :: Om_c
 
-    !Names of pre-defined cosmologies    
+    ! Names of pre-defined cosmologies    
     INTEGER, PARAMETER :: ncosmo=23
     CHARACTER(len=256) :: names(0:ncosmo)
     names(0)='User defined'
@@ -149,7 +149,7 @@ CONTAINS
     names(2)='WMAP7 (cosmo-OWLS version; 1312.5462)'
     names(3)='Planck 2013 (cosmo-OWLS version; 1312.5462)'
     names(4)='WMAP9 (BAHAMAS version: 1712.02411)'
-    names(5)='Boring open model'
+    names(5)='Open'
     names(6)='Einstein de-Sitter'
     names(7)='IDE I (user)'
     names(8)='IDE II (user)'
@@ -158,14 +158,14 @@ CONTAINS
     names(11)='IDE10'
     names(12)='LCDM (user)'
     names(13)='w(a)CDM (user)'
-    names(14)='Boring WDM'
+    names(14)='WDM'
     names(15)='EdS'
-    names(16)='Boring - w = -0.7'
-    names(17)='Boring - w = -1.3'
-    names(18)='Boring - w = -1; wa = 0.5'
-    names(19)='Boring - w = -1; wa = -0.5'
-    names(20)='Boring - w = -0.7; wa = -1.5'
-    names(21)='Boring - w = -0.7; wa = 0.5'
+    names(16)='Boring: w = -0.7'
+    names(17)='Boring: w = -1.3'
+    names(18)='Boring: w = -1; wa = 0.5'
+    names(19)='Boring: w = -1; wa = -0.5'
+    names(20)='Boring: w = -0.7; wa = -1.5'
+    names(21)='Boring: w = -0.7; wa = 0.5'
     names(22)='IDE3'
     names(23)='IDE10'
 
@@ -181,13 +181,13 @@ CONTAINS
        WRITE(*,*) '==========================================='
     END IF
 
-    !Set verbosity
+    ! Set verbosity
     cosm%verbose=verbose
 
-    !Set the name of the cosmological model
+    ! Set the name of the cosmological model
     cosm%name=names(icosmo)
 
-    !Boring default cosmology
+    ! Boring default cosmology
     cosm%Om_m=0.3
     cosm%Om_b=0.05
     cosm%Om_v=1.-cosm%Om_m
@@ -198,35 +198,38 @@ CONTAINS
     cosm%n=0.96
     cosm%w=-1.
     cosm%wa=0.
-    cosm%T_CMB=2.725 !CMB temperature [K]
-    cosm%z_CMB=1100. !Redshift of the last-scatting surface
-    cosm%neff=3.046 !Effective number of relativistic neutrinos
-    cosm%YH=0.76 !Hydrogen mass fraction
+    cosm%T_CMB=2.725 ! CMB temperature [K]
+    cosm%z_CMB=1100. ! Redshift of the last-scatting surface
+    cosm%neff=3.046 ! Effective number of relativistic neutrinos
+    cosm%YH=0.76 ! Hydrogen mass fraction
 
-    !Default to use internal linear P(k) from Eisenstein & Hu
+    ! Default to use internal linear P(k) from Eisenstein & Hu
     cosm%external_plin=.FALSE.
 
-    !Default dark energy is Lambda
+    ! Default dark energy is Lambda
     cosm%iw=1
 
-    !Default to have no WDM
+    ! Default to have no WDM
     cosm%inv_m_wdm=0. !Inverse WDM mass [1/keV]   
 
-    !Default values of baryon parameters
-    !TODO: These should eventually be HMx parameters
+    ! Default values of baryon parameters
+    ! TODO: These should eventually be HMx parameters
     cosm%alpha=1.
     cosm%eps=1.
     cosm%Gamma=1.17
-    cosm%M0=1e14 !Halo mass that has lost half gas
-    cosm%Astar=0.02 !Maximum star-formation efficiency
-    cosm%whim=1e6 !WHIM temperature [K]
+    cosm%M0=1e14 ! Halo mass that has lost half gas
+    cosm%Astar=0.02 ! Maximum star-formation efficiency
+    cosm%whim=1e6 ! WHIM temperature [K]
+    cosm%rstar=0.1
+    cosm%sstar=1.2
+    cosm%Mstar=5e12
 
-    !Default values of the HOD parameters
-    !TODO: These should eventually be HMx parameters
+    ! Default values of the HOD parameters
+    ! TODO: These should eventually be HMx parameters
     cosm%mgal=1e13
 
-    !Default values for the HI parameters
-    !TODO: These should eventually be HMx parameters
+    ! Default values for the HI parameters
+    ! TODO: These should eventually be HMx parameters
     cosm%HImin=1e9
     cosm%HImax=1e12
 
@@ -237,9 +240,9 @@ CONTAINS
     IF(icosmo==0) THEN
        STOP 'TODO: implement user decision here'
     ELSE IF(icosmo==1) THEN
-       !Boring - do nothing
+       ! Boring - do nothing
     ELSE IF(icosmo==2) THEN
-       !cosmo-OWLS - WMAP7 (1312.5462)
+       ! cosmo-OWLS - WMAP7 (1312.5462)
        cosm%Om_m=0.272
        cosm%Om_b=0.0455
        cosm%Om_v=1.-cosm%Om_m
@@ -248,7 +251,7 @@ CONTAINS
        cosm%sig8=0.81
        cosm%n=0.967
     ELSE IF(icosmo==3) THEN
-       !cosmo-OWLS - Planck 2013 (1312.5462)
+       ! cosmo-OWLS - Planck 2013 (1312.5462)
        cosm%Om_m=0.3175
        cosm%Om_b=0.0490
        cosm%Om_v=1.-cosm%Om_m
@@ -256,7 +259,7 @@ CONTAINS
        cosm%n=0.9624
        cosm%sig8=0.834
     ELSE IF(icosmo==4) THEN
-       !BAHAMAS - WMAP9 (1712.02411)
+       ! BAHAMAS - WMAP9 (1712.02411)
        cosm%h=0.7
        Om_c=0.2330
        cosm%Om_b=0.0463
@@ -266,14 +269,14 @@ CONTAINS
        cosm%n=0.9720
        cosm%sig8=0.8211
     ELSE IF(icosmo==5) THEN
-       !Boring open model
+       ! Boring open model
        cosm%Om_v=0.
     ELSE IF(icosmo==6) THEN
-       !Einstein-de Sitter
+       ! Einstein-de Sitter
        cosm%Om_m=1.
        cosm%Om_v=0.
     ELSE IF(icosmo==7) THEN
-       !IDE I
+       ! IDE I
        cosm%iw=5
        WRITE(*,*) 'a*:'
        READ(*,*) cosm%as
@@ -284,7 +287,7 @@ CONTAINS
        cosm%Om_m=0.3
        cosm%Om_v=0.7
     ELSE IF(icosmo==8) THEN
-       !IDE II model
+       ! IDE II model
        cosm%iw=6      
        WRITE(*,*) 'n*:'
        READ(*,*) cosm%ns
@@ -296,7 +299,7 @@ CONTAINS
        cosm%Om_w=0.7
        cosm%Om_v=0. !No vacuum necessary here
     ELSE IF(icosmo==9) THEN
-       !IDE III model
+       ! IDE III model
        cosm%iw=7
        WRITE(*,*) 'a*:'
        READ(*,*) cosm%as
@@ -327,10 +330,10 @@ CONTAINS
        WRITE(*,*) 'wa:'
        READ(*,*) cosm%wa
     ELSE IF(icosmo==14) THEN
-       !WDM
+       ! WDM
        cosm%inv_m_wdm=1.
     ELSE IF(icosmo==15) THEN
-       !EdS
+       ! EdS
        cosm%Om_m=1.
        cosm%Om_v=0.
     ELSE IF(icosmo==16) THEN
@@ -340,50 +343,50 @@ CONTAINS
        cosm%Om_w=cosm%Om_v
        cosm%Om_v=0.
     ELSE IF(icosmo==17) THEN
-       !w = -1.3
+       ! w = -1.3
        cosm%iw=4
        cosm%w=-1.3
        cosm%Om_w=cosm%Om_v
        cosm%Om_v=0.
     ELSE IF(icosmo==18) THEN
-       !wa = 0.5
+       ! wa = 0.5
        cosm%iw=3
        cosm%wa=0.5
        cosm%Om_w=cosm%Om_v
        cosm%Om_v=0.
     ELSE IF(icosmo==19) THEN
-       !wa = -0.5
+       ! wa = -0.5
        cosm%iw=3
        cosm%wa=-0.5
        cosm%Om_w=cosm%Om_v
        cosm%Om_v=0.
     ELSE IF(icosmo==20) THEN
-       !w = -0.7; wa = -1.5
+       ! w = -0.7; wa = -1.5
        cosm%iw=3
        cosm%w=-0.7
        cosm%wa=-1.5
        cosm%Om_w=cosm%Om_v
        cosm%Om_v=0.
     ELSE IF(icosmo==21) THEN
-       !w = -1.3; wa = 0.5
+       ! w = -1.3; wa = 0.5
        cosm%iw=3
        cosm%w=-1.3
        cosm%wa=0.5
        cosm%Om_w=cosm%Om_v
        cosm%Om_v=0.
     ELSE IF(icosmo==22 .OR. icosmo==23) THEN
-       !IDE II models
+       ! IDE II models
        cosm%iw=6
        cosm%Om_m=0.3
        cosm%Om_w=cosm%Om_v
-       cosm%Om_v=0. !No vacuum necessary here
+       cosm%Om_v=0. ! No vacuum necessary here
        IF(icosmo==22) THEN
-          !IDE 3
+          ! IDE 3
           cosm%ns=3
           cosm%as=0.01
           cosm%Om_ws=0.1
        ELSE IF(icosmo==23) THEN
-          !IDE 10
+          ! IDE 10
           cosm%ns=10
           cosm%as=0.1
           cosm%Om_ws=0.02
@@ -404,7 +407,7 @@ CONTAINS
 
   SUBROUTINE init_cosmology(cosm)
 
-    !Calcualtes derived parameters
+    ! Calcualtes derived parameters
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Xs, f1, f2
@@ -535,6 +538,7 @@ CONTAINS
 
   SUBROUTINE normalise_power(cosm)
 
+    ! Get the required sigma_8 by re-normalising the power spectrum
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: sigi
@@ -938,9 +942,9 @@ CONTAINS
     REAL :: redshift_a
     REAL, INTENT(IN) :: a
 
-    IF(a==0. .OR. a>1.) THEN
+    IF(a==0.) THEN
        WRITE(*,*) 'REDSHIFT_A: a', a
-       STOP 'REDSHIFT_A: Error, routine called with weird a'
+       STOP 'REDSHIFT_A: Error, routine called with a = 0'
     END IF
 
     redshift_a=-1.+1./a
@@ -954,9 +958,9 @@ CONTAINS
     REAL :: scale_factor_z
     REAL, INTENT(IN) :: z
 
-    IF(z<0.) THEN
+    IF(z<-1.) THEN
        WRITE(*,*) 'SCALE_FACTOR_Z: z', z
-       STOP 'SCALE_FACTOR_Z: Error, routine called for z<0'
+       STOP 'SCALE_FACTOR_Z: Error, routine called for z < -1'
     END IF
 
     scale_factor_z=1./(1.+z)
@@ -2313,7 +2317,7 @@ CONTAINS
 
   FUNCTION fvnl(d,v,k,a,cosm)
 
-    !Function used for ODE solver in non-linear growth calculation
+    ! Function used for ODE solver in non-linear growth calculation
     IMPLICIT NONE
     REAL :: fvnl
     REAL, INTENT(IN) :: d, v, k, a
@@ -2321,7 +2325,7 @@ CONTAINS
     REAL :: f1, f2, f3
     REAL :: crap
 
-    !To prevent compile-time warning
+    ! To prevent compile-time warning
     crap=k
 
     f1=3.*Omega_m_norad(a,cosm)*d*(1.+d)/(2.*(a**2))
@@ -2332,48 +2336,47 @@ CONTAINS
 
   END FUNCTION fvnl
 
-  FUNCTION dc_NakamuraSuto(a,cosm)
+  REAL FUNCTION dc_NakamuraSuto(a,cosm)
 
-    !Nakamura & Suto (1997) fitting formula for LCDM
+    ! Nakamura & Suto (1997; arXiv:astro-ph/9612074) fitting formula for LCDM
     IMPLICIT NONE
-    REAL :: dc_NakamuraSuto
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: Om_mz
 
-    dc_NakamuraSuto=dc0*(1.+0.0123*log10(Omega_m_norad(a,cosm)))
+    Om_mz=Omega_m_norad(a,cosm)
+    dc_NakamuraSuto=dc0*(1.+0.012299*log10(Om_mz))
 
   END FUNCTION dc_NakamuraSuto
 
-  FUNCTION Dv_BryanNorman(a,cosm)
+  REAL FUNCTION Dv_BryanNorman(a,cosm)
 
-    !Bryan & Norman (1998) spherical over-density fitting function
-    !Here overdensity is defined relative to the background matter density, rather than the critical density
+    ! Bryan & Norman (1998; arXiv:astro-ph/9710107) spherical over-density fitting function
+    ! Here overdensity is defined relative to the background matter density, rather than the critical density
     IMPLICIT NONE
-    REAL :: Dv_BryanNorman
-    REAL :: x, Om_m
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: x, Om_mz    
 
-    Om_m=Omega_m_norad(a,cosm)
-    x=Om_m-1.
+    Om_mz=Omega_m_norad(a,cosm)
+    x=Om_mz-1.
 
     IF(cosm%Om_v_mod==0. .AND. cosm%Om_w==0.) THEN
-       !Open model results
+       ! Open model results
        Dv_BryanNorman=Dv0+60.*x-32.*x**2
-       Dv_BryanNorman=Dv_BryanNorman/Om_m
+       Dv_BryanNorman=Dv_BryanNorman/Om_mz
     ELSE
-       !LCDM results
+       ! LCDM results
        Dv_BryanNorman=Dv0+82.*x-39.*x**2
-       Dv_BryanNorman=Dv_BryanNorman/Om_m
+       Dv_BryanNorman=Dv_BryanNorman/Om_mz
     END IF
 
   END FUNCTION Dv_BryanNorman
 
-  FUNCTION dc_Mead(a,cosm)
+  REAL FUNCTION dc_Mead(a,cosm)
 
     !delta_c fitting function from Mead (2017)
     IMPLICIT NONE
-    REAL :: dc_Mead
     REAL, INTENT(IN) :: a !scale factor
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: lg, bG, Om_m
@@ -2403,11 +2406,10 @@ CONTAINS
 
   END FUNCTION dc_Mead
 
-  FUNCTION Dv_Mead(a,cosm)
+  REAL FUNCTION Dv_Mead(a,cosm)
 
     !Delta_v fitting function from Mead (2017)
     IMPLICIT NONE
-    REAL :: Dv_Mead
     REAL, INTENT(IN) :: a !scale factor
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: lg, bG, Om_m
@@ -2435,11 +2437,10 @@ CONTAINS
 
   END FUNCTION Dv_Mead
 
-  PURE FUNCTION f_Mead(x,y,p0,p1,p2,p3)
+  REAL FUNCTION f_Mead(x,y,p0,p1,p2,p3)
 
     !Equation A3 in Mead (2017)
     IMPLICIT NONE
-    REAL :: f_Mead
     REAL, INTENT(IN) :: x, y
     REAL, INTENT(IN) :: p0, p1, p2, p3
 
@@ -2936,7 +2937,7 @@ CONTAINS
 
   END SUBROUTINE ODE_advance_cosmology
 
-   FUNCTION integrate_cosm(a,b,f,cosm,acc,iorder)
+  FUNCTION integrate_cosm(a,b,f,cosm,acc,iorder)
 
     !Integrates between a and b until desired accuracy is reached
     !Stores information to reduce function calls

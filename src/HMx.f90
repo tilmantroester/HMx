@@ -21,16 +21,16 @@ MODULE HMx
      REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
      REAL :: n_c, n_s, n_g, rho_HI
+     REAL :: Dv0, Dvp, dc0, dc1, eta0, eta1, f0, fp, ks0, A0, alp0, alp1! HMcode parameters
      INTEGER :: n
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions
      !LOGICAL :: verbose
-     CHARACTER(len=256) :: name
+     REAL :: acc_HMx, large_nu
+     CHARACTER(len=256) :: name     
   END TYPE halomod
 
   !Global parameters
-  REAL, PARAMETER :: acc_HMx=1e-3 ! Halo-model accuracy parameter
-  INTEGER, PARAMETER :: n_hmod=128 ! Number of mass entries in look-up table
-  REAL, PARAMETER :: large_nu=6. ! Upper limit for some nu integrations
+  REAL, PARAMETER :: acc_win=1e-3 ! Halo-model accuracy parameter
   INTEGER, PARAMETER :: imeth_win=3 ! Winint method
 
 CONTAINS
@@ -176,7 +176,10 @@ CONTAINS
     
     !Loop over k values
     !TODO: add OMP support properly. What is private and what is shared? CHECK THIS!
-!!$OMP PARALLEL DO DEFAULT(SHARED), private(k,pow_2h,pow_1h,pow,plin)
+    !$OMP PARALLEL DO DEFAULT(SHARED)!, private(k,plin,pow_2h,pow_1h,pow,pow_lin)
+!!$OMP PARALLEL DO DEFAULT(PRIVATE)
+!!$OMP PARALLEL DO FIRSTPRIVATE(i,nk,cosm,compute_p_lin,k,a,pow_lin,plin,itype1,itype2,z,pow_2h,pow_1h,pow,hmod)
+!!$OMP PARALLEL DO
     DO i=1,nk
 
        !Tilman added this for the CosmoSIS wrapper
@@ -281,7 +284,7 @@ CONTAINS
              m=hmod%m(i)
              rv=hmod%rv(i)
              c=hmod%c(i)             
-             wk2(i)=integrate_scatter(c,dc,ih,k,z,m,rv,hmod,cosm,acc_HMx,3)
+             wk2(i)=integrate_scatter(c,dc,ih,k,z,m,rv,hmod,cosm,hmod%acc_HMx,3)
           END DO
           
        END IF
@@ -594,10 +597,11 @@ CONTAINS
        delta_c=1.686
     ELSE IF(hmod%idc==2) THEN
        !From Nakamura & Suto (1997) LCDM fitting function
-       delta_c=dc_NakamuraSuto(a,cosm)    
+       delta_c=dc_NakamuraSuto(a,cosm)
     ELSE IF(hmod%idc==3) THEN
        !From Mead et al. (2015)
-       delta_c=1.59+0.0314*log(sigma(8.,a,cosm))
+       !delta_c=1.59+0.0314*log(sigma(8.,a,cosm))
+       delta_c=hmod%dc0+hmod%dc1*log(sigma(8.,a,cosm))
        delta_c=delta_c*(dc_NakamuraSuto(a,cosm)/dc0)
     ELSE IF(hmod%idc==4) THEN
        !From Mead (2017) fitting function
@@ -624,11 +628,12 @@ CONTAINS
        !Fixed value
        Delta_v=200.
     ELSE IF(hmod%iDv==2) THEN
-       !From Bryan & Norman (1998) fitting functions
+       !From Bryan & Norman (1998; arXiv:astro-ph/9710107) fitting functions
        Delta_v=Dv_BryanNorman(a,cosm)    
     ELSE IF(hmod%iDv==3) THEN
-       !From Mead et al. (2015)
-       Delta_v=418.*(Omega_m(a,cosm)**(-0.352))
+       !From Mead et al. (2015, 2016)
+       !Delta_v=418.*Omega_m(a,cosm)**(-0.352)
+       Delta_v=hmod%Dv0*Omega_m(a,cosm)**hmod%Dvp
     ELSE IF(hmod%iDv==4) THEN
        !From Mead (2017) fitting function
        Delta_v=Dv_Mead(a,cosm)
@@ -654,7 +659,8 @@ CONTAINS
        eta=0.
     ELSE IF(hmod%ieta==2) THEN
        !The first parameter here is 'eta_0' in Mead et al. (2015; arXiv 1505.07833)
-       eta=0.603-0.3*(sigma(8.,a,cosm))
+       !eta=0.603-0.3*(sigma(8.,a,cosm))
+       eta=hmod%eta0-hmod%eta1*(sigma(8.,a,cosm))
     ELSE
        STOP 'Error, ihm defined incorrectly'
     END IF
@@ -678,7 +684,8 @@ CONTAINS
        kstar=0.
     ELSE IF(hmod%ikstar==2) THEN
        !One-halo cut-off wavenumber
-       kstar=0.584/hmod%sigv
+       !kstar=0.584/hmod%sigv
+       kstar=hmod%ks0/hmod%sigv
     ELSE
        STOP 'KSTAR: Error, ihm defined incorrectly'
     END IF
@@ -702,7 +709,8 @@ CONTAINS
        As=4.
     ELSE IF(hmod%iAs==2) THEN
        !This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833)
-       As=3.13
+       !As=3.13
+       As=hmod%A0
     ELSE
        STOP 'AS: Error, iconc defined incorrectly'
     END IF
@@ -733,10 +741,12 @@ CONTAINS
        fdamp=0.
     ELSE IF(hmod%i2hdamp==2) THEN
        !Mead et al. (2015)
-       fdamp=0.188*hmod%sig8z**4.29       
+       !fdamp=0.188*hmod%sig8z**4.29
+       fdamp=hmod%f0*hmod%sig8z**hmod%fp
     ELSE IF(hmod%i2hdamp==3) THEN
        !Mead et al. (2016)
-       fdamp=0.0095*hmod%sigv100**1.37
+       !fdamp=0.0095*hmod%sigv100**1.37
+       fdamp=hmod%f0*hmod%sigv100**hmod%fp
     ELSE
        STOP 'FDAMP: Error, i2hdamp defined incorrectly'
     END IF
@@ -762,17 +772,23 @@ CONTAINS
     !To prevent compile-time warnings
     crap=cosm%A
 
-    IF(hmod%itrans==2) THEN
-       !From Mead et al. (2015)   
-       !This uses the top-hat defined neff in contrast to the neff in HALOFIT
-       alpha_transition=2.93*1.77**hmod%neff     
-    ELSE IF(hmod%itrans==3) THEN
-       !From Mead et al. (2016)
-       !This uses the top-hat defined neff in contrast to the neff in HALOFIT
-       alpha_transition=3.24*1.85**hmod%neff 
+!!$    IF(hmod%itrans==2) THEN
+!!$       !From Mead et al. (2015)   
+!!$       !This uses the top-hat defined neff in contrast to the neff in HALOFIT
+!!$       !alpha_transition=2.93*1.77**hmod%neff
+!!$       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff 
+!!$    ELSE IF(hmod%itrans==3) THEN
+!!$       !From Mead et al. (2016)
+!!$       !This uses the top-hat defined neff in contrast to the neff in HALOFIT
+!!$       !alpha_transition=3.24*1.85**hmod%neff
+!!$       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff
+    IF(hmod%itrans==2 .OR. hmod%itrans==3) THEN
+       !From Mead et al. (2015, 2016)   
+       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff          
     ELSE IF(hmod%itrans==4 .OR. hmod%itrans==6) THEN
        !Specially for HMx, exponentiated Mead et al. (2016) result
-       alpha_transition=(3.24*1.85**hmod%neff)**2.5
+       !alpha_transition=(3.24*1.85**hmod%neff)**2.5
+       alpha_transition=(hmod%alp0*hmod%alp1**hmod%neff)**2.5
     ELSE
        alpha_transition=1.
     END IF
@@ -795,6 +811,10 @@ CONTAINS
     WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
     WRITE(*,*) '==========================='
     WRITE(*,*) TRIM(hmod%name)
+
+    WRITE(*,*) 'Number of points in look-up tables:', hmod%n
+    WRITE(*,*) 'Halo model accuracy parameter:', hmod%acc_HMx
+    WRITE(*,*) 'Large value of nu:', hmod%large_nu
 
     ! Form of the two-halo term
     IF(hmod%ip2h==1) WRITE(*,*) 'Linear two-halo term'
@@ -826,8 +846,9 @@ CONTAINS
     !Concentration-mass relation
     IF(hmod%iconc==1) WRITE(*,*) 'Full Bullock et al. (2001) concentration-mass relation'
     IF(hmod%iconc==2) WRITE(*,*) 'Simple Bullock et al. (2001) concentration-mass relation'
-    IF(hmod%iconc==3) WRITE(*,*) 'Mean density Duffy et al. (2008) concentration-mass relation'
-    IF(hmod%iconc==4) WRITE(*,*) 'Virial denity Duffy et al. (2008) concentration-mass relation'
+    IF(hmod%iconc==3) WRITE(*,*) 'Full-sample mean density Duffy et al. (2008) concentration-mass relation'
+    IF(hmod%iconc==4) WRITE(*,*) 'Full-sample virial denity Duffy et al. (2008) concentration-mass relation'
+    IF(hmod%iconc==5) WRITE(*,*) 'Relaxed-sample x200 critical density Duffy et al. (2008) concentration-mass relation'
 
     !Concentration-mass relation correction
     IF(hmod%iDolag==1) WRITE(*,*) 'No concentration-mass correction for dark energy'
@@ -836,14 +857,14 @@ CONTAINS
 
     !delta_c
     IF(hmod%idc==1) WRITE(*,*) 'Fixed delta_c = 1.686'
-    IF(hmod%idc==2) WRITE(*,*) 'delta_c from Nakamura & Suto (1998) fitting function'
+    IF(hmod%idc==2) WRITE(*,*) 'delta_c from Nakamura & Suto (1997) fitting function'
     IF(hmod%idc==3) WRITE(*,*) 'delta_c from Mead et al. (2015, 2016) power spectrum fit'
     IF(hmod%idc==4) WRITE(*,*) 'delta_c from Mead (2017) fitting function'
     IF(hmod%idc==5) WRITE(*,*) 'delta_c from spherical-collapse calculation'
 
     !Delta_v
     IF(hmod%iDv==1) WRITE(*,*) 'Fixed Delta_v = 200'
-    IF(hmod%iDv==2) WRITE(*,*) 'Delta_v from Bryan & Norman (1998) fitting function'
+    IF(hmod%iDv==2) WRITE(*,*) 'Delta_v from Bryan & Norman (1998; arXiv:astro-ph/9710107) fitting function'
     IF(hmod%iDv==3) WRITE(*,*) 'Delta_v from Mead et al. (2015, 2016) power spectrum fit'
     IF(hmod%iDv==4) WRITE(*,*) 'Delta_v from Mead (2017) fitting function'
     IF(hmod%iDv==5) WRITE(*,*) 'Delta_v from spherical-collapse calculation'
@@ -917,14 +938,15 @@ CONTAINS
 
   END FUNCTION r_nl
 
-  SUBROUTINE allocate_HMOD(hmod,n)
+  SUBROUTINE allocate_HMOD(hmod)
 
-    !Allocates memory for the look-up tables
+    ! Allocates memory for the look-up tables
     IMPLICIT NONE
-    TYPE(halomod) :: hmod
-    INTEGER, INTENT(IN) :: n
-    
-    hmod%n=n
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    INTEGER :: n
+
+    ! Number of entries in look-up table
+    n=hmod%n
 
     ALLOCATE(hmod%log_m(n))
     ALLOCATE(hmod%zc(n),hmod%m(n),hmod%c(n),hmod%rv(n))
@@ -934,7 +956,7 @@ CONTAINS
     ALLOCATE(hmod%m200(n),hmod%r200(n),hmod%c200(n))
     ALLOCATE(hmod%m200c(n),hmod%r200c(n),hmod%c200c(n))
 
-    !Experimental window look-up table
+    ! Experimental window look-up table
     !hmod%nk=nk
     !ALLOCATE(hmod%log_m(n),hmod%log_k(nk),hmod%log_win(n,nk))
     !hmod%log_k=0.
@@ -967,7 +989,7 @@ CONTAINS
     hmod%r200c=0.
     hmod%c200c=0.
 
-    !Experimental log tables
+    ! Experimental log tables
     !ALLOCATE(hmod%log_m(n))
     !hmod%log_m=0.
 
@@ -1020,115 +1042,139 @@ CONTAINS
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
-    !Default options
+    ! Default options
 
-    !Two-halo term
-    !1 - Linear theory
-    !2 - Standard from Seljak (2000)
+    ! Number of points in integration (128 is okay, 1024 is better)
+    hmod%n=128
+
+    ! Accuracy for continuous integrals (1e-3 is okay, 1e-4 is better
+    hmod%acc_HMx=1e-3
+
+    ! A large value for nu (6 is okay, corrections are suppressed by exp(-large_nu^2)
+    hmod%large_nu=6.
+
+    ! Two-halo term
+    ! 1 - Linear theory
+    ! 2 - Standard from Seljak (2000)
     hmod%ip2h=2
 
-    !Method to correct the two-halo integral
-    !NB. This cannot be a parameter here because the value needs to be changed if doing cumulative distributions of power with mass
-    !1 - Do nothing
-    !2 - Add value of missing integral assuming that W(k)=1
-    !3 - Put the missing part of the integrand as a delta function at lower mass limit
+    ! Method to correct the two-halo integral
+    ! NB. This cannot be a parameter here because the value needs to be changed if doing cumulative distributions of power with mass
+    ! 1 - Do nothing
+    ! 2 - Add value of missing integral assuming that W(k)=1
+    ! 3 - Put the missing part of the integrand as a delta function at lower mass limit
     hmod%ip2h_corr=3
 
-    !Scale dependent halo bias
-    !1 - None
-    !2 - From Fedeli (2014b)
-    !3 - My own experimental model
+    ! Scale dependent halo bias
+    ! 1 - None
+    ! 2 - From Fedeli (2014b)
+    ! 3 - My own experimental model
     hmod%ikb=1
 
-    !Order of halo bias to go to
-    !1 - Linear order (standard)
-    !2 - Second order
+    ! Order of halo bias to go to
+    ! 1 - Linear order (standard)
+    ! 2 - Second order
     hmod%ibias=1
 
-    !One-halo term large-scale damping
-    !1 - No damping
-    !2 - Mead et al. (2015)
-    !3 - k^4 at large scales
+    ! One-halo term large-scale damping
+    ! 1 - No damping
+    ! 2 - Mead et al. (2015)
+    ! 3 - k^4 at large scales
     hmod%i1hdamp=1
 
-    !Mass and halo bias function pair
-    !1 - Press & Schecter (1974)
-    !2 - Sheth & Tormen (1999)
-    !3 - Tinker et al. (2010)
+    ! Mass and halo bias function pair
+    ! 1 - Press & Schecter (1974)
+    ! 2 - Sheth & Tormen (1999)
+    ! 3 - Tinker et al. (2010)
     hmod%imf=2
 
-    !Concentration-mass relation
-    !1 - Full Bullock et al. (2001; astro-ph/9909159)
-    !2 - Simple Bullock et al. (2001; astro-ph/9909159)
-    !3 - Duffy et al. (2008; astro-ph/0804.2486): mean
-    !4 - Duffy et al. (2008; astro-ph/0804.2486): virial
+    ! Concentration-mass relation
+    ! 1 - Full Bullock et al. (2001; astro-ph/9909159)
+    ! 2 - Simple Bullock et al. (2001; astro-ph/9909159)
+    ! 3 - Duffy et al. (2008; astro-ph/0804.2486): mean
+    ! 4 - Duffy et al. (2008; astro-ph/0804.2486): virial
+    ! 5 - Duffy et al. (2008; astro-ph/0804.2486): relaxed-200
     hmod%iconc=4
 
-    !Linear collapse threshold delta_c
-    !1 - Fixed 1.686
-    !2 - Nakamura & Suto (1998) fitting function
-    !3 - Mead et al. (2015)
-    !4 - Mead (2017) fitting function
-    !5 - Spherical-collapse calculation
+    ! Linear collapse threshold delta_c
+    ! 1 - Fixed 1.686
+    ! 2 - Nakamura & Suto (1997) fitting function
+    ! 3 - Mead et al. (2015)
+    ! 4 - Mead (2017) fitting function
+    ! 5 - Spherical-collapse calculation
     hmod%idc=2
 
-    !Virial density Delta_v
-    !1 - Fixed 200
-    !2 - Bryan & Norman (1998) fitting function
-    !3 - Mead et al. (2015)
-    !4 - Mead (2017) fitting function
-    !5 - Spherical-collapse calculation
+    ! Virial density Delta_v
+    ! 1 - Fixed 200
+    ! 2 - Bryan & Norman (1998; arXiv:astro-ph/9710107) fitting function
+    ! 3 - Mead et al. (2015)
+    ! 4 - Mead (2017) fitting function
+    ! 5 - Spherical-collapse calculation
     hmod%iDv=2
 
-    !eta for halo window function
-    !1 - No
-    !2 - Mead et al. (2015)
+    ! eta for halo window function
+    ! 1 - No
+    ! 2 - Mead et al. (2015)
     hmod%ieta=1
 
-    !k* for one-halo term large-scale damping
-    !1 - No
-    !2 - Mead et al. (2015)
+    ! k* for one-halo term large-scale damping
+    ! 1 - No
+    ! 2 - Mead et al. (2015)
     hmod%ikstar=1
 
-    !Concentration-mass rescaling
-    !1 - No
-    !2 - Mead et al. (2015, 2016)
+    ! Concentration-mass rescaling
+    ! 1 - No
+    ! 2 - Mead et al. (2015, 2016)
     hmod%iAs=1
 
-    !fdamp for two-halo term damping
-    !1 - No
-    !2 - Mead et al. (2015)
-    !3 - Mead et al. (2016)
+    ! fdamp for two-halo term damping
+    ! 1 - No
+    ! 2 - Mead et al. (2015)
+    ! 3 - Mead et al. (2016)
     hmod%i2hdamp=1
 
-    !alpha for two- to one-halo transition region
-    !1 - No
-    !2 - Mead et al. (2015)
-    !3 - Mead et al. (2016)
-    !4 - New HMx transition
-    !5 - Tanh transition
-    !6 - New HMx transition with safeguards for negative terms
+    ! alpha for two- to one-halo transition region
+    ! 1 - No
+    ! 2 - Mead et al. (2015)
+    ! 3 - Mead et al. (2016)
+    ! 4 - New HMx transition
+    ! 5 - Tanh transition
+    ! 6 - New HMx transition with safeguards for negative terms
     hmod%itrans=1
 
-    !Use the Dolag c(M) correction for dark energy?
-    !1 - No
-    !2 - Yes, exactly as in Dolag et al. (2004)
-    !3 - Yes, as in Dolage et al. (2004) but with a ^1.5 power
+    ! Use the Dolag c(M) correction for dark energy?
+    ! 1 - No
+    ! 2 - Yes, exactly as in Dolag et al. (2004)
+    ! 3 - Yes, as in Dolage et al. (2004) but with a ^1.5 power
     hmod%iDolag=2
 
-    !Scatter in halo properties at fixed mass
-    !1 - No
-    !2 - Scatter in halo concentration 
+    ! Scatter in halo properties at fixed mass
+    ! 1 - No
+    ! 2 - Scatter in halo concentration 
     hmod%iscatter=1
 
-    !Do voids?
+    ! Do voids?
     hmod%voids=.FALSE.
 
-    !Use UPP for electron pressure?
+    ! Use UPP for electron pressure?
     hmod%use_UPP=.FALSE.
 
-    !Smoothly distribute free gas?
+    ! Smoothly distribute free gas?
     hmod%smooth_freegas=.TRUE.
+
+    ! HMcode parameters
+    hmod%Dv0=418.
+    hmod%Dvp=-0.352
+    hmod%dc0=1.59
+    hmod%dc1=0.0314
+    hmod%eta0=0.603
+    hmod%eta1=0.300
+    hmod%f0=0.0095
+    hmod%fp=1.37
+    hmod%ks0=0.584
+    hmod%A0=3.13
+    hmod%alp0=3.24
+    hmod%alp1=1.85
     
     IF(ihm==-1) THEN
        WRITE(*,*) 'ASSIGN_HALOMOD: Choose your halo model'
@@ -1140,8 +1186,8 @@ CONTAINS
     END IF
        
     IF(ihm==1 .OR. ihm==7) THEN
-       !1 - Accurate halo-model calculation (Mead et al. 2016)
-       !7 - Accurate halo-model calculation (Mead et al. 2015)
+       ! 1 - Accurate halo-model calculation (Mead et al. 2016)
+       ! 7 - Accurate halo-model calculation (Mead et al. 2015)
        hmod%ip2h=1
        hmod%ibias=1
        hmod%i1hdamp=2
@@ -1153,18 +1199,24 @@ CONTAINS
        hmod%ikstar=2
        hmod%iAs=2
        IF(ihm==1) THEN
+          ! Mead et al. (2016)
           hmod%i2hdamp=3
           hmod%itrans=3
        ELSE IF(ihm==7) THEN
+          ! Mead et al. (2015)
           hmod%i2hdamp=2
           hmod%itrans=2
+          hmod%f0=0.188
+          hmod%fp=4.29
+          hmod%alp0=2.93
+          hmod%alp1=1.77
        END IF
        hmod%iDolag=3
        hmod%voids=.FALSE.
        hmod%use_UPP=.FALSE.
        hmod%smooth_freegas=.TRUE.
     ELSE IF(ihm==2) THEN
-       !2 - Basic halo model with linear two halo term (Delta_v=200, delta_c=1.686))
+       ! 2 - Basic halo model with linear two halo term (Delta_v = 200, delta_c = 1.686))
        hmod%ip2h=1
        hmod%idc=1
        hmod%iDv=1
@@ -1183,7 +1235,7 @@ CONTAINS
           hmod%iDv=3
        END IF
     ELSE IF(ihm==5) THEN
-       !5 - Standard halo-model calculation but with Delta_v=200 and delta_c=1.686 fixed and Bullock c(M)
+       !5 - Standard halo-model calculation but with Delta_v = 200 and delta_c = 1.686 fixed and Bullock c(M)
        hmod%idc=1
        hmod%iDv=1
        hmod%iconc=1
@@ -1195,14 +1247,16 @@ CONTAINS
        hmod%iscatter=2
     ELSE IF(ihm==9) THEN
        !9 - For CCL comparison
+       hmod%n=2048 ! Increase accuracy for the CCL benchmarks
+       hmod%acc_HMx=1e-5 ! Increase accuracy for the CCL benchmarks
        hmod%ip2h=2
        hmod%ip2h_corr=3
        hmod%ibias=1
        hmod%i1hdamp=1
        hmod%imf=2
-       hmod%iconc=3
-       hmod%idc=1
-       hmod%iDv=1
+       hmod%iconc=4 ! Virial Duffy relation
+       hmod%idc=2 ! Virial dc
+       hmod%iDv=2 ! Virial Dv
        hmod%ieta=1
        hmod%ikstar=1
        hmod%iAs=1
@@ -1264,7 +1318,7 @@ CONTAINS
 
     LOGICAL, PARAMETER :: slow=.FALSE.
 
-    CALL assign_halomod(ihm,hmod,verbose)
+    !CALL assign_halomod(ihm,hmod,verbose)
 
     ! Set flags to false
     hmod%has_galaxies=.FALSE.
@@ -1281,7 +1335,7 @@ CONTAINS
 
     IF(verbose) THEN
        WRITE(*,*) 'INIT_HALOMOD: Filling look-up tables'
-       WRITE(*,*) 'INIT_HALOMOD: Number of entries:', n_hmod
+       WRITE(*,*) 'INIT_HALOMOD: Number of entries:', hmod%n
        WRITE(*,*) 'INIT_HALOMOD: Tables being filled at redshift:', REAL(z)
        WRITE(*,*) 'INIT_HALOMOD: Tables being filled at scale-factor:', REAL(a)
        WRITE(*,*) 'INIT_HALOMOD: sigma_V [Mpc/h]:', REAL(hmod%sigv)
@@ -1290,7 +1344,7 @@ CONTAINS
     END IF
 
     IF(ALLOCATED(hmod%rr)) CALL deallocate_HMOD(hmod)
-    CALL allocate_HMOD(hmod,n_hmod)
+    CALL allocate_HMOD(hmod)
 
     DO i=1,hmod%n
 
@@ -1330,12 +1384,12 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: Maximum log10(M/[Msun/h]):', REAL(log10(hmod%m(hmod%n)))
     END IF
 
-    !Calculate missing mass things if necessary
+    ! Calculate missing mass things if necessary
     IF(hmod%ip2h_corr==2 .OR. hmod%ip2h_corr==3) THEN 
-       IF(slow) hmod%gmin=1.-integrate_hmod(hmod%nu(1),large_nu,g_nu,hmod,acc_HMx,3)
-       IF(slow) hmod%gmax=integrate_hmod(hmod%nu(hmod%n),large_nu,g_nu,hmod,acc_HMx,3)
-       hmod%gbmin=1.-integrate_hmod(hmod%nu(1),large_nu,gb_nu,hmod,acc_HMx,3)
-       IF(slow) hmod%gbmax=integrate_hmod(hmod%nu(hmod%n),large_nu,gb_nu,hmod,acc_HMx,3)
+       IF(slow) hmod%gmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
+       IF(slow) hmod%gmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
+       hmod%gbmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
+       IF(slow) hmod%gbmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
        IF(verbose) THEN
           IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
           IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
@@ -1431,7 +1485,7 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    total_stellar_mass_fraction=rhobar(hmod%nu(1),large_nu,rhobar_star_integrand,hmod,cosm)
+    total_stellar_mass_fraction=rhobar(hmod%nu(1),hmod%large_nu,rhobar_star_integrand,hmod,cosm)
     total_stellar_mass_fraction=total_stellar_mass_fraction/comoving_matter_density(cosm)
 
   END FUNCTION total_stellar_mass_fraction
@@ -1448,8 +1502,8 @@ CONTAINS
     LOGICAL, PARAMETER :: verbose=.FALSE.
     
     nu_min=nu_M(cosm%mgal,a,hmod,cosm)
-    hmod%n_c=rhobar(nu_min,large_nu,rhobar_central_integrand,hmod,cosm)
-    hmod%n_s=rhobar(nu_min,large_nu,rhobar_satellite_integrand,hmod,cosm)
+    hmod%n_c=rhobar(nu_min,hmod%large_nu,rhobar_central_integrand,hmod,cosm)
+    hmod%n_s=rhobar(nu_min,hmod%large_nu,rhobar_satellite_integrand,hmod,cosm)
     hmod%n_g=hmod%n_c+hmod%n_s
     IF(verbose) THEN
        WRITE(*,*) 'INIT_GALAXIES: Comoving density of central galaxies [(Mpc/h)^-3]:', REAL(hmod%n_c)
@@ -1475,7 +1529,7 @@ CONTAINS
     !Calculate the normalisation constant for HI
     nu_min=nu_M(cosm%HImin,a,hmod,cosm)
     nu_max=nu_M(cosm%HImax,a,hmod,cosm)
-    hmod%rho_HI=comoving_matter_density(cosm)*integrate_hmod(nu_min,nu_max,g_nu,hmod,acc_HMx,3)
+    hmod%rho_HI=comoving_matter_density(cosm)*integrate_hmod(nu_min,nu_max,g_nu,hmod,hmod%acc_HMx,3)
     IF(verbose) THEN
        WRITE(*,*) 'INIT_HI: HI normalisation factor [log10(rho/(Msun/h)/(Mpc/h)^3)]:', REAL(log10(hmod%rho_HI))
        WRITE(*,*)
@@ -1601,7 +1655,7 @@ CONTAINS
        END FUNCTION integrand
     END INTERFACE
     
-    rhobar=comoving_matter_density(cosm)*integrate_hmod_cosm_exp(log(nu_min),log(nu_max),integrand,hmod,cosm,acc_HMx,3)
+    rhobar=comoving_matter_density(cosm)*integrate_hmod_cosm_exp(log(nu_min),log(nu_max),integrand,hmod,cosm,hmod%acc_HMx,3)
     
   END FUNCTION rhobar
     
@@ -1803,6 +1857,8 @@ CONTAINS
           hmod%c(i)=conc_Duffy_mean(m,z)
        ELSE IF(hmod%iconc==4) THEN
           hmod%c(i)=conc_Duffy_virial(m,z)
+       ELSE IF(hmod%iconc==5) THEN
+          hmod%c(i)=conc_Duffy_relaxed200(m,z)
        ELSE
           STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
        END IF
@@ -1811,6 +1867,7 @@ CONTAINS
        hmod%c(i)=hmod%c(i)*As(hmod,cosm)
 
        !Rescale the concentration-mass relation for gas the epsilon parameter
+       !This only rescales the concentrations of haloes that *contain* substantial amounts of gas
        hmod%c(i)=hmod%c(i)*(1.+(cosm%eps-1.)*halo_boundgas_fraction(m,cosm)/(cosm%Om_b/cosm%Om_m))
 
     END DO
@@ -1933,11 +1990,10 @@ CONTAINS
     
   END FUNCTION conc_Bullock_simple
 
-  FUNCTION conc_Duffy_mean(m,z)
+  REAL FUNCTION conc_Duffy_mean(m,z)
 
     !Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
     IMPLICIT NONE
-    REAL :: conc_Duffy_mean
     REAL, INTENT(IN) :: m, z
     
     REAL, PARAMETER :: m_piv=2e12 !Pivot mass in Msun/h
@@ -1945,16 +2001,15 @@ CONTAINS
     REAL, PARAMETER :: B=-0.081
     REAL, PARAMETER :: C=-1.01
 
-    !Equation (4) in 0804.2486
+    !Equation (4) in 0804.2486, parameters from 10th row of Table 1
     conc_Duffy_mean=A*(m/m_piv)**B*(1.+z)**C
     
   END FUNCTION conc_Duffy_mean
 
-  FUNCTION conc_Duffy_virial(m,z)
+  REAL FUNCTION conc_Duffy_virial(m,z)
 
     !Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
     IMPLICIT NONE
-    REAL :: conc_Duffy_virial
     REAL, INTENT(IN) :: m, z
     
     REAL, PARAMETER :: m_piv=2e12 !Pivot mass in Msun/h
@@ -1962,10 +2017,26 @@ CONTAINS
     REAL, PARAMETER :: B=-0.081
     REAL, PARAMETER :: C=-0.71
 
-    !Equation (4) in 0804.2486
+    !Equation (4) in 0804.2486, parameters from 6th row of Table 1
     conc_Duffy_virial=A*(m/m_piv)**B*(1.+z)**C
     
   END FUNCTION conc_Duffy_virial
+
+  REAL FUNCTION conc_Duffy_relaxed200(m,z)
+
+    !Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m, z
+    
+    REAL, PARAMETER :: m_piv=2e12 !Pivot mass in Msun/h
+    REAL, PARAMETER :: A=6.71
+    REAL, PARAMETER :: B=-0.091
+    REAL, PARAMETER :: C=-0.44
+
+    !Equation (4) in 0804.2486, parameters from 4th row of Table 1
+    conc_Duffy_relaxed200=A*(m/m_piv)**B*(1.+z)**C
+    
+  END FUNCTION conc_Duffy_relaxed200
 
   REAL FUNCTION mass_r(r,cosm)
 
@@ -2786,7 +2857,8 @@ CONTAINS
     IF(imod==1) THEN
        !Fedeli (2014)
        irho=7
-       rstar=0.1*rv
+       !rstar=0.1*rv
+       rstar=cosm%rstar*rv
        p1=rstar
        rmax=rv !Set so that not too much bigger than rstar, otherwise bumps integration goes tits
     ELSE IF(imod==2) THEN
@@ -3242,7 +3314,7 @@ CONTAINS
           f1=kstar-exp(-rmax/rstar)*(sin(k*rmax)+kstar*cos(k*rmax))
           f2=kstar*(1.+kstar**2)
           win_norm=f1/f2
-          !win_norm=1./(1.+(k*rstar)**2) !bigRstar -> infinity limit (rmax >> rstar)
+          !win_norm=1./(1.+kstar**2) !bigRstar -> infinity limit (rmax >> rstar)
        ELSE IF(irho==9) THEN
           !STOP 'WIN_NORM: Double check this result for irho=9'
           !Only valid if rmin=0 and rmax=inf
@@ -3508,11 +3580,11 @@ CONTAINS
     !The hybrid method seems not to be faster for practical calculations here
 
     IF(imeth==1) THEN
-       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx)
+       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_win)
     ELSE IF(imeth==2 .OR. imeth==4 .OR. imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
-       winint=winint_bumps(k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx,imeth)
+       winint=winint_bumps(k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_win,imeth)
     ELSE IF(imeth==3) THEN
-       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_HMx)
+       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_win)
     ELSE
        STOP 'WININT: Error, imeth not specified correctly'
     END IF
@@ -3900,22 +3972,22 @@ CONTAINS
 
   FUNCTION normalisation(rmin,rmax,rv,rs,p1,p2,irho)
 
-    !This calculates the normalisation of a halo
-    !This is \int dr 4pir^2rho(r) between rmin and rmax
+    ! This calculates the normalisation of a halo
+    ! This is the integral of 4pir^2*rho(r)*dr between rmin and rmax
 
-    !Profile results
-    ! 0 - Delta function (M = 1)
-    ! 1 - Isothermal (M = 4pi*rv)
-    ! 2 - Top hat (M = (4pi/3)*rv^3)
-    ! 3 - Moore (M = (8pi/3)*rv^3*ln(1+c^1.5)/c^3)
-    ! 4,5 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
-    ! 6 - Beta model with beta=2/3 (M = 4*pi*rs^3*(rv/rs-atan(rv/rs)))
-    ! 7 - Fedeli stellar model (M = 4*pi*rstar^2 * [1-exp(-rmax/rstar)*(1.+rmax/rstar)]
-    ! 9 - Stellar profile (Schneider (2015)
-    !10 - Ejected gas profile (Schneider 2015)
-    !16 - Isothermal shell (M = 4pi*(rmax-rmin))
-    !18 - Cubic profile
-    !19 - Smooth profile (physically dubious)
+    ! Profile results
+    !  0 - Delta function (M = 1)
+    !  1 - Isothermal (M = 4pi*rv)
+    !  2 - Top hat (M = (4pi/3)*rv^3)
+    !  3 - Moore (M = (8pi/3)*rv^3*ln(1+c^1.5)/c^3)
+    !  4,5 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
+    !  6 - Beta model with beta=2/3 (M = 4*pi*rs^3*(rv/rs-atan(rv/rs)))
+    !  7 - Fedeli stellar model (M = 4*pi*rstar^2 * [1-exp(-rmax/rstar)*(1.+rmax/rstar)]
+    !  9 - Stellar profile (Schneider (2015)
+    ! 10 - Ejected gas profile (Schneider 2015)
+    ! 16 - Isothermal shell (M = 4pi*(rmax-rmin))
+    ! 18 - Cubic profile
+    ! 19 - Smooth profile (physically dubious)
 
     IMPLICIT NONE
     REAL :: normalisation
@@ -4031,7 +4103,7 @@ CONTAINS
     REAL :: b_ps
     REAL, INTENT(IN) :: nu
 
-    REAL, PARAMETER :: dc=1.686
+    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
 
     b_ps=1.+(nu**2-1.)/dc
 
@@ -4049,7 +4121,7 @@ CONTAINS
 
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
-    REAL, PARAMETER :: dc=1.686
+    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
 
     b_st=1.+(q*(nu**2)-1.+2.*p/(1.+(q*nu**2)**p))/dc
 
@@ -4110,7 +4182,7 @@ CONTAINS
     REAL, PARAMETER :: a2=-17./21.
     REAL, PARAMETER :: p=0.0
     REAL, PARAMETER :: q=1.0
-    REAL, PARAMETER :: dc=1.686
+    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
 
     STOP 'B2_PS: Check this very carefully'
     !I just took the ST form and set p=0 and q=1
@@ -4137,7 +4209,7 @@ CONTAINS
     REAL, PARAMETER :: a2=-17./21.
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
-    REAL, PARAMETER :: dc=1.686
+    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
 
     eps1=(q*nu**2-1.)/dc
     eps2=(q*nu**2)*(q*nu**2-3.)/dc**2
@@ -4411,8 +4483,8 @@ CONTAINS
        !A=0.02
        !IF(variation) A=param(5)
        A=cosm%Astar
-       m0=5.e12
-       sigma=1.2
+       m0=cosm%Mstar
+       sigma=cosm%sstar
        halo_star_fraction=A*exp(-((log10(m/m0))**2)/(2.*sigma**2))
        IF(imod==3) THEN
           !Suggested by Ian, the relation I have is for the central stellar mass
@@ -4877,7 +4949,7 @@ CONTAINS
     !j=2 - Write calculation out
     DO j=1,2
 
-       IF(j==1) timing=.FALSE.
+       timing=.FALSE.
        IF(j==2) THEN
           timing=.TRUE.
           WRITE(*,*) 'WININT_SPEED_TESTS: Doing this many evaluations for timing test:', ntime

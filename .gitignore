@@ -48,3 +48,7 @@ Mead2017/
 
 # Library update script
 src/update_library.sh*
+
+# Cosmic Emu files
+EMU0.txt
+xstar.dat
