@@ -2,21 +2,22 @@ MODULE cosmology_functions
 
   USE interpolate
   USE constants
+  USE file_info
 
   IMPLICIT NONE
 
   ! Contains cosmological parameters that only need to be calculated once
   TYPE cosmology     
      REAL :: Om_m, Om_b, Om_v, Om_w, Om_nu, h, n, sig8, w, wa, inv_m_wdm, YH ! Primary parameters
-     REAL :: A, z_CMB, T_CMB, neff ! Less primary parameters
+     REAL :: A, z_CMB, T_CMB, neff, Gamma ! Less primary parameters
      REAL :: Om, k, Om_k, Om_c, Om_r, Om_v_mod, age, horizon ! Derived parameters
      REAL :: mue, mup ! Derived thermal parameters
      REAL :: a1, a2, ns, ws, am, dm, wm ! DE parameters     
      REAL :: Om_ws, as, a1n, a2n ! Derived DE parameters
-     REAL :: alpha, eps, Gamma, M0, Astar, whim, rstar, sstar, mstar ! Baryon parameters
-     REAL :: mgal, HImin, HImax ! HOD parameters
+!!$     REAL :: alpha, eps, Gamma, M0, Astar, whim, rstar, sstar, mstar ! Baryon parameters
+!!$     REAL :: mgal, HImin, HImax ! HOD parameters
      REAL :: Lbox ! Box size
-     INTEGER :: iw, ibox ! Switches
+     INTEGER :: iw, ibox, itk ! Switches
      REAL, ALLOCATABLE :: log_sigma(:), log_r_sigma(:) ! Arrays for sigma(R)
      REAL, ALLOCATABLE :: log_a_growth(:), log_growth(:), growth_rate(:), log_acc_growth(:) ! Arrays for growth
      REAL, ALLOCATABLE :: r(:), a_r(:) ! Arrays for distance
@@ -27,7 +28,7 @@ MODULE cosmology_functions
      CHARACTER(len=256) :: name ! Name for cosmological model
      LOGICAL :: has_distance, has_growth, has_sigma, has_spherical, has_power
      LOGICAL :: is_init, is_normalised
-     LOGICAL :: external_plin
+     !LOGICAL :: external_plin
      LOGICAL :: verbose
   END TYPE cosmology
 
@@ -52,8 +53,6 @@ CONTAINS
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v:', cosm%Om_v
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_w:', cosm%Om_w
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'h:', cosm%h
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_0:', cosm%w
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w_a:', cosm%wa
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'sigma_8:', cosm%sig8
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_s:', cosm%n
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'T_CMB [K]:', cosm%T_CMB
@@ -111,19 +110,19 @@ CONTAINS
           WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
           WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w*:', cosm%ws
        END IF
-       WRITE(*,*) '===================================='
-       WRITE(*,*) 'COSMOLOGY: HOD'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_gal):', log10(cosm%mgal)
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_-):', log10(cosm%HImin)
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_+):', log10(cosm%HImax)
-       WRITE(*,*) '===================================='
-       WRITE(*,*) 'COSMOLOGY: Baryon model'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
-       IF(cosm%M0 .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
-       IF(cosm%whim .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(WHIM):', log10(cosm%whim)
+!!$       WRITE(*,*) '===================================='
+!!$       WRITE(*,*) 'COSMOLOGY: HOD'
+!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_gal):', log10(cosm%mgal)
+!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_-):', log10(cosm%HImin)
+!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_+):', log10(cosm%HImax)
+!!$       WRITE(*,*) '===================================='
+!!$       WRITE(*,*) 'COSMOLOGY: Baryon model'
+!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
+!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
+!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
+!!$       IF(cosm%M0 .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
+!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
+!!$       IF(cosm%whim .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(WHIM):', log10(cosm%whim)
        WRITE(*,*) '===================================='
        WRITE(*,*)
     END IF
@@ -133,7 +132,7 @@ CONTAINS
   SUBROUTINE assign_cosmology(icosmo,cosm,verbose)
 
     ! Assigns the 'primary' cosmological parameters (primary according to my definition)
-    ! This routine *only* assigns parameters, it does not do *any* calculations
+    ! This routine *only* assigns parameters, it does and should not do *any* calculations
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(INOUT) :: icosmo
@@ -142,7 +141,7 @@ CONTAINS
     REAL :: Om_c
 
     ! Names of pre-defined cosmologies    
-    INTEGER, PARAMETER :: ncosmo=23
+    INTEGER, PARAMETER :: ncosmo=26
     CHARACTER(len=256) :: names(0:ncosmo)
     names(0)='User defined'
     names(1)='Boring'
@@ -168,6 +167,9 @@ CONTAINS
     names(21)='Boring: w = -0.7; wa = 0.5'
     names(22)='IDE3'
     names(23)='IDE10'
+    names(24)='Random Mira Titan cosmology'
+    names(25)='Random FrankenEmu cosmology'
+    names(26)='Boring with CAMB linear spectrum'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_COSMOLOGY: Assigning cosmological model parameters'
 
@@ -187,6 +189,12 @@ CONTAINS
     ! Set the name of the cosmological model
     cosm%name=names(icosmo)
 
+    ! Linear power spectrum
+    ! 1 - Eisenstein & Hu
+    ! 2 - CAMB
+    ! 3 - DEFW
+    cosm%itk=1
+
     ! Boring default cosmology
     cosm%Om_m=0.3
     cosm%Om_b=0.05
@@ -203,39 +211,39 @@ CONTAINS
     cosm%neff=3.046 ! Effective number of relativistic neutrinos
     cosm%YH=0.76 ! Hydrogen mass fraction
 
-    ! Default to use internal linear P(k) from Eisenstein & Hu
-    cosm%external_plin=.FALSE.
-
     ! Default dark energy is Lambda
     cosm%iw=1
 
     ! Default to have no WDM
-    cosm%inv_m_wdm=0. !Inverse WDM mass [1/keV]   
+    cosm%inv_m_wdm=0. ! Inverse WDM mass [1/keV]
 
-    ! Default values of baryon parameters
-    ! TODO: These should eventually be HMx parameters
-    cosm%alpha=1.
-    cosm%eps=1.
-    cosm%Gamma=1.17
-    cosm%M0=1e14 ! Halo mass that has lost half gas
-    cosm%Astar=0.02 ! Maximum star-formation efficiency
-    cosm%whim=1e6 ! WHIM temperature [K]
-    cosm%rstar=0.1
-    cosm%sstar=1.2
-    cosm%Mstar=5e12
+!!$    ! Default values of baryon parameters
+!!$    ! TODO: These should eventually be HMx parameters
+!!$    cosm%alpha=1.
+!!$    cosm%eps=1.
+!!$    cosm%Gamma=1.17
+!!$    cosm%M0=1e14 ! Halo mass that has lost half gas
+!!$    cosm%Astar=0.02 ! Maximum star-formation efficiency
+!!$    cosm%whim=1e6 ! WHIM temperature [K]
+!!$    cosm%rstar=0.1
+!!$    cosm%sstar=1.2
+!!$    cosm%Mstar=5e12
 
-    ! Default values of the HOD parameters
-    ! TODO: These should eventually be HMx parameters
-    cosm%mgal=1e13
+!!$    ! Default values of the HOD parameters
+!!$    ! TODO: These should eventually be HMx parameters
+!!$    cosm%mgal=1e13
 
-    ! Default values for the HI parameters
-    ! TODO: These should eventually be HMx parameters
-    cosm%HImin=1e9
-    cosm%HImax=1e12
+!!$    ! Default values for the HI parameters
+!!$    ! TODO: These should eventually be HMx parameters
+!!$    cosm%HImin=1e9
+!!$    cosm%HImax=1e12
 
     ! Consider box size
     cosm%ibox=0
     cosm%Lbox=400.
+
+    cosm%is_init=.FALSE.
+    cosm%is_normalised=.FALSE.
 
     IF(icosmo==0) THEN
        STOP 'TODO: implement user decision here'
@@ -390,7 +398,17 @@ CONTAINS
           cosm%ns=10
           cosm%as=0.1
           cosm%Om_ws=0.02
-       END IF       
+       END IF
+    ELSE IF(icosmo==24) THEN
+       CALL random_Mira_Titan_cosmology(cosm)
+    ELSE IF(icosmo==25) THEN
+       CALL random_FrankenEmu_cosmology(cosm)
+    ELSE IF(icosmo==26) THEN
+       cosm%itk=2
+       cosm%iw=1
+       cosm%w=-1.
+       cosm%Om_w=cosm%Om_v
+       cosm%Om_v=0.
     ELSE
        STOP 'ASSIGN_COSMOLOGY: Error, icosmo not specified correctly'
     END IF
@@ -400,8 +418,6 @@ CONTAINS
        WRITE(*,*) 'ASSIGN_COSMOLOGY: Done'
        WRITE(*,*)
     END IF
-
-    CALL init_cosmology(cosm)
 
   END SUBROUTINE assign_cosmology
 
@@ -508,9 +524,15 @@ CONTAINS
     IF(ALLOCATED(cosm%log_r_sigma)) DEALLOCATE(cosm%log_r_sigma)
     IF(ALLOCATED(cosm%log_sigma))   DEALLOCATE(cosm%log_sigma)
 
-    ! Ensure deallocate plin
-    cosm%has_power=.FALSE.
-    IF(cosm%external_plin .EQV. .FALSE.) THEN
+    IF(cosm%itk==1) THEN
+       ! Default to use internal linear P(k) from Eisenstein & Hu
+       cosm%has_power=.FALSE.
+    ELSE
+       cosm%has_power=.TRUE.
+    END IF
+    
+    ! Ensure deallocate linear-power tables
+    IF(cosm%has_power .EQV. .FALSE.) THEN
        IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
        IF(ALLOCATED(cosm%log_plin))   DEALLOCATE(cosm%log_plin)
     END IF
@@ -527,13 +549,19 @@ CONTAINS
     END IF
 
     !Normalise the power spectrum
-    IF(cosm%external_plin .EQV. .FALSE.) THEN
-       CALL normalise_power(cosm)
-    ELSE
-       cosm%A=1.
-       cosm%is_normalised=.TRUE.
-    END IF
+!!$    IF(cosm%external_plin .EQV. .FALSE.) THEN
+!!$       CALL normalise_power(cosm)
+!!$    ELSE
+!!$       cosm%A=1.
+!!$       IF(cosm%itk==2) THEN
+!!$          CALL get_CAMB_power(z=0.,non_linear=.FALSE.,halofit_version=0,cosm=cosm)
+!!$          sig8
+!!$       END IF
+!!$       cosm%is_normalised=.TRUE.
+!!$    END IF
 
+    !CALL normalise_power(cosm)
+    
   END SUBROUTINE init_cosmology
 
   SUBROUTINE normalise_power(cosm)
@@ -543,35 +571,66 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: sigi
 
-    ! This needs to be set here for the sigma routines below to work
-    cosm%A=1.
-
-    ! Calculate the initial sigma_8 value (will not be correct)
-    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
-
-    IF(cosm%verbose) THEN
-       WRITE(*,*) 'NORMALISE_POWER: Normalising power to get correct sigma_8'
-       WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)
-    END IF
-
-    ! Reset the normalisation to give the correct sigma8
-    cosm%A=cosm%sig8/sigi
-    !cosm%A=391.0112 ! Appropriate for sig8=0.8 in the boring model (for tests)
-
-    ! Recalculate sigma8, should be correct this time
-    sigi=sqrt(sigma_integral0(8.,1.,cosm,acc_cosm))
-
-    ! Write to screen
-    IF(cosm%verbose) THEN
-       WRITE(*,*) 'NORMALISE_POWER: Normalisation factor:', REAL(cosm%A)
-       WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', REAL(cosm%sig8)
-       WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', REAL(sigi)
-       WRITE(*,*) 'NORMALISE_POWER: Done'
-       WRITE(*,*)
-    END IF
-
-    ! Change the flag
+    ! Change the flag *before* doing this calculation because it calls power
     cosm%is_normalised=.TRUE.
+
+    IF(cosm%itk==1) THEN
+
+       ! This needs to be set here for the sigma routines below to work
+       cosm%A=1.
+
+       ! Calculate the initial sigma_8 value (will not be correct)
+       sigi=sqrt(sigma2_integral1(8.,1.,cosm,2.*acc_cosm))
+
+       IF(cosm%verbose) THEN
+          WRITE(*,*) 'NORMALISE_POWER: Normalising power to get correct sigma_8'
+          WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)
+       END IF
+
+       ! Reset the normalisation to give the correct sigma8
+       cosm%A=cosm%sig8/sigi
+       !cosm%A=391.0112 ! Appropriate for sig8=0.8 in the boring model (for tests)
+
+       ! Recalculate sigma8, should be correct this time
+       sigi=sqrt(sigma2_integral1(8.,1.,cosm,2.*acc_cosm))
+
+       ! Write to screen
+       IF(cosm%verbose) THEN
+          WRITE(*,*) 'NORMALISE_POWER: Normalisation factor:', REAL(cosm%A)
+          WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', REAL(cosm%sig8)
+          WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', REAL(sigi)
+          WRITE(*,*) 'NORMALISE_POWER: Done'
+          WRITE(*,*)
+       END IF
+
+    ELSE IF(cosm%itk==2) THEN
+
+       ! Run first time to get power
+       cosm%A=2.1e-9
+       CALL get_CAMB_power(z=0.,non_linear=.FALSE.,halofit_version=5,cosm=cosm)
+       sigi=sqrt(sigma2_integral1(8.,1.,cosm,2.*acc_cosm))
+
+       IF(cosm%verbose) THEN
+          WRITE(*,*) 'NORMALISE_POWER: Normalising power to get correct sigma_8'
+          WRITE(*,*) 'NORMALISE_POWER: Initial As:', REAL(cosm%A)
+          WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)          
+       END IF
+
+       ! Run again to normalise
+       cosm%A=cosm%A*(cosm%sig8/sigi)**2 
+       CALL get_CAMB_power(z=0.,non_linear=.FALSE.,halofit_version=5,cosm=cosm)
+       sigi=sqrt(sigma2_integral1(8.,1.,cosm,2.*acc_cosm))
+
+       ! Write to screen
+       IF(cosm%verbose) THEN
+          WRITE(*,*) 'NORMALISE_POWER: New As:', REAL(cosm%A)  
+          WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', REAL(cosm%sig8)
+          WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', REAL(sigi)
+          WRITE(*,*) 'NORMALISE_POWER: Done'
+          WRITE(*,*)
+       END IF
+       
+    END IF
 
   END SUBROUTINE normalise_power
 
@@ -810,6 +869,7 @@ CONTAINS
        w_de=cosm%w+(cosm%wm-cosm%w)*p1*p2/(p3*p4)
     ELSE IF(cosm%iw==3) THEN
        ! w(a)CDM
+       ! TODO: Check this
        w_de=cosm%w+(1.-a)*cosm%wa
     ELSE IF(cosm%iw==4) THEN
        ! wCDM
@@ -890,6 +950,7 @@ CONTAINS
        X_de=1.
     ELSE IF(cosm%iw==3) THEN
        ! w(a)CDM
+       ! TODO: Check this
        X_de=(a**(-3.*(1.+cosm%w+cosm%wa)))*exp(-3.*cosm%wa*(1.-a))
     ELSE IF(cosm%iw==4) THEN
        ! wCDM
@@ -1206,7 +1267,13 @@ CONTAINS
     REAL :: Tk, k
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    Tk=Tk_eh(k,cosm)
+    IF(cosm%itk==1) THEN
+       Tk=Tk_eh(k,cosm)
+    ELSE IF(cosm%itk==3) THEN
+       Tk=Tk_defw(k,cosm)
+    ELSE
+       STOP 'TK: Error, itk specified incorrectly'
+    END IF
 
     ! Damp transfer function if considering WDM
     IF(cosm%inv_m_wdm .NE. 0.) Tk=Tk*Tk_wdm(k,cosm)
@@ -1223,9 +1290,9 @@ CONTAINS
     REAL :: keff, q, tk
     DOUBLE PRECISION :: q8, tk8
 
-    keff=0.172+0.011*log(cosm%gamma/0.36)*log(cosm%gamma/0.36)
-    q=1.e-20 + k/cosm%gamma
-    q8=1.e-20 + keff/cosm%gamma
+    keff=0.172+0.011*log(cosm%Gamma/0.36)*log(cosm%Gamma/0.36)
+    q=1.e-20 + k/cosm%Gamma
+    q8=1.e-20 + keff/cosm%Gamma
     tk=1./(1.+(6.4*q+(3.0*q)**1.5+(1.7*q)**2)**1.13)**(1./1.13)
     tk8=1./(1.+(6.4*q8+(3.0*q8)**1.5+(1.7*q8)**2)**1.13)**(1./1.13)
 
@@ -1348,12 +1415,15 @@ CONTAINS
     REAL, INTENT (IN) :: k, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
+    REAL, PARAMETER :: kmin=0.
     REAL, PARAMETER :: kmax=1e8
 
     ! Using init_power seems to provide no significant speed improvements to HMx
     ! IF((cosm%has_power .EQV. .FALSE.) .AND. (cosm%external_plin .EQV. .FALSE.)) CALL init_power(cosm)
 
-    IF(k==0.) THEN
+    IF(.NOT. cosm%is_normalised) CALL normalise_power(cosm)
+
+    IF(k<=kmin) THEN
        ! If p_lin happens to be foolishly called for 0 mode
        ! This call should never happen, but may in integrals
        p_lin=0.
@@ -1365,8 +1435,9 @@ CONTAINS
        ! If investigating effects caused by a finite box size
        p_lin=0.
     ELSE
-       IF(cosm%external_plin .OR. cosm%has_power) THEN
-          p_lin=cosm%A**2*exp(find(log(k),cosm%log_k_plin,cosm%log_plin,cosm%n_plin,3,3,2))
+       IF(cosm%has_power) THEN
+          ! TODO: Do something cleverer here. Could use the ln(k)^2 behaviour at high k, could just truncate
+          p_lin=exp(find(log(k),cosm%log_k_plin,cosm%log_plin,cosm%n_plin,3,3,2))
        ELSE
           ! In this case get the power from the transfer function
           p_lin=(cosm%A**2)*(Tk(k,cosm)**2)*(k**(cosm%n+3.))
@@ -1379,7 +1450,7 @@ CONTAINS
 
   SUBROUTINE init_power(cosm)
 
-    ! Fill a look-up table for the linear power spectrum
+    ! Fill a look-up table for the linear power spectrum from a fitting function
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
@@ -1433,7 +1504,7 @@ CONTAINS
     INTEGER, PARAMETER :: nsig=128 ! Number of entries for sigma(R) tables
     REAL, PARAMETER :: rmin=1e-4 ! Minimum r value (NB. sigma(R) needs to be power-law below)
     REAL, PARAMETER :: rmax=1e3 ! Maximum r value (NB. sigma(R) needs to be power-law above)
-    REAL, PARAMETER :: rsplit=1e-2 ! Scale split between integration methods
+    REAL, PARAMETER :: Rsplit=1e-2 ! Scale split between integration methods
 
     !IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
 
@@ -1461,10 +1532,10 @@ CONTAINS
        r=progression_log(rmin,rmax,i,nsig)
 
        ! Integration method changes depending on r to make this as fast as possible
-       IF(r>=rsplit) THEN
-          sigma=sqrt(sigma_integral0(r,1.,cosm,acc_cosm))
-       ELSE IF(r<rsplit) THEN
-          sigma=sqrt(sigma_integral1(r,1.,cosm,acc_cosm)+sigma_integral2(r,1.,cosm,acc_cosm))
+       IF(r>=Rsplit) THEN
+          sigma=sqrt(sigma2_integral1(r,1.,cosm,2.*acc_cosm))
+       ELSE IF(r<Rsplit) THEN
+          sigma=sqrt(sigma2_integral2_1_of_2(r,1.,cosm,2.*acc_cosm)+sigma2_integral2_2_of_2(r,1.,cosm,2.*acc_cosm))
        ELSE
           STOP 'INIT_SIGMA: Error, something went wrong'
        END IF
@@ -1496,8 +1567,7 @@ CONTAINS
     REAL :: sigma
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
-
-    ! IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
+    
     IF(cosm%has_sigma .EQV. .FALSE.) CALL init_sigma(cosm)
     sigma=grow(a,cosm)*exp(find(log(r),cosm%log_r_sigma,cosm%log_sigma,cosm%n_sigma,3,3,2))
 
@@ -1511,13 +1581,12 @@ CONTAINS
     REAL :: sigma_integrand
     REAL, INTENT(IN) :: k, R, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: y, w_hat
+    REAL :: w_hat
 
     IF(k==0.) THEN
        sigma_integrand=0.
     ELSE
-       y=k*R
-       w_hat=wk_tophat(y)
+       w_hat=wk_tophat(k*R)
        sigma_integrand=p_lin(k,a,cosm)*(w_hat**2)/k
     END IF
 
@@ -1531,7 +1600,8 @@ CONTAINS
     REAL :: sigma_integrand_transformed
     REAL, INTENT(IN) :: t, R, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: k, y, w_hat
+    REAL :: k, w_hat
+    LOGICAL :: use_rapid=.TRUE. !(03/08/2018 - the rapidiser seems to slow things down in some cases! Weird!)
 
     INTERFACE
        REAL FUNCTION f(x)
@@ -1539,8 +1609,9 @@ CONTAINS
        END FUNCTION f
     END INTERFACE
 
-    ! Integrand to the sigma integral in terms of t. Defined by k=(1/t-1)/f(R) where f(R) is *any* function
+    IF(cosm%itk==1) use_rapid=.FALSE. ! Slows down integratino when using Eisensten & Hu
 
+    ! Integrand to the sigma integral in terms of t. Defined by k=(1/t-1)/f(R) where f(R) is *any* function of R
     IF(t==0.) THEN
        ! t=0 corresponds to k=infintiy when W(kR)=0
        sigma_integrand_transformed=0.
@@ -1549,23 +1620,23 @@ CONTAINS
        sigma_integrand_transformed=0.
     ELSE
        ! f(R) can be *any* function of R here to improve integration speed
-       k=(-1.+1./t)/f(R)
-       y=k*R
-       w_hat=wk_tophat(y)
+       k=(-1.+1./t)
+       IF(use_rapid) k=k/f(R)
+       w_hat=wk_tophat(k*R)
        sigma_integrand_transformed=p_lin(k,a,cosm)*(w_hat**2)/(t*(1.-t))
     END IF
 
   END FUNCTION sigma_integrand_transformed
 
-  FUNCTION sigma_integral0(r,a,cosm,acc)
+  FUNCTION sigma2_integral1(r,a,cosm,acc)
 
     ! Integrates between a and b until desired accuracy is reached
     ! Stores information to reduce function calls
     IMPLICIT NONE
-    REAL :: sigma_integral0
+    REAL :: sigma2_integral1
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL, INTENT(IN) :: acc    
+    REAL, INTENT(IN) :: acc
     INTEGER :: i, j
     INTEGER :: n
     REAL :: x, dx
@@ -1581,7 +1652,7 @@ CONTAINS
     IF(b==c) THEN
 
        ! Fix the answer to zero if the integration limits are identical
-       sigma_integral0=0.
+       sigma2_integral1=0.
 
     ELSE
 
@@ -1603,8 +1674,8 @@ CONTAINS
           IF(j==1) THEN
 
              ! The first go is just the trapezium of the end points
-             f1=sigma_integrand_transformed(b,r,f0_rapid,a,cosm)
-             f2=sigma_integrand_transformed(c,r,f0_rapid,a,cosm)
+             f1=sigma_integrand_transformed(b,r,f_rapid,a,cosm)
+             f2=sigma_integrand_transformed(c,r,f_rapid,a,cosm)
              sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
@@ -1613,7 +1684,7 @@ CONTAINS
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=progression(b,c,i,n)
-                fx=sigma_integrand_transformed(x,r,f0_rapid,a,cosm)
+                fx=sigma_integrand_transformed(x,r,f_rapid,a,cosm)
                 sum_2n=sum_2n+fx
              END DO
 
@@ -1626,21 +1697,21 @@ CONTAINS
              ELSE IF(iorder==3) THEN         
                 sum_new=(4.*sum_2n-sum_n)/3. ! This is Simpson's rule and cancels error
              ELSE
-                STOP 'SIGMA_INTEGRAL0: Error, iorder specified incorrectly'
+                STOP 'SIGMA2_INTEGRAL1: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
           IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              ! jmin avoids spurious early convergence
-             sigma_integral0=REAL(sum_new)
+             sigma2_integral1=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
-             sigma_integral0=0.d0
-             STOP 'SIGMA_INTEGRAL0: Integration timed out'
+             sigma2_integral1=0.d0
+             STOP 'SIGMA2_INTEGRAL1: Integration timed out'
           ELSE
              ! Integral has not converged so store old sums and reset sum variables
-             sigma_integral0=0.d0
+             sigma2_integral1=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1650,20 +1721,22 @@ CONTAINS
 
     END IF
 
-  END FUNCTION sigma_integral0
+  END FUNCTION sigma2_integral1
 
-  FUNCTION f0_rapid(r)
+  FUNCTION f_rapid(r)
 
     ! This is the 'rapidising' function to increase integration speed
     ! for sigma(R). Found by trial-and-error
     IMPLICIT NONE
-    REAL :: f0_rapid
+    REAL :: f_rapid
     REAL, INTENT(IN) :: r
     REAL :: alpha
 
-    REAL, PARAMETER :: rsplit=1e-2
+    REAL, PARAMETER :: Rsplit=1e-2
 
-    IF(r>rsplit) THEN
+    IF(r==0.) THEN
+       f_rapid=1.
+    ELSE IF(r>Rsplit) THEN
        ! alpha 0.3-0.5 works well
        alpha=0.5
     ELSE
@@ -1672,16 +1745,16 @@ CONTAINS
        alpha=0.8
     END IF
 
-    f0_rapid=r**alpha
+    f_rapid=r**alpha
 
-  END FUNCTION f0_rapid
+  END FUNCTION f_rapid
 
-  FUNCTION sigma_integral1(r,a,cosm,acc)
+  FUNCTION sigma2_integral2_1_of_2(r,a,cosm,acc)
 
     ! Integrates between a and b until desired accuracy is reached
     ! Stores information to reduce function calls
     IMPLICIT NONE
-    REAL :: sigma_integral1
+    REAL :: sigma2_integral2_1_of_2
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, INTENT(IN) :: acc
@@ -1702,7 +1775,7 @@ CONTAINS
     IF(b==c) THEN
 
        ! Fix the answer to zero if the integration limits are identical
-       sigma_integral1=0.
+       sigma2_integral2_1_of_2=0.
 
     ELSE
 
@@ -1724,8 +1797,8 @@ CONTAINS
           IF(j==1) THEN
 
              ! The first go is just the trapezium of the end points
-             f1=sigma_integrand_transformed(b,r,f1_rapid,a,cosm)
-             f2=sigma_integrand_transformed(c,r,f1_rapid,a,cosm)
+             f1=sigma_integrand_transformed(b,r,f_rapid,a,cosm)
+             f2=sigma_integrand_transformed(c,r,f_rapid,a,cosm)
              sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
@@ -1734,7 +1807,7 @@ CONTAINS
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=progression(b,c,i,n)
-                fx=sigma_integrand_transformed(x,r,f1_rapid,a,cosm)
+                fx=sigma_integrand_transformed(x,r,f_rapid,a,cosm)
                 sum_2n=sum_2n+fx
              END DO
 
@@ -1747,21 +1820,21 @@ CONTAINS
              ELSE IF(iorder==3) THEN         
                 sum_new=(4.*sum_2n-sum_n)/3. ! This is Simpson's rule and cancels error
              ELSE
-                STOP 'SIGMA_INTEGRAL1: Error, iorder specified incorrectly'
+                STOP 'SIGMA2_INTEGRAL2_1_OF_2: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
           IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              ! jmin avoids spurious early convergence
-             sigma_integral1=REAL(sum_new)
+             sigma2_integral2_1_of_2=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
-             sigma_integral1=0.d0
-             STOP 'SIGMA_INTEGRAL1: Integration timed out'
+             sigma2_integral2_1_of_2=0.d0
+             STOP 'SIGMA2_INTEGRAL2_1_OF_2: Integration timed out'
           ELSE
              ! Integral has not converged so store old sums and reset sum variables
-             sigma_integral1=0.d0
+             sigma2_integral2_1_of_2=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1771,28 +1844,28 @@ CONTAINS
 
     END IF
 
-  END FUNCTION sigma_integral1
+  END FUNCTION sigma2_integral2_1_of_2
 
-  FUNCTION f1_rapid(r)
+!!$  FUNCTION f2_rapid(r)
+!!$
+!!$    ! This is the 'rapidising' function to increase integration speed
+!!$    ! for sigma(R). Found by trial-and-error
+!!$    IMPLICIT NONE
+!!$    REAL :: f2_rapid
+!!$    REAL, INTENT(IN) :: r
+!!$
+!!$    REAL, PARAMETER :: alpha=0.5
+!!$
+!!$    f2_rapid=r**alpha
+!!$
+!!$  END FUNCTION f2_rapid
 
-    ! This is the 'rapidising' function to increase integration speed
-    ! for sigma(R). Found by trial-and-error
-    IMPLICIT NONE
-    REAL :: f1_rapid
-    REAL, INTENT(IN) :: r
-
-    REAL, PARAMETER :: alpha=0.5
-
-    f1_rapid=r**alpha
-
-  END FUNCTION f1_rapid
-
-  FUNCTION sigma_integral2(r,a,cosm,acc)
+  FUNCTION sigma2_integral2_2_of_2(r,a,cosm,acc)
 
     ! Integrates between a and b until desired accuracy is reached
     ! Stores information to reduce function calls
     IMPLICIT NONE
-    REAL :: sigma_integral2
+    REAL :: sigma2_integral2_2_of_2
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, INTENT(IN) :: acc
@@ -1814,7 +1887,7 @@ CONTAINS
     IF(b==c) THEN
 
        ! Fix the answer to zero if the integration limits are identical
-       sigma_integral2=0.
+       sigma2_integral2_2_of_2=0.
 
     ELSE
 
@@ -1859,22 +1932,22 @@ CONTAINS
              ELSE IF(iorder==3) THEN         
                 sum_new=(4.*sum_2n-sum_n)/3. ! This is Simpson's rule and cancels error
              ELSE
-                STOP 'SIGMA_INTEGRAL2: Error, iorder specified incorrectly'
+                STOP 'SIGMA2_INTEGRAL2_2_OF_2: Error, iorder specified incorrectly'
              END IF
 
           END IF
 
           IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              ! jmin avoids spurious early convergence
-             sigma_integral2=REAL(sum_new)
+             sigma2_integral2_2_of_2=REAL(sum_new)
              !WRITE(*,*) 'INTEGRATE_STORE: Nint:', n
              EXIT
           ELSE IF(j==jmax) THEN
-             sigma_integral2=0.d0
-             STOP 'SIGMA_INTEGRAL2: Integration timed out'
+             sigma2_integral2_2_of_2=0.d0
+             STOP 'SIGMA2_INTEGRAL2_2_OF_2: Integration timed out'
           ELSE
              ! Integral has not converged so store old sums and reset sum variables
-             sigma_integral2=0.d0
+             sigma2_integral2_2_of_2=0.d0
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -1884,17 +1957,19 @@ CONTAINS
 
     END IF
 
-  END FUNCTION sigma_integral2
+  END FUNCTION sigma2_integral2_2_of_2
 
   FUNCTION sigmaV(R,a,cosm)
 
     IMPLICIT NONE
     REAL :: sigmaV
     REAL, INTENT(IN) :: R, a
-    TYPE(cosmology), INTENT(INOUT) :: cosm
+    TYPE(cosmology), INTENT(INOUT) :: cosm    
 
-    !IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
-    sigmaV=sigmaV_integral(R,a,cosm,acc_cosm)
+    sigmaV=sigmaV_integral(R,a,cosm,2.*acc_cosm)
+
+    ! Convert 3D sigmaV^2 to 1D sigmaV
+    sigmaV=sqrt(sigmaV/3.)
 
   END FUNCTION sigmaV
 
@@ -1998,30 +2073,37 @@ CONTAINS
 
   FUNCTION sigmaV_integrand(theta,R,a,cosm)
 
-    !This is the integrand for the velocity dispersion integral
+    ! This is the integrand for the velocity dispersion integral
     USE special_functions
     IMPLICIT NONE
     REAL :: sigmaV_integrand
     REAL, INTENT(IN) :: theta, a, R
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: k
+    REAL :: k, w_hat
 
-    REAL, PARAMETER :: alpha=1.65 !Speeds up integral for large 'R'
-    REAL, PARAMETER :: Rsplit=10. !Value to impliment speed up
+    REAL, PARAMETER :: alpha=1.65 ! Speeds up integral for large 'R'
+    REAL, PARAMETER :: Rsplit=10. ! Value to impliment speed up
+    REAL, PARAMETER :: const=1e3 ! Constant to speed up R=0 case
 
-    !Note that I have not included the speed up alpha and Rsplit
-    !The choice of alpha=1.65 seemed to work well for R=100.
-    !Rsplit=10 is thoughlessly chosen (only because 100.>10.)
-    !Including this seems to make things slower (faster integration but slower IF statements?)
+    ! Note that I have not included the speed up alpha and Rsplit
+    ! The choice of alpha=1.65 seemed to work well for R=100.
+    ! Rsplit=10 is thoughlessly chosen (only because 100.>10.)
+    ! Including this seems to make things slower (faster integration but slower IF statements?)
 
     IF(theta==0. .OR. theta==1.) THEN
        sigmaV_integrand=0.
     ELSE
-       !IF(r>Rsplit) THEN
-       !   k=(-1.+1./theta)/r**alpha
-       !ELSE
-       k=(-1.+1./theta)
-       sigmaV_integrand=(p_lin(k,a,cosm)/k**2)*(wk_tophat(k*r)**2)/(theta*(1.-theta))
+       IF(R>Rsplit) THEN
+          k=(-1.+1./theta)/R**alpha
+       ELSE
+          IF(cosm%itk==1) THEN
+             k=(-1.+1./theta)
+          ELSE
+             k=(-1.+1./theta)/const
+          END IF
+       END IF
+       w_hat=wk_tophat(k*R)
+       sigmaV_integrand=(p_lin(k,a,cosm)/k**2)*(w_hat**2)/(theta*(1.-theta))
     END IF
 
   END FUNCTION sigmaV_integrand
@@ -3037,5 +3119,262 @@ CONTAINS
     END IF
 
   END FUNCTION integrate_cosm
+
+  SUBROUTINE get_CAMB_power(z,non_linear,halofit_version,cosm)
+
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER, INTENT(IN) :: halofit_version
+    LOGICAL,INTENT(IN) :: non_linear
+    REAL, INTENT(IN) :: z
+    REAL, ALLOCATABLE :: k(:), Pk(:)
+    INTEGER :: i, n
+    
+    CHARACTER(len=256), PARAMETER :: camb=TRIM('/Users/Mead/Physics/CAMB/camb')
+    CHARACTER(len=256), PARAMETER :: matterpower=TRIM('/Users/Mead/Physics/CAMB_files/tmp/temp_matterpower.dat')
+
+    !Needs to be changed to accomodate neutrino masses and degeneracy structure
+    !Talk to Alex Hall about this
+
+    OPEN(7,file='/Users/Mead/Physics/CAMB_files/tmp/params.ini')
+    WRITE(7,*) 'output_root = /Users/Mead/Physics/CAMB_files/tmp/temp'
+    WRITE(7,*) 'get_scalar_cls = F'
+    WRITE(7,*) 'get_vector_cls = F'
+    WRITE(7,*) 'get_tensor_cls = F'
+    WRITE(7,*) 'COBE_normalize = F'
+    WRITE(7,*) 'CMB_outputscale = 7.4311e12'
+    WRITE(7,*) 'get_transfer = T'
+    IF(non_linear) THEN
+       WRITE(7,*) 'do_nonlinear = 1'
+    ELSE
+       WRITE(7,*) 'do_nonlinear = 0'
+    END IF
+    WRITE(7,*) 'halofit_version =', halofit_version
+    WRITE(7,*) 'w =', cosm%w
+    WRITE(7,*) 'wa =', cosm%wa
+    WRITE(7,*) 'cs2_lam = 1'
+    WRITE(7,*) 'hubble =', 100.*cosm%h
+    WRITE(7,*) 'use_physical = F'
+    WRITE(7,*) 'omega_baryon =', cosm%Om_b
+    WRITE(7,*) 'omega_cdm =', cosm%Om_c
+    WRITE(7,*) 'omega_lambda =', cosm%Om_v
+    WRITE(7,*) 'omega_neutrino =', cosm%Om_nu
+    WRITE(7,*) 'temp_cmb = 2.7255'
+    WRITE(7,*) 'helium_fraction = 0.24'
+    WRITE(7,*) 'massless_neutrinos = 0'
+    WRITE(7,*) 'massive_neutrinos = 3'
+    WRITE(7,*) 'nu_mass_eigenstates = 1'
+    WRITE(7,*) 'nu_mass_fractions ='
+    WRITE(7,*) 'transfer_high_precision = F'
+    WRITE(7,*) 'transfer_kmax = 10'
+    WRITE(7,*) 'transfer_k_per_logint = 0'
+    WRITE(7,*) 'transfer_num_redshifts = 1'
+    WRITE(7,*) 'transfer_interp_matterpower = T'
+    WRITE(7,*) 'transfer_power_var = 7'
+    WRITE(7,*) 'transfer_redshift(1) =', z
+    WRITE(7,*) 'transfer_filename(1) = transfer_out.dat'
+    WRITE(7,*) 'transfer_matterpower(1) = matterpower.dat'
+    WRITE(7,*) 'reionization = T'
+    WRITE(7,*) 're_use_optical_depth = T'
+    WRITE(7,*) 're_optical_depth = 0.09'
+    WRITE(7,*) 're_delta_redshift = 1.5'
+    WRITE(7,*) 're_ionization_frac = -1'
+    WRITE(7,*) 'pivot_scalar = 0.05'
+    WRITE(7,*) 'pivot_tensor = 0.05'
+    WRITE(7,*) 'initial_power_num = 1'
+    WRITE(7,*) 'scalar_spectral_index(1) =', cosm%n
+    WRITE(7,*) 'scalar_nrun(1) = 0'
+    WRITE(7,*) 'scalar_amp(1) =', cosm%A
+    WRITE(7,*) 'RECFAST_fudge_He = 0.86'
+    WRITE(7,*) 'RECFAST_Heswitch = 6'
+    WRITE(7,*) 'RECFAST_Hswitch = T'
+    WRITE(7,*) 'RECFAST_fudge = 1.14'
+    WRITE(7,*) 'do_lensing_bispectrum = F'
+    WRITE(7,*) 'do_primordial_bispectrum = F'
+    WRITE(7,*) 'initial_condition = 1'
+    WRITE(7,*) 'accurate_polarization = T'
+    WRITE(7,*) 'accurate_reionization = T'
+    WRITE(7,*) 'accurate_BB = F'
+    WRITE(7,*) 'do_late_rad_truncation = T'
+    WRITE(7,*) 'do_tensor_neutrinos = T'
+    WRITE(7,*) 'feedback_level = 1'
+    WRITE(7,*) 'massive_nu_approx = 1'
+    WRITE(7,*) 'number_of_threads = 4'
+    WRITE(7,*) 'accuracy_boost = 1'
+    WRITE(7,*) 'l_accuracy_boost = 1'
+    WRITE(7,*) 'high_accuracy_default = T'
+    WRITE(7,*) 'use_spline_template =  T'
+    WRITE(7,*) 'l_sample_boost = 1'
+    CLOSE(7)
+
+    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Running CAMB'
+    CALL EXECUTE_COMMAND_LINE('rm /Users/Mead/Physics/CAMB_files/tmp/temp_transfer_out.dat')
+    CALL EXECUTE_COMMAND_LINE('rm /Users/Mead/Physics/CAMB_files/tmp/temp_matterpower.dat')
+    IF(cosm%verbose) THEN
+       CALL EXECUTE_COMMAND_LINE('/Users/Mead/Physics/CAMB/camb /Users/Mead/Physics/CAMB_files/tmp/params.ini > /dev/null')
+    ELSE
+       CALL EXECUTE_COMMAND_LINE('/Users/Mead/Physics/CAMB/camb /Users/Mead/Physics/CAMB_files/tmp/params.ini')
+    END IF
+    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: CAMB run complete'
+
+    ! Read in the now-generated CAMB linear spectra
+    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Reading in CAMB data'
+    n=file_length(matterpower,.FALSE.)-1
+    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Number of entries:', n
+    ALLOCATE(k(n),Pk(n))
+    OPEN(7,file=matterpower)
+    DO i=0,n
+       IF(i==0) THEN
+          READ(7,*)
+       ELSE
+          READ(7,*) k(i), Pk(i)
+       END IF
+    END DO
+    CLOSE(7)
+    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Data done'    
+
+    ! Convert from P(k) -> Delta^2(k)
+    Pk=Pk*(k**3)*4.*pi/(2.*pi)**3
+
+    ! Add to cosm arrays and convert to log
+    IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
+    IF(ALLOCATED(cosm%log_plin)) DEALLOCATE(cosm%log_plin)
+    ALLOCATE(cosm%log_plin(n),cosm%log_k_plin(n))
+    cosm%log_k_plin=log(k)
+    cosm%log_plin=log(Pk)
+    cosm%n_plin=n
+    cosm%has_power=.TRUE.
+
+    IF(cosm%verbose) THEN
+       WRITE(*,*) 'GET_CAMB_POWER: Done'
+       WRITE(*,*)
+    END IF
+    
+  END SUBROUTINE get_CAMB_power
+
+  SUBROUTINE random_Mira_Titan_cosmology(cosm)
+
+    !Generate some random cosmological parameters for the Mira Titan hypercube
+    USE random_numbers
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: om_m, om_b, om_nu
+
+    REAL, PARAMETER :: om_m_min=0.120
+    REAL, PARAMETER :: om_m_max=0.155
+
+    REAL, PARAMETER :: om_b_min=0.0215
+    REAL, PARAMETER :: om_b_max=0.0235
+
+    REAL, PARAMETER :: om_nu_min=0.00
+    REAL, PARAMETER :: om_nu_max=0.01
+
+    REAL, PARAMETER :: n_min=0.85
+    REAL, PARAMETER :: n_max=1.05
+
+    REAL, PARAMETER :: h_min=0.55
+    REAL, PARAMETER :: h_max=0.85
+
+    REAL, PARAMETER :: w_min=-1.3
+    REAL, PARAMETER :: w_max=-0.7
+
+    ! Implement this
+    REAL, PARAMETER :: wa_min=-1.73
+    REAL, PARAMETER :: wa_max=1.28
+
+    REAL, PARAMETER :: sig8_min=0.7
+    REAL, PARAMETER :: sig8_max=0.9
+
+    cosm%h=random_uniform(h_min,h_max)
+
+    om_m=random_uniform(om_m_min,om_m_max)
+    cosm%Om_m=om_m/cosm%h**2
+
+    om_b=random_uniform(om_b_min,om_b_max)
+    cosm%Om_b=om_b/cosm%h**2
+
+    om_nu=random_uniform(om_nu_min,om_nu_max)
+    cosm%Om_nu=om_nu/cosm%h**2
+    cosm%Om_nu=0.
+
+    ! Enforce flatness
+    cosm%Om_w=1.-cosm%Om_m
+    cosm%Om_v=0.
+
+    cosm%n=random_uniform(n_min,n_max)
+
+    cosm%w=random_uniform(w_min,w_max)
+    cosm%w=-1.
+
+    ! Enforce 0.3 <= (-w0-wa)^(1/4)
+    DO
+       cosm%wa=random_uniform(wa_min,wa_max)
+       !IF(0.3<=(-cosm%w-cosm%wa)**(1./4.)) EXIT
+       IF(0.0081<=-cosm%w-cosm%wa) EXIT
+    END DO
+    cosm%wa=0.
+
+    cosm%sig8=random_uniform(sig8_min,sig8_max)
+
+    ! Set to w(a) dark energy
+    cosm%iw=4
+
+    ! Set to CAMB linear power
+    cosm%itk=2
+
+  END SUBROUTINE random_Mira_Titan_cosmology
+
+  SUBROUTINE random_FrankenEmu_cosmology(cosm)
+
+    !Generate some random cosmological parameter
+    USE random_numbers
+    IMPLICIT NONE
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    REAL, PARAMETER :: Om_m_min=0.1
+    REAL, PARAMETER :: Om_m_max=1.
+
+    REAL, PARAMETER :: Om_b_on_Om_m_min=0.05
+    REAL, PARAMETER :: Om_b_on_Om_m_max=0.5
+
+    REAL, PARAMETER :: n_min=0.5
+    REAL, PARAMETER :: n_max=1.5
+
+    REAL, PARAMETER :: h_min=0.4
+    REAL, PARAMETER :: h_max=1.2
+
+    REAL, PARAMETER :: w_min=-1.5
+    REAL, PARAMETER :: w_max=-0.5
+
+    REAL, PARAMETER :: wa_min=0.
+    REAL, PARAMETER :: wa_max=0.
+
+    REAL, PARAMETER :: sig8_min=0.2
+    REAL, PARAMETER :: sig8_max=1.5
+
+    cosm%Om_m=random_uniform(Om_m_min,Om_m_max)
+
+    !Enforce flatness
+    cosm%Om_v=1.-cosm%Om_m
+
+    cosm%Om_b=cosm%Om_m*random_uniform(Om_b_on_Om_m_min,Om_b_on_Om_m_max)
+
+    cosm%n=random_uniform(n_min,n_max)
+
+    cosm%h=random_uniform(h_min,h_max)
+
+    cosm%w=random_uniform(w_min,w_max)
+
+    cosm%wa=random_uniform(wa_min,wa_max)
+
+    cosm%sig8=random_uniform(sig8_min,sig8_max)
+
+    ! Set to constant w cosmology
+    cosm%iw=4
+
+    ! Set to CAMB linear power
+    cosm%itk=2
+
+  END SUBROUTINE random_FrankenEmu_cosmology
 
 END MODULE cosmology_functions

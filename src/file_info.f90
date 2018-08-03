@@ -2,15 +2,16 @@ MODULE file_info
 
 CONTAINS
 
-  INTEGER FUNCTION file_length(file_name)
+  INTEGER FUNCTION file_length(file_name,verbose)
 
     ! Get the number of lines in the file
     IMPLICIT NONE
     CHARACTER(len=*), INTENT(IN) :: file_name
+    LOGICAL, INTENT(IN) :: verbose
     INTEGER :: n
     LOGICAL :: lexist
 
-    WRITE(*,*) 'FILE_LENGTH: File: ', TRIM(file_name)
+    IF(verbose) WRITE(*,*) 'FILE_LENGTH: File: ', TRIM(file_name)
     INQUIRE(file=file_name,exist=lexist)
     IF(.NOT. lexist) STOP 'FILE_LENGTH: Error, file does not exist'
     OPEN(7,file=file_name,status='old')
@@ -27,8 +28,10 @@ CONTAINS
 
     file_length=n-1
 
-    WRITE(*,*) 'FILE_LENGTH: Length:', file_length
-    WRITE(*,*)
+    IF(verbose) THEN
+       WRITE(*,*) 'FILE_LENGTH: Length:', file_length
+       WRITE(*,*)
+    END IF
 
   END FUNCTION file_length
 

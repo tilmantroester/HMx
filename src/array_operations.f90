@@ -365,7 +365,7 @@ CONTAINS
 
   END FUNCTION maximum
 
-   SUBROUTINE mask(okay,m,n,min,max)
+  SUBROUTINE mask(okay,m,n,min,max)
 
     ! Flags objects that make the cut as 'okay'
     ! Can be applied to any scalar array, not just mass

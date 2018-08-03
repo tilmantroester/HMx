@@ -36,20 +36,21 @@ BIN_DIR = bin
 
 # Objects
 _OBJ = constants.o \
-	   random_numbers.o \
-	   file_info.o \
-	   logical_operations.o \
-	   fix_polynomial.o \
-	   array_operations.o \
-	   table_integer.o \
-	   special_functions.o \
-	   interpolate.o \
-	   solve_equations.o \
-	   string_operations.o \
-	   calculus_table.o \
-	   cosmology_functions.o \
-	   HMx.o \
-	   Limber.o
+	random_numbers.o \
+	file_info.o \
+	logical_operations.o \
+	fix_polynomial.o \
+	array_operations.o \
+	table_integer.o \
+	special_functions.o \
+	interpolate.o \
+	solve_equations.o \
+	string_operations.o \
+	calculus_table.o \
+	cosmology_functions.o \
+	HMx.o \
+	Limber.o \
+	cosmic_emu_stuff.o	
 
 # Add prefixes of build directory to objects
 OBJ = $(addprefix $(BUILD_DIR)/,$(_OBJ))
