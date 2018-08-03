@@ -22,7 +22,7 @@ MODULE HMx
      REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
      REAL :: n_c, n_s, n_g, rho_HI
-     REAL :: Dv0, Dvp, dc0, dc1, eta0, eta1, f0, fp, ks0, A0, alp0, alp1! HMcode parameters
+     REAL :: Dv0, Dvp, dc0, dc1, eta0, eta1, f0, fp, ks0, A0, alp0, alp1 ! HMcode parameters
      REAL :: mgal, HImin, HImax ! HOD parameters
      INTEGER :: n
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative

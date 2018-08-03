@@ -1448,44 +1448,44 @@ CONTAINS
 
   END FUNCTION p_lin
 
-  SUBROUTINE init_power(cosm)
-
-    ! Fill a look-up table for the linear power spectrum from a fitting function
-    IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    INTEGER :: i
-    REAL :: k
-
-    ! PARAMETERS
-    REAL, PARAMETER :: kmin=1e-3
-    REAL, PARAMETER :: kmax=1e2
-    INTEGER, PARAMETER :: n_plin=256
-
-    ! Set the numer of points in the look-up tables
-    ! Note you need to have enough to resolve the BAO well
-    ! Probably some non-log/linear spacing would be best (CAMB does this)
-    cosm%n_plin=n_plin
-
-    ! Allocate arrays
-    IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
-    IF(ALLOCATED(cosm%log_plin)) DEALLOCATE(cosm%log_plin)
-    ALLOCATE(cosm%log_k_plin(cosm%n_plin),cosm%log_plin(cosm%n_plin))
-
-    ! Get values for the linear power spectrum
-    DO i=1,cosm%n_plin
-       k=progression_log(kmin,kmax,i,cosm%n_plin)
-       cosm%log_k_plin(i)=k
-       cosm%log_plin(i)=(Tk(k,cosm)**2)*k**(cosm%n+3.)
-    END DO
-
-    ! Take logarithms
-    cosm%log_k_plin=log(cosm%log_k_plin)
-    cosm%log_plin=log(cosm%log_plin)
-
-    ! Change the flag to true
-    cosm%has_power=.TRUE.
-    
-  END SUBROUTINE init_power
+!!$  SUBROUTINE init_power(cosm)
+!!$
+!!$    ! Fill a look-up table for the linear power spectrum from a fitting function
+!!$    IMPLICIT NONE
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    INTEGER :: i
+!!$    REAL :: k
+!!$
+!!$    ! PARAMETERS
+!!$    REAL, PARAMETER :: kmin=1e-3
+!!$    REAL, PARAMETER :: kmax=1e2
+!!$    INTEGER, PARAMETER :: n_plin=256
+!!$
+!!$    ! Set the numer of points in the look-up tables
+!!$    ! Note you need to have enough to resolve the BAO well
+!!$    ! Probably some non-log/linear spacing would be best (CAMB does this)
+!!$    cosm%n_plin=n_plin
+!!$
+!!$    ! Allocate arrays
+!!$    IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
+!!$    IF(ALLOCATED(cosm%log_plin)) DEALLOCATE(cosm%log_plin)
+!!$    ALLOCATE(cosm%log_k_plin(cosm%n_plin),cosm%log_plin(cosm%n_plin))
+!!$
+!!$    ! Get values for the linear power spectrum
+!!$    DO i=1,cosm%n_plin
+!!$       k=progression_log(kmin,kmax,i,cosm%n_plin)
+!!$       cosm%log_k_plin(i)=k
+!!$       cosm%log_plin(i)=(Tk(k,cosm)**2)*k**(cosm%n+3.)
+!!$    END DO
+!!$
+!!$    ! Take logarithms
+!!$    cosm%log_k_plin=log(cosm%log_k_plin)
+!!$    cosm%log_plin=log(cosm%log_plin)
+!!$
+!!$    ! Change the flag to true
+!!$    cosm%has_power=.TRUE.
+!!$    
+!!$  END SUBROUTINE init_power
 
   SUBROUTINE init_sigma(cosm)
 
