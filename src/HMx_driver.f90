@@ -224,6 +224,7 @@ PROGRAM HMx_driver
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
+     CALL assign_halomod(ihm,hmod,verbose)
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
      nk=128
@@ -241,7 +242,7 @@ PROGRAM HMx_driver
      na=nz
 
      ip=-1 !Set DMONLY profiles 
-     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
@@ -253,6 +254,8 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
@@ -279,7 +282,7 @@ PROGRAM HMx_driver
      !STOP
 
      !User chooses halo model   
-     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
@@ -291,6 +294,8 @@ PROGRAM HMx_driver
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
@@ -330,7 +335,7 @@ PROGRAM HMx_driver
            base='bias/power_ff'
         END IF
         
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
         CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
 
      END DO
@@ -1081,14 +1086,14 @@ PROGRAM HMx_driver
 
         !Write out diagnostics
         CALL assign_halomod(ihm,hmod,verbose)
-        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+        !CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
         !dir='diagnostics'
         !CALL halo_diagnostics(z,hmod,cosm,dir)
         !CALL halo_definitions(z,hmod,dir)
         !CALL halo_properties(z,hmod,dir)
 
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
 !!$        !Fix the one-halo term P(k) to be a constant
 !!$        DO j=1,na
@@ -1190,8 +1195,9 @@ PROGRAM HMx_driver
 
            CALL print_cosmology(cosm)
            !CALL initialise_distances(verbose,cosm)
+           CALL assign_halomod(ihm,hmod,verbose)
 
-           CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+           CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
            !Fill out the projection kernels
            CALL fill_projection_kernels(ix,proj,cosm)
@@ -1403,7 +1409,9 @@ PROGRAM HMx_driver
         !CALL initialise_cosmology(verbose,cosm)
         CALL print_cosmology(cosm)
 
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL assign_halomod(ihm,hmod,verbose)
+
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
         !Initialise the lensing part of the calculation
         !CALL initialise_distances(verbose,cosm)
@@ -1528,6 +1536,8 @@ PROGRAM HMx_driver
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
+     CALL assign_halomod(ihm,hmod,verbose)
+
      !Initialise the lensing part of the calculation
      !CALL initialise_distances(verbose,cosm)
      CALL write_distances(cosm)
@@ -1568,7 +1578,7 @@ PROGRAM HMx_driver
            outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
         END IF
 
-        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
 
         WRITE(*,*) 'HMx_DRIVER: Done'
@@ -1583,6 +1593,8 @@ PROGRAM HMx_driver
      !Assign the cosmology
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
@@ -1619,7 +1631,7 @@ PROGRAM HMx_driver
            ix(2)=ixx(2)
            outfile=TRIM(dir)//'/cl_full.dat'
         END IF
-        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
      END DO
 

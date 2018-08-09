@@ -85,7 +85,7 @@ CONTAINS
 
   END SUBROUTINE set_xcorr_type
 
-  SUBROUTINE xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+  SUBROUTINE xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
 
     !Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
     USE HMx !TODO: Remove this explicit HMx dependence, it cannot be necessary
@@ -94,6 +94,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: nl
     REAL, INTENT(IN) :: ell(nl), mmin, mmax
     REAL, INTENT(OUT) :: Cell(nl)
+    TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, ALLOCATABLE :: a(:), k(:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa(:,:)
     !TYPE(tables) :: lut
@@ -139,7 +140,7 @@ CONTAINS
 
     CALL set_xcorr_type(ix,ip)
 
-    CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,cosm,verbose)
+    CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,hmod,cosm,verbose)
 
     !Fill out the projection kernels
     CALL fill_projection_kernels(ix,proj,cosm)
