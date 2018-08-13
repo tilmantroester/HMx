@@ -167,6 +167,7 @@ PROGRAM HMx_driver
 
      ! Set number of k points and k range (log spaced)
      IF(Alonso_k) THEN
+        ! This is *almost* kmin=1e-4, kmax=1e2, but minus the end points
         nk=256
         kmin=1.027350768179302566e-04
         kmax=9.733773809039202263e+01
