@@ -32,7 +32,6 @@ PROGRAM HMx_driver
   INTEGER :: ncos
   REAL :: m1, m2, mass
   REAL :: c, rmin, rmax, rv, rs, p1, p2
-  LOGICAL :: Alonso
   CHARACTER(len=1) :: crap
   
   ! Baryon stuff
@@ -49,6 +48,7 @@ PROGRAM HMx_driver
   REAL :: error, error_max
   LOGICAL, PARAMETER :: verbose_tests=.FALSE.
   LOGICAl :: ifail=.FALSE.
+  LOGICAL, PARAMETER :: Alonso_k=.TRUE.
 
   ! Output choices
   LOGICAL, PARAMETER :: icumulative=.TRUE. ! Do cumlative distributions for breakdown
@@ -166,8 +166,7 @@ PROGRAM HMx_driver
   ELSE IF(imode==19) THEN
 
      ! Set number of k points and k range (log spaced)
-     Alonso=.TRUE.
-     IF(Alonso) THEN
+     IF(Alonso_k) THEN
         nk=256
         kmin=1.027350768179302566e-04
         kmax=9.733773809039202263e+01
