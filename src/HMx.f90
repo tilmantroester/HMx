@@ -577,7 +577,7 @@ CONTAINS
        !From Nakamura & Suto (1997) LCDM fitting function
        delta_c=dc_NakamuraSuto(a,cosm)
     ELSE IF(hmod%idc==3) THEN
-       !From Mead et al. (2015)
+       !From Mead et al. (2015, 2016)
        !delta_c=1.59+0.0314*log(sigma(8.,a,cosm))
        delta_c=hmod%dc0+hmod%dc1*log(sigma(8.,a,cosm))
        delta_c=delta_c*(dc_NakamuraSuto(a,cosm)/dc0)
@@ -637,7 +637,7 @@ CONTAINS
     IF(hmod%ieta==1) THEN
        eta=0.
     ELSE IF(hmod%ieta==2) THEN
-       !The first parameter here is 'eta_0' in Mead et al. (2015; arXiv 1505.07833)
+       !From Mead et al. (2015; arXiv 1505.07833, 2016)
        !eta=0.603-0.3*(sigma(8.,a,cosm))
        eta=hmod%eta0-hmod%eta1*(sigma(8.,a,cosm))
     ELSE
@@ -662,7 +662,7 @@ CONTAINS
        !Set to zero for the standard Poisson one-halo term
        kstar=0.
     ELSE IF(hmod%ikstar==2) THEN
-       !One-halo cut-off wavenumber
+       !One-halo cut-off wavenumber from Mead et al. (2015, 2016)
        !kstar=0.584/hmod%sigv
        kstar=hmod%ks0/hmod%sigv
     ELSE
@@ -687,13 +687,14 @@ CONTAINS
        !Set to 4 for the standard Bullock value
        As=4.
     ELSE IF(hmod%iAs==2) THEN
-       !This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833)
+       !This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833, 2016)
        !As=3.13
        As=hmod%A0
     ELSE
        STOP 'AS: Error, iconc defined incorrectly'
     END IF
 
+    ! Now this is divided by 4 so as to be relative to the Bullock base result
     As=As/4.
 
   END FUNCTION As
