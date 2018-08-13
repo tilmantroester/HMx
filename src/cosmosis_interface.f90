@@ -70,8 +70,7 @@ function setup(options) result(result)
      stop
   end if
 
-  status = datablock_get(options, option_section, "field1", HMx_config%fields(1))
-  if(status /= 0) then
+  if(datablock_get(options, option_section, "field1", HMx_config%fields(1)) /= 0) then
      write(*,*) "Could not load field1:", status
      stop
   end if
@@ -220,6 +219,16 @@ function execute(block, config) result(status)
   call init_cosmology(HMx_config%cosm)
   if(HMx_config%verbose) then
      call print_cosmology(HMx_config%cosm)
+     WRITE(*,*) "HALOMOD parameters:"
+     WRITE(*,*) "alpha    :", HMx_config%hm%alpha
+     WRITE(*,*) "eps      :", HMx_config%hm%eps
+     WRITE(*,*) "Gamma    :", HMx_config%hm%Gamma
+     WRITE(*,*) "M0       :", HMx_config%hm%M0
+     WRITE(*,*) "Astar    :", HMx_config%hm%Astar
+     WRITE(*,*) "whim     :", HMx_config%hm%whim
+     WRITE(*,*) "rstar    :", HMx_config%hm%rstar
+     WRITE(*,*) "sstar    :", HMx_config%hm%sstar
+     WRITE(*,*) "mstar    :", HMx_config%hm%mstar
   end if
 
   call calculate_HMx(HMx_config%ihm, &
@@ -235,15 +244,15 @@ function execute(block, config) result(status)
   forall (i=1:HMx_config%nk) pk_full(i,:) = pk_full(i,:)*2*pi**2/HMx_config%k(i)**3
 
   ! Write power spectra to relevant section
-  if(all(HMx_config%fields == (0, 0))) then
+  if(all(HMx_config%fields == 0)) then
      pk_section = "matter_matter_power_spectrum"
-  else if(all(HMx_config%fields == (1, 1))) then
+  else if(all(HMx_config%fields == 1)) then
      pk_section = "dm_dm_power_spectrum"
-  else if(all(HMx_config%fields == (2, 2))) then
+  else if(all(HMx_config%fields == 2)) then
      pk_section = "gas_gas_power_spectrum"
-  else if(all(HMx_config%fields == (3, 3))) then
+  else if(all(HMx_config%fields == 3)) then
      pk_section = "stars_stars_power_spectrum"
-  else if(all(HMx_config%fields == (6, 6))) then
+  else if(all(HMx_config%fields == 6)) then
      pk_section = "pressure_pressure_power_spectrum"
   else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 1)) then
      pk_section = "matter_dm_power_spectrum"
