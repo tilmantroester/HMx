@@ -10,7 +10,7 @@ module HMx_setup
      real(8) :: zmin, zmax, amin, amax, mmin, mmax
      integer :: nz
 
-     integer :: p_lin_source
+     character(len=256) :: p_lin_source, hm_mode
 
      integer :: ihm, iw
 
@@ -84,19 +84,29 @@ function setup(options) result(result)
   status = datablock_get_double_default(options, option_section, "mmax", 1e17, HMx_config%mmax)
 
   status = datablock_get_int_default(options, option_section, "verbose", 1, verbose)
-  status = datablock_get_int_default(options, option_section, "hm_mode", 0, HMx_config%ihm)
+
+  ! Get halo model mode
+  status = datablock_get_string_default(options, option_section, "hm_mode", "hmx", HMx_config%hm_mode)
+  if(trim(HMx_config%hm_mode) == "hmx") then
+    HMx_config%ihm = 15
+  else if(trim(HMx_config%hm_mode) == "hmcode") then
+    HMx_config%ihm = 1
+  end if
+  ! Get ihm value directly if supplied
+  status = datablock_get_int_default(options, option_section, "ihm", HMx_config%ihm, HMx_config%ihm)
 
   HMx_config%verbose = verbose > 0
+
 
   ! Assign default values.
   call assign_cosmology(1, HMx_config%cosm, HMx_config%verbose)
   call assign_halomod(HMx_config%ihm, HMx_config%hm, HMx_config%verbose)
 
-  status = datablock_get_int_default(options, option_section, "p_lin_source", 1, HMx_config%p_lin_source)
-  if(HMx_config%p_lin_source == 0) then
+  status = datablock_get_string_default(options, option_section, "p_lin_source", "eh", HMx_config%p_lin_source)
+  if(trim(HMx_config%p_lin_source) == "external") then
     ! Use linear power spectrum provided by CosmoSIS
     HMx_config%cosm%itk = 4
-  else if(HMx_config%p_lin_source == 1) then
+  else if(trim(HMx_config%p_lin_source) == "eh") then
     ! Use Eisenstein & Hu transfer function
     HMx_config%cosm%itk = 1
   end if
@@ -190,7 +200,7 @@ function execute(block, config) result(status)
   HMx_config%hm%M0 = 10**log10_M0
   HMx_config%hm%whim = 10**log10_whim
 
-  if(HMx_config%p_lin_source == 0) then
+  if(trim(HMx_config%p_lin_source) == "external") then
      status = datablock_get_double_grid(block, matter_power_lin_section, &
           "k_h", k_plin, &
           "z", z_plin, &
@@ -201,8 +211,10 @@ function execute(block, config) result(status)
      end if
      HMx_config%cosm%has_power = .true.
      HMx_config%cosm%n_plin = size(k_plin)
-     allocate(HMx_config%cosm%log_k_plin, source=log(k_plin))
-     allocate(HMx_config%cosm%log_plin, source=log(pk_lin(:,1)*k_plin**3/(2*pi**2)))
+     if(.not. allocated(HMx_config%cosm%log_k_plin)) allocate(HMx_config%cosm%log_k_plin(size(k_plin)))
+     if(.not. allocated(HMx_config%cosm%log_plin)) allocate(HMx_config%cosm%log_plin(size(k_plin)))
+     HMx_config%cosm%log_k_plin = log(k_plin)
+     HMx_config%cosm%log_plin = log(pk_lin(:,1)*k_plin**3/(2*pi**2))
   end if
 
   call init_cosmology(HMx_config%cosm)
