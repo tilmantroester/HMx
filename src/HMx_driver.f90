@@ -27,12 +27,13 @@ PROGRAM HMx_driver
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
   CHARACTER(len=256) :: mode, halomodel, red, cosmo
-  INTEGER :: imode, icosmo, iowl, ihm, irho
+  INTEGER :: imode, icosmo, iowl, ihm, irho, itest
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
   REAL :: c, rmin, rmax, rv, rs, p1, p2
   LOGICAL :: Alonso
+  CHARACTER(len=1) :: crap
   
   ! Baryon stuff
   REAL :: param_min, param_max, param
@@ -42,6 +43,12 @@ PROGRAM HMx_driver
   LOGICAL, PARAMETER :: verbose=.TRUE. ! Verbosity
   REAL, PARAMETER :: mmin=1e7 ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17 ! Maximum halo mass for the calculation
+
+  ! Test parameters
+  REAL, PARAMETER :: tolerance=1e-2
+  REAL :: error, error_max
+  LOGICAL, PARAMETER :: verbose_tests=.FALSE.
+  LOGICAl :: ifail=.FALSE.
 
   ! Output choices
   LOGICAL, PARAMETER :: icumulative=.TRUE. ! Do cumlative distributions for breakdown
@@ -112,6 +119,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '23 - Produce results from Mead (2017)'
      WRITE(*,*) '24 - Grid fitting'
      WRITE(*,*) '25 - MCMC-like fitting'
+     WRITE(*,*) '26 - Automated tests'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -2412,6 +2420,99 @@ PROGRAM HMx_driver
            CLOSE(7)
         END DO
      END DO
+
+  ELSE IF(imode==26) THEN     
+
+     ! Loop over different tests
+     DO itest=1,3
+
+        IF(itest==1) THEN
+           infile='benchmarks/power_HMcode_Mead.txt'
+           ihm=1
+           base='data/power_HMx_Mead'
+           icosmo=1
+        ELSE IF(itest==2) THEN
+           infile='benchmarks/power_HMcode_basic.txt'
+           ihm=2
+           base='data/power_HMx_basic'
+           icosmo=1
+        ELSE IF(itest==3) THEN
+           infile='benchmarks/power_HMcode_standard.txt'
+           ihm=5
+           base='data/power_HMx_standard'
+           icosmo=1
+        END IF
+
+        ! Allocate arrays
+        nk=128
+        na=16
+        ALLOCATE(k(nk),a(na),powa(nk,na))
+
+        ! Read-in test data
+        OPEN(7,file=infile)
+        DO i=0,128
+           IF(i==0) THEN
+              READ(7,*) crap, (a(j), j=1,na)
+           ELSE
+              READ(7,*) k(i), (powa(i,j), j=1,na)
+           END IF
+        END DO
+        CLOSE(7)
+
+        ! Convert read-in z to a
+        a=1./(1.+a)
+
+        ! Assigns the cosmological model
+        CALL assign_cosmology(icosmo,cosm,verbose_tests)
+        CALL init_cosmology(cosm)
+        CALL print_cosmology(cosm)
+
+        ! Assign the halo model
+        CALL assign_halomod(ihm,hmod,verbose_tests)
+        !CALL print_halomod(hmod)
+        
+        ip=-1 ! Set DMONLY profiles 
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose_tests)
+
+        ! Loop over k and a
+        error_max=0.
+        DO j=1,na
+           DO i=1,nk
+              error=ABS(-1.+powa_full(i,j)/powa(i,j))
+              IF(error>error_max) error_max=error
+              IF(error>tolerance) THEN
+                 WRITE(*,*) 'HMx_DRIVER: Test:', itest
+                 WRITE(*,*) 'HMx_DRIVER: Wavenumber [h/Mpc]:', k(i)
+                 WRITE(*,*) 'HMx_DRIVER: Scale-factor:', a(j)
+                 WRITE(*,*) 'HMx_DRIVER: Expected power:', powa(i,j)
+                 WRITE(*,*) 'HMx_DRIVER: Model power:', powa_full(i,j)
+                 WRITE(*,*) 'HMx_DRIVER: Tolerance:', tolerance
+                 WRITE(*,*) 'HMx_DRIVER: Error:', error
+                 WRITE(*,*)
+                 ifail=.TRUE.
+              END IF
+           END DO
+        END DO
+
+        WRITE(*,*) 'HMx_DRIVER: Test:', itest
+        WRITE(*,*) 'HMx_DRIVER: Tolerance:', tolerance
+        WRITE(*,*) 'HMx_DRIVER: Max error:', error_max
+        WRITE(*,*)
+
+        ! Write data to file
+        !base='data/power'
+        CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose_tests)
+
+        DEALLOCATE(k,a,powa)
+        
+     END DO
+
+     IF(ifail) THEN
+        STOP 'HMx_DRIVER: Error, tests failed'
+     ELSE
+        WRITE(*,*) 'HMx_DRIVER: Tests passed'
+        WRITE(*,*)
+     END IF
      
   ELSE
 

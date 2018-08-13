@@ -30,7 +30,6 @@ Limber/
 OLD/
 RCSLenS/
 cosmo-OWLS/
-data/
 definitions/
 diagnostics/
 lensing/
@@ -43,8 +42,15 @@ winint/
 BAHAMAS/
 hydro/
 bias/
-benchmarks/
 Mead2017/
+
+# Note that data directory is dealt with separately with .gitignore in that directory
+
+# Benchmark directory
+benchmarks/HMx_*.txt
+benchmarks/Alonso_set1
+benchmarks/Alonso_set2
+benchmarks/OLD
 
 # Library update script
 src/update_library.sh*
