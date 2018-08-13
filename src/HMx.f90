@@ -86,34 +86,23 @@ CONTAINS
 
   END SUBROUTINE set_halo_type
 
-  SUBROUTINE calculate_HMx(ihm,itype,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+  SUBROUTINE calculate_HMx(ihm,itype,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ihm
     INTEGER, INTENT(IN) :: nk, na, itype(2)
     REAL, INTENT(IN) :: k(:), a(:)    
     REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:), powa_lin(:,:) !Mead - added powa_lin here instead
+    TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose
     REAL, INTENT(IN) :: mmin, mmax
-    LOGICAL :: compute_p_lin
     INTEGER :: i
     REAL :: z
-    TYPE(halomod) :: hmod
     LOGICAL :: verbose2
 
     !To avoid splurge of stuff printed to screen
     verbose2=verbose
-
-    !Tilman: added this in case a linear spectrum is provided
-    IF(ALLOCATED(powa_lin)) THEN
-       WRITE(*,*) 'Linear power spectrum provided.'
-       compute_p_lin = .FALSE.
-    ELSE
-       !ALLOCATE(powa_lin(nk,na)) !Mead: commented out
-       compute_p_lin = .TRUE.
-    END IF
-    !Tilman: end of edits
 
     IF(ALLOCATED(powa_lin))  DEALLOCATE(powa_lin)
     IF(ALLOCATED(powa_2h))   DEALLOCATE(powa_2h)
@@ -127,9 +116,8 @@ CONTAINS
     !Do the halo-model calculation
     DO i=na,1,-1
        z=redshift_a(a(i))
-       CALL assign_halomod(ihm,hmod,verbose2)
        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose2)       
-       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,compute_p_lin)
+       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2)
        IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'       
        IF(verbose) WRITE(*,fmt='(A15,I5,F10.2)') 'CALCULATE_HMx:', i, REAL(z)
        verbose2=.FALSE.
@@ -141,7 +129,7 @@ CONTAINS
 
   END SUBROUTINE calculate_HMx
 
-  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose,compute_p_lin_arg)
+  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype1, itype2
@@ -151,18 +139,9 @@ CONTAINS
     REAL, INTENT(OUT) ::pow_2h(nk), pow_1h(nk), pow(nk)
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(halomod), INTENT(INOUT) :: hmod
-    LOGICAL, OPTIONAL, INTENT(IN) :: compute_p_lin_arg
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i!, nk
     REAL :: plin, a
-    LOGICAL :: compute_p_lin
-
-    !Tilman added this for the CosmoSIS wrapper
-    IF(PRESENT(compute_p_lin_arg)) THEN
-       compute_p_lin = compute_p_lin_arg
-    ELSE
-       compute_p_lin = .TRUE.
-    END IF
 
     !Write to screen
     IF(verbose) THEN
@@ -184,13 +163,8 @@ CONTAINS
 !!$OMP PARALLEL DO FIRSTPRIVATE(nk,cosm,compute_p_lin,k,a,pow_lin,plin,itype1,itype2,z,pow_2h,pow_1h,pow,hmod)
 !!$OMP PARALLEL DO
     DO i=1,nk
-
-       !Tilman added this for the CosmoSIS wrapper
-       IF(compute_p_lin) THEN
-          !Get the linear power
-          plin=p_lin(k(i),a,cosm)
-          pow_lin(i)=plin
-       END IF
+       plin=p_lin(k(i),a,cosm)
+       pow_lin(i)=plin
 
        !Do the halo model calculation
        CALL calculate_halomod_k(itype1,itype2,k(i),z,pow_2h(i),pow_1h(i),pow(i),plin,hmod,cosm)
