@@ -8,12 +8,12 @@ if(print==0) {set term aqua dashed}
 #The plot should then be the non-linear spectrum at 16 redshifts
 
 #Type of spectrum to plot
-#0 - Linear
-#1 - Two-halo
-#2 - One-halo
-#3 - Full
+#1 - Linear
+#2 - Two-halo
+#3 - One-halo
+#4 - Full
 print('')
-if(!exists('itype')) {itype=3}
+if(!exists('itype')) {itype=4}
 print('Set power type using *itype*')
 print('itype = '.itype.'')
 
@@ -65,10 +65,10 @@ set palette defined (1 'dark-red', 2 'gold')
 #plot for[i=1:16] file u 1:(column(i+1)) w l lw 2 lc rgb col(i) noti
 
 #Set the file type to plot
-if(itype==0){file=file_linear; tits='Linear power'}
-if(itype==1){file=file_2halo;  tits='Two-halo power'}
-if(itype==2){file=file_1halo;  tits='One-halo power'}
-if(itype==3){file=file_full;   tits='Full halo-model power'}
+if(itype==1){file=file_linear; tits='Linear power'}
+if(itype==2){file=file_2halo;  tits='Two-halo power'}
+if(itype==3){file=file_1halo;  tits='One-halo power'}
+if(itype==4){file=file_full;   tits='Full halo-model power'}
 print('File: '.file.'')
 print('Title: '.tits.'')
 print('')

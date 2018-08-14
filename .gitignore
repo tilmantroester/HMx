@@ -30,9 +30,7 @@ Limber/
 OLD/
 RCSLenS/
 cosmo-OWLS/
-data/
 definitions/
-diagnostics/
 lensing/
 matter/
 pressure/
@@ -43,8 +41,20 @@ winint/
 BAHAMAS/
 hydro/
 bias/
-benchmarks/
 Mead2017/
+
+# Note that data and diagnostics directories are dealt with separately
+# Each is with .gitignore in that directory
+
+# Benchmark directory
+benchmarks/HMx_*.txt
+benchmarks/Alonso_set1
+benchmarks/Alonso_set2
+benchmarks/OLD
 
 # Library update script
 src/update_library.sh*
+
+# Cosmic Emu files
+EMU0.txt
+xstar.dat

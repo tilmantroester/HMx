@@ -4,45 +4,68 @@ PROGRAM HMx_driver
   USE Limber
   USE file_info
   USE random_numbers
-
-  !Parameter definitions
+  USE cosmic_emu_stuff
+ 
   IMPLICIT NONE
+
+  ! Parameter definitions
   REAL, ALLOCATABLE :: k(:), a(:)
   REAL, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
   REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
-  REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:)
+  REAL, ALLOCATABLE :: pows_lin(:,:,:), pows_2h(:,:,:), pows_1h(:,:,:), pows_full(:,:,:)
+  REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:), zs(:)
   REAL, ALLOCATABLE :: z_tab(:)
-  INTEGER :: i, j, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ii
+  INTEGER :: i, j, l, ii, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ncosmo
   INTEGER :: ip(2), ix(2), ixx(2), ihalo
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2, a1, a2
   TYPE(cosmology) :: cosm
+  TYPE(cosmology), ALLOCATABLE :: cosms(:)
   TYPE(halomod) :: hmod
+  TYPE(halomod), ALLOCATABLE :: hmods(:)
   TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
   CHARACTER(len=256) :: mode, halomodel, red, cosmo
-  INTEGER :: imode, icosmo, iowl, ihm, irho, imeth
+  INTEGER :: imode, icosmo, iowl, ihm, irho, itest
   REAL :: sig8min, sig8max
   INTEGER :: ncos
   REAL :: m1, m2, mass
   REAL :: c, rmin, rmax, rv, rs, p1, p2
-  REAL :: t1, t2, w, w0
-  LOGICAL :: timing
+  CHARACTER(len=1) :: crap
   
-  !Baryon stuff
+  ! Baryon stuff
   REAL :: param_min, param_max, param
   LOGICAL :: ilog
 
-  !Halo-model Parameters
-  LOGICAL, PARAMETER :: verbose=.TRUE. !Verbosity
-  REAL, PARAMETER :: mmin=1e7 !Minimum halo mass for the calculation
-  REAL, PARAMETER :: mmax=1e17 !Maximum halo mass for the calculation
+  ! Halo-model Parameters
+  LOGICAL, PARAMETER :: verbose=.TRUE. ! Verbosity
+  REAL, PARAMETER :: mmin=1e7 ! Minimum halo mass for the calculation
+  REAL, PARAMETER :: mmax=1e17 ! Maximum halo mass for the calculation
 
-  !Output choices
-  LOGICAL, PARAMETER :: icumulative=.TRUE. !Do cumlative distributions for breakdown
-  LOGICAL, PARAMETER :: ixi=.TRUE. !Do correlation functions from C(l)
-  LOGICAL, PARAMETER :: ifull=.FALSE. !Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
+  ! Test parameters
+  REAL, PARAMETER :: tolerance=1e-2
+  REAL :: error, error_max
+  LOGICAL, PARAMETER :: verbose_tests=.FALSE.
+  LOGICAl :: ifail=.FALSE.
+
+  ! Benchmark parameters
+  LOGICAL, PARAMETER :: Alonso_k=.TRUE.
+
+  ! Output choices
+  LOGICAL, PARAMETER :: icumulative=.TRUE. ! Do cumlative distributions for breakdown
+  LOGICAL, PARAMETER :: ixi=.TRUE. ! Do correlation functions from C(l)
+  LOGICAL, PARAMETER :: ifull=.FALSE. ! Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
+
+  ! Fitting
+  REAL, ALLOCATABLE :: pow_sim(:), pows_sim(:,:,:), ks_sim(:,:,:), k_sim(:)
+  REAL, ALLOCATABLE :: pmin(:), pmax(:), pbest(:), pnow(:), prange(:)
+  REAL, ALLOCATABLE :: pnew(:), pold(:)
+  INTEGER, ALLOCATABLE :: nrange(:), iii(:), ipbest(:)
+  REAL :: fom, fom_best, fom_new, fom_old, fom_orig
+  INTEGER :: i1, i2, i3, ifit, nref, np, ibest!, ipbest(3), iii(3)
+  LOGICAL :: plog(3), refine
+  CHARACTER(len=256) :: model
 
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
@@ -65,10 +88,10 @@ PROGRAM HMx_driver
      READ(halomodel,*) ihm
   END IF
 
-  !Initial space
+  ! Initial white space
   WRITE(*,*)
 
-  !Choose mode
+  ! Choose mode
   IF(imode==-1) THEN
      WRITE(*,*) 'HMx_DRIVER: Choose what to do'
      WRITE(*,*) '============================='
@@ -96,6 +119,9 @@ PROGRAM HMx_driver
      WRITE(*,*) '21 - W(k) integrand diagnostics'
      WRITE(*,*) '22 - Time W(k) integration methods'
      WRITE(*,*) '23 - Produce results from Mead (2017)'
+     WRITE(*,*) '24 - Grid fitting'
+     WRITE(*,*) '25 - MCMC-like fitting'
+     WRITE(*,*) '26 - Automated tests'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -113,15 +139,15 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
-
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
      !Sets the redshift
      z=0.
 
      !Initiliasation for the halomodel calcualtion
-     CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
      !Do the halo-model calculation
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
@@ -141,31 +167,39 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==19) THEN
 
-     !Set number of k points and k range (log spaced)
-     nk=128
-     kmin=1e-3
-     kmax=1e1
+     ! Set number of k points and k range (log spaced)
+     IF(Alonso_k) THEN
+        ! This is *almost* kmin=1e-4, kmax=1e2, but minus the end points
+        nk=256
+        kmin=1.027350768179302566e-04
+        kmax=9.733773809039202263e+01
+     ELSE
+        nk=128
+        kmin=1e-3
+        kmax=1e1
+     END IF
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
-     !Set the halo model to that for CCL tests
+     ! Set the halo model to that for CCL tests
      ihm=9
 
+     ! Loop over tests
      DO j=1,3
 
-        !Assigns the cosmological model
+        ! Assigns the cosmological model
         IF(j==1) icosmo=1
         IF(j==2) icosmo=2
         IF(j==3) icosmo=3
         CALL assign_cosmology(icosmo,cosm,verbose)
-
-        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        CALL init_cosmology(cosm)
         CALL print_cosmology(cosm)
 
+        ! Loop over redshifts
         DO i=1,2
 
-           !Sets the redshift
+           ! Sets the redshift and file names
            IF(i==1) THEN
               z=0.
               IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z0.txt'
@@ -178,13 +212,14 @@ PROGRAM HMx_driver
               IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z1.txt'
            END IF
 
-           !Initialise the halo-model calculation
-           CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+           ! Initialise the halo-model calculation
+           CALL assign_halomod(ihm,hmod,verbose)
+           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
-           !Do the halo-model calculation
+           ! Do the halo-model calculation
            CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
 
-           !Write out the results
+           ! Write out the results
            CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
         END DO
@@ -196,8 +231,10 @@ PROGRAM HMx_driver
      !Assigns the cosmological model
      !icosmo=-1
      CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
+     CALL assign_halomod(ihm,hmod,verbose)
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
      nk=128
@@ -215,7 +252,7 @@ PROGRAM HMx_driver
      na=nz
 
      ip=-1 !Set DMONLY profiles 
-     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
@@ -225,9 +262,10 @@ PROGRAM HMx_driver
      !Assigns the cosmological model
      icosmo=1
      CALL assign_cosmology(icosmo,cosm,verbose)
-
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
@@ -254,7 +292,7 @@ PROGRAM HMx_driver
      !STOP
 
      !User chooses halo model   
-     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
@@ -264,10 +302,10 @@ PROGRAM HMx_driver
      !Assigns the cosmological model
      icosmo=1
      CALL assign_cosmology(icosmo,cosm,verbose)
-
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     !CALL initialise_cosmology(verbose,cosm)
+     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
 
      !Set number of k points and k range (log spaced)
      !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
@@ -307,7 +345,7 @@ PROGRAM HMx_driver
            base='bias/power_ff'
         END IF
         
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
         CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
 
      END DO
@@ -387,6 +425,7 @@ PROGRAM HMx_driver
            IF(imode==15) icosmo=2
            IF(imode==16) icosmo=4
            CALL assign_cosmology(icosmo,cosm,verbose)
+           CALL init_cosmology(cosm)
 
            IF(imode==15) THEN
            
@@ -395,47 +434,47 @@ PROGRAM HMx_driver
                  name='REF'
                  fname=name
                  !From my fitting by eye
-                 cosm%alpha=2.
-                 cosm%eps=1.
-                 cosm%Gamma=1.24
-                 cosm%M0=1e13
-                 cosm%Astar=0.055
+                 hmod%alpha=2.
+                 hmod%eps=1.
+                 hmod%Gamma=1.24
+                 hmod%M0=1e13
+                 hmod%Astar=0.055
               ELSE IF(imode==15 .AND. iowl==2) THEN
                  name='NOCOOL'
                  fname=name
                  !From my fitting by eye
-                 cosm%alpha=2.
-                 cosm%eps=1.
-                 cosm%Gamma=1.1
-                 cosm%M0=0.
-                 cosm%Astar=0.
+                 hmod%alpha=2.
+                 hmod%eps=1.
+                 hmod%Gamma=1.1
+                 hmod%M0=0.
+                 hmod%Astar=0.
               ELSE IF(imode==15 .AND. iowl==3) THEN
                  name='AGN'
                  fname=name
                  !From Tilman's preliminary results
-                 cosm%alpha=0.52
-                 cosm%eps=1.
-                 cosm%Gamma=1.17
-                 cosm%M0=1.047e14
-                 cosm%Astar=0.02
+                 hmod%alpha=0.52
+                 hmod%eps=1.
+                 hmod%Gamma=1.17
+                 hmod%M0=1.047e14
+                 hmod%Astar=0.02
               ELSE IF(imode==15 .AND. iowl==4) THEN
                  name='AGN 8.5'
                  fname='AGN8p5'
                  !From Tilman's preliminary results
-                 cosm%alpha=0.56
-                 cosm%eps=1.
-                 cosm%Gamma=1.19
-                 cosm%M0=3.548e14
-                 cosm%Astar=0.01
+                 hmod%alpha=0.56
+                 hmod%eps=1.
+                 hmod%Gamma=1.19
+                 hmod%M0=3.548e14
+                 hmod%Astar=0.01
               ELSE IF(imode==15 .AND. iowl==5) THEN
                  name='AGN 8.7'
                  fname='AGN8p7'
                  !From Tilman's preliminary results
-                 cosm%alpha=0.53
-                 cosm%eps=1.
-                 cosm%Gamma=1.21
-                 cosm%M0=7.586e14
-                 cosm%Astar=0.01
+                 hmod%alpha=0.53
+                 hmod%eps=1.
+                 hmod%Gamma=1.21
+                 hmod%M0=7.586e14
+                 hmod%Astar=0.01
               END IF
 
               !Need to do this after cosmological parameters are changed
@@ -448,7 +487,7 @@ PROGRAM HMx_driver
            IF(imode==16) THEN
 
               ! Set the halo model
-              ihm=14
+              ihm=4
 
               IF(iowl==1) THEN
 
@@ -460,76 +499,76 @@ PROGRAM HMx_driver
                  IF(ihm==4) THEN
                     
                     IF(z==0.) THEN
-                       cosm%alpha=0.379
-                       cosm%eps=10**(-0.064)
-                       cosm%Gamma=1.206
-                       cosm%M0=10**(13.818)
-                       cosm%Astar=0.029
-                       cosm%whim=10**(5.752)
+                       hmod%alpha=0.379
+                       hmod%eps=10**(-0.061)
+                       hmod%Gamma=1.205
+                       hmod%M0=10**(13.823)
+                       hmod%Astar=0.029
+                       hmod%whim=10**(5.754)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.537
-                       cosm%eps=10**(-0.213)
-                       cosm%Gamma=1.163
-                       cosm%M0=10**(13.963)
-                       cosm%Astar=0.024
-                       cosm%whim=10**(5.749)
+                       hmod%alpha=0.537
+                       hmod%eps=10**(-0.209)
+                       hmod%Gamma=1.163
+                       hmod%M0=10**(13.964)
+                       hmod%Astar=0.024
+                       hmod%whim=10**(5.750)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.664
-                       cosm%eps=10**(-0.394)
-                       cosm%Gamma=1.152
-                       cosm%M0=10**(13.973)
-                       cosm%Astar=0.007
-                       cosm%whim=10**(5.648)
+                       hmod%alpha=0.755
+                       hmod%eps=10**(-0.985)
+                       hmod%Gamma=1.162
+                       hmod%M0=10**(13.673)
+                       hmod%Astar=0.019
+                       hmod%whim=10**(5.057)
                     END IF
                     
                  ELSE IF(ihm==6) THEN
                     
                     IF(z==0.) THEN
-                       cosm%alpha=0.195
-                       cosm%eps=10**(-0.484)
-                       cosm%Gamma=1.399
-                       cosm%M0=10**(13.807)
-                       cosm%Astar=0.020
-                       cosm%whim=10**(6.049)
+                       hmod%alpha=0.195
+                       hmod%eps=10**(-0.484)
+                       hmod%Gamma=1.399
+                       hmod%M0=10**(13.807)
+                       hmod%Astar=0.020
+                       hmod%whim=10**(6.049)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.619
-                       cosm%eps=10**(-0.309)
-                       cosm%Gamma=1.507
-                       cosm%M0=10**(14.937)
-                       cosm%Astar=0.021
-                       cosm%whim=10**(5.987)
+                       hmod%alpha=0.619
+                       hmod%eps=10**(-0.309)
+                       hmod%Gamma=1.507
+                       hmod%M0=10**(14.937)
+                       hmod%Astar=0.021
+                       hmod%whim=10**(5.987)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.384
-                       cosm%eps=10**(-0.475)
-                       cosm%Gamma=1.183
-                       cosm%M0=10**(14.562)
-                       cosm%Astar=0.017
-                       cosm%whim=10**(5.796)
+                       hmod%alpha=0.384
+                       hmod%eps=10**(-0.475)
+                       hmod%Gamma=1.183
+                       hmod%M0=10**(14.562)
+                       hmod%Astar=0.017
+                       hmod%whim=10**(5.796)
                     END IF
                     
                  ELSE IF(ihm==3 .OR. ihm==14) THEN
                     
                      IF(z==0.) THEN
-                       cosm%alpha=0.428
-                       cosm%eps=10**(0.015)
-                       cosm%Gamma=1.287
-                       cosm%M0=10**(13.233)
-                       cosm%Astar=0.030
-                       cosm%whim=10**(5.404)
+                       hmod%alpha=0.428
+                       hmod%eps=10**(0.015)
+                       hmod%Gamma=1.287
+                       hmod%M0=10**(13.233)
+                       hmod%Astar=0.030
+                       hmod%whim=10**(5.404)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.742
-                       cosm%eps=10**(0.148)
-                       cosm%Gamma=1.516
-                       cosm%M0=10**(12.688)
-                       cosm%Astar=0.026
-                       cosm%whim=10**(5.531)
+                       hmod%alpha=0.742
+                       hmod%eps=10**(0.148)
+                       hmod%Gamma=1.516
+                       hmod%M0=10**(12.688)
+                       hmod%Astar=0.026
+                       hmod%whim=10**(5.531)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.830
-                       cosm%eps=10**(0.169)
-                       cosm%Gamma=1.487
-                       cosm%M0=10**(12.004)
-                       cosm%Astar=0.024
-                       cosm%whim=10**(5.643)
+                       hmod%alpha=0.830
+                       hmod%eps=10**(0.169)
+                       hmod%Gamma=1.487
+                       hmod%M0=10**(12.004)
+                       hmod%Astar=0.024
+                       hmod%whim=10**(5.643)
                     END IF
                     
                  END IF
@@ -544,76 +583,76 @@ PROGRAM HMx_driver
                  IF(ihm==4) THEN
 
                     IF(z==0.) THEN
-                       cosm%alpha=0.421
-                       cosm%eps=10**(-0.160)
-                       cosm%Gamma=1.211
-                       cosm%M0=10**(14.313)
-                       cosm%Astar=0.026
-                       cosm%whim=10**(5.800)
+                       hmod%alpha=0.421
+                       hmod%eps=10**(-0.154)
+                       hmod%Gamma=1.211
+                       hmod%M0=10**(14.316)
+                       hmod%Astar=0.026
+                       hmod%whim=10**(5.801)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.617
-                       cosm%eps=10**(-0.491)
-                       cosm%Gamma=1.170
-                       cosm%M0=10**(14.451)
-                       cosm%Astar=0.022
-                       cosm%whim=10**(5.848)
+                       hmod%alpha=0.599
+                       hmod%eps=10**(-0.686)
+                       hmod%Gamma=1.158
+                       hmod%M0=10**(14.455)
+                       hmod%Astar=0.022
+                       hmod%whim=10**(5.849)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=1.038
-                       cosm%eps=10**(-0.455)
-                       cosm%Gamma=1.397
-                       cosm%M0=10**(14.560)
-                       cosm%Astar=0.007
-                       cosm%whim=10**(5.780)
+                       hmod%alpha=0.659
+                       hmod%eps=10**(-1.993)
+                       hmod%Gamma=1.151
+                       hmod%M0=10**(14.386)
+                       hmod%Astar=0.018
+                       hmod%whim=10**(5.829)
                     END IF
 
                  ELSE IF(ihm==6) THEN
 
                     IF(z==0.) THEN
-                       cosm%alpha=0.302
-                       cosm%eps=10**(-0.429)
-                       cosm%Gamma=1.339
-                       cosm%M0=10**(14.662)
-                       cosm%Astar=0.026
-                       cosm%whim=10**(6.080)
+                       hmod%alpha=0.302
+                       hmod%eps=10**(-0.429)
+                       hmod%Gamma=1.339
+                       hmod%M0=10**(14.662)
+                       hmod%Astar=0.026
+                       hmod%whim=10**(6.080)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.751
-                       cosm%eps=10**(-0.013)
-                       cosm%Gamma=1.502
-                       cosm%M0=10**(14.958)
-                       cosm%Astar=0.014
-                       cosm%whim=10**(5.959)
+                       hmod%alpha=0.751
+                       hmod%eps=10**(-0.013)
+                       hmod%Gamma=1.502
+                       hmod%M0=10**(14.958)
+                       hmod%Astar=0.014
+                       hmod%whim=10**(5.959)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.371
-                       cosm%eps=10**(-0.127)
-                       cosm%Gamma=1.101
-                       cosm%M0=10**(14.966)
-                       cosm%Astar=0.018
-                       cosm%whim=10**(6.040)
+                       hmod%alpha=0.371
+                       hmod%eps=10**(-0.127)
+                       hmod%Gamma=1.101
+                       hmod%M0=10**(14.966)
+                       hmod%Astar=0.018
+                       hmod%whim=10**(6.040)
                     END IF
 
                  ELSE IF(ihm==3 .OR. ihm==14) THEN
 
                     IF(z==0.) THEN
-                       cosm%alpha=0.528
-                       cosm%eps=10**(0.038)
-                       cosm%Gamma=1.505
-                       cosm%M0=10**(13.638)
-                       cosm%Astar=0.027
-                       cosm%whim=10**(5.078)
+                       hmod%alpha=0.528
+                       hmod%eps=10**(0.038)
+                       hmod%Gamma=1.505
+                       hmod%M0=10**(13.638)
+                       hmod%Astar=0.027
+                       hmod%whim=10**(5.078)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.742
-                       cosm%eps=10**(0.125)
-                       cosm%Gamma=1.547
-                       cosm%M0=10**(13.481)
-                       cosm%Astar=0.024
-                       cosm%whim=10**(5.786)
+                       hmod%alpha=0.742
+                       hmod%eps=10**(0.125)
+                       hmod%Gamma=1.547
+                       hmod%M0=10**(13.481)
+                       hmod%Astar=0.024
+                       hmod%whim=10**(5.786)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.918
-                       cosm%eps=10**(0.289)
-                       cosm%Gamma=1.996
-                       cosm%M0=10**(13.022)
-                       cosm%Astar=0.022
-                       cosm%whim=10**(5.849)
+                       hmod%alpha=0.918
+                       hmod%eps=10**(0.289)
+                       hmod%Gamma=1.996
+                       hmod%M0=10**(13.022)
+                       hmod%Astar=0.022
+                       hmod%whim=10**(5.849)
                     END IF
 
                  END IF
@@ -628,76 +667,76 @@ PROGRAM HMx_driver
                  IF(ihm==4) THEN
 
                     IF(z==0.) THEN
-                       cosm%alpha=0.353
-                       cosm%eps=10**(-0.020)
-                       cosm%Gamma=1.199
-                       cosm%M0=10**(13.511)
-                       cosm%Astar=0.031
-                       cosm%whim=10**(5.764)
+                       hmod%alpha=0.353
+                       hmod%eps=10**(-0.017)
+                       hmod%Gamma=1.199
+                       hmod%M0=10**(13.517)
+                       hmod%Astar=0.031
+                       hmod%whim=10**(5.767)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.492
-                       cosm%eps=10**(-0.107)
-                       cosm%Gamma=1.159
-                       cosm%M0=10**(13.662)
-                       cosm%Astar=0.025
-                       cosm%whim=10**(5.720)
+                       hmod%alpha=0.491
+                       hmod%eps=10**(-0.104)
+                       hmod%Gamma=1.158
+                       hmod%M0=10**(13.663)
+                       hmod%Astar=0.025
+                       hmod%whim=10**(5.721)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.432
-                       cosm%eps=10**(-0.424)
-                       cosm%Gamma=1.089
-                       cosm%M0=10**(13.687)
-                       cosm%Astar=0.010
-                       cosm%whim=10**(5.786)
+                       hmod%alpha=0.532
+                       hmod%eps=10**(-0.990)
+                       hmod%Gamma=1.079
+                       hmod%M0=10**(13.815)
+                       hmod%Astar=0.021
+                       hmod%whim=10**(5.601)
                     END IF
 
                  ELSE IF(ihm==6) THEN
 
                     IF(z==0.) THEN
-                       cosm%alpha=0.181
-                       cosm%eps=10**(-0.489)
-                       cosm%Gamma=1.432
-                       cosm%M0=10**(13.632)
-                       cosm%Astar=0.023
-                       cosm%whim=10**(6.099)
+                       hmod%alpha=0.181
+                       hmod%eps=10**(-0.489)
+                       hmod%Gamma=1.432
+                       hmod%M0=10**(13.632)
+                       hmod%Astar=0.023
+                       hmod%whim=10**(6.099)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.420
-                       cosm%eps=10**(-0.413)
-                       cosm%Gamma=1.467
-                       cosm%M0=10**(14.606)
-                       cosm%Astar=0.021
-                       cosm%whim=10**(5.874)
+                       hmod%alpha=0.420
+                       hmod%eps=10**(-0.413)
+                       hmod%Gamma=1.467
+                       hmod%M0=10**(14.606)
+                       hmod%Astar=0.021
+                       hmod%whim=10**(5.874)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.715
-                       cosm%eps=10**(-0.405)
-                       cosm%Gamma=1.154
-                       cosm%M0=10**(14.786)
-                       cosm%Astar=0.019
-                       cosm%whim=10**(5.434)
+                       hmod%alpha=0.715
+                       hmod%eps=10**(-0.405)
+                       hmod%Gamma=1.154
+                       hmod%M0=10**(14.786)
+                       hmod%Astar=0.019
+                       hmod%whim=10**(5.434)
                     END IF
 
                  ELSE IF(ihm==3 .OR. ihm==14) THEN
 
                     IF(z==0.) THEN
-                       cosm%alpha=0.409
-                       cosm%eps=10**(0.045)
-                       cosm%Gamma=1.275
-                       cosm%M0=10**(12.737)
-                       cosm%Astar=0.032
-                       cosm%whim=10**(5.357)
+                       hmod%alpha=0.409
+                       hmod%eps=10**(0.045)
+                       hmod%Gamma=1.275
+                       hmod%M0=10**(12.737)
+                       hmod%Astar=0.032
+                       hmod%whim=10**(5.357)
                     ELSE IF(z==0.5) THEN
-                       cosm%alpha=0.698
-                       cosm%eps=10**(0.159)
-                       cosm%Gamma=1.393
-                       cosm%M0=10**(12.012)
-                       cosm%Astar=0.028
-                       cosm%whim=10**(5.491)
+                       hmod%alpha=0.698
+                       hmod%eps=10**(0.159)
+                       hmod%Gamma=1.393
+                       hmod%M0=10**(12.012)
+                       hmod%Astar=0.028
+                       hmod%whim=10**(5.491)
                     ELSE IF(z==1. .OR. z==2.) THEN
-                       cosm%alpha=0.832
-                       cosm%eps=10**(0.312)
-                       cosm%Gamma=1.344
-                       cosm%M0=10**(12.020)
-                       cosm%Astar=0.025
-                       cosm%whim=10**(5.723)
+                       hmod%alpha=0.832
+                       hmod%eps=10**(0.312)
+                       hmod%Gamma=1.344
+                       hmod%M0=10**(12.020)
+                       hmod%Astar=0.025
+                       hmod%whim=10**(5.723)
                     END IF
 
                  END IF
@@ -714,7 +753,8 @@ PROGRAM HMx_driver
            IF(imode==16) WRITE(*,*) 'Comparing to BAHAMAS model: ', TRIM(name)
             
            !Initiliasation for the halomodel calcualtion
-           CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+           CALL assign_halomod(ihm,hmod,verbose)
+           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
            !Runs the diagnostics
            IF(imode==2) THEN
@@ -776,8 +816,8 @@ PROGRAM HMx_driver
                  WRITE(*,*) j1, j2, TRIM(outfile)
 
                  !Do the calculation and write P(k) to disk
-                 CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
-                 CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
+                 CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+                 CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose=.FALSE.)
 
               END DO
            END DO
@@ -790,11 +830,7 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
-
-     !TODO: Remove this
-     !cosm%Gamma=1.2
-
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
      !Loop over redshifts
@@ -807,7 +843,8 @@ PROGRAM HMx_driver
         IF(j==4) z=2.0
 
         !Initiliasation for the halomodel calcualtion
-        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+        CALL assign_halomod(ihm,hmod,verbose)
+        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -832,23 +869,23 @@ PROGRAM HMx_driver
 
      !Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
 
      !Sets the redshift
      z=0.
 
      DO
 
-        CALL random_baryon_parameters(cosm)
+        CALL random_baryon_parameters(hmod)
 
         CALL init_cosmology(cosm)
-
-        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL print_cosmology(cosm)
 
         !Initiliasation for the halomodel calcualtion
-        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+        CALL assign_halomod(ihm,hmod,verbose)
+        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
-        WRITE(*,fmt='(A12,6F12.6)') 'Parameters:', cosm%alpha, cosm%eps, cosm%Gamma, log10(cosm%M0), cosm%Astar, log10(cosm%whim)
+        WRITE(*,fmt='(A12,6F12.6)') 'Parameters:', hmod%alpha, hmod%eps, hmod%Gamma, log10(hmod%M0), hmod%Astar, log10(hmod%whim)
 
         !Do the halo-model calculation
         DO j1=0,6
@@ -856,7 +893,7 @@ PROGRAM HMx_driver
               IF(j1==1 .OR. j1==4 .OR. j1==5) CYCLE
               IF(j2==1 .OR. j2==4 .OR. j2==5) CYCLE
               WRITE(*,*) 'Halo types:', j1, j2
-              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
               DO i=1,nk
                  IF(ISNAN(pow_full(i))) STOP 'HMX_DRIVER: Error, NaN found in pow_full array'
               END DO
@@ -884,9 +921,7 @@ PROGRAM HMx_driver
      !Assigns the cosmological model
      icosmo=2
      CALL assign_cosmology(icosmo,cosm,verbose)
-
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     !CALL initialise_cosmology(verbose,cosm)
+     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
      !File base and extension
@@ -911,7 +946,8 @@ PROGRAM HMx_driver
         END IF
 
         !Initiliasation for the halomodel calcualtion
-        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+        CALL assign_halomod(ihm,hmod,verbose)
+        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -948,8 +984,8 @@ PROGRAM HMx_driver
 
            WRITE(*,fmt='(3I5,A30)') j, j1, j2, TRIM(outfile)
 
-           CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
-           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
+           CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose=.FALSE.)
 
         END DO
 
@@ -992,6 +1028,7 @@ PROGRAM HMx_driver
 
      !Assign the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
 
      !Set the k range
      kmin=1e-3
@@ -1058,14 +1095,15 @@ PROGRAM HMx_driver
         CALL write_distances(cosm)
 
         !Write out diagnostics
-        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+        CALL assign_halomod(ihm,hmod,verbose)
+        !CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
         !dir='diagnostics'
         !CALL halo_diagnostics(z,hmod,cosm,dir)
         !CALL halo_definitions(z,hmod,dir)
         !CALL halo_properties(z,hmod,dir)
 
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
 !!$        !Fix the one-halo term P(k) to be a constant
 !!$        DO j=1,na
@@ -1167,8 +1205,9 @@ PROGRAM HMx_driver
 
            CALL print_cosmology(cosm)
            !CALL initialise_distances(verbose,cosm)
+           CALL assign_halomod(ihm,hmod,verbose)
 
-           CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+           CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
            !Fill out the projection kernels
            CALL fill_projection_kernels(ix,proj,cosm)
@@ -1305,7 +1344,8 @@ PROGRAM HMx_driver
               z=redshift_a(a(j))
 
               !Initiliasation for the halomodel calcualtion
-              CALL init_halomod(ihm,m1,m2,z,hmod,cosm,verbose)
+              CALL assign_halomod(ihm,hmod,verbose)
+              CALL init_halomod(m1,m2,z,hmod,cosm,verbose)
               CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),hmod,cosm,verbose)
 
               !Write progress to screen
@@ -1379,7 +1419,9 @@ PROGRAM HMx_driver
         !CALL initialise_cosmology(verbose,cosm)
         CALL print_cosmology(cosm)
 
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,cosm,verbose)
+        CALL assign_halomod(ihm,hmod,verbose)
+
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
         !Initialise the lensing part of the calculation
         !CALL initialise_distances(verbose,cosm)
@@ -1491,17 +1533,20 @@ PROGRAM HMx_driver
      !Assigns the cosmological model
      icosmo=3
      CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
      !cosm%alpha=0.485
-     cosm%alpha=2.
-     cosm%eps=10**0.103
-     cosm%Gamma=1.212
-     cosm%M0=10**13.836
-     cosm%Astar=0.029
-     cosm%whim=10**6.346
+     !cosm%alpha=2.
+     !cosm%eps=10**0.103
+     !cosm%Gamma=1.212
+     !cosm%M0=10**13.836
+     !cosm%Astar=0.029
+     !cosm%whim=10**6.346
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
 
      !Initialise the lensing part of the calculation
      !CALL initialise_distances(verbose,cosm)
@@ -1543,7 +1588,7 @@ PROGRAM HMx_driver
            outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
         END IF
 
-        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
 
         WRITE(*,*) 'HMx_DRIVER: Done'
@@ -1557,6 +1602,9 @@ PROGRAM HMx_driver
 
      !Assign the cosmology
      CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
@@ -1593,7 +1641,7 @@ PROGRAM HMx_driver
            ix(2)=ixx(2)
            outfile=TRIM(dir)//'/cl_full.dat'
         END IF
-        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,cosm,verbose)
+        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
      END DO
 
@@ -1618,13 +1666,15 @@ PROGRAM HMx_driver
      !Assigns the cosmological model
      icosmo=4
      CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
 
      !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      !CALL initialise_cosmology(verbose,cosm)
      CALL print_cosmology(cosm)
 
      !Initiliasation for the halo-model calcualtion
-     CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)  
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)  
 
      !DMONLY
      j1=-1
@@ -1645,6 +1695,7 @@ PROGRAM HMx_driver
         !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Reassigns the cosmological model
         CALL assign_cosmology(icosmo,cosm,verbose)
+        CALL init_cosmology(cosm)
 
         !DO NOT DELETE - needs to be here to restore default cosmology on each loop
         !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
@@ -1694,17 +1745,21 @@ PROGRAM HMx_driver
               param=progression(param_min,param_max,i,m)
            END IF
 
-           IF(ipa==1) cosm%alpha=param
-           IF(ipa==2) cosm%eps=param
-           IF(ipa==3) cosm%Gamma=param
-           IF(ipa==4) cosm%M0=param
-           IF(ipa==5) cosm%Astar=param
-           IF(ipa==6) cosm%whim=param
+           IF(ipa==1) hmod%alpha=param
+           IF(ipa==2) hmod%eps=param
+           IF(ipa==3) hmod%Gamma=param
+           IF(ipa==4) hmod%M0=param
+           IF(ipa==5) hmod%Astar=param
+           IF(ipa==6) hmod%whim=param
+
+           STOP 'CHANGED COSM -> HMOD: check carefully'
 
            !DO NOT DELETE - needs to be here to restore default cosmology on each loop
            !Initiliasation for the halo-model calcualtion
            CALL init_cosmology(cosm)
-           CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose) 
+
+           CALL assign_halomod(ihm,hmod,verbose)
+           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose) 
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later
@@ -1727,7 +1782,7 @@ PROGRAM HMx_driver
            !Write out halo mass fraction information
            base='variations/mass_fractions_param_'
            outfile=number_file2(base,ipa,mid,i,ext)
-           CALL write_mass_fractions(cosm,outfile)
+           CALL write_mass_fractions(hmod,cosm,outfile)
 
            !File base and extension
            base='variations/power_param_'
@@ -1790,8 +1845,8 @@ PROGRAM HMx_driver
               WRITE(*,fmt='(4I5,F14.7,A50)') ipa, i, j1, j2, param, TRIM(outfile)
 
               !Do the halo-model calculation and write to file
-              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,.FALSE.)
-              CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,.FALSE.)
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+              CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose=.FALSE.)
 
            END DO
 
@@ -1804,12 +1859,14 @@ PROGRAM HMx_driver
      !Set the cosmology
      icosmo=3
      CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
      !Set the halo model
      z=0.
      ihm=4
-     CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
      !Make the Figure
      CALL YinZhe_Fig1(z,hmod,cosm)
@@ -1911,12 +1968,14 @@ PROGRAM HMx_driver
 
         ! Assigns the cosmological model
         CALL assign_cosmology(icosmo,cosm,verbose)
+        CALL init_cosmology(cosm)
 
         ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL print_cosmology(cosm)
 
         ! Initiliasation for the halomodel calcualtion
-        CALL init_halomod(ihm,mmin,mmax,z,hmod,cosm,verbose)
+        CALL assign_halomod(ihm,hmod,verbose)
+        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
         ! Do the halo-model calculation
         CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
@@ -1926,6 +1985,536 @@ PROGRAM HMx_driver
         CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      END DO
+
+  ELSE IF(imode==24) THEN
+
+     ! Assign the cosmological model
+     icosmo=4
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)     
+
+     ! Choose fitting to do
+     ifit=2
+
+     ! Default number of refinements
+     nref=3
+
+     np=3
+     ALLOCATE(pmin(np), pmax(np), pbest(np), pnow(np), prange(np))
+     ALLOCATE(nrange(np), iii(np), ipbest(np))
+
+     ! Default number of parameters
+     nrange=11
+
+     ! Star power spectra
+     IF(ifit==1) THEN
+        
+        ! Halo type
+        ip=3
+
+        ! Astar (height of f*(M) distribution)
+        pmin(1)=1e-3
+        pmax(1)=1e-1
+        plog(1)=.TRUE.
+
+        ! Mstar (location of max of f*(M) distribution)
+        pmin(2)=1e11
+        pmax(2)=1e13
+        plog(2)=.TRUE.
+
+        ! sigma (width of f*(M) distribution)
+        pmin(3)=1.2
+        pmax(3)=2.0
+        plog(3)=.TRUE.
+        nrange(3)=1
+
+        ! Halo model
+        ihm=4
+
+     ELSE IF(ifit==2) THEN
+
+        ! Halo type
+        ip=2
+
+        ! Gamma
+        pmin(1)=1.05
+        pmax(1)=1.55
+        plog(1)=.FALSE.
+
+        ! M0
+        pmin(2)=1e13
+        pmax(2)=1e15
+        plog(2)=.TRUE.
+
+        ! epsilon
+        pmin(3)=1e-1
+        pmax(3)=1e1
+        plog(3)=.TRUE.
+        nrange(3)=1
+
+        ! Halo model
+        ihm=4
+
+     ELSE
+
+        STOP 'FITTING: Error, ifit specified incorrectly'
+        
+     END IF
+
+     ! Set the redshift
+     z=0.5
+
+     ! Set the model
+     !model='AGN_TUNED_nu0'
+     !model='AGN_7p6_nu0'
+     model='AGN_8p0_nu0'
+
+     ! Read in the data
+     infile=BAHAMAS_power_file_name(model,z,ip)
+     CALL read_simulation_power_spectrum(k,pow_sim,nk,infile)
+     
+     ! Fix the paramter range
+     DO j=1,3
+        IF(plog(j)) THEN
+           prange(j)=log(pmax(j)/pmin(j))
+        ELSE
+           prange(j)=pmax(j)-pmin(j)
+        END IF
+     END DO
+
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     ! Loop over refinements
+     i=0
+     refine=.FALSE.
+     DO
+
+        ! Always set this to be a HUGE number at the beginning of any refinement level
+        fom_best=HUGE(fom)
+
+        ! Update the range to be centred on the best fit
+        ! Maybe also decrease the parameter space
+        IF(refine) THEN
+           DO j=1,3
+              IF(nrange(j)>1) THEN
+                 IF(plog(j)) THEN
+                    pmin(j)=exp(log(pbest(j))-prange(j)/(2.**(i+1)))
+                    pmax(j)=exp(log(pbest(j))+prange(j)/(2.**(i+1)))
+                 ELSE
+                    pmin(j)=pbest(j)-prange(j)/(2.**(i+1))
+                    pmax(j)=pbest(j)+prange(j)/(2.**(i+1))
+                 END IF
+              END IF
+           END DO
+        END IF
+
+        ! Write data to screen
+        WRITE(*,*) 'FITTING: Refinement', i
+        WRITE(*,*) '======================================================================'
+        WRITE(*,*) ' Refinement   Parameter              minimum                   maximum'
+        WRITE(*,*) '======================================================================'
+        DO j=1,3
+           IF(nrange(j)>1) THEN
+              IF(plog(j)) THEN
+                 WRITE(*,*) i, j, log10(pmin(j)), log10(pmax(j))
+              ELSE
+                 WRITE(*,*) i, j, pmin(j), pmax(j)
+              END IF
+           END IF
+        END DO
+        WRITE(*,*) '======================================================================'     
+        WRITE(*,*)
+
+        ! Loop over parameters
+        DO i1=1,nrange(1)
+           DO i2=1,nrange(2)
+              DO i3=1,nrange(3)
+
+                 ! Update the parameters
+                 iii(1)=i1
+                 iii(2)=i2
+                 iii(3)=i3
+                 DO j=1,3
+                    IF(plog(j)) THEN
+                       pnow(j)=progression_log(pmin(j),pmax(j),iii(j),nrange(j))
+                    ELSE
+                       pnow(j)=progression(pmin(j),pmax(j),iii(j),nrange(j))
+                    END IF
+                 END DO
+
+                 ! Update fitted parameters
+                 IF(ifit==1) THEN
+                    hmod%Astar=pnow(1)
+                    hmod%Mstar=pnow(2)
+                    hmod%sstar=pnow(3)
+                    !CALL init_cosmology(cosm)
+                 ELSE IF(ifit==2) THEN
+                    hmod%gamma=pnow(1)
+                    hmod%M0=pnow(2)
+                    hmod%eps=pnow(3)
+                    !CALL init_cosmology(cosm)
+                 ELSE
+                    STOP 'FITTING: Error, ifit specified incorrectly'
+                 END IF
+
+                 ! Initiliasation for the halomodel calcualtion
+                 CALL assign_halomod(ihm,hmod,verbose)
+                 CALL init_halomod(mmin,mmax,z,hmod,cosm,.FALSE.)
+
+                 ! Do the halo-model calculation
+                 CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+
+                 ! Calculate the figure-of-merit and update best fit
+                 fom=figure_of_merit(pow_full,pow_sim,nk)
+                 IF(fom<fom_best) THEN
+                    ipbest=iii
+                    pbest=pnow
+                    fom_best=fom
+                 END IF
+
+              END DO
+           END DO
+        END DO
+
+        ! Write best-fit to screen
+        WRITE(*,*) 'FITTING: Best fit'
+        WRITE(*,*) '============================================'
+        WRITE(*,*) '  Parameter    location                value'
+        WRITE(*,*) '============================================'
+        DO j=1,3
+           IF(nrange(j)>1) THEN
+              IF(plog(j)) THEN
+                 WRITE(*,*) j, ipbest(j), log10(pbest(j)), pbest(j)
+              ELSE
+                 WRITE(*,*) j, ipbest(j), pbest(j)
+              END IF
+           END IF
+        END DO
+        WRITE(*,*) '============================================'
+        WRITE(*,*)
+
+        ! Check that the best fit is not on the edge of the range
+        refine=.TRUE.
+        DO j=1,3
+           IF(nrange(j)>1) THEN
+              IF(ipbest(j)==1 .OR. ipbest(j)==nrange(j)) THEN
+                 WRITE(*,*) 'FITTING: Parameter on edge of range'
+                 WRITE(*,*) 'FITTING: Parameter:', j
+                 IF(plog(j)) THEN
+                    WRITE(*,*) 'FITTING: Value:', log10(pbest(j)), pbest(j)
+                 ELSE
+                    WRITE(*,*) 'FITTING: Value:', pbest(j)
+                 END IF
+                 WRITE(*,*) 'FITTING: Number of points:', nrange(j)
+                 WRITE(*,*) 'FITTING: Best fit location:', ipbest(j)
+                 WRITE(*,*)
+                 refine=.FALSE.
+              END IF
+           END IF
+        END DO
+
+        ! Update refinement level or exit
+        IF(refine .AND. i==nref) THEN
+           EXIT
+        ELSE IF(refine) THEN
+           i=i+1
+        END IF
+        refine=.TRUE.
+
+     END DO
+
+     ! Set to the best fit
+     IF(ifit==1) THEN
+        hmod%Astar=pbest(1)
+        hmod%Mstar=pbest(2)
+        hmod%sstar=pbest(3)
+     ELSE IF(ifit==2) THEN
+        hmod%Gamma=pbest(1)
+        hmod%M0=pbest(2)
+        hmod%eps=pbest(3)
+     ELSE
+        STOP 'FITTING: Error, ifit specified incorrectly'
+     END IF
+     
+     ! Initiliasation for the halomodel calcualtion
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+     
+     ! Write out the results
+     !outfile='data/power.dat'
+     !CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+     outfile='fitting/power.dat'
+     OPEN(7,file=outfile)
+     DO i=1,nk
+        WRITE(7,*) k(i), pow_full(i), pow_sim(i)
+     END DO
+     CLOSE(7)
+
+  ELSE IF(imode==25) THEN
+
+     ! MCMC-like fitting
+
+     ! Set the random-number generator
+     CALL RNG_set(0)
+
+     ! Allocate arrays
+     n=1000
+     nz=4
+     ncosmo=1
+     ALLOCATE(cosms(ncosmo),zs(nz))
+     zs(1)=0.0
+     zs(2)=0.5
+     zs(3)=1.0
+     zs(4)=2.0
+
+     ! Assign the cosmological models
+     DO i=1,ncosmo        
+        icosmo=24
+        CALL assign_cosmology(icosmo,cosms(i),verbose=.TRUE.)
+        CALL init_cosmology(cosms(i))
+        CALL print_cosmology(cosms(i))
+     END DO
+
+     ! Get the Mira Titan power spectrum for the model     
+     DO i=1,ncosmo
+        DO j=1,nz
+           CALL get_Mira_Titan_power(k_sim,pow_sim,nk,zs(j),cosms(i),rebin=.TRUE.)
+           IF(i==1 .AND. j==1) THEN
+              ALLOCATE(ks_sim(nk,nz,ncosmo),pows_sim(nk,nz,ncosmo))
+           END IF
+           ks_sim(:,j,i)=k_sim
+           pows_sim(:,j,i)=pow_sim
+        END DO
+     END DO
+     
+     ! Allocate arrays for halo-model power
+     ALLOCATE(pows_lin(nk,nz,ncosmo))
+     ALLOCATE(pows_2h(nk,nz,ncosmo))
+     ALLOCATE(pows_1h(nk,nz,ncosmo))
+     ALLOCATE(pows_full(nk,nz,ncosmo))
+
+     ! Assign arrays associated with the fitting
+     np=12
+     ALLOCATE(pbest(np),pnew(np),pold(np),prange(np))
+
+     ! Assign the base halo model
+     ALLOCATE(hmods(ncosmo))
+     ihm=15
+     DO i=1,ncosmo
+        CALL assign_halomod(ihm,hmods(i),verbose=.FALSE.)
+     END DO
+     
+     ! Set initial parameters
+     pnew(1)=418.
+     pnew(2)=-0.352
+     pnew(3)=1.59
+     pnew(4)=0.0314
+     pnew(5)=0.603
+     pnew(6)=0.300
+     pnew(7)=0.0095
+     pnew(8)=1.37
+     pnew(9)=0.584
+     pnew(10)=3.13
+     pnew(11)=3.24
+     pnew(12)=1.85
+
+     ! Set the ranges (sigma) for the parameters
+     prange=0.
+     !prange(1)=ABS(pnew(1))/100.
+     prange=ABS(pnew)/5e3
+
+     ! Dark-matter haloes
+     ip=-1
+
+     ! Set the best fom to some huge value
+     fom_old=HUGE(fom)
+     fom_new=HUGE(fom)
+     fom_best=HUGE(fom)
+
+     ! Loop over number of runs
+     DO l=1,n
+
+        IF(l==1) THEN
+           ! Do nothing
+        ELSE IF(l==n) THEN
+           ! Set to best-fitting parameters on last go
+           pnew=pbest           
+        ELSE
+           ! Randomly jump parameters
+           DO i=1,np
+              pnew(i)=random_Gaussian(pold(i),prange(i))
+           END DO
+        END IF
+
+        fom_new=0.
+        
+        ! Loop over cosmologies
+        DO i=1,ncosmo
+
+           ! Set HMcode parameters
+           hmods(i)%Dv0=pnew(1)
+           hmods(i)%Dvp=pnew(2)
+           hmods(i)%dc0=pnew(3)
+           hmods(i)%dc1=pnew(4)
+           hmods(i)%eta0=pnew(5)
+           hmods(i)%eta1=pnew(6)
+           hmods(i)%f0=pnew(7)
+           hmods(i)%fp=pnew(8)
+           hmods(i)%ks0=pnew(9)
+           hmods(i)%A0=pnew(10)
+           hmods(i)%alp0=pnew(11)
+           hmods(i)%alp1=pnew(12)
+
+           ! Loop over redshifts
+           DO j=1,nz
+              
+              ! Initialise the halo-model calculation
+              CALL init_halomod(mmin,mmax,zs(j),hmods(i),cosms(i),verbose=.FALSE.)
+
+              ! Calculate the halo-model power spectrum
+              CALL calculate_halomod(ip(1),ip(2),ks_sim(:,j,i),nk,zs(j),pows_lin(:,j,i),pows_2h(:,j,i),pows_1h(:,j,i),pows_full(:,j,i),hmods(i),cosms(i),verbose=.FALSE.)
+
+              ! Calculate figure of merit
+              fom_new=fom_new+figure_of_merit(pows_full(:,j,i),pows_sim(:,j,i),nk)
+
+           END DO
+
+        END DO
+
+        fom_new=fom_new/REAL(nz*ncosmo)
+
+        IF(l==1) fom_orig=fom_new
+        IF(fom_new<fom_best) THEN
+           ! If figure-of-merit is best then always accept...
+           pbest=pnew
+           ibest=l
+           fom_best=fom_new
+           fom_old=fom_new
+           pold=pnew
+        ELSE IF(fom_old/fom_new<random_uniform(0.,1.)) THEN
+           ! ...otherwise accept with some probability...
+           pold=pnew
+           fom_old=fom_new
+        ELSE
+           ! ...otherwise, do nothing!
+        END IF
+
+        WRITE(*,*) l, fom_new
+
+     END DO
+
+     WRITE(*,*) ibest, n, fom_orig, fom_new
+
+     base='fitting/cosmo'
+     mid='_z'
+     ext='.dat'
+
+     ! Output data
+     DO i=1,ncosmo
+        DO j=1,nz
+           outfile=number_file2(base,i,mid,j,ext)
+           OPEN(7,file=outfile)
+           DO l=1,nk
+              WRITE(7,*) ks_sim(l,j,i), pows_full(l,j,i), pows_sim(l,j,i)
+           END DO
+           CLOSE(7)
+        END DO
+     END DO
+
+  ELSE IF(imode==26) THEN     
+
+     ! Loop over different tests
+     DO itest=1,3
+
+        IF(itest==1) THEN
+           infile='benchmarks/power_HMcode_Mead.txt'
+           ihm=1
+           base='data/power_HMx_Mead'
+           icosmo=1
+        ELSE IF(itest==2) THEN
+           infile='benchmarks/power_HMcode_basic.txt'
+           ihm=2
+           base='data/power_HMx_basic'
+           icosmo=1
+        ELSE IF(itest==3) THEN
+           infile='benchmarks/power_HMcode_standard.txt'
+           ihm=5
+           base='data/power_HMx_standard'
+           icosmo=1
+        END IF
+
+        ! Allocate arrays
+        nk=128
+        na=16
+        ALLOCATE(k(nk),a(na),powa(nk,na))
+
+        ! Read-in test data
+        OPEN(7,file=infile)
+        DO i=0,128
+           IF(i==0) THEN
+              READ(7,*) crap, (a(j), j=1,na)
+           ELSE
+              READ(7,*) k(i), (powa(i,j), j=1,na)
+           END IF
+        END DO
+        CLOSE(7)
+
+        ! Convert read-in z to a
+        a=1./(1.+a)
+
+        ! Assigns the cosmological model
+        CALL assign_cosmology(icosmo,cosm,verbose_tests)
+        CALL init_cosmology(cosm)
+        CALL print_cosmology(cosm)
+
+        ! Assign the halo model
+        CALL assign_halomod(ihm,hmod,verbose_tests)
+        !CALL print_halomod(hmod)
+        
+        ip=-1 ! Set DMONLY profiles 
+        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose_tests)
+
+        ! Loop over k and a
+        error_max=0.
+        DO j=1,na
+           DO i=1,nk
+              error=ABS(-1.+powa_full(i,j)/powa(i,j))
+              IF(error>error_max) error_max=error
+              IF(error>tolerance) THEN
+                 WRITE(*,*) 'HMx_DRIVER: Test:', itest
+                 WRITE(*,*) 'HMx_DRIVER: Wavenumber [h/Mpc]:', k(i)
+                 WRITE(*,*) 'HMx_DRIVER: Scale-factor:', a(j)
+                 WRITE(*,*) 'HMx_DRIVER: Expected power:', powa(i,j)
+                 WRITE(*,*) 'HMx_DRIVER: Model power:', powa_full(i,j)
+                 WRITE(*,*) 'HMx_DRIVER: Tolerance:', tolerance
+                 WRITE(*,*) 'HMx_DRIVER: Error:', error
+                 WRITE(*,*)
+                 ifail=.TRUE.
+              END IF
+           END DO
+        END DO
+
+        WRITE(*,*) 'HMx_DRIVER: Test:', itest
+        WRITE(*,*) 'HMx_DRIVER: Tolerance:', tolerance
+        WRITE(*,*) 'HMx_DRIVER: Max error:', error_max
+        WRITE(*,*)
+
+        ! Write data to file
+        !base='data/power'
+        CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose_tests)
+
+        DEALLOCATE(k,a,powa)
+        
+     END DO
+
+     IF(ifail) THEN
+        STOP 'HMx_DRIVER: Error, tests failed'
+     ELSE
+        WRITE(*,*) 'HMx_DRIVER: Tests passed'
+        WRITE(*,*)
+     END IF
      
   ELSE
 
@@ -1935,6 +2524,103 @@ PROGRAM HMx_driver
 
 CONTAINS
 
+  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
+
+    IMPLICIT NONE
+    CHARACTER(len=*), INTENT(IN) :: model
+    REAL, INTENT(IN) :: z
+    INTEGER, INTENT(IN) :: ip(2)
+    CHARACTER(len=64) :: dir
+    CHARACTER(len=32) :: snap, field(2)
+
+    ! Directory containing everything
+    dir='/Users/Mead/Physics/BAHAMAS/power/M1024'
+
+    ! Set the redshift
+    IF(z==0.0) THEN
+       snap='snap32'
+    ELSE IF(z==0.5) THEN
+       snap='snap28'
+    ELSE IF(z==1.0) THEN
+       snap='snap26'
+    ELSE IF(z==2.0) THEN
+       snap='snap22'
+    ELSE
+       STOP 'BAHAMAS_POWER: Error, redshift specified incorrectly'
+    END IF
+
+    ! Set the fields
+    DO j=1,2
+       IF(ip(j)==0) THEN
+          field(j)='all'
+       ELSE IF(ip(j)==1) THEN
+          field(j)='dm'
+       ELSE IF(ip(j)==2) THEN
+          field(j)='gas'
+       ELSE IF(ip(j)==3) THEN
+          field(j)='stars'
+       ELSE IF(ip(j)==6) THEN
+          field(j)='epressure'
+       ELSE
+          STOP 'BAHAMAS_POWER: Error, ip specified incorrectly'
+       END IF
+    END DO
+
+    ! File name
+    BAHAMAS_power_file_name=TRIM(dir)//'/'//TRIM(model)//'_L400N1024_WMAP9_'//TRIM(snap)//'_'//TRIM(field(1))//'_'//TRIM(field(2))//'_power.dat'
+    
+  END FUNCTION BAHAMAS_power_file_name
+
+  REAL FUNCTION figure_of_merit(a,b,n)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: a(n), b(n)
+    INTEGER, INTENT(IN) :: n
+
+    !figure_of_merit=(SUM(a/b)-REAL(n))**2
+    figure_of_merit=sqrt(SUM((a/b-1.)**2))
+    !figure_of_merit=SUM(log(a/b)**2)/REAL(n)
+    
+  END FUNCTION figure_of_merit
+
+  SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile)
+
+    IMPLICIT NONE
+    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:)
+    INTEGER, INTENT(OUT) :: n
+    CHARACTER(len=*), INTENT(IN) :: infile
+    INTEGER :: i
+    REAL :: s
+
+    ! Deallocate arrays if they are already allocated
+    IF(ALLOCATED(k))  DEALLOCATE(k)
+    IF(ALLOCATED(Pk)) DEALLOCATE(Pk)
+
+    ! Get file length and allocate arrays for output
+    n=file_length(infile,verbose=.FALSE.)
+    ALLOCATE(k(n),Pk(n))
+
+    ! Read in data from file
+    OPEN(7,file=infile)
+    DO i=1,n
+       READ(7,*) k(i), Pk(i), s
+       Pk(i)=Pk(i)-s
+    END DO
+    CLOSE(7)
+
+    ! Find position in array of half-Nyquist
+    kmax=k(n)
+    DO i=1,n
+       IF(k(i)>kmax/2.) EXIT
+    END DO
+
+    ! Cut arrays down to half-Nyquist
+    CALL amputate(k,n,i)
+    CALL amputate(Pk,n,i)
+    n=i
+    
+  END SUBROUTINE read_simulation_power_spectrum
+
   SUBROUTINE get_k_values(infile,k,nk)
 
     IMPLICIT NONE
@@ -1943,7 +2629,7 @@ CONTAINS
     INTEGER, INTENT(OUT) :: nk
 
     !Get the number of k values
-    nk=file_length(infile)
+    nk=file_length(infile,verbose=.FALSE.)
 
     !Allocate the array in k
     ALLOCATE(k(nk))
@@ -2133,72 +2819,66 @@ CONTAINS
 
   END SUBROUTINE write_distances
 
-  SUBROUTINE random_cosmology(cosm)
+!!$  SUBROUTINE random_cosmology(cosm)
+!!$
+!!$    !Generate some random cosmological parameter
+!!$    USE random_numbers
+!!$    IMPLICIT NONE
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$
+!!$    REAL, PARAMETER :: Om_m_min=0.1
+!!$    REAL, PARAMETER :: Om_m_max=1.
+!!$
+!!$    REAL, PARAMETER :: Om_b_on_Om_m_min=0.05
+!!$    REAL, PARAMETER :: Om_b_on_Om_m_max=0.5
+!!$
+!!$    REAL, PARAMETER :: n_min=0.5
+!!$    REAL, PARAMETER :: n_max=1.5
+!!$
+!!$    REAL, PARAMETER :: h_min=0.4
+!!$    REAL, PARAMETER :: h_max=1.2
+!!$
+!!$    REAL, PARAMETER :: w_min=-1.5
+!!$    REAL, PARAMETER :: w_max=-0.5
+!!$
+!!$    REAL, PARAMETER :: wa_min=0.
+!!$    REAL, PARAMETER :: wa_max=0.
+!!$
+!!$    REAL, PARAMETER :: sig8_min=0.2
+!!$    REAL, PARAMETER :: sig8_max=1.5
+!!$
+!!$    cosm%Om_m=random_uniform(Om_m_min,Om_m_max)
+!!$
+!!$    !Enforce flatness
+!!$    cosm%Om_v=1.-cosm%Om_m
+!!$
+!!$    cosm%Om_b=cosm%Om_m*random_uniform(Om_b_on_Om_m_min,Om_b_on_Om_m_max)
+!!$
+!!$    cosm%n=random_uniform(n_min,n_max)
+!!$
+!!$    cosm%h=random_uniform(h_min,h_max)
+!!$
+!!$    cosm%w=random_uniform(w_min,w_max)
+!!$
+!!$    cosm%wa=random_uniform(wa_min,wa_max)
+!!$
+!!$    cosm%sig8=random_uniform(sig8_min,sig8_max)
+!!$
+!!$  END SUBROUTINE random_cosmology
 
-    !Generate some random cosmological parameter
-    USE random_numbers
+  SUBROUTINE random_baryon_parameters(hmod)
+
     IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-
-    REAL, PARAMETER :: Om_m_min=0.1
-    REAL, PARAMETER :: Om_m_max=1.
-
-    REAL, PARAMETER :: Om_b_on_Om_m_min=0.05
-    REAL, PARAMETER :: Om_b_on_Om_m_max=0.5
-
-    REAL, PARAMETER :: n_min=0.5
-    REAL, PARAMETER :: n_max=1.5
-
-    REAL, PARAMETER :: h_min=0.4
-    REAL, PARAMETER :: h_max=1.2
-
-    REAL, PARAMETER :: w_min=-1.5
-    REAL, PARAMETER :: w_max=-0.5
-
-    REAL, PARAMETER :: wa_min=0.
-    REAL, PARAMETER :: wa_max=0.
-
-    REAL, PARAMETER :: sig8_min=0.2
-    REAL, PARAMETER :: sig8_max=1.5
-
-    cosm%Om_m=random_uniform(Om_m_min,Om_m_max)
-
-    !Enforce flatness
-    cosm%Om_v=1.-cosm%Om_m
-
-    cosm%Om_b=cosm%Om_m*random_uniform(Om_b_on_Om_m_min,Om_b_on_Om_m_max)
-
-    cosm%n=random_uniform(n_min,n_max)
-
-    cosm%h=random_uniform(h_min,h_max)
-
-    cosm%w=random_uniform(w_min,w_max)
-
-    cosm%wa=random_uniform(wa_min,wa_max)
-
-    cosm%sig8=random_uniform(sig8_min,sig8_max)
-
-  END SUBROUTINE random_cosmology
-
-  SUBROUTINE random_baryon_parameters(cosm)
-
-    IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
+    TYPE(halomod), INTENT(INOUT) :: hmod
 
     REAL, PARAMETER :: alpha_min=0.05
     REAL, PARAMETER :: alpha_max=2.5
 
-    !REAL, PARAMETER :: eps_min=10**(-1.5)
-    !REAL, PARAMETER :: eps_max=10**(1.5)
     REAL, PARAMETER :: eps_min=0.5
     REAL, PARAMETER :: eps_max=2.0
-    !REAL, PARAMETER :: eps_min=1.
-    !REAL, PARAMETER :: eps_max=1.
 
     REAL, PARAMETER :: Gamma_min=1.05
     REAL, PARAMETER :: Gamma_max=2.00
-    !REAL, PARAMETER :: Gamma_min=1.15
-    !REAL, PARAMETER :: Gamma_max=1.20
 
     REAL, PARAMETER :: M0_min=10**(12.)
     REAL, PARAMETER :: M0_max=10**(15.)
@@ -2209,20 +2889,20 @@ CONTAINS
     REAL, PARAMETER :: whim_min=10**(5.)
     REAL, PARAMETER :: whim_max=10**(7.)
     
-    cosm%alpha=random_uniform(alpha_min,alpha_max)
+    hmod%alpha=random_uniform(alpha_min,alpha_max)
 
-    cosm%eps=random_uniform(log(eps_min),log(eps_max))
-    cosm%eps=exp(cosm%eps)
+    hmod%eps=random_uniform(log(eps_min),log(eps_max))
+    hmod%eps=exp(hmod%eps)
 
-    cosm%Gamma=random_uniform(Gamma_min,Gamma_max)
+    hmod%Gamma=random_uniform(Gamma_min,Gamma_max)
 
-    cosm%M0=random_uniform(log(M0_min),log(M0_max))
-    cosm%M0=exp(cosm%M0)
+    hmod%M0=random_uniform(log(M0_min),log(M0_max))
+    hmod%M0=exp(hmod%M0)
     
-    cosm%Astar=random_uniform(Astar_min,Astar_max)
+    hmod%Astar=random_uniform(Astar_min,Astar_max)
 
-    cosm%whim=random_uniform(log(whim_min),log(whim_max))
-    cosm%whim=exp(cosm%whim)
+    hmod%whim=random_uniform(log(whim_min),log(whim_max))
+    hmod%whim=exp(hmod%whim)
     
   END SUBROUTINE random_baryon_parameters
 
