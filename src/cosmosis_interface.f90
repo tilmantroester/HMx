@@ -126,8 +126,8 @@ end function setup
 function execute(block, config) result(status)
   use cosmosis_modules
   use HMx_setup
-  use HMx, only : calculate_HMx
-  use cosmology_functions, only : init_cosmology, print_cosmology
+  use HMx, only : calculate_HMx, assign_halomod
+  use cosmology_functions, only : init_cosmology, print_cosmology, assign_cosmology
   use constants
 
   implicit none
@@ -146,6 +146,9 @@ function execute(block, config) result(status)
   character(len=256) :: pk_section
 
   call c_f_pointer(config, HMx_config)
+! Assign default values.
+  call assign_cosmology(1, HMx_config%cosm, HMx_config%verbose)
+  call assign_halomod(HMx_config%ihm, HMx_config%hm, HMx_config%verbose)
 
   ! Cosmology parameters
   status = datablock_get_double(block, cosmological_parameters_section, "omega_m", HMx_config%cosm%om_m)
@@ -262,6 +265,8 @@ function execute(block, config) result(status)
      pk_section = "matter_stars_power_spectrum"
   else if(any(HMx_config%fields == 0) .and. any(HMx_config%fields == 6)) then
      pk_section = "matter_pressure_power_spectrum"
+  else if(any(HMx_config%fields == 1) .and. any(HMx_config%fields == 2)) then
+      pk_section = "dm_gas_power_spectrum"
   else
      write(*,*) "Unsupported combination of fields:", HMx_config%fields
      stop

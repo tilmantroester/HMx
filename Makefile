@@ -34,6 +34,9 @@ LIB_DIR = lib
 # Executable directory
 BIN_DIR = bin
 
+# Tests directory
+TEST_DIR = tests
+
 # Objects
 _OBJ = constants.o \
 	random_numbers.o \
@@ -63,6 +66,7 @@ make_dirs = @mkdir -p $(@D)
 lib: $(LIB_DIR)/libhmx.a
 cosmosis: $(LIB_DIR)/HMx_cosmosis_interface.so
 bin: $(BIN_DIR)/HMx
+test: $(TEST_DIR)/test_gas_gas
 
 # Debugging rules
 debug: FFLAGS += $(DEBUG_FLAGS)
@@ -88,6 +92,11 @@ $(DEBUG_BUILD_DIR)/%.o: $(SRC_DIR)/%.f90
 $(BIN_DIR)/HMx_debug: $(DEBUG_OBJ) $(SRC_DIR)/HMx_driver.f90
 	@echo "\nBuilding debugging executable.\n"
 	$(FC) -o $@ $^ -J$(DEBUG_BUILD_DIR) $(LDFLAGS) $(FFLAGS)
+
+# Rules to make test executables
+$(TEST_DIR)/test_gas_gas: $(OBJ) $(TEST_DIR)/test_gas_gas.f90
+	@echo "\nBuilding tests.\n"
+	$(FC) -o $@ $^ -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
 # Rule to make HMx static library
 $(LIB_DIR)/libhmx.a: $(OBJ)
