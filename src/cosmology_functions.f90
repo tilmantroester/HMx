@@ -135,7 +135,7 @@ CONTAINS
     ! This routine *only* assigns parameters, it does and should not do *any* calculations
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    INTEGER, INTENT(IN) :: icosmo
+    INTEGER, INTENT(INOUT) :: icosmo
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
     REAL :: Om_c
@@ -174,15 +174,13 @@ CONTAINS
     IF(verbose) WRITE(*,*) 'ASSIGN_COSMOLOGY: Assigning cosmological model parameters'
 
     IF(icosmo==-1) THEN
-       WRITE(*,*) 'ASSIGN_COSMOLOGY: interactively choosing cosmology not supported anymore.'
-       STOP
-      !  WRITE(*,*) 'ASSIGN_COSMOLOGY: Choose cosmological model'
-      !  WRITE(*,*) '==========================================='
-      !  DO i=0,SIZE(names)-1
-      !     WRITE(*,*) i, '- ', TRIM(names(i))
-      !  END DO
-      !  READ(*,*) icosmo
-      !  WRITE(*,*) '==========================================='
+       WRITE(*,*) 'ASSIGN_COSMOLOGY: Choose cosmological model'
+       WRITE(*,*) '==========================================='
+       DO i=0,SIZE(names)-1
+          WRITE(*,*) i, '- ', TRIM(names(i))
+       END DO
+       READ(*,*) icosmo
+       WRITE(*,*) '==========================================='
     END IF
 
     ! Set verbosity
