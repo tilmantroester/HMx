@@ -1,4 +1,4 @@
-HMX_FFLAGS = -Warray-bounds -fmax-errors=4 -ffpe-trap=invalid,zero,overflow -fimplicit-none -O3 -fdefault-real-8 -fdefault-double-8
+HMX_FFLAGS = -Warray-bounds -fmax-errors=4 -ffpe-trap=invalid,zero,overflow -fimplicit-none -O3 -fdefault-real-8 -fdefault-double-8 -lgfortran -lm
 DEBUG_FLAGS = -Wall -fcheck=all -fbounds-check -fbacktrace -Og
 
 ifeq ($(COSMOSIS_SRC_DIR),)
