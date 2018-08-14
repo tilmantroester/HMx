@@ -48,6 +48,8 @@ PROGRAM HMx_driver
   REAL :: error, error_max
   LOGICAL, PARAMETER :: verbose_tests=.FALSE.
   LOGICAl :: ifail=.FALSE.
+
+  ! Benchmark parameters
   LOGICAL, PARAMETER :: Alonso_k=.TRUE.
 
   ! Output choices
@@ -86,10 +88,10 @@ PROGRAM HMx_driver
      READ(halomodel,*) ihm
   END IF
 
-  !Initial white space
+  ! Initial white space
   WRITE(*,*)
 
-  !Choose mode
+  ! Choose mode
   IF(imode==-1) THEN
      WRITE(*,*) 'HMx_DRIVER: Choose what to do'
      WRITE(*,*) '============================='

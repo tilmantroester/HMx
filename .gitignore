@@ -31,7 +31,6 @@ OLD/
 RCSLenS/
 cosmo-OWLS/
 definitions/
-diagnostics/
 lensing/
 matter/
 pressure/
@@ -44,7 +43,8 @@ hydro/
 bias/
 Mead2017/
 
-# Note that data directory is dealt with separately with .gitignore in that directory
+# Note that data and diagnostics directories are dealt with separately
+# Each is with .gitignore in that directory
 
 # Benchmark directory
 benchmarks/HMx_*.txt
