@@ -12,7 +12,7 @@ module HMx_setup
 
      character(len=256) :: p_lin_source, hm_mode
 
-     integer :: ihm, iw
+     integer :: ihm, iw, icosmo
 
      integer, dimension(2) :: fields
 
@@ -38,7 +38,7 @@ function setup(options) result(result)
   ! Variables
   integer(cosmosis_status) :: status
   type(HMx_setup_config), pointer :: HMx_config
-  integer :: verbose
+  integer :: verbose, icosmo
 
   allocate(HMx_config)
 
@@ -87,20 +87,19 @@ function setup(options) result(result)
   ! Get halo model mode
   status = datablock_get_string_default(options, option_section, "hm_mode", "hmx", HMx_config%hm_mode)
   if(trim(HMx_config%hm_mode) == "hmx") then
-    HMx_config%ihm = 15
+    HMx_config%ihm = 6
   else if(trim(HMx_config%hm_mode) == "hmcode") then
     HMx_config%ihm = 1
+  else if(trim(HMx_config%hm_mode) == "vanilla_halo_model") then
+    HMx_config%ihm = 3
   end if
   ! Get ihm value directly if supplied
   status = datablock_get_int_default(options, option_section, "ihm", HMx_config%ihm, HMx_config%ihm)
 
   HMx_config%verbose = verbose > 0
 
-
-  ! Assign default values.
-  call assign_cosmology(1, HMx_config%cosm, HMx_config%verbose)
-  call assign_halomod(HMx_config%ihm, HMx_config%hm, HMx_config%verbose)
-
+  HMx_config%icosmo = 1
+  
   status = datablock_get_string_default(options, option_section, "p_lin_source", "eh", HMx_config%p_lin_source)
   if(trim(HMx_config%p_lin_source) == "external") then
     ! Use linear power spectrum provided by CosmoSIS
@@ -147,7 +146,7 @@ function execute(block, config) result(status)
 
   call c_f_pointer(config, HMx_config)
 ! Assign default values.
-  call assign_cosmology(1, HMx_config%cosm, HMx_config%verbose)
+  call assign_cosmology(HMx_config%icosmo, HMx_config%cosm, HMx_config%verbose)
   call assign_halomod(HMx_config%ihm, HMx_config%hm, HMx_config%verbose)
 
   ! Cosmology parameters
@@ -222,16 +221,16 @@ function execute(block, config) result(status)
   call init_cosmology(HMx_config%cosm)
   if(HMx_config%verbose) then
      call print_cosmology(HMx_config%cosm)
-     WRITE(*,*) "HALOMOD parameters:"
-     WRITE(*,*) "alpha    :", HMx_config%hm%alpha
-     WRITE(*,*) "eps      :", HMx_config%hm%eps
-     WRITE(*,*) "Gamma    :", HMx_config%hm%Gamma
-     WRITE(*,*) "M0       :", HMx_config%hm%M0
-     WRITE(*,*) "Astar    :", HMx_config%hm%Astar
-     WRITE(*,*) "whim     :", HMx_config%hm%whim
-     WRITE(*,*) "rstar    :", HMx_config%hm%rstar
-     WRITE(*,*) "sstar    :", HMx_config%hm%sstar
-     WRITE(*,*) "mstar    :", HMx_config%hm%mstar
+    !  WRITE(*,*) "HALOMOD parameters:"
+    !  WRITE(*,*) "alpha    :", HMx_config%hm%alpha
+    !  WRITE(*,*) "eps      :", HMx_config%hm%eps
+    !  WRITE(*,*) "Gamma    :", HMx_config%hm%Gamma
+    !  WRITE(*,*) "M0       :", HMx_config%hm%M0
+    !  WRITE(*,*) "Astar    :", HMx_config%hm%Astar
+    !  WRITE(*,*) "whim     :", HMx_config%hm%whim
+    !  WRITE(*,*) "rstar    :", HMx_config%hm%rstar
+    !  WRITE(*,*) "sstar    :", HMx_config%hm%sstar
+    !  WRITE(*,*) "mstar    :", HMx_config%hm%mstar
   end if
 
   call calculate_HMx(HMx_config%ihm, &
