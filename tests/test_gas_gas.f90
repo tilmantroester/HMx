@@ -40,7 +40,7 @@ PROGRAM test_gas_gas
     z=0.
 
     !Initiliasation for the halomodel calcualtion
-    ihm = 15
+    ihm = 6
     CALL assign_halomod(ihm,hmod,verbose)
     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
