@@ -44,7 +44,7 @@ PROGRAM HMx_driver
   REAL, PARAMETER :: mmax=1e17 ! Maximum halo mass for the calculation
 
   ! Test parameters
-  REAL, PARAMETER :: tolerance=1e-2
+  REAL, PARAMETER :: tolerance=3e-3
   REAL :: error, error_max
   LOGICAL, PARAMETER :: verbose_tests=.FALSE.
   LOGICAl :: ifail=.FALSE.
@@ -2423,7 +2423,9 @@ PROGRAM HMx_driver
         END DO
      END DO
 
-  ELSE IF(imode==26) THEN     
+  ELSE IF(imode==26) THEN
+
+     ! Automated testing
 
      ! Loop over different tests
      DO itest=1,3
@@ -2512,6 +2514,7 @@ PROGRAM HMx_driver
      IF(ifail) THEN
         STOP 'HMx_DRIVER: Error, tests failed'
      ELSE
+        WRITE(*,*) 'HMx_DRIVER: Tests should take around 0.80 seconds to run'
         WRITE(*,*) 'HMx_DRIVER: Tests passed'
         WRITE(*,*)
      END IF
