@@ -49,7 +49,7 @@ print 'iplot = 2: Power spectrum ratio plot'
 print 'iplot = 3: Power spectrum suppression plot'
 print 'iplot = 4: Power spectrum residual plot'
 print 'iplot = 5: Power spectrum components'
-print 'iplot = 6: Pressure spectrum'
+print 'iplot = 6: Power spectrum of electron pressure'
 print 'iplot = 7: Power spectrum with k^1.5 units'
 print 'iplot = '.iplot.''
 print ''
@@ -67,7 +67,8 @@ print 'Mesh size: *mesh*: ', mesh
 print ''
 
 # Simulation data files
-plot_title(sim,z)=sprintf('BAHAMAS comarison of %s at z = %1.1f', sim, z)
+plot_title_name_z(sim,z)=sprintf('BAHAMAS comarison of %s at z = %1.1f', sim, z)
+plot_title_z(z)=sprintf('BAHAMAS comarison at z = %1.1f', z)
 data(sim,mesh,s,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M%d/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,s,type1,type2)
 data_dmonly='DMONLY_2fluid'
 
@@ -158,7 +159,7 @@ set ylabel '{/Symbol D}_{i,j}^2(k)'
 set mytics 10
 
 # Set the overall plot titles
-set title plot_title(data_name,z)
+set title plot_title_name_z(data_name,z)
 
 if(iplot==1){
 
@@ -342,6 +343,8 @@ unset multiplot
 }
 
 if(iplot==3){
+
+set title plot_title_z(z)
 
 if(print==1){
 outfile(z)=sprintf('suppression_z%1.1f.eps',z)
