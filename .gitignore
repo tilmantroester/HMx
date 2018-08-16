@@ -41,6 +41,7 @@ winint/
 BAHAMAS/
 bias/
 Mead2017/
+fitting/
 
 # Note that /data, /hydro and /diagnostics are dealt with separately
 # Each directory contains a .gitignore
