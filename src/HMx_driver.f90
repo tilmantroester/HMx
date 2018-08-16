@@ -15,7 +15,7 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: pows_lin(:,:,:), pows_2h(:,:,:), pows_1h(:,:,:), pows_full(:,:,:)
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:), zs(:)
   REAL, ALLOCATABLE :: z_tab(:)
-  INTEGER :: i, j, l, ii, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ncosmo
+  INTEGER :: i, j, l, ii, ik, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ncos
   INTEGER :: ip(2), ix(2), ixx(2), ihalo
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2, a1, a2
@@ -29,7 +29,6 @@ PROGRAM HMx_driver
   CHARACTER(len=256) :: mode, halomodel, red, cosmo
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest
   REAL :: sig8min, sig8max
-  INTEGER :: ncos
   REAL :: m1, m2, mass
   REAL :: c, rmin, rmax, rv, rs, p1, p2
   CHARACTER(len=1) :: crap
@@ -148,6 +147,7 @@ PROGRAM HMx_driver
      !Initiliasation for the halomodel calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL print_halomod(z,hmod,cosm,verbose)
 
      !Do the halo-model calculation
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
@@ -215,6 +215,7 @@ PROGRAM HMx_driver
            ! Initialise the halo-model calculation
            CALL assign_halomod(ihm,hmod,verbose)
            CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+           CALL print_halomod(z,hmod,cosm,verbose)
 
            ! Do the halo-model calculation
            CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
@@ -421,11 +422,18 @@ PROGRAM HMx_driver
            z=z_tab(j)
 
            !Assigns the cosmological model
-           IF(imode==2)  icosmo=4
-           IF(imode==15) icosmo=2
-           IF(imode==16) icosmo=4
+           IF(imode==2)  THEN
+              icosmo=4
+           ELSE IF(imode==15) THEN
+              icosmo=2
+           ELSE IF(imode==16) THEN
+              icosmo=4
+           END IF
+           
            CALL assign_cosmology(icosmo,cosm,verbose)
            CALL init_cosmology(cosm)
+           CALL print_cosmology(cosm)
+           CALL assign_halomod(ihm,hmod,verbose)
 
            IF(imode==15) THEN
            
@@ -478,16 +486,13 @@ PROGRAM HMx_driver
               END IF
 
               !Need to do this after cosmological parameters are changed
-              CALL init_cosmology(cosm)
-              CALL print_cosmology(cosm)
+              !CALL init_cosmology(cosm)
+              !CALL print_cosmology(cosm)
 
            END IF
 
            !BAHAMAS
            IF(imode==16) THEN
-
-              ! Set the halo model
-              ihm=4
 
               IF(iowl==1) THEN
 
@@ -570,6 +575,10 @@ PROGRAM HMx_driver
                        hmod%Astar=0.024
                        hmod%whim=10**(5.643)
                     END IF
+
+                 ELSE
+
+                    STOP 'HMx_DRIVER: Error, incorrect ihm choice'
                     
                  END IF
                  
@@ -655,6 +664,10 @@ PROGRAM HMx_driver
                        hmod%whim=10**(5.849)
                     END IF
 
+                 ELSE
+
+                    STOP 'HMx_DRIVER: Error, incorrect ihm choice'
+
                  END IF
                  
               ELSE IF(iowl==2) THEN
@@ -739,22 +752,22 @@ PROGRAM HMx_driver
                        hmod%whim=10**(5.723)
                     END IF
 
+                 ELSE
+
+                    STOP 'HMx_DRIVER: Error, incorrect ihm choice'
+
                  END IF
 
               END IF
-
-              !Need to do this after cosmological parameters are changed  
-              CALL init_cosmology(cosm)
-              CALL print_cosmology(cosm)
 
            END IF
 
            IF(imode==15) WRITE(*,*) 'Comparing to OWLS model: ', TRIM(name)
            IF(imode==16) WRITE(*,*) 'Comparing to BAHAMAS model: ', TRIM(name)
             
-           !Initiliasation for the halomodel calcualtion
-           CALL assign_halomod(ihm,hmod,verbose)
+           !Initiliasation for the halomodel calcualtion after variables changed
            CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+           CALL print_halomod(z,hmod,cosm,verbose)
 
            !Runs the diagnostics
            IF(imode==2) THEN
@@ -845,6 +858,7 @@ PROGRAM HMx_driver
         !Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+        CALL print_halomod(z,hmod,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -884,6 +898,7 @@ PROGRAM HMx_driver
         !Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+        CALL print_halomod(z,hmod,cosm,verbose)
 
         WRITE(*,fmt='(A12,6F12.6)') 'Parameters:', hmod%alpha, hmod%eps, hmod%Gamma, log10(hmod%M0), hmod%Astar, log10(hmod%whim)
 
@@ -948,6 +963,7 @@ PROGRAM HMx_driver
         !Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+        CALL print_halomod(z,hmod,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -1199,14 +1215,11 @@ PROGRAM HMx_driver
         ncos=5
         DO i=1,ncos
 
-           !cosm%sig8=sig8min+(sig8max-sig8min)*float(i-1)/float(ncos-1)
            cosm%sig8=progression(sig8min,sig8max,i,ncos)
            CALL init_cosmology(cosm)
-
            CALL print_cosmology(cosm)
-           !CALL initialise_distances(verbose,cosm)
-           CALL assign_halomod(ihm,hmod,verbose)
 
+           CALL assign_halomod(ihm,hmod,verbose)
            CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
 
            !Fill out the projection kernels
@@ -1346,6 +1359,7 @@ PROGRAM HMx_driver
               !Initiliasation for the halomodel calcualtion
               CALL assign_halomod(ihm,hmod,verbose)
               CALL init_halomod(m1,m2,z,hmod,cosm,verbose)
+              CALL print_halomod(z,hmod,cosm,verbose)
               CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),hmod,cosm,verbose)
 
               !Write progress to screen
@@ -1534,16 +1548,6 @@ PROGRAM HMx_driver
      icosmo=3
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
-     !cosm%alpha=0.485
-     !cosm%alpha=2.
-     !cosm%eps=10**0.103
-     !cosm%Gamma=1.212
-     !cosm%M0=10**13.836
-     !cosm%Astar=0.029
-     !cosm%whim=10**6.346
-
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
      CALL assign_halomod(ihm,hmod,verbose)
@@ -1674,7 +1678,8 @@ PROGRAM HMx_driver
 
      !Initiliasation for the halo-model calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
-     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)  
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL print_halomod(z,hmod,cosm,verbose)
 
      !DMONLY
      j1=-1
@@ -1754,12 +1759,9 @@ PROGRAM HMx_driver
 
            STOP 'CHANGED COSM -> HMOD: check carefully'
 
-           !DO NOT DELETE - needs to be here to restore default cosmology on each loop
-           !Initiliasation for the halo-model calcualtion
-           CALL init_cosmology(cosm)
-
            CALL assign_halomod(ihm,hmod,verbose)
-           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose) 
+           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+           CALL print_halomod(z,hmod,cosm,verbose)
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later
@@ -1867,6 +1869,7 @@ PROGRAM HMx_driver
      ihm=4
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL print_halomod(z,hmod,cosm,verbose)
 
      !Make the Figure
      CALL YinZhe_Fig1(z,hmod,cosm)
@@ -1976,6 +1979,7 @@ PROGRAM HMx_driver
         ! Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+        CALL print_halomod(z,hmod,cosm,verbose)
 
         ! Do the halo-model calculation
         CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
@@ -2148,19 +2152,20 @@ PROGRAM HMx_driver
                     hmod%Astar=pnow(1)
                     hmod%Mstar=pnow(2)
                     hmod%sstar=pnow(3)
-                    !CALL init_cosmology(cosm)
                  ELSE IF(ifit==2) THEN
                     hmod%gamma=pnow(1)
                     hmod%M0=pnow(2)
                     hmod%eps=pnow(3)
-                    !CALL init_cosmology(cosm)
                  ELSE
                     STOP 'FITTING: Error, ifit specified incorrectly'
                  END IF
 
+                 STOP 'CHANGED COSM -> HMOD: check carefully'
+
                  ! Initiliasation for the halomodel calcualtion
                  CALL assign_halomod(ihm,hmod,verbose)
                  CALL init_halomod(mmin,mmax,z,hmod,cosm,.FALSE.)
+                 CALL print_halomod(z,hmod,cosm,verbose)
 
                  ! Do the halo-model calculation
                  CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
@@ -2236,10 +2241,13 @@ PROGRAM HMx_driver
      ELSE
         STOP 'FITTING: Error, ifit specified incorrectly'
      END IF
+
+     STOP 'CHANGED COSM -> HMOD: check carefully'
      
      ! Initiliasation for the halomodel calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL print_halomod(z,hmod,cosm,verbose)
      CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
      
      ! Write out the results
@@ -2262,15 +2270,15 @@ PROGRAM HMx_driver
      ! Allocate arrays
      n=1000
      nz=4
-     ncosmo=1
-     ALLOCATE(cosms(ncosmo),zs(nz))
+     ncos=3
+     ALLOCATE(cosms(ncos),zs(nz))
      zs(1)=0.0
      zs(2)=0.5
      zs(3)=1.0
      zs(4)=2.0
 
      ! Assign the cosmological models
-     DO i=1,ncosmo        
+     DO i=1,ncos        
         icosmo=24
         CALL assign_cosmology(icosmo,cosms(i),verbose=.TRUE.)
         CALL init_cosmology(cosms(i))
@@ -2278,11 +2286,11 @@ PROGRAM HMx_driver
      END DO
 
      ! Get the Mira Titan power spectrum for the model     
-     DO i=1,ncosmo
+     DO i=1,ncos
         DO j=1,nz
            CALL get_Mira_Titan_power(k_sim,pow_sim,nk,zs(j),cosms(i),rebin=.TRUE.)
            IF(i==1 .AND. j==1) THEN
-              ALLOCATE(ks_sim(nk,nz,ncosmo),pows_sim(nk,nz,ncosmo))
+              ALLOCATE(ks_sim(nk,nz,ncos),pows_sim(nk,nz,ncos))
            END IF
            ks_sim(:,j,i)=k_sim
            pows_sim(:,j,i)=pow_sim
@@ -2290,19 +2298,19 @@ PROGRAM HMx_driver
      END DO
      
      ! Allocate arrays for halo-model power
-     ALLOCATE(pows_lin(nk,nz,ncosmo))
-     ALLOCATE(pows_2h(nk,nz,ncosmo))
-     ALLOCATE(pows_1h(nk,nz,ncosmo))
-     ALLOCATE(pows_full(nk,nz,ncosmo))
+     ALLOCATE(pows_lin(nk,nz,ncos))
+     ALLOCATE(pows_2h(nk,nz,ncos))
+     ALLOCATE(pows_1h(nk,nz,ncos))
+     ALLOCATE(pows_full(nk,nz,ncos))
 
      ! Assign arrays associated with the fitting
      np=12
      ALLOCATE(pbest(np),pnew(np),pold(np),prange(np))
 
      ! Assign the base halo model
-     ALLOCATE(hmods(ncosmo))
+     ALLOCATE(hmods(ncos))
      ihm=15
-     DO i=1,ncosmo
+     DO i=1,ncos
         CALL assign_halomod(ihm,hmods(i),verbose=.FALSE.)
      END DO
      
@@ -2323,7 +2331,7 @@ PROGRAM HMx_driver
      ! Set the ranges (sigma) for the parameters
      prange=0.
      !prange(1)=ABS(pnew(1))/100.
-     prange=ABS(pnew)/5e3
+     prange=ABS(pnew)/1e3
 
      ! Dark-matter haloes
      ip=-1
@@ -2351,7 +2359,7 @@ PROGRAM HMx_driver
         fom_new=0.
         
         ! Loop over cosmologies
-        DO i=1,ncosmo
+        DO i=1,ncos
 
            ! Set HMcode parameters
            hmods(i)%Dv0=pnew(1)
@@ -2372,6 +2380,7 @@ PROGRAM HMx_driver
               
               ! Initialise the halo-model calculation
               CALL init_halomod(mmin,mmax,zs(j),hmods(i),cosms(i),verbose=.FALSE.)
+              CALL print_halomod(z,hmod,cosm,verbose=.FALSE.)
 
               ! Calculate the halo-model power spectrum
               CALL calculate_halomod(ip(1),ip(2),ks_sim(:,j,i),nk,zs(j),pows_lin(:,j,i),pows_2h(:,j,i),pows_1h(:,j,i),pows_full(:,j,i),hmods(i),cosms(i),verbose=.FALSE.)
@@ -2383,9 +2392,30 @@ PROGRAM HMx_driver
 
         END DO
 
-        fom_new=fom_new/REAL(nz*ncosmo)
+        fom_new=fom_new/REAL(nz*ncos)
 
-        IF(l==1) fom_orig=fom_new
+        IF(l==1) THEN
+
+           fom_orig=fom_new
+
+           base='fitting/original_cosmo'
+           mid='_z'
+           ext='.dat'
+
+           ! Output data
+           DO i=1,ncos
+              DO j=1,nz
+                 outfile=number_file2(base,i,mid,j,ext)
+                 OPEN(7,file=outfile)
+                 DO ik=1,nk
+                    WRITE(7,*) ks_sim(ik,j,i), pows_full(ik,j,i), pows_sim(ik,j,i)
+                 END DO
+                 CLOSE(7)
+              END DO
+           END DO
+
+        END IF
+           
         IF(fom_new<fom_best) THEN
            ! If figure-of-merit is best then always accept...
            pbest=pnew
@@ -2412,12 +2442,12 @@ PROGRAM HMx_driver
      ext='.dat'
 
      ! Output data
-     DO i=1,ncosmo
+     DO i=1,ncos
         DO j=1,nz
            outfile=number_file2(base,i,mid,j,ext)
            OPEN(7,file=outfile)
-           DO l=1,nk
-              WRITE(7,*) ks_sim(l,j,i), pows_full(l,j,i), pows_sim(l,j,i)
+           DO ik=1,nk
+              WRITE(7,*) ks_sim(ik,j,i), pows_full(ik,j,i), pows_sim(ik,j,i)
            END DO
            CLOSE(7)
         END DO
@@ -2581,7 +2611,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: n
 
     !figure_of_merit=(SUM(a/b)-REAL(n))**2
-    figure_of_merit=sqrt(SUM((a/b-1.)**2))
+    figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
     !figure_of_merit=SUM(log(a/b)**2)/REAL(n)
     
   END FUNCTION figure_of_merit

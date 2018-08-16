@@ -116,7 +116,8 @@ CONTAINS
     !Do the halo-model calculation
     DO i=na,1,-1
        z=redshift_a(a(i))
-       CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose2)       
+       CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose2)
+       CALL print_halomod(z,hmod,cosm,verbose2)
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2)
        IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'       
        IF(verbose) WRITE(*,fmt='(A15,I5,F10.2)') 'CALCULATE_HMx:', i, REAL(z)
@@ -663,7 +664,6 @@ CONTAINS
        kstar=0.
     ELSE IF(hmod%ikstar==2) THEN
        !One-halo cut-off wavenumber from Mead et al. (2015, 2016)
-       !kstar=0.584/hmod%sigv
        kstar=hmod%ks0/hmod%sigv
     ELSE
        STOP 'KSTAR: Error, ihm defined incorrectly'
@@ -779,127 +779,157 @@ CONTAINS
 
   END FUNCTION alpha_transition
 
-  SUBROUTINE print_halomodel_parameters(a,hmod,cosm)
+  SUBROUTINE print_halomod(z,hmod,cosm,verbose)
 
     !This subroutine writes out the physical halo-model parameters at some redshift 
     !(e.g., Delta_v) rather than the model parameters
     IMPLICIT NONE
-    REAL, INTENT(IN) :: a
+    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(halomod), INTENT(INOUT) :: hmod
+    LOGICAL, INTENT(IN) :: verbose
+    REAL :: a
 
-    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Writing out halo-model parameters'
-    WRITE(*,*) '==========================='
-    WRITE(*,*) TRIM(hmod%name)
+    IF(verbose) THEN
 
-    WRITE(*,*) 'Number of points in look-up tables:', hmod%n
-    WRITE(*,*) 'Halo model accuracy parameter:', hmod%acc_HMx
-    WRITE(*,*) 'Large value of nu:', hmod%large_nu
+        a=scale_factor_z(z)
 
-    ! Form of the two-halo term
-    IF(hmod%ip2h==1) WRITE(*,*) 'Linear two-halo term'
-    IF(hmod%ip2h==2) WRITE(*,*) 'Standard two-halo term (Seljak 2000)'
+       WRITE(*,*) 'HALOMODEL: Writing out halo-model parameters'
+       WRITE(*,*) '============================================'
+       WRITE(*,*) TRIM(hmod%name)
 
-    ! Order to go to in halo bias
-    IF(hmod%ip2h .NE. 1) THEN
-       IF(hmod%ibias==1) WRITE(*,*) 'Linear halo bias'
-       IF(hmod%ibias==2) WRITE(*,*) 'Second-order halo bias'
+       WRITE(*,*) '============================================'
+       WRITE(*,*) 'HALOMODEL: redshift:', redshift_a(a)
+       WRITE(*,*) '============================================'
+       WRITE(*,*) 'HALOMODEL: Number of points in look-up tables:', hmod%n
+       WRITE(*,*) 'HALOMODEL: Halo model accuracy parameter:', hmod%acc_HMx
+       WRITE(*,*) 'HALOMODEL: Large value of nu:', hmod%large_nu
+       WRITE(*,*) '============================================'
+
+       ! Form of the two-halo term
+       IF(hmod%ip2h==1) WRITE(*,*) 'HALOMODEL: Linear two-halo term'
+       IF(hmod%ip2h==2) WRITE(*,*) 'HALOMODEL: Standard two-halo term (Seljak 2000)'
+
+       ! Order to go to in halo bias
+       IF(hmod%ip2h .NE. 1) THEN
+          IF(hmod%ibias==1) WRITE(*,*) 'HALOMODEL: Linear halo bias'
+          IF(hmod%ibias==2) WRITE(*,*) 'HALOMODEL: Second-order halo bias'
+       END IF
+
+       ! Correction for missing low-mass haloes
+       IF(hmod%ip2h .NE. 1) THEN
+          IF(hmod%ip2h_corr==1) WRITE(*,*) 'HALOMODEL: No two-halo correction applied for missing low-mass haloes'
+          IF(hmod%ip2h_corr==2) WRITE(*,*) 'HALOMODEL: Two-halo term corrected by adding missing g(nu)b(nu)' 
+          IF(hmod%ip2h_corr==3) WRITE(*,*) 'HALOMODEL: Two-halo term corrected via delta function at low mass end'      
+       END IF
+
+       ! Scale-dependent halo bias
+       IF(hmod%ikb==1) WRITE(*,*) 'HALOMODEL: Scale-independent halo bias'
+       IF(hmod%ikb==2) WRITE(*,*) 'HALOMODEL: Scale-dependent halo bias fudge from Fedeli (2014b)'
+       IF(hmod%ikb==3) WRITE(*,*) 'HALOMODEL: Scale-dependent halo bias fudge'
+
+       !Halo mass function
+       IF(hmod%imf==1) WRITE(*,*) 'HALOMODEL: Press & Schecter (1974) mass function'
+       IF(hmod%imf==2) WRITE(*,*) 'HALOMODEL: Sheth & Tormen (1999) mass function'
+       IF(hmod%imf==3) WRITE(*,*) 'HALOMODEL: Tinker et al. (2010) mass function'
+
+       !Concentration-mass relation
+       IF(hmod%iconc==1) WRITE(*,*) 'HALOMODEL: Full Bullock et al. (2001) concentration-mass relation'
+       IF(hmod%iconc==2) WRITE(*,*) 'HALOMODEL: Simple Bullock et al. (2001) concentration-mass relation'
+       IF(hmod%iconc==3) WRITE(*,*) 'HALOMODEL: Full-sample mean density Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==4) WRITE(*,*) 'HALOMODEL: Full-sample virial denity Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==5) WRITE(*,*) 'HALOMODEL: Relaxed-sample x200 critical density Duffy et al. (2008) concentration-mass relation'
+
+       !Concentration-mass relation correction
+       IF(hmod%iDolag==1) WRITE(*,*) 'HALOMODEL: No concentration-mass correction for dark energy'
+       IF(hmod%iDolag==2) WRITE(*,*) 'HALOMODEL: Dolag (2004) dark energy halo concentration correction'
+       IF(hmod%iDolag==3) WRITE(*,*) 'HALOMODEL: Dolag (2004) dark energy halo concentration correction with 1.5 exponent'
+
+       !delta_c
+       IF(hmod%idc==1) WRITE(*,*) 'HALOMODEL: Fixed delta_c = 1.686'
+       IF(hmod%idc==2) WRITE(*,*) 'HALOMODEL: delta_c from Nakamura & Suto (1997) fitting function'
+       IF(hmod%idc==3) WRITE(*,*) 'HALOMODEL: delta_c from Mead et al. (2015, 2016) power spectrum fit'
+       IF(hmod%idc==4) WRITE(*,*) 'HALOMODEL: delta_c from Mead (2017) fitting function'
+       IF(hmod%idc==5) WRITE(*,*) 'HALOMODEL: delta_c from spherical-collapse calculation'
+
+       !Delta_v
+       IF(hmod%iDv==1) WRITE(*,*) 'HALOMODEL: Fixed Delta_v = 200'
+       IF(hmod%iDv==2) WRITE(*,*) 'HALOMODEL: Delta_v from Bryan & Norman (1998; arXiv:astro-ph/9710107) fitting function'
+       IF(hmod%iDv==3) WRITE(*,*) 'HALOMODEL: Delta_v from Mead et al. (2015, 2016) power spectrum fit'
+       IF(hmod%iDv==4) WRITE(*,*) 'HALOMODEL: Delta_v from Mead (2017) fitting function'
+       IF(hmod%iDv==5) WRITE(*,*) 'HALOMODEL: Delta_v from spherical-collapse calculation'
+
+       !Eta for halo window function
+       IF(hmod%ieta==1) WRITE(*,*) 'HALOMODEL: eta = 0 fixed'
+       IF(hmod%ieta==2) WRITE(*,*) 'HALOMODEL: eta from Mead et al. (2015, 2016) power spectrum fit'
+
+       !Small-scale two-halo term damping coefficient
+       IF(hmod%i2hdamp==1) WRITE(*,*) 'HALOMODEL: No two-halo term damping at small scales'
+       IF(hmod%i2hdamp==2) WRITE(*,*) 'HALOMODEL: Two-halo term damping from Mead et al. (2015)'
+       IF(hmod%i2hdamp==3) WRITE(*,*) 'HALOMODEL: Two-halo term damping from Mead et al. (2016)'
+
+       !Large-scale one-halo term damping function
+       IF(hmod%i1hdamp==1) WRITE(*,*) 'HALOMODEL: No damping in one-halo term at large scales'
+       IF(hmod%i1hdamp==2) WRITE(*,*) 'HALOMODEL: One-halo term large-scale damping via an exponential'
+       IF(hmod%i1hdamp==3) WRITE(*,*) 'HALOMODEL: One-halo term large-scale damping like Delta^2 ~ k^7'
+
+       !Large-scale one-halo term damping coefficient
+       IF(hmod%i1hdamp .NE. 1) THEN
+          IF(hmod%ikstar==1) WRITE(*,*) 'HALOMODEL: No damping in one-halo term at large scales'
+          IF(hmod%ikstar==2) WRITE(*,*) 'HALOMODEL: One-halo term damping function from Mead et al. (2015, 2016)'
+       END IF
+
+       !Concentration-mass scaling
+       IF(hmod%iAs==1) WRITE(*,*) 'HALOMODEL: No rescaling of concentration-mass relation'
+       IF(hmod%iAs==2) WRITE(*,*) 'HALOMODEL: Concentration-mass relation rescaled mass independetly (Mead et al. 2015, 2016)'
+
+       !Scatter in halo properties
+       IF(hmod%iscatter==1) WRITE(*,*) 'HALOMODEL: No scatter in halo properties at fixed mass'
+       IF(hmod%iscatter==2) WRITE(*,*) 'HALOMODEL: Scatter in halo concentration at fixed mass'
+
+       !Two- to one-halo transition region
+       IF(hmod%itrans==1) WRITE(*,*) 'HALOMODEL: Standard sum of two- and one-halo terms'
+       IF(hmod%itrans==2) WRITE(*,*) 'HALOMODEL: Smoothed transition using alpha'
+       IF(hmod%itrans==4) WRITE(*,*) 'HALOMODEL: Experimental smoothed transition for HMx'
+       IF(hmod%itrans==5) WRITE(*,*) 'HALOMODEL: Tanh transition with k_nl'
+
+       IF(hmod%use_UPP) WRITE(*,*) 'HALOMODEL: Using UPP for all electron pressure calculations'
+
+       !Numerical parameters
+       WRITE(*,*) '======================================='
+       WRITE(*,*) 'HALOMODEL: HMcode parameters'
+       WRITE(*,*) '======================================='
+       WRITE(*,fmt='(A30,F10.5)') 'Dv:', Delta_v(a,hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'dc:', delta_c(a,hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'eta:', eta(a,hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'k*:', kstar(hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'A:', As(hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'fdamp:', fdamp(a,hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'alpha:', alpha_transition(hmod,cosm)
+       WRITE(*,*) '======================================='
+       WRITE(*,*) 'HALOMODEL: HMx parameters'
+       WRITE(*,*) '======================================='
+       WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha
+       WRITE(*,fmt='(A30,F10.5)') 'epsilon:', hmod%eps
+       WRITE(*,fmt='(A30,F10.5)') 'Gamma:', hmod%Gamma
+       WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(hmod%M0)
+       WRITE(*,fmt='(A30,F10.5)') 'A*:', hmod%Astar
+       WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(hmod%whim)
+       WRITE(*,fmt='(A30,F10.5)') 'R*:', hmod%rstar
+       WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
+       WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
+       WRITE(*,*) '======================================='
+       WRITE(*,*) 'HALOMODEL: HOD/HI parameters'
+       WRITE(*,*) '======================================='
+       WRITE(*,fmt='(A30,F10.5)') 'log10(M_gal) [Msun/h]:', log10(hmod%mgal)
+       WRITE(*,fmt='(A30,F10.5)') 'log10(M_HI_min) [Msun/h]:', log10(hmod%HImin)
+       WRITE(*,fmt='(A30,F10.5)') 'log10(M_HI_max) [Msun/h]:', log10(hmod%HImax)
+       WRITE(*,*) '======================================='
+       WRITE(*,*)
+       
     END IF
 
-    ! Correction for missing low-mass haloes
-    IF(hmod%ip2h .NE. 1) THEN
-       IF(hmod%ip2h_corr==1) WRITE(*,*) 'No two-halo correction applied for missing low-mass haloes'
-       IF(hmod%ip2h_corr==2) WRITE(*,*) 'Two-halo term corrected by adding missing g(nu)b(nu)' 
-       IF(hmod%ip2h_corr==3) WRITE(*,*) 'Two-halo term corrected via delta function at low mass end'      
-    END IF
-
-    ! Scale-dependent halo bias
-    IF(hmod%ikb==1) WRITE(*,*) 'Scale-independent halo bias'
-    IF(hmod%ikb==2) WRITE(*,*) 'Scale-dependent halo bias fudge from Fedeli (2014b)'
-    IF(hmod%ikb==3) WRITE(*,*) 'Scale-dependent halo bias fudge'
-
-    !Halo mass function
-    IF(hmod%imf==1) WRITE(*,*) 'Press & Schecter (1974) mass function'
-    IF(hmod%imf==2) WRITE(*,*) 'Sheth & Tormen (1999) mass function'
-    IF(hmod%imf==3) WRITE(*,*) 'Tinker et al. (2010) mass function'
-
-    !Concentration-mass relation
-    IF(hmod%iconc==1) WRITE(*,*) 'Full Bullock et al. (2001) concentration-mass relation'
-    IF(hmod%iconc==2) WRITE(*,*) 'Simple Bullock et al. (2001) concentration-mass relation'
-    IF(hmod%iconc==3) WRITE(*,*) 'Full-sample mean density Duffy et al. (2008) concentration-mass relation'
-    IF(hmod%iconc==4) WRITE(*,*) 'Full-sample virial denity Duffy et al. (2008) concentration-mass relation'
-    IF(hmod%iconc==5) WRITE(*,*) 'Relaxed-sample x200 critical density Duffy et al. (2008) concentration-mass relation'
-
-    !Concentration-mass relation correction
-    IF(hmod%iDolag==1) WRITE(*,*) 'No concentration-mass correction for dark energy'
-    IF(hmod%iDolag==2) WRITE(*,*) 'Dolag (2004) dark energy halo concentration correction'
-    IF(hmod%iDolag==3) WRITE(*,*) 'Dolag (2004) dark energy halo concentration correction with 1.5 exponent'
-
-    !delta_c
-    IF(hmod%idc==1) WRITE(*,*) 'Fixed delta_c = 1.686'
-    IF(hmod%idc==2) WRITE(*,*) 'delta_c from Nakamura & Suto (1997) fitting function'
-    IF(hmod%idc==3) WRITE(*,*) 'delta_c from Mead et al. (2015, 2016) power spectrum fit'
-    IF(hmod%idc==4) WRITE(*,*) 'delta_c from Mead (2017) fitting function'
-    IF(hmod%idc==5) WRITE(*,*) 'delta_c from spherical-collapse calculation'
-
-    !Delta_v
-    IF(hmod%iDv==1) WRITE(*,*) 'Fixed Delta_v = 200'
-    IF(hmod%iDv==2) WRITE(*,*) 'Delta_v from Bryan & Norman (1998; arXiv:astro-ph/9710107) fitting function'
-    IF(hmod%iDv==3) WRITE(*,*) 'Delta_v from Mead et al. (2015, 2016) power spectrum fit'
-    IF(hmod%iDv==4) WRITE(*,*) 'Delta_v from Mead (2017) fitting function'
-    IF(hmod%iDv==5) WRITE(*,*) 'Delta_v from spherical-collapse calculation'
-
-    !Eta for halo window function
-    IF(hmod%ieta==1) WRITE(*,*) 'eta = 0 fixed'
-    IF(hmod%ieta==2) WRITE(*,*) 'eta from Mead et al. (2015, 2016) power spectrum fit'
-
-    !Small-scale two-halo term damping coefficient
-    IF(hmod%i2hdamp==1) WRITE(*,*) 'No two-halo term damping at small scales'
-    IF(hmod%i2hdamp==2) WRITE(*,*) 'Two-halo term damping from Mead et al. (2015)'
-    IF(hmod%i2hdamp==3) WRITE(*,*) 'Two-halo term damping from Mead et al. (2016)'
-
-    !Large-scale one-halo term damping function
-    IF(hmod%i1hdamp==1) WRITE(*,*) 'No damping in one-halo term at large scales'
-    IF(hmod%i1hdamp==2) WRITE(*,*) 'One-halo term large-scale damping via an exponential'
-    IF(hmod%i1hdamp==3) WRITE(*,*) 'One-halo term large-scale damping like Delta^2 ~ k^7'
-
-    !Large-scale one-halo term damping coefficient
-    IF(hmod%i1hdamp .NE. 1) THEN
-       IF(hmod%ikstar==1) WRITE(*,*) 'No damping in one-halo term at large scales'
-       IF(hmod%ikstar==2) WRITE(*,*) 'One-halo term damping function from Mead et al. (2015, 2016)'
-    END IF
-
-    !Concentration-mass scaling
-    IF(hmod%iAs==1) WRITE(*,*) 'No rescaling of concentration-mass relation'
-    IF(hmod%iAs==2) WRITE(*,*) 'Concentration-mass relation rescaled mass independetly (Mead et al. 2015, 2016)'
-
-    !Scatter in halo properties
-    IF(hmod%iscatter==1) WRITE(*,*) 'No scatter in halo properties at fixed mass'
-    IF(hmod%iscatter==2) WRITE(*,*) 'Scatter in halo concentration at fixed mass'
-
-    !Two- to one-halo transition region
-    IF(hmod%itrans==1) WRITE(*,*) 'Standard sum of two- and one-halo terms'
-    IF(hmod%itrans==2) WRITE(*,*) 'Smoothed transition using alpha'
-    IF(hmod%itrans==4) WRITE(*,*) 'Experimental smoothed transition for HMx'
-    IF(hmod%itrans==5) WRITE(*,*) 'Tanh transition with k_nl'
-
-    IF(hmod%use_UPP) WRITE(*,*) 'Using UPP for all electron pressure calculations'
-
-    !Numerical parameters
-    WRITE(*,*) '==========================='
-    WRITE(*,fmt='(A10,F10.5)') 'z:', redshift_a(a)
-    WRITE(*,fmt='(A10,F10.5)') 'Dv:', Delta_v(a,hmod,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'dc:', delta_c(a,hmod,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'eta:', eta(a,hmod,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'k*:', kstar(hmod,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'A:', As(hmod,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'fdamp:', fdamp(a,hmod,cosm)
-    WRITE(*,fmt='(A10,F10.5)') 'alpha:', alpha_transition(hmod,cosm)
-    WRITE(*,*) '==========================='
-    WRITE(*,*) 'PRINT_HALOMODEL_PARAMETERS: Done'
-    WRITE(*,*)
-
-  END SUBROUTINE print_halomodel_parameters
+  END SUBROUTINE print_halomod
 
   FUNCTION r_nl(hmod)
 
@@ -1445,7 +1475,7 @@ CONTAINS
        WRITE(*,*)
     END IF
 
-    IF(verbose) CALL print_halomodel_parameters(a,hmod,cosm)
+    !IF(verbose) CALL print_halomodel_parameters(a,hmod,cosm)
 
   END SUBROUTINE init_halomod
 
@@ -1947,7 +1977,6 @@ CONTAINS
        DO i=1,hmod%n
           hmod%sigf(i)=sigma(hmod%rr(i)*f,a,cosm)
        END DO
-       !IF(verbose) WRITE(*,*) 'INIT_HALOMOD: sigma_f tables filled'
     END IF
 
     ! Do numerical inversion
