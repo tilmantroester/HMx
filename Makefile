@@ -1,7 +1,7 @@
 # Makefile to compile HMx
 
 # Standard HMx flags
-HMX_FFLAGS = -Warray-bounds -fmax-errors=4 -ffpe-trap=invalid,zero,overflow -fimplicit-none -O3 -fdefault-real-8 -fdefault-double-8 -fopenmp
+HMX_FFLAGS = -Warray-bounds -fmax-errors=4 -ffpe-trap=invalid,zero,overflow -fimplicit-none -O3 -fdefault-real-8 -fdefault-double-8 -fopenmp -lgfortran -lm
 
 # Extra debugging flags
 DEBUG_FLAGS = -Wall -fcheck=all -fbounds-check -fbacktrace -Og

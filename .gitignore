@@ -39,12 +39,12 @@ projection/
 variations/
 winint/
 BAHAMAS/
-hydro/
 bias/
 Mead2017/
+fitting/
 
-# Note that data and diagnostics directories are dealt with separately
-# Each is with .gitignore in that directory
+# Note that /data, /hydro and /diagnostics are dealt with separately
+# Each directory contains a .gitignore
 
 # Benchmark directory
 benchmarks/HMx_*.txt

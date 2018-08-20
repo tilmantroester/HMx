@@ -14,8 +14,6 @@ MODULE cosmology_functions
      REAL :: mue, mup ! Derived thermal parameters
      REAL :: a1, a2, ns, ws, am, dm, wm ! DE parameters     
      REAL :: Om_ws, as, a1n, a2n ! Derived DE parameters
-!!$     REAL :: alpha, eps, Gamma, M0, Astar, whim, rstar, sstar, mstar ! Baryon parameters
-!!$     REAL :: mgal, HImin, HImax ! HOD parameters
      REAL :: Lbox ! Box size
      INTEGER :: iw, ibox, itk ! Switches
      REAL, ALLOCATABLE :: log_sigma(:), log_r_sigma(:) ! Arrays for sigma(R)
@@ -28,7 +26,6 @@ MODULE cosmology_functions
      CHARACTER(len=256) :: name ! Name for cosmological model
      LOGICAL :: has_distance, has_growth, has_sigma, has_spherical, has_power
      LOGICAL :: is_init, is_normalised
-     !LOGICAL :: external_plin
      LOGICAL :: verbose
   END TYPE cosmology
 
@@ -110,19 +107,6 @@ CONTAINS
           WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Om_w(a*):', cosm%Om_ws
           WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'w*:', cosm%ws
        END IF
-!!$       WRITE(*,*) '===================================='
-!!$       WRITE(*,*) 'COSMOLOGY: HOD'
-!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_gal):', log10(cosm%mgal)
-!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_-):', log10(cosm%HImin)
-!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M_HI_+):', log10(cosm%HImax)
-!!$       WRITE(*,*) '===================================='
-!!$       WRITE(*,*) 'COSMOLOGY: Baryon model'
-!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'alpha:', cosm%alpha
-!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'epsilon:', cosm%eps
-!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Gamma:', cosm%Gamma
-!!$       IF(cosm%M0 .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(M0):', log10(cosm%M0)
-!!$       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Astar:', cosm%Astar
-!!$       IF(cosm%whim .NE. 0.) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'log10(WHIM):', log10(cosm%whim)
        WRITE(*,*) '===================================='
        WRITE(*,*)
     END IF
@@ -138,7 +122,6 @@ CONTAINS
     INTEGER, INTENT(INOUT) :: icosmo
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
-    REAL :: Om_c
 
     ! Names of pre-defined cosmologies    
     INTEGER, PARAMETER :: ncosmo=26
@@ -218,27 +201,6 @@ CONTAINS
     ! Default to have no WDM
     cosm%inv_m_wdm=0. ! Inverse WDM mass [1/keV]
 
-!!$    ! Default values of baryon parameters
-!!$    ! TODO: These should eventually be HMx parameters
-!!$    cosm%alpha=1.
-!!$    cosm%eps=1.
-!!$    cosm%Gamma=1.17
-!!$    cosm%M0=1e14 ! Halo mass that has lost half gas
-!!$    cosm%Astar=0.02 ! Maximum star-formation efficiency
-!!$    cosm%whim=1e6 ! WHIM temperature [K]
-!!$    cosm%rstar=0.1
-!!$    cosm%sstar=1.2
-!!$    cosm%Mstar=5e12
-
-!!$    ! Default values of the HOD parameters
-!!$    ! TODO: These should eventually be HMx parameters
-!!$    cosm%mgal=1e13
-
-!!$    ! Default values for the HI parameters
-!!$    ! TODO: These should eventually be HMx parameters
-!!$    cosm%HImin=1e9
-!!$    cosm%HImax=1e12
-
     ! Consider box size
     cosm%ibox=0
     cosm%Lbox=400.
@@ -270,9 +232,8 @@ CONTAINS
     ELSE IF(icosmo==4) THEN
        ! BAHAMAS - WMAP9 (1712.02411)
        cosm%h=0.7
-       Om_c=0.2330
        cosm%Om_b=0.0463
-       cosm%Om_m=Om_c+cosm%Om_b
+       cosm%Om_m=0.2330+cosm%Om_b
        cosm%Om_v=1.-cosm%Om_m       
        cosm%Om_nu=0.
        cosm%n=0.9720
@@ -548,20 +509,6 @@ CONTAINS
        WRITE(*,*) 'INIT_COSMOLOGY: Done'
        WRITE(*,*)
     END IF
-
-    !Normalise the power spectrum
-!!$    IF(cosm%external_plin .EQV. .FALSE.) THEN
-!!$       CALL normalise_power(cosm)
-!!$    ELSE
-!!$       cosm%A=1.
-!!$       IF(cosm%itk==2) THEN
-!!$          CALL get_CAMB_power(z=0.,non_linear=.FALSE.,halofit_version=0,cosm=cosm)
-!!$          sig8
-!!$       END IF
-!!$       cosm%is_normalised=.TRUE.
-!!$    END IF
-
-    !CALL normalise_power(cosm)
     
   END SUBROUTINE init_cosmology
 
@@ -1281,7 +1228,7 @@ CONTAINS
 
   END FUNCTION Tk
 
-  REAL FUNCTION Tk_defw(k,cosm)
+  REAL FUNCTION Tk_DEFW(k,cosm)
 
     ! This function was written by John Peacock
     ! The DEFW transfer function approximation
@@ -1299,9 +1246,9 @@ CONTAINS
 
     tk_defw=tk/REAL(tk8)
 
-  END FUNCTION Tk_defw
+  END FUNCTION Tk_DEFW
 
-  FUNCTION Tk_eh(yy,cosm)
+  FUNCTION Tk_EH(yy,cosm)
 
     USE special_functions
 
@@ -1386,9 +1333,9 @@ CONTAINS
 
     tk_eh=real((Om_b/Om_m)*tb+(1.-Om_b/Om_m)*tc) ! The weighted mean of baryon and CDM transfer functions
 
-  END FUNCTION TK_EH
+  END FUNCTION Tk_EH
 
-  REAL FUNCTION Tk_wdm(k,cosm)
+  REAL FUNCTION Tk_WDM(k,cosm)
 
     ! Warm dark matter 'correction' to the standard transfer function
     ! This version and equation references were taken from arxiv:1605.05973
@@ -1405,12 +1352,13 @@ CONTAINS
 
     Tk_wdm=(1.+(alpha*k)**(2.*mu))**(-5./mu) ! Equation (2)
     
-  END FUNCTION Tk_wdm
+  END FUNCTION Tk_WDM
 
   FUNCTION p_lin(k,a,cosm)
 
     ! Linear matter power spectrum
     ! P(k) should have been previously normalised so as to get the amplitude 'A' correct
+    ! TODO: Causes problems in debug mode because this function is called recursively
     IMPLICIT NONE
     REAL :: p_lin
     REAL, INTENT (IN) :: k, a
@@ -1420,7 +1368,7 @@ CONTAINS
     REAL, PARAMETER :: kmax=1e8
 
     ! Using init_power seems to provide no significant speed improvements to HMx
-    ! IF((cosm%has_power .EQV. .FALSE.) .AND. (cosm%external_plin .EQV. .FALSE.)) CALL init_power(cosm)
+    ! IF(cosm%has_power .EQV. .FALSE.) CALL init_power(cosm)
 
     IF(.NOT. cosm%is_normalised) CALL normalise_power(cosm)
 
@@ -1499,15 +1447,14 @@ CONTAINS
     INTEGER :: i
 
     ! These values of 'r' work fine for any power spectrum of cosmological importance
-    ! Having nsig as a 2** number is most efficient for the look-up routines
+    ! Having nsig as a 2**number is most efficient for the look-up routines
     ! rmin and rmax need to be decided in advance and are chosen such that
     ! R vs. sigma(R) is a power-law below and above these values of R   
     INTEGER, PARAMETER :: nsig=128 ! Number of entries for sigma(R) tables
-    REAL, PARAMETER :: rmin=1e-4 ! Minimum r value (NB. sigma(R) needs to be power-law below)
-    REAL, PARAMETER :: rmax=1e3 ! Maximum r value (NB. sigma(R) needs to be power-law above)
-    REAL, PARAMETER :: Rsplit=1e-2 ! Scale split between integration methods
-
-    !IF(cosm%is_normalised .EQV. .FALSE.) CALL normalise_power(cosm)
+    REAL, PARAMETER :: rmin=1e-4   ! Minimum r value (NB. sigma(R) needs to be power-law below)
+    REAL, PARAMETER :: rmax=1e3    ! Maximum r value (NB. sigma(R) needs to be power-law above)
+    REAL, PARAMETER :: Rsplit=1e-2 ! R value at which to split between integration methods
+    REAL, PARAMETER :: a=1.        ! These look-up tables are to be filled at z=0
 
     IF(cosm%inv_m_wdm .NE. 0.) STOP 'INIT_SIGMA: This will crash with WDM'
 
@@ -1526,7 +1473,7 @@ CONTAINS
        WRITE(*,*) 'INIT_SIGMA: R maximum [Mpc/h]:', REAL(rmax)
        WRITE(*,*) 'INIT_SIGMA: number of points:', nsig
     END IF
-
+    
     DO i=1,nsig
 
        ! Equally spaced r in log
@@ -1534,9 +1481,9 @@ CONTAINS
 
        ! Integration method changes depending on r to make this as fast as possible
        IF(r>=Rsplit) THEN
-          sigma=sqrt(sigma2_integral1(r,1.,cosm,2.*acc_cosm))
+          sigma=sqrt(sigma2_integral1(r,a,cosm,2.*acc_cosm))
        ELSE IF(r<Rsplit) THEN
-          sigma=sqrt(sigma2_integral2_1_of_2(r,1.,cosm,2.*acc_cosm)+sigma2_integral2_2_of_2(r,1.,cosm,2.*acc_cosm))
+          sigma=sqrt(sigma2_integral2_1_of_2(r,a,cosm,2.*acc_cosm)+sigma2_integral2_2_of_2(r,a,cosm,2.*acc_cosm))
        ELSE
           STOP 'INIT_SIGMA: Error, something went wrong'
        END IF
@@ -1593,7 +1540,7 @@ CONTAINS
 
   END FUNCTION sigma_integrand
 
-  FUNCTION sigma_integrand_transformed(t,R,f,a,cosm)
+  FUNCTION sigma_integrand_transformed(t,R,a,cosm)
 
     ! The integrand for the sigma(R) integrals
     USE special_functions
@@ -1601,18 +1548,10 @@ CONTAINS
     REAL :: sigma_integrand_transformed
     REAL, INTENT(IN) :: t, R, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: k, w_hat
-    LOGICAL :: use_rapid=.TRUE. !(03/08/2018 - the rapidiser seems to slow things down in some cases! Weird!)
+    REAL :: k, kR, w_hat, alpha
 
-    INTERFACE
-       REAL FUNCTION f(x)
-         REAL, INTENT(IN) :: x
-       END FUNCTION f
-    END INTERFACE
-
-    IF(cosm%itk==1) use_rapid=.FALSE. ! Slows down integratino when using Eisensten & Hu
-
-    ! Integrand to the sigma integral in terms of t. Defined by k=(1/t-1)/f(R) where f(R) is *any* function of R
+    ! Integrand to the sigma integral in terms of t. Defined by kR=(1/t-1)**alpha
+    ! alpha can be any positive number, can even be a function of R
     IF(t==0.) THEN
        ! t=0 corresponds to k=infintiy when W(kR)=0
        sigma_integrand_transformed=0.
@@ -1620,11 +1559,11 @@ CONTAINS
        ! t=1 corresponds to k=0 when P(k)=0
        sigma_integrand_transformed=0.
     ELSE
-       ! f(R) can be *any* function of R here to improve integration speed
-       k=(-1.+1./t)
-       IF(use_rapid) k=k/f(R)
-       w_hat=wk_tophat(k*R)
-       sigma_integrand_transformed=p_lin(k,a,cosm)*(w_hat**2)/(t*(1.-t))
+       alpha=3. ! I have made no attempt to optimise this number, nor tried alpha(R)
+       kR=(-1.+1./t)**alpha
+       k=kR/R
+       w_hat=wk_tophat(kR)
+       sigma_integrand_transformed=p_lin(k,a,cosm)*(w_hat**2)*alpha/(t*(1.-t))
     END IF
 
   END FUNCTION sigma_integrand_transformed
@@ -1675,8 +1614,8 @@ CONTAINS
           IF(j==1) THEN
 
              ! The first go is just the trapezium of the end points
-             f1=sigma_integrand_transformed(b,r,f_rapid,a,cosm)
-             f2=sigma_integrand_transformed(c,r,f_rapid,a,cosm)
+             f1=sigma_integrand_transformed(b,r,a,cosm)
+             f2=sigma_integrand_transformed(c,r,a,cosm)
              sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
@@ -1685,7 +1624,8 @@ CONTAINS
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=progression(b,c,i,n)
-                fx=sigma_integrand_transformed(x,r,f_rapid,a,cosm)
+                !fx=sigma_integrand_transformed(x,r,f_rapid,a,cosm)
+                fx=sigma_integrand_transformed(x,r,a,cosm)
                 sum_2n=sum_2n+fx
              END DO
 
@@ -1724,32 +1664,6 @@ CONTAINS
 
   END FUNCTION sigma2_integral1
 
-  FUNCTION f_rapid(r)
-
-    ! This is the 'rapidising' function to increase integration speed
-    ! for sigma(R). Found by trial-and-error
-    IMPLICIT NONE
-    REAL :: f_rapid
-    REAL, INTENT(IN) :: r
-    REAL :: alpha
-
-    REAL, PARAMETER :: Rsplit=1e-2
-
-    IF(r==0.) THEN
-       f_rapid=1.
-    ELSE IF(r>Rsplit) THEN
-       ! alpha 0.3-0.5 works well
-       alpha=0.5
-    ELSE
-       ! If alpha=1 this goes tits up
-       ! alpha 0.7-0.9 works well
-       alpha=0.8
-    END IF
-
-    f_rapid=r**alpha
-
-  END FUNCTION f_rapid
-
   FUNCTION sigma2_integral2_1_of_2(r,a,cosm,acc)
 
     ! Integrates between a and b until desired accuracy is reached
@@ -1770,8 +1684,9 @@ CONTAINS
     INTEGER, PARAMETER :: jmax=30
     INTEGER, PARAMETER :: iorder=3
 
-    b=r/(r+r**.5)
-    c=1.
+    ! Integration limits, the split of the integral is done at k = 1/R
+    b=0.5 ! Integration limit corresponding to kR=1 (kR=(-1+1/t)**a)
+    c=1.  ! Integration limit corresponding to k=0
 
     IF(b==c) THEN
 
@@ -1798,8 +1713,8 @@ CONTAINS
           IF(j==1) THEN
 
              ! The first go is just the trapezium of the end points
-             f1=sigma_integrand_transformed(b,r,f_rapid,a,cosm)
-             f2=sigma_integrand_transformed(c,r,f_rapid,a,cosm)
+             f1=sigma_integrand_transformed(b,r,a,cosm)
+             f2=sigma_integrand_transformed(c,r,a,cosm)
              sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
@@ -1808,7 +1723,7 @@ CONTAINS
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=progression(b,c,i,n)
-                fx=sigma_integrand_transformed(x,r,f_rapid,a,cosm)
+                fx=sigma_integrand_transformed(x,r,a,cosm)
                 sum_2n=sum_2n+fx
              END DO
 
@@ -1847,20 +1762,6 @@ CONTAINS
 
   END FUNCTION sigma2_integral2_1_of_2
 
-!!$  FUNCTION f2_rapid(r)
-!!$
-!!$    ! This is the 'rapidising' function to increase integration speed
-!!$    ! for sigma(R). Found by trial-and-error
-!!$    IMPLICIT NONE
-!!$    REAL :: f2_rapid
-!!$    REAL, INTENT(IN) :: r
-!!$
-!!$    REAL, PARAMETER :: alpha=0.5
-!!$
-!!$    f2_rapid=r**alpha
-!!$
-!!$  END FUNCTION f2_rapid
-
   FUNCTION sigma2_integral2_2_of_2(r,a,cosm,acc)
 
     ! Integrates between a and b until desired accuracy is reached
@@ -1870,7 +1771,7 @@ CONTAINS
     REAL, INTENT(IN) :: r, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, INTENT(IN) :: acc
-    REAL :: b, c
+    REAL :: b, c, k_split
     INTEGER :: i, j
     INTEGER :: n
     REAL :: x, dx
@@ -1879,11 +1780,13 @@ CONTAINS
 
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
-    REAL, PARAMETER :: CC=10. ! How far to go out in 1/r units for integral
+    REAL, PARAMETER :: CC=10. ! How far to go out in 1/R units for integral
     INTEGER, PARAMETER :: iorder=3
 
-    b=1./r
-    c=CC/r
+    ! Integration limits, the split of the integral is done at k = 1/R
+    k_split=1./r
+    b=k_split ! Integrate from kR=1
+    c=CC/r    ! Should be out to k = inf, but in practice just go out a finite distance in kR
 
     IF(b==c) THEN
 
@@ -1967,19 +1870,19 @@ CONTAINS
     REAL, INTENT(IN) :: R, a
     TYPE(cosmology), INTENT(INOUT) :: cosm    
 
-    sigmaV=sigmaV_integral(R,a,cosm,2.*acc_cosm)
+    sigmaV=sigmaV2_integral(R,a,cosm,2.*acc_cosm)
 
     ! Convert 3D sigmaV^2 to 1D sigmaV
     sigmaV=sqrt(sigmaV/3.)
 
   END FUNCTION sigmaV
 
-  FUNCTION sigmaV_integral(R,a,cosm,acc)
+  FUNCTION sigmaV2_integral(R,a,cosm,acc)
 
     ! Integrates between a and b until desired accuracy is reached
     ! Stores information to reduce function calls
     IMPLICIT NONE
-    REAL :: sigmaV_integral
+    REAL :: sigmaV2_integral
     REAL, INTENT(IN) :: R, a, acc
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: b, c
@@ -2001,7 +1904,7 @@ CONTAINS
     IF(b==c) THEN
 
        ! Fix the answer to zero if the integration limits are identical
-       sigmaV_integral=0.
+       sigmaV2_integral=0.
 
     ELSE
 
@@ -2023,8 +1926,8 @@ CONTAINS
           IF(j==1) THEN
 
              ! The first go is just the trapezium of the end points
-             f1=sigmaV_integrand(b,R,a,cosm)
-             f2=sigmaV_integrand(c,R,a,cosm)
+             f1=sigmaV2_integrand(b,R,a,cosm)
+             f2=sigmaV2_integrand(c,R,a,cosm)
              sum_2n=0.5*(f1+f2)*dx
              sum_new=sum_2n
 
@@ -2033,7 +1936,7 @@ CONTAINS
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
                 x=progression(b,c,i,n)
-                fx=sigmaV_integrand(x,R,a,cosm)
+                fx=sigmaV2_integrand(x,R,a,cosm)
                 sum_2n=sum_2n+fx
              END DO
 
@@ -2053,14 +1956,14 @@ CONTAINS
 
           IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
              ! jmin avoids spurious early convergence
-             sigmaV_integral=REAL(sum_new)
+             sigmaV2_integral=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
-             sigmaV_integral=0.
+             sigmaV2_integral=0.
              STOP 'SIGMAV: Integration timed out'
           ELSE
              ! Integral has not converged so store old sums and reset sum variables
-             sigmaV_integral=0.
+             sigmaV2_integral=0.
              sum_old=sum_new
              sum_n=sum_2n
              sum_2n=0.
@@ -2070,14 +1973,14 @@ CONTAINS
 
     END IF
 
-  END FUNCTION sigmaV_integral
+  END FUNCTION sigmaV2_integral
 
-  FUNCTION sigmaV_integrand(theta,R,a,cosm)
+  FUNCTION sigmaV2_integrand(theta,R,a,cosm)
 
     ! This is the integrand for the velocity dispersion integral
     USE special_functions
     IMPLICIT NONE
-    REAL :: sigmaV_integrand
+    REAL :: sigmaV2_integrand
     REAL, INTENT(IN) :: theta, a, R
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: k, w_hat
@@ -2092,7 +1995,7 @@ CONTAINS
     ! Including this seems to make things slower (faster integration but slower IF statements?)
 
     IF(theta==0. .OR. theta==1.) THEN
-       sigmaV_integrand=0.
+       sigmaV2_integrand=0.
     ELSE
        IF(R>Rsplit) THEN
           k=(-1.+1./theta)/R**alpha
@@ -2104,10 +2007,10 @@ CONTAINS
           END IF
        END IF
        w_hat=wk_tophat(k*R)
-       sigmaV_integrand=(p_lin(k,a,cosm)/k**2)*(w_hat**2)/(theta*(1.-theta))
+       sigmaV2_integrand=(p_lin(k,a,cosm)/k**2)*(w_hat**2)/(theta*(1.-theta))
     END IF
 
-  END FUNCTION sigmaV_integrand
+  END FUNCTION sigmaV2_integrand
 
   FUNCTION grow(a,cosm)
 
