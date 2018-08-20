@@ -48,7 +48,7 @@ CONTAINS
     REAL :: kv(4), pv(4), sigv, a
     !REAL, ALLOCATABLE :: log_Pk(:), log_Pkraw(:), log_k(:)
     REAL, ALLOCATABLE :: Pk(:), Pkraw(:), k(:)
-    INTEGER :: i, j, nk
+    INTEGER :: i, nk
 
     IF(.NOT. ALLOCATED(cosm%log_k_plin)) STOP 'DEWIGGLE_INIT: Error, P(k) needs to be tabulated for this to work'
 
@@ -195,7 +195,6 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose, response
     REAL, INTENT(IN) :: mmin, mmax
-    REAL, ALLOCATABLE :: powb_2h(:,:), powb_1h(:,:), powb_full(:,:), powb_lin(:,:)
     INTEGER :: i
     REAL :: z
     LOGICAL :: verbose2
@@ -1737,7 +1736,9 @@ CONTAINS
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm ! Could remove
-    REAL :: M
+    REAL :: M, crap
+
+    crap=cosm%A
 
     M=M_nu(nu,hmod)    
     rhobar_central_integrand=N_centrals(M,hmod)*g_nu(nu,hmod)/M
@@ -1751,7 +1752,9 @@ CONTAINS
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm ! Could remove
-    REAL :: M
+    REAL :: M, crap
+
+    crap=cosm%A
 
     M=M_nu(nu,hmod)    
     rhobar_satellite_integrand=N_satellites(M,hmod)*g_nu(nu,hmod)/M
@@ -4550,6 +4553,7 @@ CONTAINS
     
     !To prevent compile-time warning
     crap=m
+    crap=hmod%A0
 
     !Always the universal value
     halo_CDM_fraction=cosm%om_c/cosm%om_m
@@ -4632,7 +4636,7 @@ CONTAINS
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: m0, sigma, A, min
+    REAL :: m0, sigma, A, min, crap
 
     !Set the model
     !1 - Fedeli (2014)
@@ -4640,6 +4644,8 @@ CONTAINS
     !3 - Fedeli (2014) but saturates at high halo mass
     !4 - No stars
     INTEGER, PARAMETER :: imod=3
+
+    crap=cosm%A
 
     IF(imod==1 .OR. imod==3) THEN
        !Fedeli (2014)

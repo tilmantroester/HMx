@@ -15,7 +15,7 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: pows_lin(:,:,:), pows_2h(:,:,:), pows_1h(:,:,:), pows_full(:,:,:)
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:), zs(:)
   REAL, ALLOCATABLE :: z_tab(:)
-  INTEGER :: i, j, l, ii, ik, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ncos
+  INTEGER :: i, j, l, ik, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ncos
   INTEGER :: ip(2), ix(2), ixx(2), ihalo
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: z, z1, z2, r1, r2, a1, a2
@@ -1592,7 +1592,7 @@ PROGRAM HMx_driver
            outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
         END IF
 
-        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
+        CALL xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
 
         WRITE(*,*) 'HMx_DRIVER: Done'
@@ -1645,7 +1645,7 @@ PROGRAM HMx_driver
            ix(2)=ixx(2)
            outfile=TRIM(dir)//'/cl_full.dat'
         END IF
-        CALL xcorr(ihm,ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
+        CALL xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
      END DO
 
