@@ -45,7 +45,7 @@ PROGRAM test_gas_gas
     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
 
     !Do the halo-model calculation
-    CALL calculate_halomod(2,2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+    CALL calculate_halomod(2,2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,.false.)
 
     !Write out the results
     outfile='tests/output/power_gas_gas.dat'
