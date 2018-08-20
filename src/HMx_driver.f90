@@ -150,7 +150,7 @@ PROGRAM HMx_driver
      CALL print_halomod(z,hmod,cosm,verbose)
 
      !Do the halo-model calculation
-     CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+     CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
 
      !Write out the results
      outfile='data/power.dat'
@@ -218,7 +218,7 @@ PROGRAM HMx_driver
            CALL print_halomod(z,hmod,cosm,verbose)
 
            ! Do the halo-model calculation
-           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
 
            ! Write out the results
            CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
@@ -253,7 +253,7 @@ PROGRAM HMx_driver
      na=nz
 
      ip=-1 !Set DMONLY profiles 
-     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
+     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
@@ -293,7 +293,7 @@ PROGRAM HMx_driver
      !STOP
 
      !User chooses halo model   
-     CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
+     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
@@ -346,7 +346,7 @@ PROGRAM HMx_driver
            base='bias/power_ff'
         END IF
         
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
+        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
         CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
 
      END DO
@@ -813,7 +813,7 @@ PROGRAM HMx_driver
               IF(j==4) outfile='BAHAMAS/power_DMONLY_z2.0_00.dat'
            END IF
            WRITE(*,*) -1, -1, TRIM(outfile)
-           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
            CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
            !Loop over matter types and do auto- and cross-spectra
@@ -829,7 +829,7 @@ PROGRAM HMx_driver
                  WRITE(*,*) j1, j2, TRIM(outfile)
 
                  !Do the calculation and write P(k) to disk
-                 CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+                 CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
                  CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose=.FALSE.)
 
               END DO
@@ -908,7 +908,7 @@ PROGRAM HMx_driver
               IF(j1==1 .OR. j1==4 .OR. j1==5) CYCLE
               IF(j2==1 .OR. j2==4 .OR. j2==5) CYCLE
               WRITE(*,*) 'Halo types:', j1, j2
-              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
               DO i=1,nk
                  IF(ISNAN(pow_full(i))) STOP 'HMX_DRIVER: Error, NaN found in pow_full array'
               END DO
@@ -1000,7 +1000,7 @@ PROGRAM HMx_driver
 
            WRITE(*,fmt='(3I5,A30)') j, j1, j2, TRIM(outfile)
 
-           CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+           CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
            CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose=.FALSE.)
 
         END DO
@@ -1119,7 +1119,7 @@ PROGRAM HMx_driver
         !CALL halo_definitions(z,hmod,dir)
         !CALL halo_properties(z,hmod,dir)
 
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
+        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
 !!$        !Fix the one-halo term P(k) to be a constant
 !!$        DO j=1,na
@@ -1220,7 +1220,7 @@ PROGRAM HMx_driver
            CALL print_cosmology(cosm)
 
            CALL assign_halomod(ihm,hmod,verbose)
-           CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
+           CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
            !Fill out the projection kernels
            CALL fill_projection_kernels(ix,proj,cosm)
@@ -1360,7 +1360,7 @@ PROGRAM HMx_driver
               CALL assign_halomod(ihm,hmod,verbose)
               CALL init_halomod(m1,m2,z,hmod,cosm,verbose)
               CALL print_halomod(z,hmod,cosm,verbose)
-              CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),hmod,cosm,verbose)
+              CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),hmod,cosm,verbose,response=.FALSE.)
 
               !Write progress to screen
               IF(j==1) THEN
@@ -1435,7 +1435,7 @@ PROGRAM HMx_driver
 
         CALL assign_halomod(ihm,hmod,verbose)
 
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
+        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
         !Initialise the lensing part of the calculation
         !CALL initialise_distances(verbose,cosm)
@@ -1685,7 +1685,7 @@ PROGRAM HMx_driver
      j1=-1
      j2=-1
      outfile='variations/DMONLY.dat'
-     CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+     CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      !Prevents warning
@@ -1847,7 +1847,7 @@ PROGRAM HMx_driver
               WRITE(*,fmt='(4I5,F14.7,A50)') ipa, i, j1, j2, param, TRIM(outfile)
 
               !Do the halo-model calculation and write to file
-              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+              CALL calculate_halomod(j1,j2,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
               CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose=.FALSE.)
 
            END DO
@@ -1982,7 +1982,7 @@ PROGRAM HMx_driver
         CALL print_halomod(z,hmod,cosm,verbose)
 
         ! Do the halo-model calculation
-        CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+        CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
 
         ! Write out the results
         outfile=TRIM(dir)//'/power_'//TRIM(outfile)//'.dat'
@@ -2168,7 +2168,7 @@ PROGRAM HMx_driver
                  CALL print_halomod(z,hmod,cosm,verbose)
 
                  ! Do the halo-model calculation
-                 CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.)
+                 CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
                  ! Calculate the figure-of-merit and update best fit
                  fom=figure_of_merit(pow_full,pow_sim,nk)
@@ -2248,7 +2248,7 @@ PROGRAM HMx_driver
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
      CALL print_halomod(z,hmod,cosm,verbose)
-     CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose)
+     CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
      
      ! Write out the results
      !outfile='data/power.dat'
@@ -2265,12 +2265,12 @@ PROGRAM HMx_driver
      ! MCMC-like fitting
 
      ! Set the random-number generator
-     CALL RNG_set(0)
+     CALL RNG_set(1)
 
      ! Allocate arrays
-     n=1000
+     n=100
      nz=4
-     ncos=3
+     ncos=1
      ALLOCATE(cosms(ncos),zs(nz))
      zs(1)=0.0
      zs(2)=0.5
@@ -2383,7 +2383,7 @@ PROGRAM HMx_driver
               CALL print_halomod(z,hmod,cosm,verbose=.FALSE.)
 
               ! Calculate the halo-model power spectrum
-              CALL calculate_halomod(ip(1),ip(2),ks_sim(:,j,i),nk,zs(j),pows_lin(:,j,i),pows_2h(:,j,i),pows_1h(:,j,i),pows_full(:,j,i),hmods(i),cosms(i),verbose=.FALSE.)
+              CALL calculate_halomod(ip(1),ip(2),ks_sim(:,j,i),nk,zs(j),pows_lin(:,j,i),pows_2h(:,j,i),pows_1h(:,j,i),pows_full(:,j,i),hmods(i),cosms(i),verbose=.FALSE.,response=.FALSE.)
 
               ! Calculate figure of merit
               fom_new=fom_new+figure_of_merit(pows_full(:,j,i),pows_sim(:,j,i),nk)
@@ -2506,7 +2506,7 @@ PROGRAM HMx_driver
         !CALL print_halomod(hmod)
         
         ip=-1 ! Set DMONLY profiles 
-        CALL calculate_HMx(ihm,ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose_tests)
+        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose_tests,response=.FALSE.)
 
         ! Loop over k and a
         error_max=0.

@@ -25,10 +25,12 @@ MODULE HMx
      REAL :: Dv0, Dvp, dc0, dc1, eta0, eta1, f0, fp, ks0, A0, alp0, alp1 ! HMcode parameters
      REAL :: mgal, HImin, HImax ! HOD parameters
      INTEGER :: n
-     LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative
+     LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
      !LOGICAL :: verbose
      REAL :: acc_HMx, large_nu
      CHARACTER(len=256) :: name
+     REAL, ALLOCATABLE :: log_k_pdamp(:), log_pdamp(:)
+     INTEGER :: n_pdamp
   END TYPE halomod
 
   !Global parameters
@@ -36,6 +38,103 @@ MODULE HMx
   INTEGER, PARAMETER :: imeth_win=3 ! Winint method
 
 CONTAINS
+
+  SUBROUTINE dewiggle_init(z,hmod,cosm)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: z
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: kv(4), pv(4), sigv, a
+    !REAL, ALLOCATABLE :: log_Pk(:), log_Pkraw(:), log_k(:)
+    REAL, ALLOCATABLE :: Pk(:), Pkraw(:), k(:)
+    INTEGER :: i, j, nk
+
+    IF(.NOT. ALLOCATED(cosm%log_k_plin)) STOP 'DEWIGGLE_INIT: Error, P(k) needs to be tabulated for this to work'
+
+    nk=cosm%n_plin
+    hmod%n_pdamp=nk
+    sigv=hmod%sigv
+    a=scale_factor_z(z)
+
+    ! Allocate a raw array so as to plot the processed and unprocessed results
+    !ALLOCATE(log_Pkraw(nk), log_Pk(nk), log_k(nk))
+    ALLOCATE(Pkraw(nk), Pk(nk), k(nk))
+
+    ! Allocate the internal arrays from the cosmology arrays
+    k=exp(cosm%log_k_plin)
+    Pk=exp(cosm%log_plin)
+    !log_k=cosm%log_k_plin
+    !log_Pk=cosm%log_plin
+
+    ! Fixed k values - CAMB!
+    kv(1)=0.008
+    kv(2)=0.01
+    kv(3)=0.8
+    kv(4)=1.0
+
+    ! Fix p values
+    DO i=1,4
+       pv(i)=exp(find(log(kv(i)),log(k),log(Pk),nk,3,3,2))
+       !pv(i)=exp(find(log(kv(i)),log_k,log_Pk,nk,3,3,2))       
+    END DO
+
+    ! Create new 'raw' spectrum which has no wiggles
+    DO i=1,nk
+       IF(k(i)<=kv(1) .OR. k(i)>=kv(4)) THEN
+       !IF(log_k(i)<=log(kv(1)) .OR. log_k(i)>=log(kv(4))) THEN
+          Pkraw(i)=Pk(i)
+          !log_Pkraw(i)=log_Pk(i)
+       ELSE
+          Pkraw(i)=exp(Lagrange_polynomial(log(k(i)),3,log(kv),log(pv)))
+          !log_Pkraw(i)=Lagrange_polynomial(log_k(i),3,log(kv),log(pv))
+       END IF
+    END DO
+
+    ! Isolate just the wiggles
+    Pk=Pk-Pkraw
+    !log_Pk=log(exp(log_Pk)-exp(log_Pkraw))
+
+    ! Damp the wiggles
+    Pk=Pk*exp(-(sigv*k)**2)
+    !log_Pk=log(exp(log_Pk)*exp(-(sigv*k)**2))
+    !log_Pk=log_Pk-(sigv*exp(log_k))**2
+
+    ! Add the damped wiggles back in
+    Pk=Pk+Pkraw
+    !log_Pk=log(exp(log_Pk)+exp(log_Pkraw))
+
+    ! Create the damped power array
+    IF(ALLOCATED(hmod%log_k_pdamp)) DEALLOCATE(hmod%log_k_pdamp)
+    IF(ALLOCATED(hmod%log_pdamp))   DEALLOCATE(hmod%log_pdamp)
+    ALLOCATE(hmod%log_k_pdamp(nk),hmod%log_pdamp(nk))
+
+    ! Fill the k array
+    hmod%log_k_pdamp=log(k)
+    !hmod%log_k_pdamp=cosm%log_k_plin
+    
+    ! Grow damped power to the correct redshift and fill array
+    hmod%log_pdamp=log(Pk*grow(a,cosm)**2)
+    !hmod%log_pdamp=log(exp(log_Pk)*grow(a,cosm)**2)
+    !hmod%log_pdamp=log_Pk+2.*log(grow(a,cosm))
+
+    ! Set the flag
+    hmod%has_dewiggle=.TRUE.
+
+  END SUBROUTINE dewiggle_init
+
+  FUNCTION p_dewiggle(k,z,hmod,cosm)
+
+    IMPLICIT NONE
+    REAL :: p_dewiggle
+    REAL, INTENT(IN) :: k, z
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    IF(hmod%has_dewiggle .EQV. .FALSE.) CALL dewiggle_init(z,hmod,cosm)
+    p_dewiggle=exp(find(log(k),hmod%log_k_pdamp,hmod%log_pdamp,hmod%n_pdamp,3,3,2))
+
+  END FUNCTION p_dewiggle
 
   FUNCTION halo_type(i)
 
@@ -86,17 +185,17 @@ CONTAINS
 
   END SUBROUTINE set_halo_type
 
-  SUBROUTINE calculate_HMx(ihm,itype,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose)
+  SUBROUTINE calculate_HMx(itype,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response)
 
     IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: ihm
     INTEGER, INTENT(IN) :: nk, na, itype(2)
-    REAL, INTENT(IN) :: k(:), a(:)    
-    REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:), powa_lin(:,:) !Mead - added powa_lin here instead
+    REAL, INTENT(IN) :: k(:), a(:)
+    REAL, ALLOCATABLE, INTENT(OUT) :: powa_2h(:,:), powa_1h(:,:), powa_full(:,:), powa_lin(:,:)
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    LOGICAL, INTENT(IN) :: verbose
+    LOGICAL, INTENT(IN) :: verbose, response
     REAL, INTENT(IN) :: mmin, mmax
+    REAL, ALLOCATABLE :: powb_2h(:,:), powb_1h(:,:), powb_full(:,:), powb_lin(:,:)
     INTEGER :: i
     REAL :: z
     LOGICAL :: verbose2
@@ -110,15 +209,20 @@ CONTAINS
     IF(ALLOCATED(powa_full)) DEALLOCATE(powa_full)
 
     !Allocate power arrays
-    !Mead - re-added powa_lin to be allocated here
     ALLOCATE(powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na),powa_full(nk,na))
+    !IF(response) THEN
+    !   ALLOCATE(powb_lin(nk,na),powb_2h(nk,na),powb_1h(nk,na),powb_full(nk,na))
+    !END IF
 
     !Do the halo-model calculation
     DO i=na,1,-1
        z=redshift_a(a(i))
        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose2)
        CALL print_halomod(z,hmod,cosm,verbose2)
-       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2)
+       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,response)
+       !IF(response) THEN
+       !   CALL calculate_halomod(-1,-1,k,nk,z,powb_lin(:,i),powb_2h(:,i),powb_1h(:,i),powb_full(:,i),hmod,cosm,verbose=.FALSE.)
+       !END IF
        IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'       
        IF(verbose) WRITE(*,fmt='(A15,I5,F10.2)') 'CALCULATE_HMx:', i, REAL(z)
        verbose2=.FALSE.
@@ -128,23 +232,30 @@ CONTAINS
        WRITE(*,*)
     END IF
 
+    !IF(response) THEN
+    !   powa_lin=powa_lin/powb_lin
+    !   powa_2h=powa_2h/powb_2h
+    !   powa_1h=powa_1h/powb_1h
+    !   powa_full=powa_full/powb_full
+    !END IF
+
   END SUBROUTINE calculate_HMx
 
-  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose)
+  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose,response)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype1, itype2
     INTEGER, INTENT(IN) :: nk
     REAL, INTENT(IN) :: k(nk), z
-    REAL, INTENT(INOUT) :: pow_lin(nk)
-    REAL, INTENT(OUT) ::pow_2h(nk), pow_1h(nk), pow(nk)
+    REAL, INTENT(OUT) :: pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
+    REAL :: powg_2h(nk), powg_1h(nk), powg(nk)
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(halomod), INTENT(INOUT) :: hmod
-    LOGICAL, INTENT(IN) :: verbose
-    INTEGER :: i!, nk
+    LOGICAL, INTENT(IN) :: verbose, response
+    INTEGER :: i
     REAL :: plin, a
 
-    !Write to screen
+    ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 1:', itype1
        WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 2:', itype2
@@ -157,18 +268,28 @@ CONTAINS
 
     a=scale_factor_z(z)
     
-    !Loop over k values
+    ! Loop over k values
     !TODO: add OMP support properly. What is private and what is shared? CHECK THIS!
 !!$OMP PARALLEL DO DEFAULT(SHARED)!, private(k,plin,pow_2h,pow_1h,pow,pow_lin)
 !!$OMP PARALLEL DO DEFAULT(PRIVATE)
 !!$OMP PARALLEL DO FIRSTPRIVATE(nk,cosm,compute_p_lin,k,a,pow_lin,plin,itype1,itype2,z,pow_2h,pow_1h,pow,hmod)
 !!$OMP PARALLEL DO
     DO i=1,nk
+       
        plin=p_lin(k(i),a,cosm)
        pow_lin(i)=plin
 
-       !Do the halo model calculation
+       ! Do the halo model calculation
        CALL calculate_halomod_k(itype1,itype2,k(i),z,pow_2h(i),pow_1h(i),pow(i),plin,hmod,cosm)
+
+       ! If doing a response
+       IF(response) THEN
+          CALL calculate_halomod_k(-1,-1,k(i),z,powg_2h(i),powg_1h(i),powg(i),plin,hmod,cosm)
+          pow_lin(i)=1.
+          pow_2h(i)=pow_2h(i)/powg_2h(i)
+          pow_1h(i)=pow_1h(i)/powg_1h(i)
+          pow(i)=pow(i)/powg(i)
+       END IF
 
     END DO
 !!$OMP END PARALLEL DO
@@ -809,6 +930,7 @@ CONTAINS
        ! Form of the two-halo term
        IF(hmod%ip2h==1) WRITE(*,*) 'HALOMODEL: Linear two-halo term'
        IF(hmod%ip2h==2) WRITE(*,*) 'HALOMODEL: Standard two-halo term (Seljak 2000)'
+       IF(hmod%ip2h==3) WRITE(*,*) 'HALOMODEL: Linear two-halo term with damped wiggles'
 
        ! Order to go to in halo bias
        IF(hmod%ip2h .NE. 1) THEN
@@ -1041,7 +1163,7 @@ CONTAINS
     names(12)='Spherical collapse used for Mead (2017) results'
     names(13)='Experimental log-tanh transition'
     names(14)='Experimental scale-dependent halo bias'
-    names(15)='Accurate halo-model calculation (Mead et al. 2018 ...)'
+    names(15)='Accurate halo-model calculation (Mead et al. 2018) ...'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -1059,6 +1181,7 @@ CONTAINS
     ! Two-halo term
     ! 1 - Linear theory
     ! 2 - Standard from Seljak (2000)
+    ! 3 - Linear theory with damped wiggles
     hmod%ip2h=2
 
     ! Method to correct the two-halo integral
@@ -1234,6 +1357,7 @@ CONTAINS
           hmod%alp1=1.77
        ELSE IF(ihm==15) THEN
           hmod%i1hdamp=3
+          hmod%ip2h=3
        END IF
        hmod%iDolag=3
        hmod%voids=.FALSE.
@@ -1351,6 +1475,7 @@ CONTAINS
     hmod%has_galaxies=.FALSE.
     hmod%has_HI=.FALSE.
     hmod%has_mass_conversions=.FALSE.
+    hmod%has_dewiggle=.FALSE.
 
     ! Get the scale factor
     a=scale_factor_z(z)
@@ -2098,8 +2223,14 @@ CONTAINS
 
     IF(hmod%ip2h==1) THEN
 
+       ! Simply linear theory
        p_2h=plin
 
+    ELSE IF(hmod%ip2h==3) THEN
+
+       ! Damped BAO linear theory
+       p_2h=p_dewiggle(k,z,hmod,cosm)
+       
     ELSE
 
        DO i=1,hmod%n
