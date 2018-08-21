@@ -13,6 +13,7 @@ module HMx_setup
      character(len=256) :: p_lin_source, hm_mode
 
      integer :: ihm, iw, icosmo
+     logical :: response
 
      integer, dimension(2) :: fields
 
@@ -38,7 +39,7 @@ function setup(options) result(result)
   ! Variables
   integer(cosmosis_status) :: status
   type(HMx_setup_config), pointer :: HMx_config
-  integer :: verbose, icosmo
+  integer :: verbose, response, icosmo
 
   allocate(HMx_config)
 
@@ -110,6 +111,9 @@ function setup(options) result(result)
   end if
 
   status = datablock_get_int_default(options, option_section, "de_model", 1, HMx_config%cosm%iw)
+
+  status = datablock_get_int_default(options, option_section, "response", 0, response)
+  HMx_config%response = response == 1
 
   ! Create k array (log spacing)
   call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
@@ -233,17 +237,13 @@ function execute(block, config) result(status)
     !  WRITE(*,*) "mstar    :", HMx_config%hm%mstar
   end if
 
-  call calculate_HMx(HMx_config%ihm, &
-       HMx_config%fields, &
-       HMx_config%mmin, HMx_config%mmax, &
-       HMx_config%k, HMx_config%nk, &
-       HMx_config%a, HMx_config%nz, &
-       pk_lin, pk_2h, pk_1h, pk_full, &
-       HMx_config%hm, HMx_config%cosm, &
-       HMx_config%verbose)
-
-  ! Remove the k^3/2pi^2 factor
-  forall (i=1:HMx_config%nk) pk_full(i,:) = pk_full(i,:)*2*pi**2/HMx_config%k(i)**3
+  call calculate_HMx(HMx_config%fields, &
+                     HMx_config%mmin, HMx_config%mmax, &
+                     HMx_config%k, HMx_config%nk, &
+                     HMx_config%a, HMx_config%nz, &
+                     pk_lin, pk_2h, pk_1h, pk_full, &
+                     HMx_config%hm, HMx_config%cosm, &
+                     HMx_config%verbose, HMx_config%response)
 
   ! Write power spectra to relevant section
   if(all(HMx_config%fields == 0)) then
