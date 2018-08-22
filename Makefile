@@ -107,7 +107,7 @@ $(LIB_DIR)/libhmx.a: $(OBJ)
 # Rule to make cosmosis interface
 $(LIB_DIR)/HMx_cosmosis_interface.so: $(SRC_DIR)/cosmosis_interface.f90
 	@echo "\nBuilding cosmosis interface.\n"
-	$(FC) $(FFLAGS) -shared -o $@ $^ -L$(LIB_DIR) -lhmx $(LDFLAGS) -Wl,-rpath,$(COSMOSIS_SRC_DIR)/cosmosis/datablock -lcosmosis -I$(BUILD_DIR) -J$(BUILD_DIR)
+	$(FC) $(FFLAGS) -shared -o $@ $^ -L$(LIB_DIR) -lhmx $(LDFLAGS) -Wl,-rpath,$(COSMOSIS_SRC_DIR)/cosmosis/datablock -lcosmosis -lcosmosis_fortran -I$(BUILD_DIR) -J$(BUILD_DIR)
 
 # Clean up
 .PHONY: clean
