@@ -22,7 +22,7 @@ MODULE HMx
      REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
      REAL :: n_c, n_s, n_g, rho_HI
-     REAL :: Dv0, Dvp, dc0, dc1, eta0, eta1, f0, fp, ks0, A0, alp0, alp1 ! HMcode parameters
+     REAL :: Dv0, Dv1, dc0, dc1, eta0, eta1, f0, f1, ks, A, alp0, alp1 ! HMcode parameters
      REAL :: mgal, HImin, HImax ! HOD parameters
      INTEGER :: n
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
@@ -438,7 +438,7 @@ CONTAINS
 
     !If we are worrying about voids...
     IF(hmod%voids) THEN
-       pfull=pfull+p_1v(k,hmod)
+       pfull=pfull+p_1void(k,hmod)
     END IF
 
   END SUBROUTINE calculate_halomod_k
@@ -733,7 +733,7 @@ CONTAINS
     ELSE IF(hmod%iDv==3) THEN
        !From Mead et al. (2015, 2016)
        !Delta_v=418.*Omega_m(a,cosm)**(-0.352)
-       Delta_v=hmod%Dv0*Omega_m(a,cosm)**hmod%Dvp
+       Delta_v=hmod%Dv0*Omega_m(a,cosm)**hmod%Dv1
     ELSE IF(hmod%iDv==4) THEN
        !From Mead (2017) fitting function
        Delta_v=Dv_Mead(a,cosm)
@@ -784,7 +784,7 @@ CONTAINS
        kstar=0.
     ELSE IF(hmod%ikstar==2) THEN
        !One-halo cut-off wavenumber from Mead et al. (2015, 2016)
-       kstar=hmod%ks0/hmod%sigv
+       kstar=hmod%ks/hmod%sigv
     ELSE
        STOP 'KSTAR: Error, ihm defined incorrectly'
     END IF
@@ -809,7 +809,7 @@ CONTAINS
     ELSE IF(hmod%iAs==2) THEN
        !This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833, 2016)
        !As=3.13
-       As=hmod%A0
+       As=hmod%A
     ELSE
        STOP 'AS: Error, iconc defined incorrectly'
     END IF
@@ -842,11 +842,11 @@ CONTAINS
     ELSE IF(hmod%i2hdamp==2) THEN
        !Mead et al. (2015)
        !fdamp=0.188*hmod%sig8z**4.29
-       fdamp=hmod%f0*hmod%sig8z**hmod%fp
+       fdamp=hmod%f0*hmod%sig8z**hmod%f1
     ELSE IF(hmod%i2hdamp==3) THEN
        !Mead et al. (2016)
        !fdamp=0.0095*hmod%sigv100**1.37
-       fdamp=hmod%f0*hmod%sigv100**hmod%fp
+       fdamp=hmod%f0*hmod%sigv100**hmod%f1
     ELSE
        STOP 'FDAMP: Error, i2hdamp defined incorrectly'
     END IF
@@ -1146,7 +1146,7 @@ CONTAINS
     INTEGER :: i
 
     !Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=15 !Number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=16 !Number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate halo-model calculation (Mead et al. 2016)'
     names(2)='Basic halo-model calculation (Two-halo term is linear)'
@@ -1163,6 +1163,7 @@ CONTAINS
     names(13)='Experimental log-tanh transition'
     names(14)='Experimental scale-dependent halo bias'
     names(15)='Accurate halo-model calculation (Mead et al. 2018) ...'
+    names(16)='Halo-void model'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -1268,7 +1269,7 @@ CONTAINS
     ! Use the Dolag c(M) correction for dark energy?
     ! 1 - No
     ! 2 - Yes, exactly as in Dolag et al. (2004)
-    ! 3 - Yes, as in Dolage et al. (2004) but with a ^1.5 power
+    ! 3 - Yes, as in Dolag et al. (2004) but with a ^1.5 power
     hmod%iDolag=2
 
     ! Scatter in halo properties at fixed mass
@@ -1290,15 +1291,15 @@ CONTAINS
 
     ! HMcode parameters
     hmod%Dv0=418.
-    hmod%Dvp=-0.352
+    hmod%Dv1=-0.352
     hmod%dc0=1.59
     hmod%dc1=0.0314
     hmod%eta0=0.603
     hmod%eta1=0.300
     hmod%f0=0.0095
-    hmod%fp=1.37
-    hmod%ks0=0.584
-    hmod%A0=3.13
+    hmod%f1=1.37
+    hmod%ks=0.584
+    hmod%A=3.13
     hmod%alp0=3.24
     hmod%alp1=1.85
 
@@ -1351,7 +1352,7 @@ CONTAINS
           hmod%i2hdamp=2
           hmod%itrans=2
           hmod%f0=0.188
-          hmod%fp=4.29
+          hmod%f1=4.29
           hmod%alp0=2.93
           hmod%alp1=1.77
        ELSE IF(ihm==15) THEN
@@ -1359,7 +1360,6 @@ CONTAINS
           hmod%ip2h=3
        END IF
        hmod%iDolag=3
-       hmod%voids=.FALSE.
        hmod%use_UPP=.FALSE.
        hmod%smooth_freegas=.TRUE.
     ELSE IF(ihm==2) THEN
@@ -1412,7 +1412,6 @@ CONTAINS
        hmod%itrans=1
        hmod%iDolag=1
        hmod%iscatter=1
-       hmod%voids=.FALSE.
        hmod%use_UPP=.FALSE.
        hmod%smooth_freegas=.FALSE.
     ELSE IF(ihm==10) THEN
@@ -1437,6 +1436,9 @@ CONTAINS
        hmod%ikb=3
        hmod%ikstar=2
        hmod%i1hdamp=3
+    ELSE IF(ihm==16) THEN
+       !16 - Halo-void model
+       hmod%voids=.TRUE.
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -1481,9 +1483,7 @@ CONTAINS
 
     ! Find value of sigma_V
     hmod%sigv=sigmaV(0.,a,cosm)
-    hmod%sigv100=sigmaV(100.,a,cosm)
-    !hmod%sigv=6.
-    !hmod%sigv100=2.
+    IF(hmod%i2hdamp==3) hmod%sigv100=sigmaV(100.,a,cosm)
     hmod%sig8z=sigma(8.,a,cosm)
 
     IF(verbose) THEN
@@ -1492,7 +1492,7 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: Tables being filled at redshift:', REAL(z)
        WRITE(*,*) 'INIT_HALOMOD: Tables being filled at scale-factor:', REAL(a)
        WRITE(*,*) 'INIT_HALOMOD: sigma_V [Mpc/h]:', REAL(hmod%sigv)
-       WRITE(*,*) 'INIT_HALOMOD: sigmaV_100 [Mpc/h]:', REAL(hmod%sigv100)
+       IF(hmod%i2hdamp==3) WRITE(*,*) 'INIT_HALOMOD: sigmaV_100 [Mpc/h]:', REAL(hmod%sigv100)
        WRITE(*,*) 'INIT_HALOMOD: sigma_8(z):', REAL(hmod%sig8z)
     END IF
 
@@ -2017,19 +2017,34 @@ CONTAINS
           STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
        END IF
 
-       !Rescale halo concentrations via the 'A' HMcode parameter
-       hmod%c(i)=hmod%c(i)*As(hmod,cosm)
-
-       !Rescale the concentration-mass relation for gas the epsilon parameter
-       !This only rescales the concentrations of haloes that *contain* substantial amounts of gas
-       hmod%c(i)=hmod%c(i)*(1.+(hmod%eps-1.)*halo_boundgas_fraction(m,hmod,cosm)/(cosm%Om_b/cosm%Om_m))
+       ! Rescale halo concentrations via the 'A' HMcode parameter
+       hmod%c(i)=hmod%c(i)*As(hmod,cosm)   
 
     END DO
 
     ! Dolag2004 prescription for adding DE dependence
     IF(hmod%iDolag==2 .OR. hmod%iDolag==3) CALL Dolag_correction(hmod,cosm)
+
+    ! Rescale the concentration-mass relation for gas the epsilon parameter
+    ! This only rescales the concentrations of haloes that *contain* substantial amounts of gas
+    DO i=1,hmod%n
+       m=hmod%m(i)
+       hmod%c(i)=hmod%c(i)*gas_correction(m,hmod,cosm)
+    END DO
     
   END SUBROUTINE fill_halo_concentration
+
+  FUNCTION gas_correction(m,hmod,cosm)
+
+    IMPLICIT NONE
+    REAL :: gas_correction
+    REAL, INTENT(IN) :: m
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    gas_correction=(1.+(hmod%eps-1.)*halo_boundgas_fraction(m,hmod,cosm)/(cosm%Om_b/cosm%Om_m))
+    
+  END FUNCTION gas_correction
 
   SUBROUTINE Dolag_correction(hmod,cosm)
 
@@ -2398,10 +2413,10 @@ CONTAINS
 
   END FUNCTION p_1h
 
-  FUNCTION p_1v(k,hmod)!,cosm)
+  FUNCTION p_1void(k,hmod)!,cosm)
 
     IMPLICIT NONE
-    REAL :: p_1v
+    REAL :: p_1void
     REAL, INTENT(IN) :: k
     TYPE(halomod), INTENT(INOUT) :: hmod
     !TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -2410,7 +2425,7 @@ CONTAINS
     INTEGER :: i, n
 
     !Parameters
-    REAL, PARAMETER :: dv=-1.
+    REAL, PARAMETER :: dv=-3.
     REAL, PARAMETER :: fvoid=1.1
     LOGICAL, PARAMETER :: compensate=.TRUE.
     LOGICAL, PARAMETER :: simple=.FALSE.
@@ -2457,14 +2472,14 @@ CONTAINS
 
     !Calculate the void one-halo term
     IF(simple) THEN
-       p_1v=wk**2/V
+       p_1void=wk**2/V
     ELSE
-       p_1v=integrate_table(hmod%nu,integrand,n,1,n,1)
+       p_1void=integrate_table(hmod%nu,integrand,n,1,n,1)
     END IF
 
-    p_1v=p_1v*(4.*pi)*(k/(2.*pi))**3
+    p_1void=p_1void*(4.*pi)*(k/(2.*pi))**3
 
-  END FUNCTION p_1v
+  END FUNCTION p_1void
 
   FUNCTION win_type(real_space,itype,ipnh,k,z,m,rv,rs,hmod,cosm)
 
@@ -2550,7 +2565,7 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: irho
-    REAL :: r, rmin, rmax
+    REAL :: r, rmin, rmax, c, rss
     REAL :: crap
 
     !Set the DMONLY halo model
@@ -2562,7 +2577,7 @@ CONTAINS
 
     !Prevent compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
 
     IF(imod==1) THEN
        irho=5 !Analytical NFW
@@ -2579,13 +2594,19 @@ CONTAINS
     rmin=0.
     rmax=rv
 
+    ! Force it to use the gravity-only concentration relation (unapply gas correction)
+    c=rv/rs
+    c=c/gas_correction(m,hmod,cosm)
+    rss=rv/c
+    !rss=rs
+
     IF(real_space) THEN
        r=k
-       win_DMONLY=rho(r,rmin,rmax,rv,rs,zero,zero,irho)
-       win_DMONLY=win_DMONLY/normalisation(rmin,rmax,rv,rs,zero,zero,irho)
+       win_DMONLY=rho(r,rmin,rmax,rv,rss,zero,zero,irho)
+       win_DMONLY=win_DMONLY/normalisation(rmin,rmax,rv,rss,zero,zero,irho)
     ELSE
        !Properly normalise and convert to overdensity
-       win_DMONLY=m*win_norm(k,rmin,rmax,rv,rs,zero,zero,irho)/comoving_matter_density(cosm)
+       win_DMONLY=m*win_norm(k,rmin,rmax,rv,rss,zero,zero,irho)/comoving_matter_density(cosm)
     END IF
 
   END FUNCTION win_DMONLY
@@ -2616,7 +2637,7 @@ CONTAINS
 
     !Prevent compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
 
     rmin=0.
     rmax=rv
@@ -2672,7 +2693,7 @@ CONTAINS
 
     ! Stop compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
 
     ! Initially set the halo parameters to zero
     p1=0.
@@ -3008,7 +3029,7 @@ CONTAINS
     !To prevent compile-time warnings
     crap=rs
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
 
     !Initially set p1, p2
     p1=0.
@@ -3090,7 +3111,7 @@ CONTAINS
 
     !Stop compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
 
     IF(imod==1) THEN
        !Top-hat
@@ -3131,7 +3152,7 @@ CONTAINS
 
     !Stop compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
 
     IF(imod==1) THEN
        !Top-hat
@@ -3172,7 +3193,7 @@ CONTAINS
 
     !Stop compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
     crap=cosm%A
 
     !Delta functions
@@ -3212,7 +3233,7 @@ CONTAINS
     
     !Stop compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
     crap=cosm%A
 
     !NFW profile
@@ -3309,7 +3330,7 @@ CONTAINS
 
     !Stop compile-time warnings
     crap=z
-    crap=hmod%sigv
+    crap=hmod%A
     crap=cosm%A
 
     !NFW profile
@@ -4553,7 +4574,7 @@ CONTAINS
     
     !To prevent compile-time warning
     crap=m
-    crap=hmod%A0
+    crap=hmod%A
 
     !Always the universal value
     halo_CDM_fraction=cosm%om_c/cosm%om_m

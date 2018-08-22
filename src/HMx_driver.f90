@@ -160,7 +160,7 @@ PROGRAM HMx_driver
      IF(hmod%voids) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
-           WRITE(8,*) k(i), p_1v(k(i),hmod)
+           WRITE(8,*) k(i), p_1void(k(i),hmod)
         END DO
         CLOSE(8)
      END IF
@@ -2363,15 +2363,15 @@ PROGRAM HMx_driver
 
            ! Set HMcode parameters
            hmods(i)%Dv0=pnew(1)
-           hmods(i)%Dvp=pnew(2)
+           hmods(i)%Dv1=pnew(2)
            hmods(i)%dc0=pnew(3)
            hmods(i)%dc1=pnew(4)
            hmods(i)%eta0=pnew(5)
            hmods(i)%eta1=pnew(6)
            hmods(i)%f0=pnew(7)
-           hmods(i)%fp=pnew(8)
-           hmods(i)%ks0=pnew(9)
-           hmods(i)%A0=pnew(10)
+           hmods(i)%f1=pnew(8)
+           hmods(i)%ks=pnew(9)
+           hmods(i)%A=pnew(10)
            hmods(i)%alp0=pnew(11)
            hmods(i)%alp1=pnew(12)
 
@@ -2544,7 +2544,7 @@ PROGRAM HMx_driver
      IF(ifail) THEN
         STOP 'HMx_DRIVER: Error, tests failed'
      ELSE
-        WRITE(*,*) 'HMx_DRIVER: Tests should take around 0.80 seconds to run'
+        WRITE(*,*) 'HMx_DRIVER: Tests should take around 0.65 seconds to run'
         WRITE(*,*) 'HMx_DRIVER: Tests passed'
         WRITE(*,*)
      END IF
