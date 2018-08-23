@@ -15,7 +15,14 @@ MODULE HMx
      INTEGER :: ip2h, ibias, imf, iconc, iDolag, iAs, ip2h_corr, ikb
      INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans, iscatter
      LOGICAL :: voids, use_UPP, smooth_freegas
-     REAL :: alpha, eps, Gamma, M0, Astar, whim, rstar, sstar, mstar ! HMx baryon parameters
+     REAL :: z
+     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, rstar, sstar, mstar, Theat ! HMx baryon parameters
+     REAL :: A_alpha, B_alpha, C_alpha, D_alpha
+     REAL :: A_eps, B_eps, C_eps, D_eps
+     REAL :: A_Gamma, B_Gamma, C_Gamma, D_Gamma
+     REAL :: A_M0, B_M0, C_M0, D_M0
+     REAL :: A_Astar, B_Astar, C_Astar, D_Astar
+     REAL :: A_Twhim, B_Twhim, C_Twhim, D_Twhim
      REAL, ALLOCATABLE :: c(:), rv(:), nu(:), sig(:), zc(:), m(:), rr(:), sigf(:), log_m(:)
      REAL, ALLOCATABLE :: r500(:), m500(:), c500(:), r200(:), m200(:), c200(:)
      REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
@@ -26,6 +33,7 @@ MODULE HMx
      REAL :: mgal, HImin, HImax ! HOD parameters
      INTEGER :: n
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
+     LOGICAL :: fixed_HMx
      !LOGICAL :: verbose
      REAL :: acc_HMx, large_nu
      CHARACTER(len=256) :: name
@@ -217,7 +225,7 @@ CONTAINS
     DO i=na,1,-1
        z=redshift_a(a(i))
        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose2)
-       CALL print_halomod(z,hmod,cosm,verbose2)
+       CALL print_halomod(hmod,cosm,verbose2)
        CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,response)
        !IF(response) THEN
        !   CALL calculate_halomod(-1,-1,k,nk,z,powb_lin(:,i),powb_2h(:,i),powb_1h(:,i),powb_full(:,i),hmod,cosm,verbose=.FALSE.)
@@ -899,12 +907,11 @@ CONTAINS
 
   END FUNCTION alpha_transition
 
-  SUBROUTINE print_halomod(z,hmod,cosm,verbose)
+  SUBROUTINE print_halomod(hmod,cosm,verbose)
 
     !This subroutine writes out the physical halo-model parameters at some redshift 
     !(e.g., Delta_v) rather than the model parameters
     IMPLICIT NONE
-    REAL, INTENT(IN) :: z
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(halomod), INTENT(INOUT) :: hmod
     LOGICAL, INTENT(IN) :: verbose
@@ -912,14 +919,14 @@ CONTAINS
 
     IF(verbose) THEN
 
-        a=scale_factor_z(z)
+       a=scale_factor_z(hmod%z)
 
        WRITE(*,*) 'HALOMODEL: Writing out halo-model parameters'
        WRITE(*,*) '============================================'
        WRITE(*,*) TRIM(hmod%name)
 
        WRITE(*,*) '============================================'
-       WRITE(*,*) 'HALOMODEL: redshift:', redshift_a(a)
+       WRITE(*,*) 'HALOMODEL: redshift:', hmod%z
        WRITE(*,*) '============================================'
        WRITE(*,*) 'HALOMODEL: Number of points in look-up tables:', hmod%n
        WRITE(*,*) 'HALOMODEL: Halo model accuracy parameter:', hmod%acc_HMx
@@ -975,7 +982,7 @@ CONTAINS
 
        !Delta_v
        IF(hmod%iDv==1) WRITE(*,*) 'HALOMODEL: Fixed Delta_v = 200'
-       IF(hmod%iDv==2) WRITE(*,*) 'HALOMODEL: Delta_v from Bryan & Norman (1998; arXiv:astro-ph/9710107) fitting function'
+       IF(hmod%iDv==2) WRITE(*,*) 'HALOMODEL: Delta_v from Bryan & Norman (1998) fitting function'
        IF(hmod%iDv==3) WRITE(*,*) 'HALOMODEL: Delta_v from Mead et al. (2015, 2016) power spectrum fit'
        IF(hmod%iDv==4) WRITE(*,*) 'HALOMODEL: Delta_v from Mead (2017) fitting function'
        IF(hmod%iDv==5) WRITE(*,*) 'HALOMODEL: Delta_v from spherical-collapse calculation'
@@ -1030,12 +1037,13 @@ CONTAINS
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HMx parameters'
        WRITE(*,*) '======================================='
-       WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha
-       WRITE(*,fmt='(A30,F10.5)') 'epsilon:', hmod%eps
-       WRITE(*,fmt='(A30,F10.5)') 'Gamma:', hmod%Gamma
-       WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(hmod%M0)
-       WRITE(*,fmt='(A30,F10.5)') 'A*:', hmod%Astar
-       WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(hmod%whim)
+       IF(.NOT. hmod%fixed_HMx) WRITE(*,fmt='(A30,F10.5)') 'log10(T_heat) [K]:', log10(hmod%Theat)
+       WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(hmod)
+       WRITE(*,fmt='(A30,F10.5)') 'epsilon:', HMx_eps(hmod)
+       WRITE(*,fmt='(A30,F10.5)') 'Gamma:', HMx_Gamma(hmod)
+       WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(HMx_M0(hmod))
+       WRITE(*,fmt='(A30,F10.5)') 'A*:', HMx_Astar(hmod)
+       WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(HMx_Twhim(hmod))
        WRITE(*,fmt='(A30,F10.5)') 'R*:', hmod%rstar
        WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
        WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
@@ -1051,6 +1059,159 @@ CONTAINS
     END IF
 
   END SUBROUTINE print_halomod
+
+  REAL FUNCTION HMx_alpha(hmod)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, T, A, B, C, D
+
+    IF(hmod%fixed_HMx) THEN
+
+       HMx_alpha=hmod%alpha
+
+    ELSE
+
+       A=hmod%A_alpha
+       B=hmod%B_alpha
+       C=hmod%C_alpha
+       D=hmod%D_alpha
+
+       z=hmod%z
+       T=log10(hmod%Theat)
+       HMx_alpha=A*(1.+z)*T+B*(1.+z)+C*T+D
+
+    END IF
+       
+  END FUNCTION HMx_alpha
+  
+  REAL FUNCTION HMx_eps(hmod)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, T, A, B, C, D
+
+    IF(hmod%fixed_HMx) THEN
+
+       HMx_eps=hmod%eps
+
+    ELSE
+
+       A=hmod%A_eps
+       B=hmod%B_eps
+       C=hmod%C_eps
+       D=hmod%D_eps
+
+       z=hmod%z
+       T=log10(hmod%Theat)
+       HMx_eps=A*(1.+z)*T+B*(1.+z)+C*T+D
+       HMx_eps=10**HMx_eps
+
+    END IF
+       
+  END FUNCTION HMx_eps
+
+  REAL FUNCTION HMx_Gamma(hmod)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, T, A, B, C, D
+
+    IF(hmod%fixed_HMx) THEN
+
+       HMx_Gamma=hmod%Gamma
+
+    ELSE
+
+       A=hmod%A_Gamma
+       B=hmod%B_Gamma
+       C=hmod%C_Gamma
+       D=hmod%D_Gamma
+
+       z=hmod%z
+       T=log10(hmod%Theat)
+       HMx_Gamma=A*(1.+z)*T+B*(1.+z)+C*T+D
+
+    END IF
+       
+  END FUNCTION HMx_Gamma
+
+  REAL FUNCTION HMx_M0(hmod)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, T, A, B, C, D
+
+    IF(hmod%fixed_HMx) THEN
+
+       HMx_M0=hmod%M0
+
+    ELSE
+
+       A=hmod%A_M0
+       B=hmod%B_M0
+       C=hmod%C_M0
+       D=hmod%D_M0
+
+       z=hmod%z
+       T=log10(hmod%Theat)
+       HMx_M0=A*(1.+z)*T+B*(1.+z)+C*T+D
+       HMx_M0=10**HMx_M0
+
+    END IF
+       
+  END FUNCTION HMx_M0
+
+  REAL FUNCTION HMx_Astar(hmod)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, T, A, B, C, D
+
+    IF(hmod%fixed_HMx) THEN
+
+       HMx_Astar=hmod%Astar
+
+    ELSE
+
+       A=hmod%A_Astar
+       B=hmod%B_Astar
+       C=hmod%C_Astar
+       D=hmod%D_Astar
+
+       z=hmod%z
+       T=log10(hmod%Theat)
+       HMx_Astar=A*(1.+z)*T+B*(1.+z)+C*T+D
+
+    END IF
+       
+  END FUNCTION HMx_Astar
+
+  REAL FUNCTION HMx_Twhim(hmod)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, T, A, B, C, D
+
+    IF(hmod%fixed_HMx) THEN
+
+       HMx_Twhim=hmod%Twhim
+
+    ELSE
+
+       A=hmod%A_Twhim
+       B=hmod%B_Twhim
+       C=hmod%C_Twhim
+       D=hmod%D_Twhim
+
+       z=hmod%z
+       T=log10(hmod%Theat)
+       HMx_Twhim=A*(1.+z)*T+B*(1.+z)+C*T+D
+       HMx_Twhim=10**HMx_Twhim
+
+    END IF
+       
+  END FUNCTION HMx_Twhim
 
   FUNCTION r_nl(hmod)
 
@@ -1146,7 +1307,7 @@ CONTAINS
     INTEGER :: i
 
     !Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=16 !Number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=17 !Number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate halo-model calculation (Mead et al. 2016)'
     names(2)='Basic halo-model calculation (Two-halo term is linear)'
@@ -1164,6 +1325,7 @@ CONTAINS
     names(14)='Experimental scale-dependent halo bias'
     names(15)='Accurate halo-model calculation (Mead et al. 2018) ...'
     names(16)='Halo-void model'
+    names(17)='HMx'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -1304,15 +1466,52 @@ CONTAINS
     hmod%alp1=1.85
 
     ! HMx parameters
+    hmod%fixed_HMx=.TRUE.
     hmod%alpha=1.
     hmod%eps=1.
     hmod%Gamma=1.17
     hmod%M0=1e14 ! Halo mass that has lost half gas
     hmod%Astar=0.02 ! Maximum star-formation efficiency
-    hmod%whim=1e6 ! WHIM temperature [K]
+    hmod%Twhim=1e6 ! WHIM temperature [K]
     hmod%rstar=0.1
     hmod%sstar=1.2
     hmod%Mstar=5e12
+
+    !$\alpha$ z and Theat variation
+    hmod%A_alpha=0.862
+    hmod%B_alpha=-6.127
+    hmod%C_alpha=-0.234
+    hmod%D_alpha=1.670
+
+    !$\log_{10} \epsilon_c$ z and Theat variation
+    hmod%A_eps=0.074
+    hmod%B_eps=-0.343
+    hmod%C_eps=0.827
+    hmod%D_eps=-5.929
+
+    !$\Gamma$ z and Theat variation
+    hmod%A_Gamma=0.600
+    hmod%B_Gamma=-4.391
+    hmod%C_Gamma=-0.302
+    hmod%D_Gamma=3.380
+
+    !$\log_{10}M_0$ z and Theat variation
+    hmod%A_M0=0.473
+    hmod%B_M0=-4.172
+    hmod%C_M0=1.352
+    hmod%D_M0=3.738
+
+    !$A_*$ z and Theat variation
+    hmod%A_Astar=0.006
+    hmod%B_Astar=-0.057
+    hmod%C_Astar=-0.020
+    hmod%D_Astar=0.197
+
+    !$\log_{10}T_{WHIM}$ z and Theat variation
+    hmod%A_Twhim=0.564
+    hmod%B_Twhim=-4.676
+    hmod%C_Twhim=-0.583
+    hmod%D_Twhim=10.871
 
     ! Default values of the HOD parameters
     hmod%mgal=1e13
@@ -1331,14 +1530,11 @@ CONTAINS
     END IF
        
     IF(ihm==1 .OR. ihm==7 .OR. ihm==15) THEN
-       ! 1 - Accurate halo-model calculation (Mead et al. 2016)
-       ! 7 - Accurate halo-model calculation (Mead et al. 2015)
-       !15 - Accurate halo-model calculation (Mead et al. 2018)
-       ! Set defaults to 2016
+       ! 1 - Accurate HMcode halo-model calculation (Mead et al. 2016)
+       ! 7 - Accurate HMcode halo-model calculation (Mead et al. 2015)
+       !15 - Accurate HMcode halo-model calculation (Mead et al. 2018)
        hmod%ip2h=1
-       hmod%ibias=1
        hmod%i1hdamp=2
-       hmod%imf=2
        hmod%iconc=1
        hmod%idc=3
        hmod%iDv=3
@@ -1347,6 +1543,7 @@ CONTAINS
        hmod%iAs=2
        hmod%i2hdamp=3
        hmod%itrans=2
+       hmod%iDolag=3
        IF(ihm==7) THEN
           ! Mead et al. (2015)
           hmod%i2hdamp=2
@@ -1355,13 +1552,12 @@ CONTAINS
           hmod%f1=4.29
           hmod%alp0=2.93
           hmod%alp1=1.77
+          hmod%iDolag=2
        ELSE IF(ihm==15) THEN
-          hmod%i1hdamp=3
-          hmod%ip2h=3
-       END IF
-       hmod%iDolag=3
-       hmod%use_UPP=.FALSE.
-       hmod%smooth_freegas=.TRUE.
+          ! Mead et al. (2018)
+          hmod%i1hdamp=3 ! k^4 at large scales for one-halo term
+          hmod%ip2h=3 ! Linear theory with damped wiggles
+       END IF       
     ELSE IF(ihm==2) THEN
        ! 2 - Basic halo model with linear two halo term (Delta_v = 200, delta_c = 1.686))
        hmod%ip2h=1
@@ -1371,22 +1567,41 @@ CONTAINS
     ELSE IF(ihm==3) THEN
        !3 - Standard halo-model calculation (Seljak 2000)
        !This is the default, so do nothing here
-    ELSE IF(ihm==4 .OR. ihm==6) THEN
-       !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed two- to one-halo transition and one-halo damping
-       !6 - Half-accurate halo-model calculation (Mead et al. 2015, 2016)
+    ELSE IF(ihm==4) THEN
+       !4 - Standard halo-model calculation but with Mead et al. (2015) smoothed two- to one-halo transition and one-halo damping       
        hmod%itrans=4
        hmod%ikstar=2
        hmod%i1hdamp=3
        hmod%safe_negative=.TRUE.
-       IF(ihm==6) THEN
-          hmod%idc=3
-          hmod%iDv=3
-       END IF
     ELSE IF(ihm==5) THEN
        !5 - Standard halo-model calculation but with Delta_v = 200 and delta_c = 1.686 fixed and Bullock c(M)
        hmod%idc=1
        hmod%iDv=1
        hmod%iconc=1
+    ELSE IF(ihm==6) THEN
+       !6 - Half-accurate halo-model calculation (Mead et al. 2015, 2016)
+       hmod%ikstar=2
+       hmod%i1hdamp=3
+       hmod%i2hdamp=3
+       hmod%safe_negative=.TRUE.
+       hmod%idc=3
+       hmod%iDv=3
+       hmod%ieta=2
+       hmod%iAs=2
+       hmod%itrans=2
+       hmod%iconc=1
+       hmod%iDolag=3
+       !hmod%ip2h=1
+       !hmod%i1hdamp=2
+       !hmod%iconc=1
+       !hmod%idc=3
+       !hmod%iDv=3
+       !hmod%ieta=2
+       !hmod%ikstar=2
+       !hmod%iAs=2
+       !hmod%i2hdamp=3
+       !hmod%itrans=2
+       !hmod%iDolag=3
     ELSE IF(ihm==8) THEN
        !8 - Include scatter in halo properties
        hmod%idc=1
@@ -1439,6 +1654,10 @@ CONTAINS
     ELSE IF(ihm==16) THEN
        !16 - Halo-void model
        hmod%voids=.TRUE.
+    ELSE IF(ihm==17) THEN
+       !17 - HMx
+       hmod%fixed_HMx=.FALSE.
+       hmod%Theat=10**7.8
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -1467,7 +1686,8 @@ CONTAINS
 
     LOGICAL, PARAMETER :: slow=.FALSE.
 
-    !CALL assign_halomod(ihm,hmod,verbose)
+    ! Set the redshift (this routine needs to be called anew for each z)
+    hmod%z=z
 
     IF(ALLOCATED(hmod%log_m)) CALL deallocate_HMOD(hmod)
     CALL allocate_HMOD(hmod)
@@ -2753,7 +2973,7 @@ CONTAINS
        rho0=rho0*cosm%h**2 !Absorb factors of h, so now [kg/m^3]
 
        ! Calculate the value of the temperature prefactor [K]
-       T0=hmod%alpha*virial_temperature(m,rv,cosm)
+       T0=HMx_alpha(hmod)*virial_temperature(m,rv,cosm)
 
        ! Convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
        win_boundgas=win_boundgas*(rho0/(mp*cosm%mue))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
@@ -2986,7 +3206,7 @@ CONTAINS
                 rho0=rho0*cosm%h**2 !Absorb factors of h, so now [kg/m^3]
 
                 !This is the total thermal pressure of the WHIM
-                T0=hmod%whim !Units are [K]
+                T0=hmod%Twhim !Units are [K]
 
                 !Factors to convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
                 win_freegas=win_freegas*(rho0/(mp*cosm%mup))*(kb*T0) !Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
