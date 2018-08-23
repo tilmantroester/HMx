@@ -549,7 +549,7 @@ PROGRAM HMx_driver
                     
                  ELSE IF(ihm==3 .OR. ihm==14) THEN
                     
-                     IF(z==0.) THEN
+                    IF(z==0.) THEN
                        hmod%alpha=0.428
                        hmod%eps=10**(0.015)
                        hmod%Gamma=1.287
@@ -1746,16 +1746,15 @@ PROGRAM HMx_driver
               param=progression(param_min,param_max,i,m)
            END IF
 
+           CALL assign_halomod(ihm,hmod,verbose)
+
            IF(ipa==1) hmod%alpha=param
            IF(ipa==2) hmod%eps=param
            IF(ipa==3) hmod%Gamma=param
            IF(ipa==4) hmod%M0=param
            IF(ipa==5) hmod%Astar=param
            IF(ipa==6) hmod%Twhim=param
-
-           STOP 'CHANGED COSM -> HMOD: check carefully'
-
-           CALL assign_halomod(ihm,hmod,verbose)
+           
            CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
            CALL print_halomod(hmod,cosm,verbose)
 
