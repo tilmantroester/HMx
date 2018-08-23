@@ -13,8 +13,17 @@ FFLAGS = $(HMX_FFLAGS) -std=gnu -ffree-line-length-none
 all: bin lib
 else
 # With cosmosis
+ifeq ($(COSMOSIS_STANDALONE),)
+# Standard cosmosis
 include $(COSMOSIS_SRC_DIR)/config/compilers.mk
 COSMOSIS_FFLAGS := $(FFLAGS)
+USER_LDFLAGS = -lcosmosis_fortran
+else
+# Standalone cosmosis
+include $(COSMOSIS_SRC_DIR)/cosmosis/compilers.mk
+COSMOSIS_FFLAGS := $(FFLAGS)
+USER_LDFLAGS = -Wl,-rpath,$(COSMOSIS_SRC_DIR)/cosmosis/datablock
+endif
 FFLAGS = $(HMX_FFLAGS) $(COSMOSIS_FFLAGS)
 all: bin lib cosmosis
 endif
@@ -107,7 +116,7 @@ $(LIB_DIR)/libhmx.a: $(OBJ)
 # Rule to make cosmosis interface
 $(LIB_DIR)/HMx_cosmosis_interface.so: $(SRC_DIR)/cosmosis_interface.f90
 	@echo "\nBuilding cosmosis interface.\n"
-	$(FC) $(FFLAGS) -shared -o $@ $^ -L$(LIB_DIR) -lhmx $(LDFLAGS) -Wl,-rpath,$(COSMOSIS_SRC_DIR)/cosmosis/datablock -lcosmosis -lcosmosis_fortran -I$(BUILD_DIR) -J$(BUILD_DIR)
+	$(FC) $(FFLAGS) -shared -o $@ $^ -L$(LIB_DIR) -lhmx $(LDFLAGS) -lcosmosis -I$(BUILD_DIR) -J$(BUILD_DIR)
 
 # Clean up
 .PHONY: clean
