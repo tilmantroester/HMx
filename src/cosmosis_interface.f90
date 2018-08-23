@@ -143,7 +143,7 @@ function execute(block, config) result(status)
   type(HMx_setup_config), pointer :: HMx_config
   integer :: i
   integer, dimension(:) :: fields(2)
-  real(8) :: log10_eps, log10_M0, log10_whim
+  real(8) :: log10_eps, log10_M0, log10_Twhim
   real(8), dimension(:), allocatable :: k_plin, z_plin
   real(8), dimension(:,:), allocatable :: pk_lin, pk_1h, pk_2h, pk_full
   character(len=256) :: pk_section
@@ -195,7 +195,7 @@ function execute(block, config) result(status)
   status = datablock_get_double(block, halo_model_parameters_section, "Gamma", HMx_config%hm%Gamma)
   status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", log10(HMx_config%hm%M0), log10_M0)
   status = datablock_get_double(block, halo_model_parameters_section, "Astar", HMx_config%hm%Astar)
-  status = datablock_get_double_default(block, halo_model_parameters_section, "log10_whim", log10(HMx_config%hm%whim), log10_whim)
+  status = datablock_get_double_default(block, halo_model_parameters_section, "log10_Twhim", log10(HMx_config%hm%Twhim), log10_Twhim)
   status = datablock_get_double(block, halo_model_parameters_section, "rstar", HMx_config%hm%rstar)
   status = datablock_get_double(block, halo_model_parameters_section, "sstar", HMx_config%hm%sstar)
   status = datablock_get_double(block, halo_model_parameters_section, "mstar", HMx_config%hm%mstar)
@@ -203,7 +203,7 @@ function execute(block, config) result(status)
   ! Exponentiate those parameters that will be explored in log space
   HMx_config%hm%eps = 10**log10_eps
   HMx_config%hm%M0 = 10**log10_M0
-  HMx_config%hm%whim = 10**log10_whim
+  HMx_config%hm%Twhim = 10**log10_Twhim
 
   if(trim(HMx_config%p_lin_source) == "external") then
      status = datablock_get_double_grid(block, matter_power_lin_section, &
@@ -231,7 +231,7 @@ function execute(block, config) result(status)
     !  WRITE(*,*) "Gamma    :", HMx_config%hm%Gamma
     !  WRITE(*,*) "M0       :", HMx_config%hm%M0
     !  WRITE(*,*) "Astar    :", HMx_config%hm%Astar
-    !  WRITE(*,*) "whim     :", HMx_config%hm%whim
+    !  WRITE(*,*) "Twhim    :", HMx_config%hm%Twhim
     !  WRITE(*,*) "rstar    :", HMx_config%hm%rstar
     !  WRITE(*,*) "sstar    :", HMx_config%hm%sstar
     !  WRITE(*,*) "mstar    :", HMx_config%hm%mstar
