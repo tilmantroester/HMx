@@ -58,7 +58,7 @@ dsim='all'
 csim='dm'
 gsim='gas'
 ssim='stars'
-psim='pressure'
+psim='epressure'
 
 #Name of halo-model power spectrum types
 types_density='dd dc cc dg gg ds ss'
@@ -76,7 +76,7 @@ Lp=5
 #power columns for simulation power spectra files
 cs=2
 ss=3
-Ls=4
+Ls=5
 
 #Masses to plot
 m1=13
@@ -246,9 +246,9 @@ set label '{/Symbol d}s'           at graph 0.02,0.15
 plot for [i=1:n] power(param,i,'dd') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] power(param,i,'dg') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [i=1:n] power(param,i,'ds') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     simulation(sim_name,snap,dsim,dsim) u 1:($2-$3) w p pt 2 lc 'black' ti sim_title,\
-     simulation(sim_name,snap,dsim,gsim) u 1:($2-$3) w p pt 2 lc 'black' noti,\
-     simulation(sim_name,snap,dsim,ssim) u 1:($2-$3) w p pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,dsim,dsim) u 1:($2-$3):5 w e pt 2 lc 'black' ti sim_title,\
+     simulation(sim_name,snap,dsim,gsim) u 1:($2-$3):5 w e pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,dsim,ssim) u 1:($2-$3):5 w e pt 2 lc 'black' noti,\
 
 unset label
 
@@ -404,9 +404,9 @@ set label pplab at graph 0.03,0.10
 set key top left
 
 plot for [j=1:words(types_pressure)] for [i=1:n] power(param,i,word(types_pressure,j)) u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     simulation(sim_name,snap,dsim,dsim) u 1:2 w p pt 2 lc 'black' ti sim_title,\
-     simulation(sim_name,snap,dsim,psim) u 1:2 w p pt 2 lc 'black' noti,\
-     simulation(sim_name,snap,psim,psim) u 1:2 w p pt 2 lc 'black' noti
+     simulation(sim_name,snap,dsim,dsim) u 1:($2-$3):5 w e pt 2 lc 'black' ti sim_title,\
+     simulation(sim_name,snap,dsim,psim) u 1:($2-$3):5 w e pt 2 lc 'black' noti,\
+     simulation(sim_name,snap,psim,psim) u 1:($2-$3):5 w e pt 2 lc 'black' noti
 
 unset label
 
@@ -496,7 +496,8 @@ unset label
 
 set xrange[rmin:rmax/dx]
 set xlabel rlab
-set format x '10^{%T}'
+#set format x '10^{%T}'
+set format x
 
 set yrange [premin*dy:premax/dy]
 
