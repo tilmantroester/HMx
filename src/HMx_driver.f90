@@ -147,7 +147,7 @@ PROGRAM HMx_driver
      !Initiliasation for the halomodel calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-     CALL print_halomod(z,hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
 
      !Do the halo-model calculation
      CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
@@ -215,7 +215,7 @@ PROGRAM HMx_driver
            ! Initialise the halo-model calculation
            CALL assign_halomod(ihm,hmod,verbose)
            CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-           CALL print_halomod(z,hmod,cosm,verbose)
+           CALL print_halomod(hmod,cosm,verbose)
 
            ! Do the halo-model calculation
            CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
@@ -485,10 +485,6 @@ PROGRAM HMx_driver
                  hmod%Astar=0.01
               END IF
 
-              !Need to do this after cosmological parameters are changed
-              !CALL init_cosmology(cosm)
-              !CALL print_cosmology(cosm)
-
            END IF
 
            !BAHAMAS
@@ -509,21 +505,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.205
                        hmod%M0=10**(13.823)
                        hmod%Astar=0.029
-                       hmod%whim=10**(5.754)
+                       hmod%Twhim=10**(5.754)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.537
                        hmod%eps=10**(-0.209)
                        hmod%Gamma=1.163
                        hmod%M0=10**(13.964)
                        hmod%Astar=0.024
-                       hmod%whim=10**(5.750)
+                       hmod%Twhim=10**(5.750)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.755
                        hmod%eps=10**(-0.985)
                        hmod%Gamma=1.162
                        hmod%M0=10**(13.673)
                        hmod%Astar=0.019
-                       hmod%whim=10**(5.057)
+                       hmod%Twhim=10**(5.057)
                     END IF
                     
                  ELSE IF(ihm==6) THEN
@@ -534,21 +530,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.399
                        hmod%M0=10**(13.807)
                        hmod%Astar=0.020
-                       hmod%whim=10**(6.049)
+                       hmod%Twhim=10**(6.049)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.619
                        hmod%eps=10**(-0.309)
                        hmod%Gamma=1.507
                        hmod%M0=10**(14.937)
                        hmod%Astar=0.021
-                       hmod%whim=10**(5.987)
+                       hmod%Twhim=10**(5.987)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.384
                        hmod%eps=10**(-0.475)
                        hmod%Gamma=1.183
                        hmod%M0=10**(14.562)
                        hmod%Astar=0.017
-                       hmod%whim=10**(5.796)
+                       hmod%Twhim=10**(5.796)
                     END IF
                     
                  ELSE IF(ihm==3 .OR. ihm==14) THEN
@@ -559,21 +555,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.287
                        hmod%M0=10**(13.233)
                        hmod%Astar=0.030
-                       hmod%whim=10**(5.404)
+                       hmod%Twhim=10**(5.404)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.742
                        hmod%eps=10**(0.148)
                        hmod%Gamma=1.516
                        hmod%M0=10**(12.688)
                        hmod%Astar=0.026
-                       hmod%whim=10**(5.531)
+                       hmod%Twhim=10**(5.531)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.830
                        hmod%eps=10**(0.169)
                        hmod%Gamma=1.487
                        hmod%M0=10**(12.004)
                        hmod%Astar=0.024
-                       hmod%whim=10**(5.643)
+                       hmod%Twhim=10**(5.643)
                     END IF
 
                  ELSE
@@ -597,21 +593,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.211
                        hmod%M0=10**(14.316)
                        hmod%Astar=0.026
-                       hmod%whim=10**(5.801)
+                       hmod%Twhim=10**(5.801)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.599
                        hmod%eps=10**(-0.686)
                        hmod%Gamma=1.158
                        hmod%M0=10**(14.455)
                        hmod%Astar=0.022
-                       hmod%whim=10**(5.849)
+                       hmod%Twhim=10**(5.849)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.659
                        hmod%eps=10**(-1.993)
                        hmod%Gamma=1.151
                        hmod%M0=10**(14.386)
                        hmod%Astar=0.018
-                       hmod%whim=10**(5.829)
+                       hmod%Twhim=10**(5.829)
                     END IF
 
                  ELSE IF(ihm==6) THEN
@@ -622,21 +618,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.339
                        hmod%M0=10**(14.662)
                        hmod%Astar=0.026
-                       hmod%whim=10**(6.080)
+                       hmod%Twhim=10**(6.080)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.751
                        hmod%eps=10**(-0.013)
                        hmod%Gamma=1.502
                        hmod%M0=10**(14.958)
                        hmod%Astar=0.014
-                       hmod%whim=10**(5.959)
+                       hmod%Twhim=10**(5.959)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.371
                        hmod%eps=10**(-0.127)
                        hmod%Gamma=1.101
                        hmod%M0=10**(14.966)
                        hmod%Astar=0.018
-                       hmod%whim=10**(6.040)
+                       hmod%Twhim=10**(6.040)
                     END IF
 
                  ELSE IF(ihm==3 .OR. ihm==14) THEN
@@ -647,21 +643,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.505
                        hmod%M0=10**(13.638)
                        hmod%Astar=0.027
-                       hmod%whim=10**(5.078)
+                       hmod%Twhim=10**(5.078)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.742
                        hmod%eps=10**(0.125)
                        hmod%Gamma=1.547
                        hmod%M0=10**(13.481)
                        hmod%Astar=0.024
-                       hmod%whim=10**(5.786)
+                       hmod%Twhim=10**(5.786)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.918
                        hmod%eps=10**(0.289)
                        hmod%Gamma=1.996
                        hmod%M0=10**(13.022)
                        hmod%Astar=0.022
-                       hmod%whim=10**(5.849)
+                       hmod%Twhim=10**(5.849)
                     END IF
 
                  ELSE
@@ -685,21 +681,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.199
                        hmod%M0=10**(13.517)
                        hmod%Astar=0.031
-                       hmod%whim=10**(5.767)
+                       hmod%Twhim=10**(5.767)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.491
                        hmod%eps=10**(-0.104)
                        hmod%Gamma=1.158
                        hmod%M0=10**(13.663)
                        hmod%Astar=0.025
-                       hmod%whim=10**(5.721)
+                       hmod%Twhim=10**(5.721)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.532
                        hmod%eps=10**(-0.990)
                        hmod%Gamma=1.079
                        hmod%M0=10**(13.815)
                        hmod%Astar=0.021
-                       hmod%whim=10**(5.601)
+                       hmod%Twhim=10**(5.601)
                     END IF
 
                  ELSE IF(ihm==6) THEN
@@ -710,21 +706,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.432
                        hmod%M0=10**(13.632)
                        hmod%Astar=0.023
-                       hmod%whim=10**(6.099)
+                       hmod%Twhim=10**(6.099)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.420
                        hmod%eps=10**(-0.413)
                        hmod%Gamma=1.467
                        hmod%M0=10**(14.606)
                        hmod%Astar=0.021
-                       hmod%whim=10**(5.874)
+                       hmod%Twhim=10**(5.874)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.715
                        hmod%eps=10**(-0.405)
                        hmod%Gamma=1.154
                        hmod%M0=10**(14.786)
                        hmod%Astar=0.019
-                       hmod%whim=10**(5.434)
+                       hmod%Twhim=10**(5.434)
                     END IF
 
                  ELSE IF(ihm==3 .OR. ihm==14) THEN
@@ -735,21 +731,21 @@ PROGRAM HMx_driver
                        hmod%Gamma=1.275
                        hmod%M0=10**(12.737)
                        hmod%Astar=0.032
-                       hmod%whim=10**(5.357)
+                       hmod%Twhim=10**(5.357)
                     ELSE IF(z==0.5) THEN
                        hmod%alpha=0.698
                        hmod%eps=10**(0.159)
                        hmod%Gamma=1.393
                        hmod%M0=10**(12.012)
                        hmod%Astar=0.028
-                       hmod%whim=10**(5.491)
+                       hmod%Twhim=10**(5.491)
                     ELSE IF(z==1. .OR. z==2.) THEN
                        hmod%alpha=0.832
                        hmod%eps=10**(0.312)
                        hmod%Gamma=1.344
                        hmod%M0=10**(12.020)
                        hmod%Astar=0.025
-                       hmod%whim=10**(5.723)
+                       hmod%Twhim=10**(5.723)
                     END IF
 
                  ELSE
@@ -767,7 +763,7 @@ PROGRAM HMx_driver
             
            !Initiliasation for the halomodel calcualtion after variables changed
            CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-           CALL print_halomod(z,hmod,cosm,verbose)
+           CALL print_halomod(hmod,cosm,verbose)
 
            !Runs the diagnostics
            IF(imode==2) THEN
@@ -858,7 +854,7 @@ PROGRAM HMx_driver
         !Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-        CALL print_halomod(z,hmod,cosm,verbose)
+        CALL print_halomod(hmod,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -898,9 +894,9 @@ PROGRAM HMx_driver
         !Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-        CALL print_halomod(z,hmod,cosm,verbose)
+        CALL print_halomod(hmod,cosm,verbose)
 
-        WRITE(*,fmt='(A12,6F12.6)') 'Parameters:', hmod%alpha, hmod%eps, hmod%Gamma, log10(hmod%M0), hmod%Astar, log10(hmod%whim)
+        WRITE(*,fmt='(A12,6F12.6)') 'Parameters:', hmod%alpha, hmod%eps, hmod%Gamma, log10(hmod%M0), hmod%Astar, log10(hmod%Twhim)
 
         !Do the halo-model calculation
         DO j1=0,6
@@ -963,7 +959,7 @@ PROGRAM HMx_driver
         !Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-        CALL print_halomod(z,hmod,cosm,verbose)
+        CALL print_halomod(hmod,cosm,verbose)
 
         !Runs the diagnostics
         dir='diagnostics'
@@ -1359,7 +1355,7 @@ PROGRAM HMx_driver
               !Initiliasation for the halomodel calcualtion
               CALL assign_halomod(ihm,hmod,verbose)
               CALL init_halomod(m1,m2,z,hmod,cosm,verbose)
-              CALL print_halomod(z,hmod,cosm,verbose)
+              CALL print_halomod(hmod,cosm,verbose)
               CALL calculate_halomod(ip(1),ip(2),k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),hmod,cosm,verbose,response=.FALSE.)
 
               !Write progress to screen
@@ -1679,7 +1675,7 @@ PROGRAM HMx_driver
      !Initiliasation for the halo-model calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-     CALL print_halomod(z,hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
 
      !DMONLY
      j1=-1
@@ -1755,13 +1751,13 @@ PROGRAM HMx_driver
            IF(ipa==3) hmod%Gamma=param
            IF(ipa==4) hmod%M0=param
            IF(ipa==5) hmod%Astar=param
-           IF(ipa==6) hmod%whim=param
+           IF(ipa==6) hmod%Twhim=param
 
            STOP 'CHANGED COSM -> HMOD: check carefully'
 
            CALL assign_halomod(ihm,hmod,verbose)
            CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-           CALL print_halomod(z,hmod,cosm,verbose)
+           CALL print_halomod(hmod,cosm,verbose)
 
            !DO NOT DELETE THIS
            !It is only used to print values to the screen later
@@ -1869,7 +1865,7 @@ PROGRAM HMx_driver
      ihm=4
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-     CALL print_halomod(z,hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
 
      !Make the Figure
      CALL YinZhe_Fig1(z,hmod,cosm)
@@ -1979,7 +1975,7 @@ PROGRAM HMx_driver
         ! Initiliasation for the halomodel calcualtion
         CALL assign_halomod(ihm,hmod,verbose)
         CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-        CALL print_halomod(z,hmod,cosm,verbose)
+        CALL print_halomod(hmod,cosm,verbose)
 
         ! Do the halo-model calculation
         CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
@@ -2165,7 +2161,7 @@ PROGRAM HMx_driver
                  ! Initiliasation for the halomodel calcualtion
                  CALL assign_halomod(ihm,hmod,verbose)
                  CALL init_halomod(mmin,mmax,z,hmod,cosm,.FALSE.)
-                 CALL print_halomod(z,hmod,cosm,verbose)
+                 CALL print_halomod(hmod,cosm,verbose)
 
                  ! Do the halo-model calculation
                  CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
@@ -2247,7 +2243,7 @@ PROGRAM HMx_driver
      ! Initiliasation for the halomodel calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-     CALL print_halomod(z,hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
      CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
      
      ! Write out the results
@@ -2329,7 +2325,8 @@ PROGRAM HMx_driver
      pnew(12)=1.85
 
      ! Set the ranges (sigma) for the parameters
-     prange=0.
+     ! TODO: Make this cleverer
+     !CALL set_ranges(prange,)
      !prange(1)=ABS(pnew(1))/100.
      prange=ABS(pnew)/1e3
 
@@ -2350,6 +2347,43 @@ PROGRAM HMx_driver
            ! Set to best-fitting parameters on last go
            pnew=pbest           
         ELSE
+
+!!$           ! NEW !
+!!$           ! Set the jumping range
+!!$           DO ii=1,np
+!!$
+!!$              DO i=1,ncos
+!!$
+!!$                 ! Set HMcode parameters
+!!$                 hmods(i)%Dv0=pnew(1)
+!!$                 hmods(i)%Dv1=pnew(2)
+!!$                 hmods(i)%dc0=pnew(3)
+!!$                 hmods(i)%dc1=pnew(4)
+!!$                 hmods(i)%eta0=pnew(5)
+!!$                 hmods(i)%eta1=pnew(6)
+!!$                 hmods(i)%f0=pnew(7)
+!!$                 hmods(i)%f1=pnew(8)
+!!$                 hmods(i)%ks=pnew(9)
+!!$                 hmods(i)%A=pnew(10)
+!!$                 hmods(i)%alp0=pnew(11)
+!!$                 hmods(i)%alp1=pnew(12)
+!!$
+!!$                 DO j=1,nz
+!!$
+!!$                    ! Initialise the halo-model calculation
+!!$                    CALL init_halomod(mmin,mmax,zs(j),hmods(i),cosms(i),verbose=.FALSE.)
+!!$                    CALL print_halomod(hmod,cosm,verbose=.FALSE.)
+!!$
+!!$                    ! Calculate the halo-model power spectrum
+!!$                    CALL calculate_halomod(ip(1),ip(2),ks_sim(:,j,i),nk,zs(j),pows_lin(:,j,i),pows_2h(:,j,i),pows_1h(:,j,i),pows_full(:,j,i),hmods(i),cosms(i),verbose=.FALSE.,response=.FALSE.)
+!!$
+!!$                 END DO
+!!$
+!!$              END DO
+!!$
+!!$           END DO
+!!$           ! NEW !
+
            ! Randomly jump parameters
            DO i=1,np
               pnew(i)=random_Gaussian(pold(i),prange(i))
@@ -2380,7 +2414,7 @@ PROGRAM HMx_driver
               
               ! Initialise the halo-model calculation
               CALL init_halomod(mmin,mmax,zs(j),hmods(i),cosms(i),verbose=.FALSE.)
-              CALL print_halomod(z,hmod,cosm,verbose=.FALSE.)
+              CALL print_halomod(hmod,cosm,verbose=.FALSE.)
 
               ! Calculate the halo-model power spectrum
               CALL calculate_halomod(ip(1),ip(2),ks_sim(:,j,i),nk,zs(j),pows_lin(:,j,i),pows_2h(:,j,i),pows_1h(:,j,i),pows_full(:,j,i),hmods(i),cosms(i),verbose=.FALSE.,response=.FALSE.)
@@ -2493,9 +2527,13 @@ PROGRAM HMx_driver
         END DO
         CLOSE(7)
 
-        ! Convert read-in z to a
-        a=1./(1.+a)
-
+        ! Convert read-in z to a; note that 'a' is the correct argument
+        ! for the function here because actually read-in a is z.
+        !a=1./(1.+a) ! Also correct
+        DO i=1,na
+           a(i)=scale_factor_z(a(i))
+        END DO
+           
         ! Assigns the cosmological model
         CALL assign_cosmology(icosmo,cosm,verbose_tests)
         CALL init_cosmology(cosm)
@@ -2556,6 +2594,23 @@ PROGRAM HMx_driver
   END IF
 
 CONTAINS
+
+  SUBROUTINE set_ranges(p,sigma,n)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: p(n)
+    REAL, INTENT(OUT) :: sigma(n)
+    INTEGER, INTENT(IN) :: n
+    INTEGER :: i
+
+    REAL, PARAMETER :: dp=1e-3
+    REAL, PARAMETER :: d=1e-3
+
+    DO i=1,n
+       
+    END DO
+    
+  END SUBROUTINE set_ranges
 
   CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
 
@@ -2934,8 +2989,8 @@ CONTAINS
     
     hmod%Astar=random_uniform(Astar_min,Astar_max)
 
-    hmod%whim=random_uniform(log(whim_min),log(whim_max))
-    hmod%whim=exp(hmod%whim)
+    hmod%Twhim=random_uniform(log(whim_min),log(whim_max))
+    hmod%Twhim=exp(hmod%Twhim)
     
   END SUBROUTINE random_baryon_parameters
 
