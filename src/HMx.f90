@@ -1307,7 +1307,7 @@ CONTAINS
     INTEGER :: i
 
     !Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=17 !Number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=19 !Number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate halo-model calculation (Mead et al. 2016)'
     names(2)='Basic halo-model calculation (Two-halo term is linear)'
@@ -1325,7 +1325,9 @@ CONTAINS
     names(14)='Experimental scale-dependent halo bias'
     names(15)='Accurate halo-model calculation (Mead et al. 2018) ...'
     names(16)='Halo-void model'
-    names(17)='HMx'
+    names(17)='HMx - AGN 7.6'
+    names(18)='HMx - AGN 7.8'
+    names(19)='HMx - AGN 8.0'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -1654,10 +1656,23 @@ CONTAINS
     ELSE IF(ihm==16) THEN
        !16 - Halo-void model
        hmod%voids=.TRUE.
-    ELSE IF(ihm==17) THEN
-       !17 - HMx
+    ELSE IF(ihm==17 .OR. ihm==18 .OR. ihm==19) THEN
+       !17, 18, 19 - HMx
        hmod%fixed_HMx=.FALSE.
-       hmod%Theat=10**7.8
+       hmod%itrans=4
+       hmod%ikstar=2
+       hmod%i1hdamp=3
+       hmod%safe_negative=.TRUE.
+       IF(ihm==17) THEN
+          ! 17 - AGN 7.6
+          hmod%Theat=10**7.6
+       ELSE IF(ihm==18) THEN
+          ! 18 - AGN 7.8
+          hmod%Theat=10**7.8
+       ELSE IF(ihm==19) THEN
+          ! 19 - AGN 8.0
+          hmod%Theat=10**8.0
+       END IF
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -2262,7 +2277,7 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    gas_correction=(1.+(hmod%eps-1.)*halo_boundgas_fraction(m,hmod,cosm)/(cosm%Om_b/cosm%Om_m))
+    gas_correction=(1.+(HMx_eps(hmod)-1.)*halo_boundgas_fraction(m,hmod,cosm)/(cosm%Om_b/cosm%Om_m))
     
   END FUNCTION gas_correction
 
@@ -2930,7 +2945,7 @@ CONTAINS
        END IF
        rmin=0.
        rmax=rv
-       p1=hmod%Gamma
+       p1=HMx_Gamma(hmod)
     ELSE IF(imod==2) THEN
        irho_density=6 ! Set cored isothermal profile with beta=2/3 
        irho_electron_pressure=irho_density ! okay to use density for electron pressure because temperature is constant
@@ -3077,7 +3092,7 @@ CONTAINS
              irho_electron_pressure=13 !KS
              rmin=rv
              rmax=2.*rv
-             p1=hmod%Gamma
+             p1=HMx_Gamma(hmod)
 
           ELSE IF(imod==5) THEN
 
@@ -3099,7 +3114,7 @@ CONTAINS
                 !Calculate the KS index at the virial radius
                 c=rv/rs
                 beta=(c-(1.+c)*log(1.+c))/((1.+c)*log(1.+c))
-                beta=beta/(hmod%Gamma-1.) !This is the power-law index at the virial radius for the KS gas profile
+                beta=beta/(HMx_Gamma(hmod)-1.) !This is the power-law index at the virial radius for the KS gas profile
                 p1=beta
                 !WRITE(*,*) 'Beta:', beta, log10(m)
                 IF(beta<=-3.) beta=-2.9 !If beta<-3 then there is only a finite amount of gas allowed in the free component
@@ -3206,7 +3221,7 @@ CONTAINS
                 rho0=rho0*cosm%h**2 !Absorb factors of h, so now [kg/m^3]
 
                 !This is the total thermal pressure of the WHIM
-                T0=hmod%Twhim !Units are [K]
+                T0=HMx_Twhim(hmod) !Units are [K]
 
                 !Factors to convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
                 win_freegas=win_freegas*(rho0/(mp*cosm%mup))*(kb*T0) !Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
@@ -4842,7 +4857,7 @@ CONTAINS
     ELSE IF(imod==2) THEN
        !From Schneider (2015)
        !m0=1.2d14
-       M0=hmod%M0
+       M0=HMx_M0(hmod)
        beta=0.6
        halo_boundgas_fraction=(cosm%om_b/cosm%om_m)/(1.+(M0/m)**beta)
     ELSE IF(imod==3) THEN
@@ -4892,7 +4907,7 @@ CONTAINS
        !Fedeli (2014)
        !A=0.02
        !IF(variation) A=param(5)
-       A=hmod%Astar
+       A=HMx_Astar(hmod)
        m0=hmod%Mstar
        sigma=hmod%sstar
        halo_star_fraction=A*exp(-((log10(m/m0))**2)/(2.*sigma**2))

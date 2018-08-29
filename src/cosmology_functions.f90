@@ -1987,7 +1987,7 @@ CONTAINS
 
     REAL, PARAMETER :: Rsplit=1e-2
 
-    ! TODO: Optimize Rsplit, alpha, beta
+    ! TODO: Optimize Rsplit, alpha, beta, not really a problem when only called for R = 0, 100 Mpc/h
 
     IF(t==0. .OR. t==1.) THEN
        ! t=0 corresponds to k=infintiy when W(kR)=0
@@ -3117,7 +3117,7 @@ CONTAINS
     WRITE(7,*) 'l_sample_boost = 1'
     CLOSE(7)
 
-    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Running CAMB'
+    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Running CAMB (note weird problems with this function in library)'
     CALL SYSTEM('rm /Users/Mead/Physics/CAMB_files/tmp/temp_transfer_out.dat')
     CALL SYSTEM('rm /Users/Mead/Physics/CAMB_files/tmp/temp_matterpower.dat')
     IF(cosm%verbose) THEN
@@ -3214,7 +3214,7 @@ CONTAINS
     cosm%n=random_uniform(n_min,n_max)
 
     cosm%w=random_uniform(w_min,w_max)
-    cosm%w=-1.
+    !cosm%w=-1.
 
     ! Enforce 0.3 <= (-w0-wa)^(1/4)
     DO
