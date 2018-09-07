@@ -48,14 +48,15 @@ project(HMx LANGUAGES Fortran VERSION 0.0.1)
     set(CMAKE_Fortran_FLAGS "${HMX_FFLAGS} -std=gnu -ffree-line-length-none")
 
     if(COSMOSIS_FOUND)
-        add_library(cosmosis_interface MODULE src/cosmosis_interface.f90)
-        add_dependencies(cosmosis_interface hmx)
+        add_library(hmx_cosmosis_interface MODULE src/cosmosis_interface.f90)
+        add_dependencies(hmx_cosmosis_interface hmx)
         include_directories("${COSMOSIS_INCLUDE_DIR}")
-        target_link_libraries(cosmosis_interface ${COSMOSIS_LIB} hmx)
+        target_link_libraries(hmx_cosmosis_interface ${COSMOSIS_LIB} hmx)
 
-        set_target_properties(cosmosis_interface PROPERTIES PREFIX "")
+        set_target_properties(hmx_cosmosis_interface PROPERTIES PREFIX "")
+        set_target_properties(hmx_cosmosis_interface PROPERTIES OUTPUT_NAME "cosmosis_interface")
 
-        install(TARGETS cosmosis_interface
+        install(TARGETS hmx_cosmosis_interface
                 LIBRARY DESTINATION lib)
     endif()
 
