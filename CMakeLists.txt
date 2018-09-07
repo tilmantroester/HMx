@@ -1,14 +1,8 @@
 cmake_minimum_required(VERSION 3.2)
 
-# Adding customized cmake module
-list(APPEND CMAKE_MODULE_PATH  "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-
 project(HMx LANGUAGES Fortran VERSION 0.0.1)
-    if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-        set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR} CACHE PATH "Setting install prefix to CMAKE_SOURCE_DIR" FORCE)
-        message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
-    endif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-
+    set(PROJECT_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
+    
     option(BUILD_INTERFACE "Build the CosmoSIS interface" OFF)
     option(BUILD_HMX_EXECUTABLE "Build HMx executable" ON)
     option(BUILD_TESTS "Build tests." ON)
@@ -16,6 +10,10 @@ project(HMx LANGUAGES Fortran VERSION 0.0.1)
     option(DEBUG "Build with debugging settings" OFF)
 
     enable_language(Fortran)
+
+    # Adding customized cmake module
+    list(APPEND CMAKE_MODULE_PATH  "${PROJECT_SOURCE_DIR}/cmake/Modules/")
+
 
     if(BUILD_INTERFACE)
         find_package(CosmoSIS REQUIRED)
@@ -56,7 +54,7 @@ project(HMx LANGUAGES Fortran VERSION 0.0.1)
         set_target_properties(cosmosis_interface PROPERTIES PREFIX "")
 
         install(TARGETS cosmosis_interface
-                LIBRARY DESTINATION lib)
+                LIBRARY DESTINATION ${PROJECT_INSTALL_PREFIX}/lib)
     endif()
 
     if(BUILD_HMX_EXECUTABLE)
@@ -66,7 +64,7 @@ project(HMx LANGUAGES Fortran VERSION 0.0.1)
         set_target_properties(hmx_exec PROPERTIES OUTPUT_NAME "HMx")
 
         install(TARGETS hmx_exec
-                RUNTIME DESTINATION bin)
+                RUNTIME DESTINATION ${PROJECT_INSTALL_PREFIX}/bin)
     endif(BUILD_HMX_EXECUTABLE)
 
     if(BUILD_TESTS)
@@ -75,12 +73,12 @@ project(HMx LANGUAGES Fortran VERSION 0.0.1)
         target_link_libraries(test_gas_gas hmx)
 
         install(TARGETS test_gas_gas
-                RUNTIME DESTINATION bin/tests)
+                RUNTIME DESTINATION ${PROJECT_INSTALL_PREFIX}/bin/tests)
     endif(BUILD_TESTS)
 
     install(TARGETS hmx
-            LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib)
+            LIBRARY DESTINATION ${PROJECT_INSTALL_PREFIX}/lib
+            ARCHIVE DESTINATION ${PROJECT_INSTALL_PREFIX}/lib)
 
     # Adds uninstall target
     if(NOT TARGET uninstall)
