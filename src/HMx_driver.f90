@@ -2797,8 +2797,7 @@ PROGRAM HMx_driver
            hmod%z=progression(zmin,zmax,i,nz)
            WRITE(7,*) hmod%z, HMx_alpha(hmod), HMx_eps(hmod), HMx_Gamma(hmod), HMx_M0(hmod), HMx_Astar(hmod), HMx_Twhim(hmod)
         END DO
-        CLOSE(7)make
-        
+        CLOSE(7)
         
      END DO
      
