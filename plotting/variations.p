@@ -21,18 +21,18 @@ UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat'
 
 #Fix the parameter to plot
 if(!exists("param")){param=1}
-if(param==1){pname='{/Symbol a}';       min=0.1;   max=1.1;   ilog=0; coll='light-blue'}
-if(param==2){pname='{/Symbol e}';       min=0.5;   max=20.;   ilog=1; coll='pink'}
-if(param==3){pname='{/Symbol G}';       min=1.15;  max=1.25;  ilog=0; coll='orange'}
+if(param==1){pname='{/Symbol a}';       min=0.05;  max=0.65;  ilog=0; coll='light-blue'}
+if(param==2){pname='{/Symbol e}';       min=0.5;   max=2.0;   ilog=1; coll='pink'}
+if(param==3){pname='{/Symbol G}';       min=1.12;  max=1.22;  ilog=0; coll='orange'}
 if(param==4){pname='M_B / M_{'.sun.'}'; min=1e13;  max=1e15;  ilog=1; coll='light-green'}
-if(param==5){pname='A_*';               min=0.01;  max=0.03;  ilog=0; coll='gold'}
+if(param==5){pname='A_*';               min=0.02;  max=0.04;  ilog=0; coll='gold'}
 if(param==6){pname='T_{WHIM} / K';      min=1e5;   max=1e7;   ilog=1; coll='cyan'}
 print 'Comparison for parameter (set with *param*): '.param.''
 
 #Output figure
 if(!exists('type')){type='matter'}
-if(type eq 'matter'){outfile(i)=sprintf('variations_matter_param_%i.eps',i)}
-if(type eq 'pressure'){outfile(i)=sprintf('variations_pressure_param_%i.eps',i)}
+if(type eq 'matter'){outfile(i)=sprintf('paper/variations_matter_param_%i.eps',i)}
+if(type eq 'pressure'){outfile(i)=sprintf('paper/variations_pressure_param_%i.eps',i)}
 if(print==1){set output outfile(param); print 'Output: ', outfile(param)}
 
 print 'Type of comparison (set with *type*): '.type.''
@@ -417,6 +417,7 @@ plot for [j=1:words(types_pressure)] for [i=1:n] power(param,i,word(types_pressu
      simulation(sim_name,snap,dsim,psim) u 1:($2-$3):5 w e pt 2 lc 'black' noti,\
      simulation(sim_name,snap,psim,psim) u 1:($2-$3):5 w e pt 2 lc 'black' noti
 
+unset colorbox
 unset label
 
 ### ###
