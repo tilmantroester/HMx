@@ -1326,7 +1326,7 @@ CONTAINS
     IF(cosm%itk==1) THEN
        Tk=Tk_eh(k,cosm)
     ELSE IF(cosm%itk==3) THEN
-       Tk=Tk_defw(k,cosm)
+       Tk=Tk_DEFW(k,cosm)
     ELSE
        STOP 'TK: Error, itk specified incorrectly'
     END IF
