@@ -95,7 +95,7 @@ PROGRAM HMx_driver
   IF(imode==-1) THEN
      WRITE(*,*) 'HMx_DRIVER: Choose what to do'
      WRITE(*,*) '============================='
-     WRITE(*,*) ' 0 - Matter power spectrum at z = 0'
+     WRITE(*,*) ' 0 - Gravity-only power spectrum at z = 0'
      WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
      WRITE(*,*) ' 2 - Produce all halo components cross and auto spectra'
      WRITE(*,*) ' 3 - Run diagnostics'
@@ -129,6 +129,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '31 - PAPER: Breakdown power in halo mass'
      WRITE(*,*) '32 - PAPER: Hydro power'
      WRITE(*,*) '33 - PAPER: Variations'
+     WRITE(*,*) '34 - HMx hydro parameters'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -174,68 +175,6 @@ PROGRAM HMx_driver
         END DO
         CLOSE(8)
      END IF
-
-  ELSE IF(imode==19) THEN
-
-     ! Set number of k points and k range (log spaced)
-     IF(Alonso_k) THEN
-        ! This is *almost* kmin=1e-4, kmax=1e2, but minus the end points
-        nk=256
-        kmin=1.027350768179302566e-04
-        kmax=9.733773809039202263e+01
-     ELSE
-        nk=128
-        kmin=1e-3
-        kmax=1e1
-     END IF
-     CALL fill_array(log(kmin),log(kmax),k,nk)
-     k=exp(k)
-     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
-
-     ! Set the halo model to that for CCL tests
-     ihm=9
-
-     ! Loop over tests
-     DO j=1,3
-
-        ! Assigns the cosmological model
-        IF(j==1) icosmo=1
-        IF(j==2) icosmo=2
-        IF(j==3) icosmo=3
-        CALL assign_cosmology(icosmo,cosm,verbose)
-        CALL init_cosmology(cosm)
-        CALL print_cosmology(cosm)
-
-        ! Loop over redshifts
-        DO i=1,2
-
-           ! Sets the redshift and file names
-           IF(i==1) THEN
-              z=0.
-              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z0.txt'
-              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z0.txt'
-              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z0.txt'
-           ELSE IF(i==2) THEN
-              z=1.
-              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z1.txt'
-              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z1.txt'
-              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z1.txt'
-           END IF
-
-           ! Initialise the halo-model calculation
-           CALL assign_halomod(ihm,hmod,verbose)
-           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-           CALL print_halomod(hmod,cosm,verbose)
-
-           ! Do the halo-model calculation
-           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
-
-           ! Write out the results
-           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
-
-        END DO
-
-     END DO
 
   ELSE IF(imode==1) THEN
 
@@ -358,6 +297,68 @@ PROGRAM HMx_driver
         
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
         CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
+
+     END DO
+
+  ELSE IF(imode==19) THEN
+
+     ! Set number of k points and k range (log spaced)
+     IF(Alonso_k) THEN
+        ! This is *almost* kmin=1e-4, kmax=1e2, but minus the end points
+        nk=256
+        kmin=1.027350768179302566e-04
+        kmax=9.733773809039202263e+01
+     ELSE
+        nk=128
+        kmin=1e-3
+        kmax=1e1
+     END IF
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     ! Set the halo model to that for CCL tests
+     ihm=9
+
+     ! Loop over tests
+     DO j=1,3
+
+        ! Assigns the cosmological model
+        IF(j==1) icosmo=1
+        IF(j==2) icosmo=2
+        IF(j==3) icosmo=3
+        CALL assign_cosmology(icosmo,cosm,verbose)
+        CALL init_cosmology(cosm)
+        CALL print_cosmology(cosm)
+
+        ! Loop over redshifts
+        DO i=1,2
+
+           ! Sets the redshift and file names
+           IF(i==1) THEN
+              z=0.
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z0.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z0.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z0.txt'
+           ELSE IF(i==2) THEN
+              z=1.
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z1.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z1.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z1.txt'
+           END IF
+
+           ! Initialise the halo-model calculation
+           CALL assign_halomod(ihm,hmod,verbose)
+           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+           CALL print_halomod(hmod,cosm,verbose)
+
+           ! Do the halo-model calculation
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
+
+           ! Write out the results
+           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+
+        END DO
 
      END DO
 
@@ -2755,6 +2756,50 @@ PROGRAM HMx_driver
            END DO
         END DO
 
+     END DO
+
+  ELSE IF(imode==34) THEN
+
+     !Assigns the cosmological model
+     icosmo=4
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     !Sets the redshift
+     z=0.
+
+     !Initiliasation for the halomodel calcualtion
+     ihm=18
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
+
+     zmin=0.
+     zmax=4.
+     nz=101
+
+     DO j=1,3
+        
+        IF(j==1) THEN
+           outfile='data/HMx_params_AGN-lo.dat'
+           hmod%Theat=10**7.6
+        ELSE IF(j==2) THEN
+           outfile='data/HMx_params_AGN.dat'
+           hmod%Theat=10**7.8
+        ELSE IF(j==3) THEN
+           outfile='data/HMx_params_AGN-hi.dat'
+           hmod%Theat=10**8.0
+        END IF
+
+        OPEN(7,file=outfile)
+        DO i=1,nz
+           hmod%z=progression(zmin,zmax,i,nz)
+           WRITE(7,*) hmod%z, HMx_alpha(hmod), HMx_eps(hmod), HMx_Gamma(hmod), HMx_M0(hmod), HMx_Astar(hmod), HMx_Twhim(hmod)
+        END DO
+        CLOSE(7)make
+        
+        
      END DO
      
   ELSE

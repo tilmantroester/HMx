@@ -1080,6 +1080,7 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E
+    REAL, PARAMETER :: alpha_min=1e-2 ! Needs to be set at not zero
 
     IF(hmod%fixed_HMx) THEN
 
@@ -1099,6 +1100,8 @@ CONTAINS
        HMx_alpha=(A*(1.+z)**2+B*(1.+z)+C)*T**2+D*T+E
 
     END IF
+
+    IF(HMx_alpha<alpha_min) HMx_alpha=alpha_min
        
   END FUNCTION HMx_alpha
   
@@ -1133,6 +1136,7 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E
+    REAL, PARAMETER :: Gamma_max=2.
 
     IF(hmod%fixed_HMx) THEN
 
@@ -1152,6 +1156,8 @@ CONTAINS
        HMx_Gamma=(A*(1.+z)**2+B*(1.+z)+C)*T**2+D*T+E
 
     END IF
+
+    IF(HMx_Gamma>Gamma_max) HMx_Gamma=Gamma_max
        
   END FUNCTION HMx_Gamma
 
@@ -1188,6 +1194,7 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D
+    REAL, PARAMETER :: Astar_min=1e-3
 
     IF(hmod%fixed_HMx) THEN
 
@@ -1205,6 +1212,8 @@ CONTAINS
        HMx_Astar=A*(1.+z)*T+B*(1.+z)+C*T+D
 
     END IF
+
+    IF(HMx_Astar<Astar_min) HMx_Astar=Astar_min
        
   END FUNCTION HMx_Astar
 
