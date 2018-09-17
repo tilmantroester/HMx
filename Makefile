@@ -16,7 +16,6 @@ else
 include $(COSMOSIS_SRC_DIR)/config/compilers.mk
 COSMOSIS_FFLAGS := $(FFLAGS)
 USER_LDFLAGS = -lcosmosis_fortran
-endif
 FFLAGS = $(HMX_FFLAGS) $(COSMOSIS_FFLAGS)
 all: bin lib cosmosis
 endif
