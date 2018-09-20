@@ -11,7 +11,6 @@ PROGRAM HMx_driver
   ! Parameter definitions
   REAL, ALLOCATABLE :: k(:), a(:)
   REAL, ALLOCATABLE :: pow(:), pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
-  !REAL, ALLOCATABLE :: hmcode_lin(:), hmcode_2h(:), hmcode_1h(:), hmcode_full(:)
   REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:), pows_full(:,:,:)
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:), zs(:)
   REAL, ALLOCATABLE :: z_tab(:)
@@ -133,8 +132,8 @@ PROGRAM HMx_driver
      WRITE(*,*) '32 - PAPER: Hydro power'
      WRITE(*,*) '33 - PAPER: Variations'
      WRITE(*,*) '34 - Write HMx hydro parameter variations with T_AGN and z'
-     WRITE(*,*) '35 - Effect of cored halo profiles'
-     WRITE(*,*) '36 - Autmated tests of hydro spectra'
+     WRITE(*,*) '35 - Power spectra of cored halo profiles'
+     WRITE(*,*) '36 - Automated tests of hydro spectra'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -142,7 +141,7 @@ PROGRAM HMx_driver
 
   IF(imode==0) THEN
 
-     !Set number of k points and k range (log spaced)
+     ! Set number of k points and k range (log spaced)
      nk=128
      kmin=1e-3
      kmax=1e2
@@ -150,12 +149,12 @@ PROGRAM HMx_driver
      k=exp(k)
      ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
-     !Assigns the cosmological model
+     ! Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
-     !Sets the redshift
+     ! Sets the redshift
      z=0.
 
      !Initiliasation for the halomodel calcualtion
@@ -163,16 +162,16 @@ PROGRAM HMx_driver
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
      CALL print_halomod(hmod,cosm,verbose)
 
-     !Do the halo-model calculation
+     ! Do the halo-model calculation
      ip(1)=-1
      ip(2)=-1
      CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
 
-     !Write out the results
+     ! Write out the results
      outfile='data/power.dat'
      CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
-     !Write the one-void term if necessary
+     ! Write the one-void term if necessary
      IF(hmod%voids) THEN
         OPEN(8,file='data/power_1void.dat')
         DO i=1,nk     
@@ -183,22 +182,22 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==1) THEN
 
-     !Assigns the cosmological model
-     !icosmo=-1
+     ! Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
      CALL assign_halomod(ihm,hmod,verbose)
-     !Set number of k points and k range (log spaced)
-     !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
+     
+     ! Set number of k points and k range (log spaced)
+     ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
      nk=128
      kmin=1e-3
      kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
-     !Set the number of redshifts and range (linearly spaced) and convert z -> a
+     ! Set the number of redshifts and range (linearly spaced) and convert z -> a
      nz=16
      zmin=0.
      zmax=4.
@@ -206,7 +205,7 @@ PROGRAM HMx_driver
      a=1./(1.+a)
      na=nz
 
-     ip=-1 !Set DMONLY profiles 
+     ip=-1 ! Set DMONLY profiles 
      CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
      base='data/power'
@@ -214,7 +213,7 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==17) THEN
 
-     !Assigns the cosmological model
+     ! Assigns the cosmological model
      icosmo=1
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
@@ -222,15 +221,15 @@ PROGRAM HMx_driver
 
      CALL assign_halomod(ihm,hmod,verbose)
 
-     !Set number of k points and k range (log spaced)
-     !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
+     ! Set number of k points and k range (log spaced)
+     ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
      nk=128
      kmin=1e-3
      kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
-     !Set the number of redshifts and range (linearly spaced) and convert z -> a
+      !Set the number of redshifts and range (linearly spaced) and convert z -> a
      nz=16
      zmin=0.
      zmax=4.
@@ -238,15 +237,13 @@ PROGRAM HMx_driver
      a=1./(1.+a)
      na=nz
 
-     !Choose the field types
+     ! Choose the field types
      DO i=1,2
         WRITE(*,*) 'HMx_driver: Choose halo', i
         CALL set_halo_type(ip(i))
      END DO
-     !WRITE(*,*) 'IP:', ip
-     !STOP
 
-     !User chooses halo model   
+     ! User chooses halo model   
      CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
      base='data/power'
@@ -254,7 +251,7 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==18) THEN
 
-     !Assigns the cosmological model
+     ! Assigns the cosmological model
      icosmo=1
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
@@ -262,15 +259,15 @@ PROGRAM HMx_driver
 
      CALL assign_halomod(ihm,hmod,verbose)
 
-     !Set number of k points and k range (log spaced)
-     !The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
+     ! Set number of k points and k range (log spaced)
+     ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
      nk=128
      kmin=1e-3
      kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
-     !Set the number of redshifts and range (linearly spaced) and convert z -> a
+     ! Set the number of redshifts and range (linearly spaced) and convert z -> a
      nz=16
      zmin=0.
      zmax=4.
@@ -278,23 +275,23 @@ PROGRAM HMx_driver
      a=1./(1.+a)
      na=nz
 
-     !Select field type for bias study
+     ! Select field type for bias study
      CALL set_halo_type(ihalo)
 
      DO j=1,3
 
         IF(j==1) THEN
-           !DMONLY-DMONLY
+           ! DMONLY-DMONLY
            ip(1)=-1
            ip(2)=-1
            base='bias/power_mm'
         ELSE IF(j==2) THEN
-           !DMONLY-field
+           ! DMONLY-field
            ip(1)=ihalo
            ip(2)=-1
            base='bias/power_mf'
         ELSE IF(j==3) THEN
-           !field-field
+           ! field-field
            ip(1)=ihalo
            ip(2)=ihalo
            base='bias/power_ff'
@@ -370,15 +367,15 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==2 .OR. imode==15 .OR. imode==16 .OR. imode==32) THEN
 
-     !Make cross/auto power spectra of all different components of haloes as well as pressure
+     ! Make cross/auto power spectra of all different components of haloes as well as pressure
 
-     !Generic hydro
+     ! Generic hydro
      IF(imode==2 .OR. imode==32) THEN     
         
-        !Only do one 'model' here
+        ! Only do one 'model' here
         n=1
 
-        !Set the redshift
+        ! Set the redshift
         nz=4
         ALLOCATE(z_tab(nz))
         z_tab(1)=0.0
@@ -386,35 +383,35 @@ PROGRAM HMx_driver
         z_tab(3)=1.0
         z_tab(4)=2.0
      
-        !Set number of k points and k range (log spaced)
+        ! Set number of k points and k range (log spaced)
         nk=128
         kmin=1e-3
         kmax=1e2
         CALL fill_array(log(kmin),log(kmax),k,nk)
         k=exp(k)
 
-     !cosmo-OWLS
+     ! cosmo-OWLS
      ELSE IF(imode==15) THEN
 
-        !Do from REF, NOCOOL, AGN, AGN 8.5, AGN 8.7
+        ! Do from REF, NOCOOL, AGN, AGN 8.5, AGN 8.7
         n=5
 
-        !Set the redshift
+        ! Set the redshift
         nz=1
         ALLOCATE(z_tab(nz))
         z_tab(1)=0.
 
-        !Get the k values from the simulation measured P(k)
+        ! Get the k values from the simulation measured P(k)
         infile='/Users/Mead/Physics/cosmo-OWLS/power/N800/DMONLY_all_all_power.dat'
         CALL get_k_values(infile,k,nk)
 
-     !BAHAMAS
+     ! BAHAMAS
      ELSE IF(imode==16) THEN
        
-        !Do AGN, AGN-lo and AGN-hi
+        ! Do AGN, AGN-lo and AGN-hi
         n=3
 
-        !Set the redshift
+        ! Set the redshift
         nz=4
         ALLOCATE(z_tab(nz))
         z_tab(1)=0.0
@@ -422,7 +419,7 @@ PROGRAM HMx_driver
         z_tab(3)=1.0
         z_tab(4)=2.0
 
-        !Get the k values from the simulation measured P(k)
+        ! Get the k values from the simulation measured P(k)
         infile='/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
         CALL get_k_values(infile,k,nk)
         

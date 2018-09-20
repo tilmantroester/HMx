@@ -690,6 +690,7 @@ CONTAINS
     REAL :: z, a
     REAL :: crap
 
+    ! Get the scale factor
     z=redshift_r(r,cosm)
     a=scale_factor_z(z)
 

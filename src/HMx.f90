@@ -60,7 +60,7 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=21 ! Total number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=22 ! Total number of pre-defined halo-model types
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
@@ -83,6 +83,7 @@ CONTAINS
     names(19)='HMx - AGN 8.0'
     names(20)='Standard halo-model (Seljak 2000) in response'
     names(21)='Cored profile model'
+    names(22)='Delta function-NFW star profile model response'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -502,6 +503,10 @@ CONTAINS
     ELSE IF(ihm==21) THEN
        ! 21 - Cored halo profile model
        hmod%halo_DMONLY=5
+    ELSE IF(ihm==22) THEN
+       ! 22 - Different stellar profile
+       hmod%halo_star=4
+       hmod%response=.TRUE.
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
