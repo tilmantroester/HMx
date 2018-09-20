@@ -681,7 +681,7 @@ CONTAINS
     IF(verbose) THEN
 
        WRITE(*,*) '============================================'
-       WRITE(*,*) 'HALOMODEL:', TRIM(hmod%name)
+       WRITE(*,*) 'HALOMODEL: ', TRIM(hmod%name)
        WRITE(*,*) '============================================'
        WRITE(*,*) 'HALOMODEL: Accuracy parameters'
        WRITE(*,*) '============================================'
