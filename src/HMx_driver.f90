@@ -15,7 +15,8 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:), pows_full(:,:,:)
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:), zs(:)
   REAL, ALLOCATABLE :: z_tab(:)
-  INTEGER :: i, j, ii, l, ik, nk, na, j1, j2, n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore
+  INTEGER :: i, j, ii, l, ik, nk, na, j1, j2, iz
+  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore
   INTEGER :: ip(2), ix(2), ixx(2), ihalo
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: rcore_min, rcore_max
@@ -26,12 +27,13 @@ PROGRAM HMx_driver
   TYPE(halomod), ALLOCATABLE :: hmods(:)
   TYPE(projection) :: proj(2)
   TYPE(lensing) :: lens
-  CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname
+  CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname, inbase, outbase, inext, outext
   CHARACTER(len=256) :: mode, halomodel, red, cosmo
-  INTEGER :: imode, icosmo, iowl, ihm, irho, itest
+  INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
   REAL :: sig8min, sig8max
   REAL :: m1, m2, mass
   REAL :: c, rmin, rmax, rv, rs, p1, p2
+  REAL :: spam
   CHARACTER(len=1) :: crap
   
   ! Baryon stuff
@@ -132,6 +134,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '33 - PAPER: Variations'
      WRITE(*,*) '34 - Write HMx hydro parameter variations with T_AGN and z'
      WRITE(*,*) '35 - Effect of cored halo profiles'
+     WRITE(*,*) '36 - Autmated tests of hydro spectra'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -339,14 +342,14 @@ PROGRAM HMx_driver
            ! Sets the redshift and file names
            IF(i==1) THEN
               z=0.
-              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z0.txt'
-              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z0.txt'
-              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z0.txt'
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z0.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z0.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z0.txt'
            ELSE IF(i==2) THEN
               z=1.
-              IF(j==1) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model1_z1.txt'
-              IF(j==2) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model2_z1.txt'
-              IF(j==3) outfile='/Users/Mead/Physics/HMx/benchmarks/HMx_power_model3_z1.txt'
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z1.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z1.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z1.txt'
            END IF
 
            ! Initialise the halo-model calculation
@@ -805,10 +808,10 @@ PROGRAM HMx_driver
 
            IF(imode==2 .OR. imode==32) THEN
               !File base and extension
-              IF(j==1) base='hydro/power_z0.0_'
-              IF(j==2) base='hydro/power_z0.5_'
-              IF(j==3) base='hydro/power_z1.0_'
-              IF(j==4) base='hydro/power_z2.0_'
+              IF(j==1) base='data/power_z0.0_'
+              IF(j==2) base='data/power_z0.5_'
+              IF(j==3) base='data/power_z1.0_'
+              IF(j==4) base='data/power_z2.0_'
               mid=''
               ext='.dat'
            ELSE IF(imode==15) THEN
@@ -826,10 +829,10 @@ PROGRAM HMx_driver
 
            !Dark-matter only
            IF(imode==2 .OR. imode==32) THEN
-              IF(j==1) outfile='hydro/power_z0.0.dat'
-              IF(j==2) outfile='hydro/power_z0.5.dat'
-              IF(j==3) outfile='hydro/power_z1.0.dat'
-              IF(j==4) outfile='hydro/power_z2.0.dat'
+              IF(j==1) outfile='data/power_z0.0.dat'
+              IF(j==2) outfile='data/power_z0.5.dat'
+              IF(j==3) outfile='data/power_z1.0.dat'
+              IF(j==4) outfile='data/power_z2.0.dat'
            ELSE IF(imode==15) THEN
               outfile='cosmo-OWLS/power_DMONLY_00.dat'
            ELSE IF(imode==16) THEN
@@ -1570,11 +1573,12 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==12) THEN
 
-     !Project triad
+     ! Project triad
 
+     ! Directory for data output
      dir='data'
 
-     !Assigns the cosmological model
+     ! Assign the cosmological model
      icosmo=4 ! WMAP 9 - BAHAMAS
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
@@ -1582,16 +1586,15 @@ PROGRAM HMx_driver
 
      CALL assign_halomod(ihm,hmod,verbose)
 
-     !Initialise the lensing part of the calculation
-     !CALL initialise_distances(verbose,cosm)
+     ! Initialise the lensing part of the calculation
      CALL write_distances(cosm)
 
-     !Set the ell range
+     ! Set the ell range
      lmin=100.
      lmax=3000.
      nl=64
 
-     !Allocate arrays for l and C(l)
+     ! Allocate arrays for l and C(l)
      CALL fill_array(log(lmin),log(lmax),ell,nl)
      ell=exp(ell)
      ALLOCATE(Cell(nl))
@@ -1603,25 +1606,53 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
      WRITE(*,*)
 
-     !Loop over the triad
-     DO i=1,3
+     ! Loop over the triad (septad?)
+     ! Original triad is 1,2,3 extended is tomographic lensing
+     DO i=1,7
 
         IF(i==1) THEN
+           ! shear (z = 0.1->0.9) cross kappa
            !ix(1)=4 ! CFHTLenS
            !ix(1)=5 ! KiDS (z = 0.1 -> 0.9)
+           !ix(2)=3 ! CMB  
+           !outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
            ix(1)=11 ! KiDS 450 (z = 0.1 -> 0.9)
-           ix(2)=3 ! CMB
-           outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
+           ix(2)=3 ! CMB           
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-CMB.dat'
         ELSE IF(i==2) THEN
+           ! kappa cross y
            ix(1)=3 ! CMB
            ix(2)=2 ! y
            outfile=TRIM(dir)//'/triad_Cl_CMB-y.dat'
         ELSE IF(i==3) THEN
-           ix(1)=2 ! y
+           ! y cross shear (z = 0.1->0.9)
+           !ix(1)=2 ! y
            !ix(2)=4 ! CFHTLenS
            !ix(2)=5 ! KiDS (z = 0.1 -> 0.9)
+           !outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
+           ix(1)=2 ! y
            ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
-           outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
+           outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.9.dat'
+        ELSE IF(i==4) THEN
+           ! shear (z = 0.1 -> 0.5) cross kappa
+           ix(1)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           ix(2)=3 ! CMB
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-CMB.dat'
+        ELSE IF(i==5) THEN
+           ! shear (z = 0.5 -> 0.9) cross kappa
+           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=3 ! CMB
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-CMB.dat'
+        ELSE IF(i==6) THEN
+           ! y cross shear (z = 0.1 -> 0.5)
+           ix(1)=2 ! y
+           ix(2)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.5.dat'
+        ELSE IF(i==7) THEN
+           ! y cross shear (z = 0.5 -> 0.9)
+           ix(1)=2 ! y
+           ix(2)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.5-0.9.dat'
         END IF
 
         CALL xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
@@ -1629,7 +1660,7 @@ PROGRAM HMx_driver
 
         WRITE(*,*) 'HMx_DRIVER: Done'
         WRITE(*,*)
-
+        
      END DO
 
   ELSE IF(imode==13) THEN
@@ -2566,7 +2597,7 @@ PROGRAM HMx_driver
         ALLOCATE(k(nk),a(na),powa(nk,na))
 
         ! Read-in test data
-        OPEN(7,file=infile)
+        OPEN(7,file=infile,status='old')
         DO i=0,nk
            IF(i==0) THEN
               READ(7,*) crap, (a(j), j=1,na)
@@ -2870,9 +2901,131 @@ PROGRAM HMx_driver
         CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
 
      END DO
-     
-  ELSE
 
+  ELSE IF(imode==36) THEN
+
+     ! Automated testing of hydro models
+
+     ! Assigns the cosmological model
+     icosmo=4
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Assign the halo model
+     ihm=3
+     CALL assign_halomod(ihm,hmod,verbose)
+     
+     ! Initially assume all the tests will pass
+     ifail=.FALSE.
+
+     ! File naming things
+     mid=''
+     inext='.txt'
+     outext='.dat'
+
+     ! Loop over redshifts
+     DO iz=1,4
+
+        ! Set the redshift and input and output file bases
+        IF(iz==1) THEN
+           z=0.0
+           inbase='benchmarks/power_z0.0_'
+           outbase='data/power_z0.0_'
+        ELSE IF(iz==2) THEN
+           z=0.5
+           inbase='benchmarks/power_z0.5_'
+           outbase='data/power_z0.5_'
+        ELSE IF(iz==3) THEN
+           z=1.0
+           inbase='benchmarks/power_z1.0_'
+           outbase='data/power_z1.0_'
+        ELSE IF(iz==4) THEN
+           z=2.0
+           inbase='benchmarks/power_z2.0_'
+           outbase='data/power_z2.0_'
+        ELSE
+           STOP 'HMX_DRIVER: Error, iz specified incorrectly'
+        END IF
+
+        ! Initialise the halo-model calculation for this redshift
+        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose_tests)
+        CALL print_halomod(hmod,cosm,verbose_tests)
+
+        ! Loop over different fields
+        DO itest=0,6
+           DO jtest=itest,6
+
+              ! Cycle for these fields as they are not used
+              IF(itest==4 .OR. itest==5) CYCLE
+              IF(jtest==4 .OR. jtest==5) CYCLE
+
+              ! Set the input and output files
+              infile=number_file2(inbase,itest,mid,jtest,inext)
+              outfile=number_file2(outbase,itest,mid,jtest,outext)
+
+              ! Allocate arrays of k and power
+              nk=file_length(infile,verbose=.FALSE.)
+              ALLOCATE(k(nk),pow(nk))
+
+              ! Read in benchmark data
+              OPEN(7,file=infile,status='old')
+              DO i=1,nk
+                 READ(7,*) k(i), spam, spam, spam, pow(i)
+              END DO
+              CLOSE(7)
+
+              ! Allocate arrays for the halo-model calculation
+              ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+              ! Do the actual halo-model calculation
+              CALL calculate_halomod(itest,jtest,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose_tests,response=.FALSE.)
+
+              ! Loop over k and check for accuracy
+              error_max=0.
+              DO i=1,nk
+                 error=ABS(-1.+pow_full(i)/pow(i))
+                 IF(error>tolerance) THEN
+                    WRITE(*,*) 'HMx_DRIVER: Test failing'
+                    WRITE(*,*) 'HMx_DRIVER: Test fields:', itest, jtest
+                    WRITE(*,*) 'HMx_DRIVER: Wavenumber [h/Mpc]:', k(i)
+                    WRITE(*,*) 'HMx_DRIVER: Redshift:', z
+                    WRITE(*,*) 'HMx_DRIVER: Expected power:', pow(i)
+                    WRITE(*,*) 'HMx_DRIVER: Model power:', pow_full(i)
+                    WRITE(*,*) 'HMx_DRIVER: Tolerance:', tolerance
+                    WRITE(*,*) 'HMx_DRIVER: Error:', error
+                    WRITE(*,*)
+                    ifail=.TRUE.
+                 END IF
+              END DO
+
+              ! Write test information to the screen
+              WRITE(*,*) 'HMx_DRIVER: Test fields:', itest, jtest
+              WRITE(*,*) 'HMx_DRIVER: Tolerance:', tolerance
+              WRITE(*,*) 'HMx_DRIVER: Max error:', error_max
+              WRITE(*,*)
+
+              ! Write data to file
+              CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+
+              ! Deallocate arrays ready for next field combination
+              DEALLOCATE(k,pow,pow_lin,pow_2h,pow_1h,pow_full)
+
+           END DO
+        END DO
+
+     END DO
+
+     ! Write pass/fail information to the screen
+     IF(ifail) THEN
+        WRITE(*,*) 'HMx_DRIVER: Hydro tests failed'
+     ELSE
+        WRITE(*,*) 'HMx_DRIVER: Hydro tests passed'        
+     END IF
+     WRITE(*,*)
+
+  ELSE
+        
      STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
 
   END IF
