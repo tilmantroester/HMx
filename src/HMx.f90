@@ -192,15 +192,15 @@ CONTAINS
     hmod%iDolag=2
 
     ! Scatter in halo properties at fixed mass
-    ! 1 - No
-    ! 2 - Scatter in halo concentration 
-    hmod%iscatter=1
+    ! 0 - No
+    ! 1 - Scatter in halo concentration 
+    hmod%iscatter=0
 
     ! Gas fraction
     ! 1 - Fedeli (2014a) bound gas model
     ! 2 - Schneider (2015) bound gas
     ! 3 - Universal baryon fraction
-    hmod%frac_boundgas=1
+    hmod%frac_boundgas=2
 
     ! Star fraction
     ! 1 - Fedeli (2014)
@@ -431,7 +431,7 @@ CONTAINS
        hmod%idc=1
        hmod%iDv=1
        hmod%iconc=1
-       hmod%iscatter=2
+       hmod%iscatter=1
     ELSE IF(ihm==9) THEN
        ! 9 - For CCL comparison
        hmod%n=2048 ! Increase accuracy for the CCL benchmarks
@@ -450,7 +450,7 @@ CONTAINS
        hmod%i2hdamp=1
        hmod%itrans=1
        hmod%iDolag=1
-       hmod%iscatter=1
+       hmod%iscatter=0
        hmod%use_UPP=.FALSE.
        hmod%smooth_freegas=.FALSE.
     ELSE IF(ihm==10) THEN
@@ -824,8 +824,8 @@ CONTAINS
        IF(hmod%iAs==2) WRITE(*,*) 'HALOMODEL: Concentration-mass relation rescaled mass independetly (Mead et al. 2015, 2016)'
 
        ! Scatter in halo properties
-       IF(hmod%iscatter==1) WRITE(*,*) 'HALOMODEL: No scatter in halo properties at fixed mass'
-       IF(hmod%iscatter==2) WRITE(*,*) 'HALOMODEL: Scatter in halo concentration at fixed mass'
+       IF(hmod%iscatter==0) WRITE(*,*) 'HALOMODEL: No scatter in halo properties at fixed mass'
+       IF(hmod%iscatter==1) WRITE(*,*) 'HALOMODEL: Scatter in halo concentration at fixed mass'
 
        ! Two- to one-halo transition region
        IF(hmod%itrans==1) WRITE(*,*) 'HALOMODEL: Standard sum of two- and one-halo terms'
@@ -1192,7 +1192,7 @@ CONTAINS
        et=eta(hmod,cosm)
        
        !No scatter in halo properties
-       IF(hmod%iscatter==1) THEN
+       IF(hmod%iscatter==0) THEN
 
           !Calculate the halo window functions
           DO j=1,2
@@ -1214,7 +1214,7 @@ CONTAINS
           !wk(1)*wk(2) in the case of no scatter
           wk2=wk(:,1)*wk(:,2)
           
-       ELSE IF(hmod%iscatter==2) THEN
+       ELSE IF(hmod%iscatter==1) THEN
 
           !Scatter in log concentration: sigma_ln(c)
           dc=0.25
