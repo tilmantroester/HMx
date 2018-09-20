@@ -6,7 +6,7 @@ if(print==0){set term aqua dashed}
 if(print==1){set term post enh col font ',12' size 7,7; set output 'paper/power_components.eps'}
 
 # File name
-power(z,f1,f2)=sprintf('hydro/power_z%1.1f_%i%i.dat',z,f1,f2)
+power(z,f1,f2)=sprintf('data/power_z%1.1f_%i%i.dat',z,f1,f2)
 
 # k axis
 kmin=1e-2

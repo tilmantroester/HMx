@@ -92,8 +92,8 @@ hmpk_dmonly=hmpk('DMONLY',z,0,0)
 
 # File names - generic hydro
 if(icomp==3){
-hmpk(sim,z,i,j)=sprintf('hydro/power_z%1.1f_%i%i.dat',z,i,j)
-hmdm(z)=sprintf('hydro/power_z%1.1f.dat',z)
+hmpk(sim,z,i,j)=sprintf('data/power_z%1.1f_%i%i.dat',z,i,j)
+hmdm(z)=sprintf('data/power_z%1.1f.dat',z)
 hmpk_dmonly=hmdm(z)
 }
 
