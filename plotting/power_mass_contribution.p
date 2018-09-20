@@ -4,7 +4,7 @@ cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
 if(!exists('print')){print=0}
 if(print==0){set term aqua dashed size 1000,500; sun='sun'}
-if(print==1){set term post enh col fontfile cmsy ',10' size 10,5; set output 'paper/power_mass_contribution.eps'; sun='{/cmsy10 \014}'}
+if(print==1){set term post enh col fontfile cmsy ',10' size 10,4; set output 'paper/power_mass_contribution.eps'; sun='{/cmsy10 \014}'}
 
 # data file
 power(f1,f2,m)=sprintf('data/power_%d%d_m%d.dat',f1,f2,m)
