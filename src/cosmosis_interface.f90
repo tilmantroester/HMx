@@ -13,7 +13,7 @@ module HMx_setup
      character(len=256) :: p_lin_source, hm_mode
 
      integer :: ihm, iw, icosmo
-     logical :: response
+     logical :: response, dimensionless_power_spectrum
 
      integer, dimension(2) :: fields
 
@@ -39,7 +39,7 @@ function setup(options) result(result)
   ! Variables
   integer(cosmosis_status) :: status
   type(HMx_setup_config), pointer :: HMx_config
-  integer :: verbose, response, icosmo
+  integer :: verbose, response, icosmo, dimensionless_power_spectrum
 
   allocate(HMx_config)
 
@@ -114,6 +114,10 @@ function setup(options) result(result)
 
   status = datablock_get_int_default(options, option_section, "response", 0, response)
   HMx_config%response = response == 1
+
+  !Set power spectrum units
+  status = datablock_get_int_default(options, option_section, "dimensionless_power_spectrum", 1, dimensionless_power_spectrum)
+  HMx_config%dimensionless_power_spectrum = dimensionless_power_spectrum == 1
 
   ! Create k array (log spacing)
   call fill_array(log(HMx_config%kmin), log(HMx_config%kmax), HMx_config%k, HMx_config%nk)
@@ -271,6 +275,11 @@ function execute(block, config) result(status)
      write(*,*) "Unsupported combination of fields:", HMx_config%fields
      stop
   end if
+
+  if(.not. HMx_config%dimensionless_power_spectrum) then
+    ! Remove the k^3/2pi^2 factor
+    forall (i=1:HMx_config%nk) pk_full(i,:) = pk_full(i,:)*2*pi**2/HMx_config%k(i)**3
+  endif
 
   status = datablock_put_double_grid(block, pk_section, &
        "k_h", HMx_config%k, &
