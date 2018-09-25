@@ -10,15 +10,15 @@ MODULE Limber
   REAL, PARAMETER :: lcorr=0.5
   REAL, PARAMETER :: acc_Limber=1e-4
 
-  !Projection quantities that need to be calculated only once
-  !These relate to the Limber integrals
+  ! Projection quantities that need to be calculated only once
+  ! These relate to the Limber integrals
   TYPE projection    
      REAL, ALLOCATABLE :: X(:), r_X(:)
      INTEGER :: nX
   END TYPE projection
 
-  !Quantities that are necessary for lensing specifically
-  !Possibly this could usefully be merged with the projection type
+  ! Quantities that are necessary for lensing specifically
+  ! Possibly this could usefully be merged with the projection type
   TYPE lensing
      REAL, ALLOCATABLE :: q(:), r_q(:)
      REAL, ALLOCATABLE :: nz(:), z_nz(:)
@@ -29,7 +29,8 @@ CONTAINS
 
   FUNCTION xcorr_type(ix)
 
-    !Names for cross-correlation field types
+    ! Names for cross-correlation field types
+    ! TODO: This is super ugly. Surely it should be combined into a type?
     IMPLICIT NONE
     CHARACTER(len=256) :: xcorr_type
     INTEGER, INTENT(IN) :: ix
@@ -45,24 +46,30 @@ CONTAINS
     IF(ix==8)  xcorr_type='KiDS lensing (z = 0.5 -> 0.7)'
     IF(ix==9)  xcorr_type='KiDS lensing (z = 0.7 -> 0.9)'
     IF(ix==10) xcorr_type='Gravitational waves'
+    IF(ix==11) xcorr_type='KiDS 450 (z = 0.1 -> 0.9)'
+    IF(ix==12) xcorr_type='KiDS 450 (z = 0.1 -> 0.5)'
+    IF(ix==13) xcorr_type='KiDS 450 (z = 0.5 -> 0.9)'
+    IF(ix==14) xcorr_type='KiDS 450 (z = 0.9 -> 3.5)'
     IF(xcorr_type=='') STOP 'XCORR_TYPE: Error, ix not specified correctly'
     
   END FUNCTION xcorr_type
 
   SUBROUTINE set_xcorr_type(ix,ip)
 
-    !Set the cross-correlation type
+    ! Set the cross-correlation type
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2)
     INTEGER, INTENT(OUT) :: ip(2)
     INTEGER :: i, j
+    INTEGER, PARAMETER :: nx=14
 
+    ! Loop over two-components of xcorr
     DO i=1,2
 
        IF(ix(i)==-1) THEN
           WRITE(*,fmt='(A30,I3)') 'SET_XCORR_TYPE: Choose field: ', i
           WRITE(*,*) '========================='
-          DO j=1,10
+          DO j=1,nx
              WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
           END DO
           READ(*,*) ix(i)
@@ -71,14 +78,14 @@ CONTAINS
        END IF
 
        IF(ix(i)==2) THEN
-          !Compton y
-          ip(i)=6 !Profile type: 6 - Pressure
+          ! Compton y
+          ip(i)=6 ! Profile type: 6: Pressure
        ELSE IF(ix(i)==10) THEN
-          !Gravitational waves
-          ip(i)=-1 !Profile type: -1 DMONLY
+          ! Gravitational waves
+          ip(i)=-1 ! Profile type: -1: DMONLY
        ELSE
-          !Gravitational lensing (should be set to 0 eventually)
-          ip(i)=-1 !Profile type: 0 - Matter
+          ! Gravitational lensing
+          ip(i)=0 ! Profile type: 0: Matter
        END IF
        
     END DO
@@ -87,41 +94,46 @@ CONTAINS
 
   SUBROUTINE xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
 
-    !Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
-    USE HMx !TODO: Remove this explicit HMx dependence, it cannot be necessary
+    ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
+    ! TODO: Remove this explicit HMx dependence, it cannot be necessary, it is the only place it appears
+    ! TODO: Maybe this needs to be moved anyway
+    USE HMx 
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2)
-    INTEGER, INTENT(IN) :: nl
-    REAL, INTENT(IN) :: ell(nl), mmin, mmax
+    REAL, INTENT(IN) :: mmin, mmax
+    REAL, INTENT(IN) :: ell(nl)
     REAL, INTENT(OUT) :: Cell(nl)
+    INTEGER, INTENT(IN) :: nl
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL, ALLOCATABLE :: a(:), k(:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa(:,:)
-    !TYPE(tables) :: lut
-    !TYPE(lensing) :: lens
-    TYPE(projection) :: proj(2)
     LOGICAL, INTENT(IN) :: verbose
-    REAL :: kmin, kmax, amin, amax, lmin, lmax
-    INTEGER :: nk, na, ip(2)
+    REAL, ALLOCATABLE :: a(:), k(:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa(:,:)
+    TYPE(projection) :: proj(2)    
+    REAL :: lmin, lmax
+    INTEGER :: ip(2)
     REAL :: r1, r2
 
-    !Set the k range
-    kmin=1e-3
-    kmax=1e1
-    nk=32
+    ! k range parameters for P(k)
+    REAL, PARAMETER :: kmin=1e-3
+    REAL, PARAMETER :: kmax=1e1
+    INTEGER, PARAMETER :: nk=64 ! This used to be 32
+
+    ! a range parameters
+    REAL, PARAMETER :: amin=0.1 ! Problems with one-halo term if amin is less than 0.1 (CMB lensing?)
+    REAL, PARAMETER :: amax=1.0
+    INTEGER, PARAMETER :: na=16
+
+    ! Set the k range
     CALL fill_array(log(kmin),log(kmax),k,nk)
     k=exp(k)   
 
-    !Set the a range
-    amin=0.1 !scale_factor(cosm%z_cmb) !Problems with one-halo term if amin is less than 0.1
-    amax=1.
-    na=16
+    ! Set the a range
     CALL fill_array(amin,amax,a,na)
 
     lmin=ell(1)
     lmax=ell(nl)
 
-    !Allocate power arrays
+    ! Allocate power arrays
     ALLOCATE(powa(nk,na),powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na))
 
     IF(verbose) THEN
@@ -142,15 +154,15 @@ CONTAINS
 
     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,hmod,cosm,verbose,response=.FALSE.)
 
-    !Fill out the projection kernels
+    ! Fill out the projection kernels
     CALL fill_projection_kernels(ix,proj,cosm)
     IF(verbose) CALL write_projection_kernels(proj,cosm)
 
-    !Set the distance range for the Limber integral
+    ! Set the distance range for the Limber integral
     r1=0.
     r2=maxdist(proj)
 
-    !Actually calculate the C(ell), but only for the full halo model part
+    ! Actually calculate the C(ell), but only for the full halo model part
     CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
 
     IF(verbose) THEN
@@ -162,9 +174,10 @@ CONTAINS
 
   SUBROUTINE write_nz(lens,output)
 
+    ! Write out the n(z) to a file
     IMPLICIT NONE
     TYPE(lensing), INTENT(IN) :: lens
-    CHARACTER(len=256), INTENT(IN) :: output
+    CHARACTER(len=*), INTENT(IN) :: output
     INTEGER :: i
 
     OPEN(7,file=output)
@@ -177,10 +190,11 @@ CONTAINS
 
   SUBROUTINE fill_projection_kernels(ix,proj,cosm)
 
+    ! Fill look-up tables for the two projection kerels X_ij
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: ix(2)
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    TYPE(projection) :: proj(2)
+    INTEGER, INTENT(IN) :: ix(2) ! Label for the type of projection kernel needed
+    TYPE(projection), INTENT(OUT) :: proj(2) ! Output the projection kernel
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmological model
     INTEGER :: nk, i
 
     IF(ix(1)==ix(2)) THEN
@@ -189,12 +203,12 @@ CONTAINS
        nk=2
     END IF
 
-    !Loop over the two kernels
+    ! Loop over the two kernels
     DO i=1,nk
        CALL fill_projection_kernel(ix(i),proj(i),cosm)
     END DO
 
-    !In case the autospectrum is being considered
+    ! In case the autospectrum is being considered
     IF(nk==1) THEN
        proj(2)=proj(1)
     END IF
@@ -203,6 +217,7 @@ CONTAINS
 
   SUBROUTINE fill_projection_kernel(ix,proj,cosm)
 
+    ! Fill look-up table for a projection kernel X_i
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(projection), INTENT(OUT) :: proj
@@ -219,30 +234,31 @@ CONTAINS
 
   SUBROUTINE calculate_Cell(r1,r2,ell,Cell,nl,k,a,pow,nk,na,proj,cosm)
 
-    !Calculates C(l) using the Limber approximation
+    ! Calculates C(l) using the Limber approximation
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: nl, nk, na
-    REAL, INTENT(IN) :: ell(nl)
-    REAL, INTENT(OUT) :: Cell(nl)
-    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
-    REAL, INTENT(IN) :: r1, r2
-    TYPE(projection), INTENT(IN) :: proj(2)
-    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL, INTENT(IN) :: r1, r2 ! Maximum and minimum comoving distances for integration
+    REAL, INTENT(IN) :: ell(nl) ! Input array of desired ell values for C(ell)
+    REAL, INTENT(OUT) :: Cell(nl) ! Output array for C(ell) values
+    INTEGER, INTENT(IN) :: nl ! Number of ell values
+    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na) ! Input k, a and P(k,a) arrays
+    INTEGER, INTENT(IN) :: nk, na ! Number of k and a values
+    TYPE(projection), INTENT(IN) :: proj(2) ! Projection kernels for the Limber integration
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmology
     REAL :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j
 
     LOGICAL, PARAMETER :: verbose=.FALSE.
 
-    !Note that using Limber and flat-sky for sensible results limits lmin to ell~10
+    ! Note that using Limber and flat-sky for sensible results limits lmin to ell~10
 
-    !Create log tables to speed up 2D find routine in find_pkz
+    ! Create log tables to speed up 2D find routine in find_pkz
     logk=log(k)
     loga=log(a)
     DO j=1,na
        logpow(:,j)=log((2.*pi**2)*pow(:,j)/k**3)
     END DO
 
-    !Write some useful things to the screen
+    ! Write some useful things to the screen
     IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_CELL: ell min:', REAL(ell(1))
        WRITE(*,*) 'CALCULATE_CELL: ell max:', REAL(ell(nl))
@@ -253,7 +269,7 @@ CONTAINS
        WRITE(*,*) 'CALCULATE_CELL: Maximum distance [Mpc/h]:', REAL(r2)
     END IF
 
-    !Finally do the integration
+    ! Finally do the integration
     IF(verbose) WRITE(*,*) 'CALCULATE CELL: Doing calculation'
     DO i=1,nl
        Cell(i)=integrate_Limber(ell(i),r1,r2,logk,loga,logpow,nk,na,acc_Limber,3,proj,cosm)
@@ -267,7 +283,7 @@ CONTAINS
 
   SUBROUTINE Cell_contribution(r1,r2,k,a,pow,nk,na,proj,cosm)
 
-    !Calculates C(l) using the Limber approximation
+    ! Calculates C(l) using the Limber approximation
     USE string_operations
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nk, na
@@ -279,18 +295,18 @@ CONTAINS
     INTEGER :: i, j, l
     CHARACTER(len=256) :: fbase, fext, outfile
 
-    INTEGER, PARAMETER :: n=16 !Number of ell values to take, from ell=1 to ell=2**(n-1)
+    INTEGER, PARAMETER :: n=16 ! Number of ell values to take, from ell=1 to ell=2**(n-1)
 
-    !Note that using Limber and flat-sky for sensible results limits lmin to ~10
+    ! Note that using Limber and flat-sky for sensible results limits lmin to ~10
 
-    !Create log tables to speed up 2D find routine in find_pkz
+    ! Create log tables to speed up 2D find routine in find_pkz
     logk=log(k)
     loga=log(a)
     DO j=1,na
        logpow(:,j)=log((2.*pi**2)*pow(:,j)/k**3)
     END DO
 
-    !Now call the contribution subroutine
+    ! Now call the contribution subroutine
     fbase='Limber/Cell_contrib_ell_'
     fext='.dat'
     DO i=1,n
@@ -303,7 +319,7 @@ CONTAINS
 
   SUBROUTINE write_Cell(ell,Cell,nl,output)
 
-    !Write C(ell) to a file
+    ! Write C(l) to a file, writes l, C(l), l(l+1)C(l)/2pi
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nl
     REAL, INTENT(IN) :: ell(nl), Cell(nl)
@@ -320,7 +336,7 @@ CONTAINS
 
   SUBROUTINE calculate_xi(th_tab,xi_tab,nth,l_tab,cl_tab,nl,lmax)
 
-    !Calcuate the correlation functions given a C(ell) table
+    ! Calcuate the correlation functions given a C(ell) table
     USE special_functions
     IMPLICIT NONE
     REAL, INTENT(IN) :: l_tab(nl), cl_tab(nl)
@@ -330,22 +346,22 @@ CONTAINS
     REAL :: logl(nl), logCl(nl)
     REAL :: theta, Cl, l, xi0, xi2, xi4
 
-    !Speed up find routine by doing logarithms in advance
+    ! Speed up find routine by doing logarithms in advance
     logl=log(l_tab)
     logCl=log(cl_tab)
 
     !WRITE(*,*) 'CALCULATE_XI: Computing correlation functions via sum'
     DO i=1,nth
 
-       !Get theta value and convert from degrees to radians
+       ! Get theta value and convert from degrees to radians
        theta=th_tab(i)/rad2deg
 
-       !Set values to zero before summing
+       ! Set values to zero before summing
        xi0=0.
        xi2=0.
        xi4=0.
 
-       !Do the conversion from Cl to xi as a summation over integer ell
+       ! Do the conversion from Cl to xi as a summation over integer ell
        DO j=1,lmax
 
           l=REAL(j)
@@ -357,15 +373,15 @@ CONTAINS
 
        END DO
 
-       !Divide by correct pre-factor
+       ! Divide by correct pre-factor
        xi0=xi0/(4.*pi)
        xi2=xi2/(4.*pi)
        xi4=xi4/(4.*pi)
 
-       !Convert theta from radians to degrees
+       ! Convert theta from radians to degrees
        theta=theta*rad2deg
 
-       !Populate tables
+       ! Populate tables
        th_tab(i)=theta
        xi_tab(1,i)=xi0
        xi_tab(2,i)=xi2
@@ -630,14 +646,14 @@ CONTAINS
     INTEGER :: i
     REAL :: rmax, r
 
-    REAL, PARAMETER :: rmin=0. !Minimum r for table
-    INTEGER, PARAMETER :: nx=128 !Entires in look-up table
+    REAL, PARAMETER :: rmin=0. ! Minimum r for table
+    INTEGER, PARAMETER :: nx=128 ! Number of entires in look-up table
 
     proj%nx=nx
 
-    !Get the distance range for the projection function
-    !Use the same as that for the distance calculation
-    !Assign arrays for the kernel function
+    ! Get the distance range for the projection function
+    ! Use the same as that for the distance calculation
+    ! Assign arrays for the kernel function
     rmax=MAXVAL(cosm%r)
     CALL fill_array(rmin,rmax,proj%r_X,proj%nX)
     WRITE(*,*) 'FILL_KERNEL: minimum r [Mpc/h]:', REAL(rmin)
@@ -647,7 +663,7 @@ CONTAINS
     IF(ALLOCATED(proj%X)) DEALLOCATE(proj%X)
     ALLOCATE(proj%X(nX))
 
-    !Now fill the kernels
+    ! Now fill the kernels
     DO i=1,nX
        r=proj%r_x(i)
        IF(ix==2) THEN
@@ -666,7 +682,7 @@ CONTAINS
 
   FUNCTION y_kernel(r,cosm)
 
-    !The Compton-y projeciton kernel
+    ! The Compton-y projeciton kernel
     IMPLICIT NONE
     REAL :: y_kernel
     REAL, INTENT(IN) :: r
@@ -674,22 +690,23 @@ CONTAINS
     REAL :: z, a
     REAL :: crap
 
+    ! Get the scale factor
     z=redshift_r(r,cosm)
     a=scale_factor_z(z)
 
-    !To stop compile-time warnings
+    ! To stop compile-time warnings
     crap=cosm%om_m
     crap=r 
 
-    y_kernel=yfac*mpc !Convert some units; note that there is no factor of 'a'
-    y_kernel=y_kernel*a
+    y_kernel=yfac*mpc ! Convert some units; note that there is no factor of 'a' here
+    y_kernel=y_kernel/a**2 ! NEW: These come from 'a^-3' for pressure and 'a' for comoving distance
     y_kernel=y_kernel*eV*cm**(-3) !Convert from eV cm^-3 to J m^-3
 
   END FUNCTION y_kernel
 
   FUNCTION gravity_kernel(r,cosm)
 
-    !Projection kernel for gravitational waves (~ 1/r)
+    ! Projection kernel for gravitational waves (~ 1/r)
     IMPLICIT NONE
     REAL :: gravity_kernel
     REAL, INTENT(IN) :: r
@@ -699,8 +716,8 @@ CONTAINS
     REAL, PARAMETER :: A=1.
     REAL, PARAMETER :: rmin=10.
 
-    !To stop compile-time warnings
-    crap=cosm%om_m
+    ! To stop compile-time warnings
+    crap=cosm%Om_m
 
     IF(r<rmin) THEN
        gravity_kernel=A/rmin
@@ -712,30 +729,10 @@ CONTAINS
 
   SUBROUTINE get_nz(ix,lens)
 
-    !The the n(z) function for lensing
+    ! The the n(z) function for lensing
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(lensing), INTENT(INOUT) :: lens
-
-    !CHARACTER(len=256) :: names(7)
-    !names(1)='1 - RCSLenS'
-    !names(2)='2 - KiDS (z = 0.1 -> 0.9)'
-    !names(3)='3 - KiDS (z = 0.1 -> 0.3)'
-    !names(4)='4 - KiDS (z = 0.3 -> 0.5)'
-    !names(5)='5 - KiDS (z = 0.5 -> 0.7)'
-    !names(6)='6 - KiDS (z = 0.7 -> 0.9)'
-    !names(7)='7 - CFHTLenS (Van Waerbeke 2013)'
-
-    !IF(inz==-1) THEN
-    !   WRITE(*,*) 'GET_NZ: Choose n(z)'
-    !   WRITE(*,*) '==================='
-    !   DO i=1,SIZE(names)
-    !      WRITE(*,*) TRIM(names(i))
-    !   END DO
-    !   READ(*,*) inz
-    !   WRITE(*,*) '==================='
-    !   WRITE(*,*)
-    !END IF
 
     IF(ix==1 .OR. ix==4) THEN
        CALL fill_analytic_nz_table(ix,lens)
@@ -743,7 +740,6 @@ CONTAINS
        CALL fill_nz_table(ix,lens)
     END IF
 
-    !WRITE(*,*) 'GET_NZ: ', TRIM(names(inz))
     WRITE(*,*) 'GET_NZ: zmin:', lens%z_nz(1)
     WRITE(*,*) 'GET_NZ: zmax:', lens%z_nz(lens%nnz)
     WRITE(*,*) 'GET_NZ: nz:', lens%nnz
@@ -762,13 +758,13 @@ CONTAINS
     REAL, PARAMETER :: zmax=2.5
     INTEGER, PARAMETER :: n=128
 
-    !From analytical function
+    ! From analytical function
     lens%nnz=n
     IF(ALLOCATED(lens%z_nz)) DEALLOCATE(lens%z_nz)
     IF(ALLOCATED(lens%nz)) DEALLOCATE(lens%nz)
     ALLOCATE(lens%z_nz(lens%nnz),lens%nz(lens%nnz))
 
-    !Fill the look-up tables
+    ! Fill the look-up tables
     CALL fill_array(zmin,zmax,lens%z_nz,lens%nnz)
     DO i=1,n
        lens%nz(i)=nz_lensing(lens%z_nz(i),ix)
@@ -783,6 +779,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ix
     TYPE(lensing), INTENT(INOUT) :: lens
     INTEGER :: i
+    REAL :: spam
     CHARACTER(len=256) :: input
 
     !Get file name
@@ -796,6 +793,8 @@ CONTAINS
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.5-0.7.txt'
     ELSE IF(ix==9) THEN
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.7-0.9.txt'
+    ELSE IF(ix==11 .OR. ix==12 .OR. ix==13 .OR. ix==14) THEN
+       input='/Users/Mead/Physics/KiDS/nz/KiDS-450_fat_bin_nofz.txt'
     ELSE
        STOP 'GET_NZ: ix not specified correctly'
     END IF
@@ -810,7 +809,19 @@ CONTAINS
     !Read in n(z) table
     OPEN(7,file=input)
     DO i=1,lens%nnz
-       READ(7,*) lens%z_nz(i), lens%nz(i)
+       IF(ix==5 .OR. ix==6 .OR. ix==7 .OR. ix==8 .OR. ix==9) THEN
+          READ(7,*) lens%z_nz(i), lens%nz(i) ! Second column
+       ELSE IF(ix==11) THEN
+          READ(7,*) lens%z_nz(i), lens%nz(i) ! Second column (z = 0.1 -> 0.9)
+       ELSE IF(ix==12) THEN
+          READ(7,*) lens%z_nz(i), spam, lens%nz(i) ! Third column (z = 0.1 -> 0.5)
+       ELSE IF(ix==13) THEN
+          READ(7,*) lens%z_nz(i), spam, spam, lens%nz(i) ! Fourth column (z = 0.5 -> 0.9)
+       ELSE IF(ix==14) THEN
+          READ(7,*) lens%z_nz(i), spam, spam, spam, lens%nz(i) ! Fifth column (z = 0.9 -> 3.5)
+       ELSE
+          STOP 'GET_NZ: ix not specified correctly'
+       END IF
     END DO
     CLOSE(7)
 
@@ -818,6 +829,7 @@ CONTAINS
 
   FUNCTION nz_lensing(z,ix)
 
+    ! Analytical n(z) for different surveys
     IMPLICIT NONE
     REAL :: nz_lensing
     REAL, INTENT(IN) :: z
@@ -827,7 +839,7 @@ CONTAINS
     REAL :: z1, z2
 
     IF(ix==1) THEN
-       !RCSLenS
+       ! RCSLenS
        a=2.94
        b=-0.44
        c=1.03
@@ -842,9 +854,9 @@ CONTAINS
        n3=g*z*exp(-(z-h)**2/i**2)
        nz_lensing=n1+n2+n3
     ELSE IF(ix==4) THEN
-       !CFHTLenS
-       z1=0.7 !Not a free parameter in Van Waerbeke 2013
-       z2=1.2 !Not a free parameter in Van Waerbeke 2013
+       ! CFHTLenS
+       z1=0.7 ! Not a free parameter in Van Waerbeke et al. (2013)
+       z2=1.2 ! Not a free parameter in Van Waerbeke et al. (2013)
        a=1.50
        b=0.32
        c=0.20
@@ -858,8 +870,8 @@ CONTAINS
 
   FUNCTION integrate_q(r,a,b,acc,iorder,lens,cosm)
 
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
+    ! Integrates between a and b until desired accuracy is reached
+    ! Stores information to reduce function calls
     IMPLICIT NONE
     REAL :: integrate_q
     REAL, INTENT(IN) :: a, b, r, acc
@@ -877,12 +889,12 @@ CONTAINS
 
     IF(a==b) THEN
 
-       !Fix the answer to zero if the integration limits are identical
+       ! Fix the answer to zero if the integration limits are identical
        integrate_q=0.
 
     ELSE
 
-       !Set the sum variable for the integration
+       ! Set the sum variable for the integration
        sum_2n=0.
        sum_n=0.
        sum_old=0.
@@ -890,16 +902,16 @@ CONTAINS
 
        DO j=1,jmax
 
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+          ! Note, you need this to be 1+2**n for some integer n
+          ! j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
           n=1+2**(j-1)
 
-          !Calculate the dx interval for this value of 'n'
+          ! Calculate the dx interval for this value of 'n'
           dx=(b-a)/REAL(n-1)
 
           IF(j==1) THEN
 
-             !The first go is just the trapezium of the end points
+             ! The first go is just the trapezium of the end points
              f1=q_integrand(a,r,lens,cosm)
              f2=q_integrand(b,r,lens,cosm)
              sum_2n=0.5*(f1+f2)*dx
@@ -907,22 +919,21 @@ CONTAINS
 
           ELSE
 
-             !Loop over only new even points to add these to the integral
+             ! Loop over only new even points to add these to the integral
              DO i=2,n,2
-                !x=a+(b-a)*DBLE(i-1)/DBLE(n-1)
                 x=progression(a,b,i,n)
                 fx=q_integrand(x,r,lens,cosm)
                 sum_2n=sum_2n+fx
              END DO
 
-             !Now create the total using the old and new parts
+             ! Now create the total using the old and new parts
              sum_2n=sum_n/2.+sum_2n*dx
 
-             !Now calculate the new sum depending on the integration order
+             ! Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. ! This is Simpson's rule and cancels error
              ELSE
                 STOP 'INTEGRATE_Q: Error, iorder specified incorrectly'
              END IF
@@ -930,14 +941,14 @@ CONTAINS
           END IF
 
           IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
-             !jmin avoids spurious early convergence
+             ! jmin avoids spurious early convergence
              integrate_q=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
              integrate_q=0.d0
              STOP 'INTEGRATE_Q: Integration timed out'
           ELSE
-             !Integral has not converged so store old sums and reset sum variables
+             ! Integral has not converged so store old sums and reset sum variables
              integrate_q=0.d0
              sum_old=sum_new
              sum_n=sum_2n
@@ -952,9 +963,9 @@ CONTAINS
 
   FUNCTION q_integrand(z,r,lens,cosm)
 
-    !The lensing efficiency integrand, which is a function of z
-    !z is integrated over while r is just a parameter
-    !This is only called for n(z)
+    ! The lensing efficiency integrand, which is a function of z
+    ! z is integrated over while r is just a parameter
+    ! This is only called for n(z)
     IMPLICIT NONE
     REAL :: q_integrand
     REAL, INTENT(IN) :: r, z
@@ -967,12 +978,11 @@ CONTAINS
     IF(z==0.) THEN
        q_integrand=0.
     ELSE
-       !Find the r'(z) variable that is integrated over
-       !rdash=find(z,cosm%z_r,cosm%r,cosm%nr,3,3,2)       
+       ! Find the r'(z) variable that is integrated over     
        rdash=comoving_distance(a,cosm)
-       !Find the n(z)
+       ! Find the n(z)
        nz=find(z,lens%z_nz,lens%nz,lens%nnz,3,3,2)
-       !This is then the integrand
+       ! This is then the integrand
        q_integrand=nz*f_k(rdash-r,cosm)/f_k(rdash,cosm)
     END IF
 
@@ -980,8 +990,8 @@ CONTAINS
 
   FUNCTION integrate_Limber(l,a,b,logktab,logatab,logptab,nk,na,acc,iorder,proj,cosm)
 
-    !Integrates between a and b until desired accuracy is reached
-    !Stores information to reduce function calls
+    ! Integrates between a and b until desired accuracy is reached
+    ! Stores information to reduce function calls
     IMPLICIT NONE
     REAL :: integrate_Limber
     REAL, INTENT(IN) :: a, b, acc
@@ -1002,12 +1012,12 @@ CONTAINS
 
     IF(a==b) THEN
 
-       !Fix the answer to zero if the integration limits are identical
+       ! Fix the answer to zero if the integration limits are identical
        integrate_Limber=0.
 
     ELSE
 
-       !Set the sum variable for the integration
+       ! Set the sum variable for the integration
        sum_2n=0.
        sum_n=0.
        sum_old=0.
@@ -1015,18 +1025,16 @@ CONTAINS
 
        DO j=1,jmax
 
-          !Note, you need this to be 1+2**n for some integer n
-          !j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
+          ! Note, you need this to be 1+2**n for some integer n
+          ! j=1 n=2; j=2 n=3; j=3 n=5; j=4 n=9; ...'
           n=1+2**(j-1)
 
-          !Calculate the dx interval for this value of 'n'
+          ! Calculate the dx interval for this value of 'n'
           dx=(b-a)/REAL(n-1)
-
-          !WRITE(*,*) j, n
 
           IF(j==1) THEN
 
-             !The first go is just the trapezium of the end points
+             ! The first go is just the trapezium of the end points
              f1=Limber_integrand(a,l,logktab,logatab,logptab,nk,na,proj,cosm)
              f2=Limber_integrand(b,l,logktab,logatab,logptab,nk,na,proj,cosm)
              sum_2n=0.5*(f1+f2)*dx
@@ -1034,22 +1042,21 @@ CONTAINS
 
           ELSE
 
-             !Loop over only new even points to add these to the integral
+             ! Loop over only new even points to add these to the integral
              DO i=2,n,2
-                !x=a+(b-a)*DBLE(i-1)/DBLE(n-1)
                 x=progression(a,b,i,n)
                 fx=Limber_integrand(x,l,logktab,logatab,logptab,nk,na,proj,cosm)
                 sum_2n=sum_2n+fx
              END DO
 
-             !Now create the total using the old and new parts
+             ! Now create the total using the old and new parts
              sum_2n=sum_n/2.+sum_2n*dx
 
-             !Now calculate the new sum depending on the integration order
+             ! Now calculate the new sum depending on the integration order
              IF(iorder==1) THEN  
                 sum_new=sum_2n
              ELSE IF(iorder==3) THEN         
-                sum_new=(4.*sum_2n-sum_n)/3. !This is Simpson's rule and cancels error
+                sum_new=(4.*sum_2n-sum_n)/3. ! This is Simpson's rule and cancels error
              ELSE
                 STOP 'INTEGRATE_LIMBER: Error, iorder specified incorrectly'
              END IF
@@ -1057,14 +1064,14 @@ CONTAINS
           END IF
 
           IF((j>=jmin) .AND. (ABS(-1.+sum_new/sum_old)<acc)) THEN
-             !jmin avoids spurious early convergence
+             ! jmin avoids spurious early convergence
              integrate_Limber=REAL(sum_new)
              EXIT
           ELSE IF(j==jmax) THEN
              integrate_Limber=0.d0
              STOP 'INTEGRATE_LIMBER: Integration timed out'
           ELSE
-             !Integral has not converged so store old sums and reset sum variables
+             ! Integral has not converged so store old sums and reset sum variables
              integrate_Limber=0.d0
              sum_old=sum_new
              sum_n=sum_2n
@@ -1079,7 +1086,7 @@ CONTAINS
 
   FUNCTION Limber_integrand(r,l,logktab,logatab,logptab,nk,na,proj,cosm)
 
-    !The integrand for the Limber integral
+    ! The integrand for the Limber integral
     IMPLICIT NONE
     REAL :: Limber_integrand
     REAL, INTENT(IN) :: r, l
@@ -1096,20 +1103,20 @@ CONTAINS
 
     ELSE
 
-       !Get the two kernels
+       ! Get the two kernels
        DO i=1,2
           X(i)=find(r,proj(i)%r_X,proj(i)%X,proj(i)%nX,3,3,2)
        END DO
        !x2=find(r,proj%r_x2,proj%x2,proj%nx2,3,3,2)
-       !x1=exp(find(log(r),log(proj%r_x1),log(proj%x1),proj%nx1,3,3,2)) !Barfed with this
-       !x2=exp(find(log(r),log(proj%r_x2),log(proj%x2),proj%nx2,3,3,2)) !Barfed with this
+       !x1=exp(find(log(r),log(proj%r_x1),log(proj%x1),proj%nx1,3,3,2)) ! Barfed with this
+       !x2=exp(find(log(r),log(proj%r_x2),log(proj%x2),proj%nx2,3,3,2)) ! Barfed with this
 
-       !Get variables r, z(r) and k(r) for P(k,z)
+       ! Get variables r, z(r) and k(r) for P(k,z)
        z=redshift_r(r,cosm)
        a=scale_factor_z(z)
-       k=(l+lcorr)/f_k(r,cosm) !LoVerde et al. (2008) Limber correction
+       k=(l+lcorr)/f_k(r,cosm) ! LoVerde et al. (2008) Limber correction
 
-       !Construct the integrand
+       ! Construct the integrand
        Limber_integrand=X(1)*X(2)*find_pka(k,a,logktab,logatab,logptab,nk,na)/f_k(r,cosm)**2
 
     END IF
@@ -1131,15 +1138,15 @@ CONTAINS
 
     INTEGER, PARAMETER  :: n=1024 !Number of samples to take in r
 
-    !Calculate the integral for this value of ell
+    ! Calculate the integral for this value of ell
     total=integrate_Limber(l,r1,r2,logktab,logatab,logptab,nk,na,acc_Limber,3,proj,cosm)
 
-    !Now split up the contributions
-    !You need the Jacobian and to remember that the contribution is split in ln(k), ln(z) and ln(R)
-    !This means factors of:
-    !k - f_k(r)/f'_k(r) (=r if flat)
-    !z - z/H(z)
-    !r - r
+    ! Now split up the contributions
+    ! You need the Jacobian and to remember that the contribution is split in ln(k), ln(z) and ln(R)
+    ! This means factors of:
+    ! k - f_k(r)/f'_k(r) (=r if flat)
+    ! z - z/H(z)
+    ! r - r
     OPEN(7,file=TRIM(outfile))
     DO i=1,n
        r=progression(r1,r2,i,n)
@@ -1147,7 +1154,6 @@ CONTAINS
           CYCLE
        ELSE
           k=(l+lcorr)/f_k(r,cosm)
-          !z=find(r,cosm%r,cosm%z_r,cosm%nr,3,3,2)
           z=redshift_r(r,cosm)
           a=scale_factor_z(z)
           int=Limber_integrand(r,l,logktab,logatab,logptab,nk,na,proj,cosm)
@@ -1160,24 +1166,21 @@ CONTAINS
 
   FUNCTION find_pka(k,a,logktab,logatab,logptab,nk,na)
 
-    !Looks up the power as a 2D function of k and a
+    ! Looks up the power as a 2D function of k and a
     IMPLICIT NONE
     REAL :: find_pka
     INTEGER, INTENT(IN) :: nk, na
     REAL, INTENT(IN) :: k, a
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
 
-    REAL, PARAMETER :: kmin=1e-3 !kmin value
-    REAL, PARAMETER :: kmax=1e2 !kmax value
+    REAL, PARAMETER :: kmin=1e-3 ! kmin value; P(k<kmin)=0
+    REAL, PARAMETER :: kmax=1e2 ! kmax value; P(k>kmax)=0
 
     IF(k<=kmin .OR. k>=kmax) THEN
        find_pka=0.
     ELSE
        find_pka=exp(find2d(log(k),logktab,log(a),logatab,logptab,nk,na,3,3,1))
     END IF
-
-    !Convert from Delta^2 -> P(k) - with dimensions of (Mpc/h)^3
-    !find_pkz=(2.*pi**2)*find_pkz/k**3
 
   END FUNCTION find_pka
   
