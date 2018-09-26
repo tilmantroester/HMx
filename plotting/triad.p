@@ -4,17 +4,20 @@ cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
 if(!exists('print')){print=0}
 if(print==0){set term aqua dashed; ell='l'}
-if(print==1){set term post enh col dashed fontfile cmmi font ',16'; set output 'paper/triad.eps'; ell='{/cmmi10 \140}'}
+if(print==1){set term post enh col dashed fontfile cmmi font ',14'; ell='{/cmmi10 \140}'}
 
 # File name and location functions
 hm_file(x,y)=sprintf('data/triad_Cl_%s-%s.dat',x,y)
 
 print ''
 print 'icomp = 1: cosmo-OWLS'
-print 'icomp = 2: BAHAMAS'
+print 'icomp = 2: PAPER: BAHAMAS'
 if(!exists('icomp')){icomp=2}
 print 'icomp = ', icomp
 print ''
+
+if(icomp==1){set output 'triad.eps'}
+if(icomp==2){set output 'paper/triad.eps'}
 
 # 1 - C(l)
 # 2 - l(l+1)C(l)/2pi
@@ -70,28 +73,27 @@ beam(l)=exp(-0.5*l*(l+1.)*sigma**2.)
 }
 
 # x axis
-ellmin=90.
-ellmax=3500.
+lmin=90.
+lmax=3500.
 set log x
 set xlabel ''.ell.''
-set xrange [ellmin:ellmax]
+set xrange [lmin:lmax]
 
 # y axis
 set log y
 set format y '10^{%T}'
-set yrange [*:*]
 
 # Distance and function to shift simulation points for clarity
 disp(i,n)=1.+0.03*real(i-1)/real(n-1)
 
 # Factor to shift down CMB-gal curves
-f=5e-4
+f=1e-3
 print 'Note that CMB-galaxy power has been multiplied by a factor to bring it down:'
 print 'Factor: ', f
 print ''
 
 if(icl==1){p1=0; p2=0; p3=0; ylab='C_{ij}('.ell.')'                                 ; c=2; clmin=1e-14; clmax=2e-12; set key top right}
-if(icl==2){p1=1; p2=1; p3=1; ylab=''.ell.'('.ell.'+1)C_{ij}('.ell.') / 2{/Symbol p}'; c=3; clmin=1e-10; clmax=3e-7;  set key top left}
+if(icl==2){p1=1; p2=1; p3=1; ylab=''.ell.'('.ell.'+1)C_{ij}('.ell.') / 2{/Symbol p}'; c=3; clmin=1e-10; clmax=7e-7;  set key top left}
 
 set ylabel ylab
 set yrange [clmin:clmax]

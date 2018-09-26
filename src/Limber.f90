@@ -7,11 +7,7 @@ MODULE Limber
 
   IMPLICIT NONE
 
-  REAL, PARAMETER :: lcorr=0.5
-  REAL, PARAMETER :: acc_Limber=1e-4
-
-  ! Projection quantities that need to be calculated only once
-  ! These relate to the Limber integrals
+  ! Projection quantities that need to be calculated only once; these relate to the Limber integrals
   TYPE projection    
      REAL, ALLOCATABLE :: X(:), r_X(:)
      INTEGER :: nX
@@ -25,12 +21,52 @@ MODULE Limber
      INTEGER :: nq, nnz
   END TYPE lensing
   
+  ! P(k,a) look-up table parameters
+  REAL, PARAMETER :: kmin_pka=1e-3 ! kmin value for P(k,a) table; P(k<kmin)=0
+  REAL, PARAMETER :: kmax_pka=1e2  ! kmax value for P(k,a) table; P(k>kmax)=0
+
+  ! xcorr - C(l) calculation
+  REAL, PARAMETER :: kmin_xcorr=1e-3 ! Minimum k
+  REAL, PARAMETER :: kmax_xcorr=1e1  ! Maximum k (some halo-model things go hectic for k>10)
+  INTEGER, PARAMETER :: nk_xcorr=64  ! Number of k values (used to be 32)
+  REAL, PARAMETER :: amin_xcorr=0.1 ! Minimum scale factor (problems with one-halo term if amin is less than 0.1 (CMB lensing?))
+  REAL, PARAMETER :: amax_xcorr=1.0 ! Maximum scale factor
+  INTEGER, PARAMETER :: na_xcorr=16 ! Number of scale factores
+  LOGICAL, PARAMETER :: verbose_Limber=.FALSE. ! Verbosity
+  !LOGICAL, PARAMETER :: verbose_cell=.FALSE. ! Verbosity
+
+  ! Maxdist
+  REAL, PARAMETER :: dr_max=0.01 ! Small subtraction from maxdist to prevent numerical issues
+
+  ! Limber integration parameters
+  INTEGER, PARAMETER  :: n_Limber=1024 ! Number of samples to take in r for Limber integration  
+  REAL, PARAMETER :: lcorr=0.5         ! 1/2 in LoVerde (2008) Limber correction k(r)=(l+1/2)/f_k(r)
+  REAL, PARAMETER :: acc_Limber=1e-4   ! Accuracy parameter for Limber integration
+
+  ! n(z)
+  REAL, PARAMETER :: zmin_nz=0.  ! Minimum redshift for the n(z) tables
+  REAL, PARAMETER :: zmax_nz=2.5 ! Maximum redshift for the n(z) tables
+  INTEGER, PARAMETER :: n_nz=128 ! Number of entries in the n(z) tables
+
+  ! General kernel
+  REAL, PARAMETER :: rmin_kernel=0.   ! Minimum r for table
+  INTEGER, PARAMETER :: nx_kernel=128 ! Number of entires in look-up table
+
+  ! Lensing kernel/efficiency
+  REAL, PARAMETER :: rmin_lensing=0.      ! Minimum distance in integral    
+  INTEGER, PARAMETER :: nX_lensing=128    ! Number of entries in X(r) table
+  INTEGER, PARAMETER :: nq_efficiency=128 ! Number of entries in q(r) table
+
+  ! Gravitational waves
+  REAL, PARAMETER :: A_gwave=1.
+  REAL, PARAMETER :: rmin_gwave=10.
+  
 CONTAINS
 
   FUNCTION xcorr_type(ix)
 
     ! Names for cross-correlation field types
-    ! TODO: This is super ugly. Surely it should be combined into a type?
+    ! TODO: This is super ugly. Surely it should be combined with set_xcorr_type somehow?
     IMPLICIT NONE
     CHARACTER(len=256) :: xcorr_type
     INTEGER, INTENT(IN) :: ix
@@ -57,11 +93,13 @@ CONTAINS
   SUBROUTINE set_xcorr_type(ix,ip)
 
     ! Set the cross-correlation type
+    ! TODO: This is super ugly. Surely it should be combined with xcorr_type somehow?
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2)
     INTEGER, INTENT(OUT) :: ip(2)
     INTEGER :: i, j
-    INTEGER, PARAMETER :: nx=14
+    
+    INTEGER, PARAMETER :: nx=14 ! Total number of cross-correlation fields
 
     ! Loop over two-components of xcorr
     DO i=1,2
@@ -110,26 +148,19 @@ CONTAINS
     REAL, ALLOCATABLE :: a(:), k(:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa(:,:)
     TYPE(projection) :: proj(2)    
     REAL :: lmin, lmax
-    INTEGER :: ip(2)
+    INTEGER :: ip(2), nk, na
     REAL :: r1, r2
 
-    ! k range parameters for P(k)
-    REAL, PARAMETER :: kmin=1e-3
-    REAL, PARAMETER :: kmax=1e1
-    INTEGER, PARAMETER :: nk=64 ! This used to be 32
-
-    ! a range parameters
-    REAL, PARAMETER :: amin=0.1 ! Problems with one-halo term if amin is less than 0.1 (CMB lensing?)
-    REAL, PARAMETER :: amax=1.0
-    INTEGER, PARAMETER :: na=16
-
     ! Set the k range
-    CALL fill_array(log(kmin),log(kmax),k,nk)
+    nk=nk_xcorr
+    CALL fill_array(log(kmin_xcorr),log(kmax_xcorr),k,nk)
     k=exp(k)   
 
     ! Set the a range
-    CALL fill_array(amin,amax,a,na)
+    na=na_xcorr
+    CALL fill_array(amin_xcorr,amax_xcorr,a,na)
 
+    ! Set the ell range
     lmin=ell(1)
     lmax=ell(nl)
 
@@ -138,11 +169,11 @@ CONTAINS
 
     IF(verbose) THEN
        WRITE(*,*) 'XCORR: Cross-correlation information'
-       WRITE(*,*) 'XCORR: P(k) minimum k [h/Mpc]:', REAL(kmin)
-       WRITE(*,*) 'XCORR: P(k) maximum k [h/Mpc]:', REAL(kmax)
+       WRITE(*,*) 'XCORR: P(k) minimum k [h/Mpc]:', REAL(kmin_xcorr)
+       WRITE(*,*) 'XCORR: P(k) maximum k [h/Mpc]:', REAL(kmax_xcorr)
        WRITE(*,*) 'XCORR: Number of k:', nk
-       WRITE(*,*) 'XCORR: minimum a:', REAL(amin)
-       WRITE(*,*) 'XCORR: maximum a:', REAL(amax)
+       WRITE(*,*) 'XCORR: minimum a:', REAL(amin_xcorr)
+       WRITE(*,*) 'XCORR: maximum a:', REAL(amax_xcorr)
        WRITE(*,*) 'XCORR: number of a:', na
        WRITE(*,*) 'XCORR: minimum ell:', REAL(lmin)
        WRITE(*,*) 'XCORR: maximum ell:', REAL(lmax)
@@ -235,6 +266,7 @@ CONTAINS
   SUBROUTINE calculate_Cell(r1,r2,ell,Cell,nl,k,a,pow,nk,na,proj,cosm)
 
     ! Calculates C(l) using the Limber approximation
+    ! Note that using Limber and flat-sky for sensible results limits lmin to ell~10
     IMPLICIT NONE
     REAL, INTENT(IN) :: r1, r2 ! Maximum and minimum comoving distances for integration
     REAL, INTENT(IN) :: ell(nl) ! Input array of desired ell values for C(ell)
@@ -247,10 +279,6 @@ CONTAINS
     REAL :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j
 
-    LOGICAL, PARAMETER :: verbose=.FALSE.
-
-    ! Note that using Limber and flat-sky for sensible results limits lmin to ell~10
-
     ! Create log tables to speed up 2D find routine in find_pkz
     logk=log(k)
     loga=log(a)
@@ -259,7 +287,7 @@ CONTAINS
     END DO
 
     ! Write some useful things to the screen
-    IF(verbose) THEN
+    IF(verbose_Limber) THEN
        WRITE(*,*) 'CALCULATE_CELL: ell min:', REAL(ell(1))
        WRITE(*,*) 'CALCULATE_CELL: ell max:', REAL(ell(nl))
        WRITE(*,*) 'CALCULATE_CELL: number of ell:', nl
@@ -270,11 +298,11 @@ CONTAINS
     END IF
 
     ! Finally do the integration
-    IF(verbose) WRITE(*,*) 'CALCULATE CELL: Doing calculation'
+    IF(verbose_Limber) WRITE(*,*) 'CALCULATE CELL: Doing calculation'
     DO i=1,nl
        Cell(i)=integrate_Limber(ell(i),r1,r2,logk,loga,logpow,nk,na,acc_Limber,3,proj,cosm)
     END DO
-    IF(verbose) THEN
+    IF(verbose_Limber) THEN
        WRITE(*,*) 'CALCULATE_CELL: Done'
        WRITE(*,*)
     END IF
@@ -284,20 +312,19 @@ CONTAINS
   SUBROUTINE Cell_contribution(r1,r2,k,a,pow,nk,na,proj,cosm)
 
     ! Calculates C(l) using the Limber approximation
+    ! Note that using Limber and flat-sky for sensible results limits lmin to ~10
     USE string_operations
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: nk, na
-    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na)
-    REAL, INTENT(IN) :: r1, r2
-    TYPE(projection), INTENT(IN) :: proj(2)
-    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL, INTENT(IN) :: r1, r2 ! Integration range
+    REAL, INTENT(IN) :: k(nk), a(na), pow(nk,na) ! Input arrays of k, a and P(k,a)
+    INTEGER, INTENT(IN) :: nk, na ! Number of entries in k and a
+    TYPE(projection), INTENT(IN) :: proj(2) ! Projection kernels
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmology
     REAL :: logk(nk), loga(na), logpow(nk,na)
     INTEGER :: i, j, l
     CHARACTER(len=256) :: fbase, fext, outfile
 
     INTEGER, PARAMETER :: n=16 ! Number of ell values to take, from ell=1 to ell=2**(n-1)
-
-    ! Note that using Limber and flat-sky for sensible results limits lmin to ~10
 
     ! Create log tables to speed up 2D find routine in find_pkz
     logk=log(k)
@@ -307,7 +334,7 @@ CONTAINS
     END DO
 
     ! Now call the contribution subroutine
-    fbase='Limber/Cell_contrib_ell_'
+    fbase='data/Cell_contrib_ell_'
     fext='.dat'
     DO i=1,n
        l=2**(i-1)
@@ -319,7 +346,7 @@ CONTAINS
 
   SUBROUTINE write_Cell(ell,Cell,nl,output)
 
-    ! Write C(l) to a file, writes l, C(l), l(l+1)C(l)/2pi
+    ! Write C(l) to a file; writes l, C(l), l(l+1)C(l)/2pi
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nl
     REAL, INTENT(IN) :: ell(nl), Cell(nl)
@@ -418,14 +445,12 @@ CONTAINS
     !TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: rmax1, rmax2
 
-    REAL, PARAMETER :: dr=0.01
-
     !Fix the maximum redshift and distance (which may fixed at source plane)
     rmax1=MAXVAL(proj(1)%r_x)
     rmax2=MAXVAL(proj(2)%r_x)
     
     !Subtract a small distance here because of rounding errors in recalculating zmax
-    maxdist=MIN(rmax1,rmax2)-dr
+    maxdist=MIN(rmax1,rmax2)-dr_max
     
   END FUNCTION maxdist
 
@@ -453,10 +478,10 @@ CONTAINS
     INTEGER :: i
     REAL :: r, z
     
-    LOGICAL, PARAMETER :: verbose=.FALSE.
+    !LOGICAL, PARAMETER :: verbose=.FALSE. ! Verbosity
 
     !Kernel 1
-    IF(verbose) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel: ', TRIM(output)
+    IF(verbose_Limber) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel: ', TRIM(output)
     OPEN(7,file=output)
     DO i=1,proj%nX    
        r=proj%r_X(i)
@@ -464,7 +489,7 @@ CONTAINS
        WRITE(7,*) r, z, proj%X(i)
     END DO
     CLOSE(7)
-    IF(verbose) THEN
+    IF(verbose_Limber) THEN
        WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing done'
        WRITE(*,*)
     END IF
@@ -481,11 +506,7 @@ CONTAINS
     TYPE(projection), INTENT(OUT) :: proj
     REAL :: zmin, zmax, rmax, amax, r
     CHARACTER(len=256) :: output
-    INTEGER :: i
-
-    !Parameters
-    REAL, PARAMETER :: rmin=0. !Minimum distance in integral    
-    INTEGER, PARAMETER :: nx=128 !Number of entries in X(r) table
+    INTEGER :: i, nX
 
     IF(ix==2 .OR. ix==10) STOP 'FILL_LENSING_KERNEL: Error, trying to do this for a non-lensing ix'
 
@@ -493,35 +514,38 @@ CONTAINS
     IF(ix==3) THEN      
        zmin=0.
        zmax=cosm%z_cmb
-       WRITE(*,*) 'FILL_LENSING_KERNEL: Source plane redshift:', REAL(zmax)
+       IF(verbose_Limber) WRITE(*,*) 'FILL_LENSING_KERNEL: Source plane redshift:', REAL(zmax)
     ELSE
        CALL get_nz(ix,lens)
        zmin=lens%z_nz(1)
        zmax=lens%z_nz(lens%nnz)
-       output='lensing/nz.dat'
+       output='data/nz.dat'
        CALL write_nz(lens,output)
     END IF
 
     !Get the distance range for the lensing kernel
     amax=scale_factor_z(zmax)
     rmax=comoving_distance(amax,cosm)
-    WRITE(*,*) 'FILL_LENSING_KERNEL: minimum r [Mpc/h]:', REAL(rmin)
-    WRITE(*,*) 'FILL_LENSING_KERNEL: maximum r [Mpc/h]:', REAL(rmax)
-    WRITE(*,*) 'FILL_LENSING_KERNEL: minimum z:', REAL(zmin)
-    WRITE(*,*) 'FILL_LENSING_KERNEL: maximum z:', REAL(zmax)
-    WRITE(*,*)
+    IF(verbose_Limber) THEN
+       WRITE(*,*) 'FILL_LENSING_KERNEL: minimum r [Mpc/h]:', REAL(rmin_lensing)
+       WRITE(*,*) 'FILL_LENSING_KERNEL: maximum r [Mpc/h]:', REAL(rmax)
+       WRITE(*,*) 'FILL_LENSING_KERNEL: minimum z:', REAL(zmin)
+       WRITE(*,*) 'FILL_LENSING_KERNEL: maximum z:', REAL(zmax)
+       WRITE(*,*)
+    END IF
 
     !Fill the q(r) table
-    CALL fill_lensing_efficiency(ix,rmin,rmax,zmax,lens,cosm)
+    CALL fill_lensing_efficiency(ix,rmin_lensing,rmax,zmax,lens,cosm)
 
     !Write the q(r) table to file
-    output='lensing/efficiency.dat'
+    output='data/lensing_efficiency.dat'
     CALL write_lensing_efficiency(lens,cosm,output)
 
     !Assign arrays for the projection function
+    nX=nX_lensing
     proj%nx=nx
-    CALL fill_array(rmin,rmax,proj%r_x,nx)
-    WRITE(*,*) 'FILL_LENSING_KERNEL: number of points:', nx
+    CALL fill_array(rmin_lensing,rmax,proj%r_x,nx)
+    IF(verbose_Limber) WRITE(*,*) 'FILL_LENSING_KERNEL: number of points:', nx
     IF(ALLOCATED(proj%x)) DEALLOCATE(proj%x)
     ALLOCATE(proj%x(proj%nx))
 
@@ -532,8 +556,10 @@ CONTAINS
        !Enforce that the kernel must not be negative (is this necessary?)
        IF(proj%x(i)<0.) proj%x(i)=0.
     END DO
-    WRITE(*,*) 'FILL_LENSING_KERNEL: Done'
-    WRITE(*,*)
+    IF(verbose_Limber) THEN
+       WRITE(*,*) 'FILL_LENSING_KERNEL: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE fill_lensing_kernel
 
@@ -548,11 +574,9 @@ CONTAINS
     REAL :: r, z
     INTEGER :: i
 
-    INTEGER, PARAMETER :: nq=128 !Number of entries in q(r) table
-
     !Fill the r vs. q(r) tables
-    lens%nq=nq
-    WRITE(*,*) 'FILL_EFFICIENCY: number of points:', lens%nq
+    lens%nq=nq_efficiency
+    IF(verbose_Limber) WRITE(*,*) 'FILL_EFFICIENCY: number of points:', lens%nq
     CALL fill_array(rmin,rmax,lens%r_q,lens%nq)
     IF(ALLOCATED(lens%q)) DEALLOCATE(lens%q)
     ALLOCATE(lens%q(lens%nq))
@@ -573,8 +597,10 @@ CONTAINS
           END IF
        END IF
     END DO
-    WRITE(*,*) 'FILL_EFFICIENCY: Done writing'
-    WRITE(*,*)
+    IF(verbose_Limber) THEN
+       WRITE(*,*) 'FILL_EFFICIENCY: Done writing'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE fill_lensing_efficiency
 
@@ -638,27 +664,25 @@ CONTAINS
 
   SUBROUTINE fill_kernel(ix,proj,cosm)
 
-    !Fill a table of kernel values
+    ! Fill a table of kernel values
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(projection), INTENT(OUT) :: proj
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    INTEGER :: i
+    INTEGER :: i, nX
     REAL :: rmax, r
 
-    REAL, PARAMETER :: rmin=0. ! Minimum r for table
-    INTEGER, PARAMETER :: nx=128 ! Number of entires in look-up table
-
+    nX=nx_kernel
     proj%nx=nx
 
     ! Get the distance range for the projection function
     ! Use the same as that for the distance calculation
     ! Assign arrays for the kernel function
     rmax=MAXVAL(cosm%r)
-    CALL fill_array(rmin,rmax,proj%r_X,proj%nX)
-    WRITE(*,*) 'FILL_KERNEL: minimum r [Mpc/h]:', REAL(rmin)
+    CALL fill_array(rmin_kernel,rmax,proj%r_X,proj%nX)
+    WRITE(*,*) 'FILL_KERNEL: minimum r [Mpc/h]:', REAL(rmin_kernel)
     WRITE(*,*) 'FILL_KERNEL: maximum r [Mpc/h]:', REAL(rmax)
-    WRITE(*,*) 'FILL_KERNEL: number of points:', nx
+    WRITE(*,*) 'FILL_KERNEL: number of points:', nX
 
     IF(ALLOCATED(proj%X)) DEALLOCATE(proj%X)
     ALLOCATE(proj%X(nX))
@@ -669,7 +693,7 @@ CONTAINS
        IF(ix==2) THEN
           proj%x(i)=y_kernel(r,cosm)
        ELSE IF(ix==10) THEN
-          proj%x(i)=gravity_kernel(r,cosm)
+          proj%x(i)=gwave_kernel(r,cosm)
        ELSE
           STOP 'FILL_KERNEL: Error, ix not specified correctly'
        END IF
@@ -704,28 +728,24 @@ CONTAINS
 
   END FUNCTION y_kernel
 
-  FUNCTION gravity_kernel(r,cosm)
+  REAL FUNCTION gwave_kernel(r,cosm)
 
     ! Projection kernel for gravitational waves (~ 1/r)
     IMPLICIT NONE
-    REAL :: gravity_kernel
     REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
 
-    REAL, PARAMETER :: A=1.
-    REAL, PARAMETER :: rmin=10.
-
     ! To stop compile-time warnings
     crap=cosm%Om_m
 
-    IF(r<rmin) THEN
-       gravity_kernel=A/rmin
+    IF(r<rmin_gwave) THEN
+       gwave_kernel=A_gwave/rmin_gwave
     ELSE
-       gravity_kernel=A/r
+       gwave_kernel=A_gwave/r
     END IF
 
-  END FUNCTION gravity_kernel
+  END FUNCTION gwave_kernel
 
   SUBROUTINE get_nz(ix,lens)
 
@@ -740,10 +760,12 @@ CONTAINS
        CALL fill_nz_table(ix,lens)
     END IF
 
-    WRITE(*,*) 'GET_NZ: zmin:', lens%z_nz(1)
-    WRITE(*,*) 'GET_NZ: zmax:', lens%z_nz(lens%nnz)
-    WRITE(*,*) 'GET_NZ: nz:', lens%nnz
-    WRITE(*,*)
+    IF(verbose_Limber) THEN
+       WRITE(*,*) 'GET_NZ: zmin:', lens%z_nz(1)
+       WRITE(*,*) 'GET_NZ: zmax:', lens%z_nz(lens%nnz)
+       WRITE(*,*) 'GET_NZ: nz:', lens%nnz
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE get_nz
 
@@ -754,19 +776,15 @@ CONTAINS
     TYPE(lensing), INTENT(INOUT) :: lens
     INTEGER :: i
 
-    REAL, PARAMETER :: zmin=0.
-    REAL, PARAMETER :: zmax=2.5
-    INTEGER, PARAMETER :: n=128
-
     ! From analytical function
-    lens%nnz=n
+    lens%nnz=n_nz
     IF(ALLOCATED(lens%z_nz)) DEALLOCATE(lens%z_nz)
-    IF(ALLOCATED(lens%nz)) DEALLOCATE(lens%nz)
+    IF(ALLOCATED(lens%nz))   DEALLOCATE(lens%nz)
     ALLOCATE(lens%z_nz(lens%nnz),lens%nz(lens%nnz))
 
     ! Fill the look-up tables
-    CALL fill_array(zmin,zmax,lens%z_nz,lens%nnz)
-    DO i=1,n
+    CALL fill_array(zmin_nz,zmax_nz,lens%z_nz,lens%nnz)
+    DO i=1,n_nz
        lens%nz(i)=nz_lensing(lens%z_nz(i),ix)
     END DO
 
@@ -824,6 +842,12 @@ CONTAINS
        END IF
     END DO
     CLOSE(7)
+
+    ! Do this because the KiDS-450 files contain the lower left edge of histograms
+    ! The bin sizes are 0.05 in z
+    IF(ix==11 .OR. ix==12 .OR. ix==13 .OR. ix==14) THEN       
+       lens%z_nz=lens%z_nz+0.025
+    END IF
 
   END SUBROUTINE fill_nz_table
 
@@ -884,8 +908,8 @@ CONTAINS
     REAL :: f1, f2, fx
     DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
 
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=30
+    INTEGER, PARAMETER :: jmin=5  ! Standard integration parameters
+    INTEGER, PARAMETER :: jmax=30 ! Standard integration parameters
 
     IF(a==b) THEN
 
@@ -1007,8 +1031,8 @@ CONTAINS
     REAL :: f1, f2, fx
     DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
 
-    INTEGER, PARAMETER :: jmin=5
-    INTEGER, PARAMETER :: jmax=25
+    INTEGER, PARAMETER :: jmin=5  ! Standard integration parameters
+    INTEGER, PARAMETER :: jmax=25 ! Standard integration parameters
 
     IF(a==b) THEN
 
@@ -1106,10 +1130,8 @@ CONTAINS
        ! Get the two kernels
        DO i=1,2
           X(i)=find(r,proj(i)%r_X,proj(i)%X,proj(i)%nX,3,3,2)
+          !X(i)=exp(find(log(r),log(proj(i)%r_X),log(proj(i)%X),proj(i)%nX,3,3,2)) ! Barfed with this
        END DO
-       !x2=find(r,proj%r_x2,proj%x2,proj%nx2,3,3,2)
-       !x1=exp(find(log(r),log(proj%r_x1),log(proj%x1),proj%nx1,3,3,2)) ! Barfed with this
-       !x2=exp(find(log(r),log(proj%r_x2),log(proj%x2),proj%nx2,3,3,2)) ! Barfed with this
 
        ! Get variables r, z(r) and k(r) for P(k,z)
        z=redshift_r(r,cosm)
@@ -1136,8 +1158,6 @@ CONTAINS
     REAL :: k, r, z, total, int, a
     INTEGER :: i
 
-    INTEGER, PARAMETER  :: n=1024 !Number of samples to take in r
-
     ! Calculate the integral for this value of ell
     total=integrate_Limber(l,r1,r2,logktab,logatab,logptab,nk,na,acc_Limber,3,proj,cosm)
 
@@ -1148,9 +1168,11 @@ CONTAINS
     ! z - z/H(z)
     ! r - r
     OPEN(7,file=TRIM(outfile))
-    DO i=1,n
-       r=progression(r1,r2,i,n)
+    DO i=1,n_Limber
+       r=progression(r1,r2,i,n_Limber)
        IF(r==0.) THEN
+          ! Avoid trouble for r = 0 exactly
+          ! Maybe should do some sort of awful Taylor expansion here
           CYCLE
        ELSE
           k=(l+lcorr)/f_k(r,cosm)
@@ -1173,10 +1195,7 @@ CONTAINS
     REAL, INTENT(IN) :: k, a
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
 
-    REAL, PARAMETER :: kmin=1e-3 ! kmin value; P(k<kmin)=0
-    REAL, PARAMETER :: kmax=1e2 ! kmax value; P(k>kmax)=0
-
-    IF(k<=kmin .OR. k>=kmax) THEN
+    IF(k<=kmin_pka .OR. k>=kmax_pka) THEN
        find_pka=0.
     ELSE
        find_pka=exp(find2d(log(k),logktab,log(a),logatab,logptab,nk,na,3,3,1))

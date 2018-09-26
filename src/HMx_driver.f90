@@ -14,8 +14,8 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:), pows_full(:,:,:)
   REAL, ALLOCATABLE :: ell(:), Cell(:), theta(:), xi(:,:), zs(:)
   REAL, ALLOCATABLE :: z_tab(:)
-  INTEGER :: i, j, ii, l, ik, nk, na, j1, j2, iz
-  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore
+  INTEGER :: i, j, ii, l, ik, nk, na, j1, j2, iz, itriad
+  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, ntriad
   INTEGER :: ip(2), ix(2), ixx(2), ihalo
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: rcore_min, rcore_max
@@ -30,7 +30,7 @@ PROGRAM HMx_driver
   CHARACTER(len=256) :: mode, halomodel, red, cosmo
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
   REAL :: sig8min, sig8max
-  REAL :: m1, m2, mass
+  REAL :: mass, m1, m2, nu, nu_min, nu_max
   REAL :: c, rmin, rmax, rv, rs, p1, p2
   REAL :: spam
   CHARACTER(len=1) :: crap
@@ -67,7 +67,6 @@ PROGRAM HMx_driver
   INTEGER :: i1, i2, i3, ifit, nref, np, ibest!, ipbest(3), iii(3)
   LOGICAL :: plog(3), refine, jump
   CHARACTER(len=256) :: model
-  REAL, PARAMETER :: delta=1e-4
 
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
@@ -97,18 +96,18 @@ PROGRAM HMx_driver
   IF(imode==-1) THEN
      WRITE(*,*) 'HMx_DRIVER: Choose what to do'
      WRITE(*,*) '============================='
-     WRITE(*,*) ' 0 - Gravity-only power spectrum at z = 0'
-     WRITE(*,*) ' 1 - Matter power spectrum over multiple z'
-     WRITE(*,*) ' 2 - Produce all halo components cross and auto spectra'
-     WRITE(*,*) ' 3 - Run diagnostics'
+     WRITE(*,*) ' 0 - Gravity-only power spectrum at z=0'
+     WRITE(*,*) ' 1 - 3D Matter power spectrum over multiple z'
+     WRITE(*,*) ' 2 - Produce all halo components 3D cross and auto spectra'
+     WRITE(*,*) ' 3 - Run diagnostics for haloes'
      WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
      WRITE(*,*) ' 5 - NOT SUPPORTED: Pressure field comparison'
      WRITE(*,*) ' 6 - n(z) check'
-     WRITE(*,*) ' 7 - Do cross correlation'
-     WRITE(*,*) ' 8 - Cross correlation as a function of cosmology'
-     WRITE(*,*) ' 9 - Breakdown correlations in halo mass'
-     WRITE(*,*) '10 - Breakdown correlations in redshift'
-     WRITE(*,*) '11 - Breakdown correlations in halo radius'
+     WRITE(*,*) ' 7 - Do general angular cross correlation'
+     WRITE(*,*) ' 8 - Angular cross correlation as a function of cosmology'
+     WRITE(*,*) ' 9 - Breakdown angular correlations in halo mass'
+     WRITE(*,*) '10 - Breakdown angular correlations in redshift'
+     WRITE(*,*) '11 - Breakdown angular correlations in halo radius'
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra for variations in baryon parameters'
@@ -122,18 +121,28 @@ PROGRAM HMx_driver
      WRITE(*,*) '22 - Time W(k) integration methods'
      WRITE(*,*) '23 - Produce DE response results from Mead (2017)'
      WRITE(*,*) '24 - Grid fitting'
-     WRITE(*,*) '25 - MCMC-like fitting'
-     WRITE(*,*) '26 - Automated tests of DMONLY spectra'
+     WRITE(*,*) '25 - MCMC fitting for Mira Titan'
+     WRITE(*,*) '26 - TESTS: DMONLY spectra; HMcode'
      WRITE(*,*) '27 - Comparison with Mira Titan nodes'
      WRITE(*,*) '28 - Comparison with FrankenEmu nodes'
      WRITE(*,*) '29 - Comparison with random Mira Titan cosmology'
      WRITE(*,*) '30 - Comparison with random FrankenEmu cosmology'
-     WRITE(*,*) '31 - PAPER: Breakdown power in halo mass'
-     WRITE(*,*) '32 - PAPER: Hydro power'
-     WRITE(*,*) '33 - PAPER: Variations'
+     WRITE(*,*) '31 - PAPER: Breakdown 3D hydro power in halo mass'
+     WRITE(*,*) '32 - PAPER: Hydro power for baseline model'
+     WRITE(*,*) '33 - PAPER: Effect of parameter variations on baseline model hydro power'
      WRITE(*,*) '34 - Write HMx hydro parameter variations with T_AGN and z'
      WRITE(*,*) '35 - Power spectra of cored halo profiles'
-     WRITE(*,*) '36 - Automated tests of hydro spectra'
+     WRITE(*,*) '36 - TESTS: hydro spectra'
+     WRITE(*,*) '37 - Produce CFHTLenS correlation functions'
+     WRITE(*,*) '38 - MCMC fitting for FrankenEmu nodes'
+     WRITE(*,*) '39 - MCMC fitting for hydro'
+     WRITE(*,*) '40 - MCMC fitting for random Mira Titan'
+     WRITE(*,*) '41 - MCMC fitting for random FrankenEmu'
+     WRITE(*,*) '42 - PAPER: Contributions to k-k C(l) integral'
+     WRITE(*,*) '43 - PAPER: Contributions to k-y C(l) integral'
+     WRITE(*,*) '44 - PAPER: Project triad'
+     WRITE(*,*) '45 - Comparison of Sheth-Tormen vs. Tinker mass function'
+     WRITE(*,*) '46 - Mass function and bias plots'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -155,6 +164,9 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Sets the redshift
+     !WRITE(*,*) 'HMx_DRIVER: Choose redshift:'
+     !READ(*,*) z
+     !WRITE(*,*)
      z=0.
 
      !Initiliasation for the halomodel calcualtion
@@ -210,160 +222,6 @@ PROGRAM HMx_driver
 
      base='data/power'
      CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
-
-  ELSE IF(imode==17) THEN
-
-     ! Assigns the cosmological model
-     icosmo=1
-     CALL assign_cosmology(icosmo,cosm,verbose)
-     CALL init_cosmology(cosm)
-     CALL print_cosmology(cosm)
-
-     CALL assign_halomod(ihm,hmod,verbose)
-
-     ! Set number of k points and k range (log spaced)
-     ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-     nk=128
-     kmin=1e-3
-     kmax=1e2
-     CALL fill_array(log(kmin),log(kmax),k,nk)
-     k=exp(k)
-
-      !Set the number of redshifts and range (linearly spaced) and convert z -> a
-     nz=16
-     zmin=0.
-     zmax=4.
-     CALL fill_array(zmin,zmax,a,nz)
-     a=1./(1.+a)
-     na=nz
-
-     ! Choose the field types
-     DO i=1,2
-        WRITE(*,*) 'HMx_driver: Choose halo', i
-        CALL set_halo_type(ip(i))
-     END DO
-
-     ! User chooses halo model   
-     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
-
-     base='data/power'
-     CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
-
-  ELSE IF(imode==18) THEN
-
-     ! Assigns the cosmological model
-     icosmo=1
-     CALL assign_cosmology(icosmo,cosm,verbose)
-     CALL init_cosmology(cosm)
-     CALL print_cosmology(cosm)
-
-     CALL assign_halomod(ihm,hmod,verbose)
-
-     ! Set number of k points and k range (log spaced)
-     ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-     nk=128
-     kmin=1e-3
-     kmax=1e2
-     CALL fill_array(log(kmin),log(kmax),k,nk)
-     k=exp(k)
-
-     ! Set the number of redshifts and range (linearly spaced) and convert z -> a
-     nz=16
-     zmin=0.
-     zmax=4.
-     CALL fill_array(zmin,zmax,a,nz)
-     a=1./(1.+a)
-     na=nz
-
-     ! Select field type for bias study
-     CALL set_halo_type(ihalo)
-
-     DO j=1,3
-
-        IF(j==1) THEN
-           ! DMONLY-DMONLY
-           ip(1)=-1
-           ip(2)=-1
-           base='bias/power_mm'
-        ELSE IF(j==2) THEN
-           ! DMONLY-field
-           ip(1)=ihalo
-           ip(2)=-1
-           base='bias/power_mf'
-        ELSE IF(j==3) THEN
-           ! field-field
-           ip(1)=ihalo
-           ip(2)=ihalo
-           base='bias/power_ff'
-        END IF
-        
-        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
-        CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
-
-     END DO
-
-  ELSE IF(imode==19) THEN
-
-     ! Set number of k points and k range (log spaced)
-     IF(Alonso_k) THEN
-        ! This is *almost* kmin=1e-4, kmax=1e2, but minus the end points
-        nk=256
-        kmin=1.027350768179302566e-04
-        kmax=9.733773809039202263e+01
-     ELSE
-        nk=128
-        kmin=1e-3
-        kmax=1e1
-     END IF
-     CALL fill_array(log(kmin),log(kmax),k,nk)
-     k=exp(k)
-     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
-
-     ! Set the halo model to that for CCL tests
-     ihm=9
-
-     ! Loop over tests
-     DO j=1,3
-
-        ! Assigns the cosmological model
-        IF(j==1) icosmo=1
-        IF(j==2) icosmo=2
-        IF(j==3) icosmo=3
-        CALL assign_cosmology(icosmo,cosm,verbose)
-        CALL init_cosmology(cosm)
-        CALL print_cosmology(cosm)
-
-        ! Loop over redshifts
-        DO i=1,2
-
-           ! Sets the redshift and file names
-           IF(i==1) THEN
-              z=0.
-              IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z0.txt'
-              IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z0.txt'
-              IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z0.txt'
-           ELSE IF(i==2) THEN
-              z=1.
-              IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z1.txt'
-              IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z1.txt'
-              IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z1.txt'
-           END IF
-
-           ! Initialise the halo-model calculation
-           CALL assign_halomod(ihm,hmod,verbose)
-           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-           CALL print_halomod(hmod,cosm,verbose)
-
-           ! Do the halo-model calculation
-           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
-
-           ! Write out the results
-           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
-
-        END DO
-
-     END DO
-
 
   ELSE IF(imode==2 .OR. imode==15 .OR. imode==16 .OR. imode==32) THEN
 
@@ -453,11 +311,11 @@ PROGRAM HMx_driver
            
            IF(imode==15) THEN
            
-              !cosmo-OWLS
+              ! cosmo-OWLS
               IF(imode==15 .AND. iowl==1) THEN
                  name='REF'
                  fname=name
-                 !From my fitting by eye
+                 ! From my fitting by eye
                  hmod%alpha=2.
                  hmod%eps=1.
                  hmod%Gamma=1.24
@@ -466,7 +324,7 @@ PROGRAM HMx_driver
               ELSE IF(imode==15 .AND. iowl==2) THEN
                  name='NOCOOL'
                  fname=name
-                 !From my fitting by eye
+                 ! From my fitting by eye
                  hmod%alpha=2.
                  hmod%eps=1.
                  hmod%Gamma=1.1
@@ -475,7 +333,7 @@ PROGRAM HMx_driver
               ELSE IF(imode==15 .AND. iowl==3) THEN
                  name='AGN'
                  fname=name
-                 !From Tilman's preliminary results
+                 ! From Tilman's preliminary results
                  hmod%alpha=0.52
                  hmod%eps=1.
                  hmod%Gamma=1.17
@@ -484,7 +342,7 @@ PROGRAM HMx_driver
               ELSE IF(imode==15 .AND. iowl==4) THEN
                  name='AGN 8.5'
                  fname='AGN8p5'
-                 !From Tilman's preliminary results
+                 ! From Tilman's preliminary results
                  hmod%alpha=0.56
                  hmod%eps=1.
                  hmod%Gamma=1.19
@@ -493,7 +351,7 @@ PROGRAM HMx_driver
               ELSE IF(imode==15 .AND. iowl==5) THEN
                  name='AGN 8.7'
                  fname='AGN8p7'
-                 !From Tilman's preliminary results
+                 ! From Tilman's preliminary results
                  hmod%alpha=0.53
                  hmod%eps=1.
                  hmod%Gamma=1.21
@@ -592,10 +450,6 @@ PROGRAM HMx_driver
 
                     hmod%Theat=10**7.8
                     
-                 ELSE
-
-                    STOP 'HMx_DRIVER: Error, incorrect ihm choice'
-                    
                  END IF
                  
               ELSE IF(iowl==3) THEN
@@ -684,10 +538,6 @@ PROGRAM HMx_driver
                  ELSE IF(ihm==17 .OR. ihm==18 .OR. ihm==19) THEN
 
                     hmod%Theat=10**8.0
-
-                 ELSE
-
-                    STOP 'HMx_DRIVER: Error, incorrect ihm choice'
 
                  END IF
                  
@@ -778,10 +628,6 @@ PROGRAM HMx_driver
 
                     hmod%Theat=10**7.6
 
-                 ELSE
-
-                    STOP 'HMx_DRIVER: Error, incorrect ihm choice'
-
                  END IF
 
               END IF
@@ -797,7 +643,7 @@ PROGRAM HMx_driver
 
            !Runs the diagnostics
            IF(imode==2) THEN
-              dir='diagnostics'
+              dir='data'
               CALL halo_diagnostics(hmod,cosm,dir)
               CALL halo_definitions(hmod,cosm,dir)
               CALL halo_properties(hmod,dir)
@@ -887,7 +733,7 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose)
 
         !Runs the diagnostics
-        dir='diagnostics'
+        dir='data'
         CALL halo_diagnostics(hmod,cosm,dir)
         CALL halo_definitions(hmod,cosm,dir)
         CALL halo_properties(hmod,dir)
@@ -991,7 +837,7 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose)
 
         !Runs the diagnostics
-        dir='diagnostics'
+        dir='data'
         CALL halo_diagnostics(hmod,cosm,dir)
         CALL halo_definitions(hmod,cosm,dir)
         CALL halo_properties(hmod,dir)
@@ -1064,49 +910,62 @@ PROGRAM HMx_driver
         WRITE(*,*)
      END DO
 
-  ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==11) THEN
+  ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43) THEN
 
-     !General stuff for all cross correlations
-
-     !Set the fields
+     ! General stuff for all cross correlations
+     !  7 - Do general angular cross correlation
+     !  8 - Angular cross correlation as a function of cosmology
+     !  9 - Breakdown angular correlations in halo mass
+     ! 10 - Breakdown angular correlations in redshift
+     ! 11 - Breakdown angular correlations in halo radius
+     ! 36 - CFHTLenS angular correlations
+     ! 42 - PAPER: breakdown lensing-lensing per ell
+     ! 43 - PAPER: breakdown lensing-y per ell
+     
+     ! Set the fields
      ix=-1
+     IF(imode==37) ix=4 ! CFHTLenS
+     IF(imode==42) ix=11 ! KiDS-450 z=0.1->0.9
+     IF(imode==43) THEN
+        ix(1)=11 ! KiDS-450 z=0.1->0.9
+        ix(2)=2 ! Compton y
+     END IF
      CALL set_xcorr_type(ix,ip)
+     IF(imode==37) ip=-1 ! Set DMONLY haloes
 
-     !Assign the cosmological model
+     ! Assign the cosmological model
+     IF(imode==37) icosmo=4 ! WMAP9
+     IF(imode==42 .OR. imode==43) icosmo=1 ! WMAP9
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
 
-     !Set the k range
+     ! Set the k range
      kmin=1e-3
      kmax=1e2
      nk=128
-
-     !Set the z range
-     !amin=scale_factor_z(cosm%z_cmb) !Problems with one-halo term if amin is less than 0.1
-     amin=0.1
-     amax=1.
-     na=16
-
-     !Set number of k points and k range (log spaced)
-     !Also z points and z range (linear)
-     !Also P(k,z)
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
+
+     ! Set the a range
+     amin=0.1 ! Problems with one-halo term if amin is less than 0.1
+     amax=1.
+     na=16
      CALL fill_array(amin,amax,a,na)
+
+     ! Assign arrays for power spectra
      ALLOCATE(powa_lin(nk,na),powa_1h(nk,na),powa_2h(nk,na),powa_full(nk,na),powa(nk,na))
 
-     !Set the ell range
+     ! Set the ell range
      lmin=1
-     lmax=1e4 !Problems if this is pushed up to 10^5
+     lmax=1e4 ! Problems if this is pushed up to 10^5
      nl=128
 
-     !Allocate arrays for l and C(l)
+     ! Allocate arrays for l and C(l)
      CALL fill_array(log(lmin),log(lmax),ell,nl)
      ell=exp(ell)
      ALLOCATE(Cell(nl))
 
-     !Set the angular arrays in degrees
-     !Allocate arrays for theta and xi(theta)
+     ! Set the angular arrays in degrees and allocate arrays for theta and xi(theta)
      IF(ixi) THEN
         thmin=0.01
         thmax=10.
@@ -1116,6 +975,10 @@ PROGRAM HMx_driver
         ALLOCATE(xi(3,nth))
      END IF
 
+     ! Output directory
+     dir='data/'
+
+     ! Write to screen
      WRITE(*,*) 'HMx_DRIVER: Cross-correlation information'
      WRITE(*,*) 'HMx_DRIVER: output directiory: ', TRIM(dir)
      WRITE(*,*) 'HMx_DRIVER: Profile type 1: ', TRIM(halo_type(ip(1)))
@@ -1130,51 +993,34 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx_DRIVER: maximum ell:', REAL(lmax)
      WRITE(*,*)     
 
-     IF(imode==7) THEN
+     IF(imode==7 .OR. imode==37 .OR. imode==42 .OR. imode==43) THEN
 
-        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        !CALL initialise_cosmology(verbose,cosm)
+        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL print_cosmology(cosm)
 
-        !Initialise the lensing part of the calculation
-        !CALL initialise_distances(verbose,cosm)
+        ! Initialise the lensing part of the calculation
         CALL write_distances(cosm)
 
-        !Write out diagnostics
+        ! Write out diagnostics
+        IF(imode==37) ihm=1 ! HMcode (2016)
+        IF(imode==42 .OR. imode==43) ihm=20 ! Standard halo-model in response
         CALL assign_halomod(ihm,hmod,verbose)
-        !CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-
-        !dir='diagnostics'
-        !CALL halo_diagnostics(z,hmod,cosm,dir)
-        !CALL halo_definitions(z,hmod,dir)
-        !CALL halo_properties(z,hmod,dir)
-
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
-!!$        !Fix the one-halo term P(k) to be a constant
-!!$        DO j=1,na
-!!$           DO i=1,nk
-!!$              !IF(j==1) WRITE(*,*) i, k(i), powz(3,i,j)
-!!$              powa(3,i,j)=powa(3,1,j)*(k(i)/k(1))**3
-!!$              !powz(3,i,j)=(k(i)/k(1))**3
-!!$              !IF(j==1) WRITE(*,*) i, k(i), powz(3,i,j)
-!!$           END DO
-!!$        END DO
-
-        !Output directory
-        dir='data/'
         base=TRIM(dir)//'power'
         CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
 
-        !Fill out the projection kernels
+        ! Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
         CALL write_projection_kernels(proj,cosm)
 
-        !Set the distance range for the Limber integral
-        r1=0. !100.
-        r2=maxdist(proj)!proj%rs
+        ! Set the distance range for the Limber integral
+        !r1=100.
+        !r2=proj%rs
+        r1=0.
+        r2=maxdist(proj)
 
-        !Write to screen
+        ! Write information to screen
         WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
         WRITE(*,*) 'HMx_DRIVER: ell min:', REAL(ell(1))
         WRITE(*,*) 'HMx_DRIVER: ell max:', REAL(ell(nl))
@@ -1183,34 +1029,40 @@ PROGRAM HMx_driver
         WRITE(*,*) 'HMx_DRIVER: upper limit of Limber integral [Mpc/h]:', REAL(r2)
         WRITE(*,*)
 
-        !Loop over all types of C(l) to create
+        ! Loop over all types of C(l) to create
         DO j=1,4
 
            IF(ifull .AND. (j .NE. 4)) CYCLE
-           !IF(j==3) CYCLE !Skip the fucking one-halo term
+           !IF(j==3) CYCLE ! Skip the fucking one-halo term
 
-           !Write information to screen
+           ! Write information to screen
            IF(j==1) THEN
               WRITE(*,*) 'HMx_DRIVER: Doing linear'
               outfile=TRIM(dir)//'cl_linear.dat'
+              IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_linear.dat'
               powa=powa_lin
            ELSE IF(j==2) THEN
               WRITE(*,*) 'HMx_DRIVER: Doing 2-halo'
               outfile=TRIM(dir)//'cl_2halo.dat'
+              IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_2halo.dat'
               powa=powa_2h
            ELSE IF(j==3) THEN
               WRITE(*,*) 'HMx_DRIVER: Doing 1-halo'
               outfile=TRIM(dir)//'cl_1halo.dat'
+              IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_1halo.dat'
               powa=powa_1h
            ELSE IF(j==4) THEN
               WRITE(*,*) 'HMx_DRIVER: Doing full'
               outfile=TRIM(dir)//'cl_full.dat'
+              IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_full.dat'
               powa=powa_full
+           ELSE
+              STOP 'HMx_DRIVER: Something went wrong'
            END IF
 
            WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
-           !Actually calculate the C(ell)
+           ! Actually calculate the C(ell)
            CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
            CALL write_Cell(ell,Cell,nl,outfile)
 
@@ -1218,14 +1070,26 @@ PROGRAM HMx_driver
 
            IF(ixi) THEN
 
-              !Set xi output files
-              IF(j==1) outfile=TRIM(dir)//'xi_linear.dat'
-              IF(j==2) outfile=TRIM(dir)//'xi_2halo.dat'
-              IF(j==3) outfile=TRIM(dir)//'xi_1halo.dat'
-              IF(j==4) outfile=TRIM(dir)//'xi_full.dat'
+              ! Set xi output files
+              IF(j==1) THEN
+                 outfile=TRIM(dir)//'xi_linear.dat'
+                 IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_linear.dat'
+              ELSE IF(j==2) THEN
+                 outfile=TRIM(dir)//'xi_2halo.dat'
+                 IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_2halo.dat'
+              ELSE IF(j==3) THEN
+                 outfile=TRIM(dir)//'xi_1halo.dat'
+                 IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_1halo.dat'
+              ELSE IF(j==4) THEN
+                 outfile=TRIM(dir)//'xi_full.dat'
+                 IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_full.dat'
+              ELSE
+                 STOP 'HMx_DRIVER: Something went wrong'
+              END IF
+              
               WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
-              !Actually calculate the xi(theta)
+              ! Actually calculate the xi(theta)
               CALL calculate_xi(theta,xi,nth,ell,Cell,nl,NINT(lmax))
               CALL write_xi(theta,xi,nth,outfile)
 
@@ -1457,25 +1321,24 @@ PROGRAM HMx_driver
 
      ELSE IF(imode==10) THEN
 
-        !Break down cross-correlation in terms of redshift
+        ! Break down cross-correlation in terms of redshift
 
-        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        !CALL initialise_cosmology(verbose,cosm)
+        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL print_cosmology(cosm)
 
+        IF(imode==42) ihm=20 ! Standard halo-model but response
         CALL assign_halomod(ihm,hmod,verbose)
 
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
-        !Initialise the lensing part of the calculation
-        !CALL initialise_distances(verbose,cosm)
+        ! Write distances
         CALL write_distances(cosm)
 
-        !Fill out the projection kernels
+        ! Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
         CALL write_projection_kernels(proj,cosm)
 
-        !Write to screen
+        ! Write to screen
         WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
         WRITE(*,*) 'HMx_DRIVER: ell min:', REAL(ell(1))
         WRITE(*,*) 'HMx_DRIVER: ell max:', REAL(ell(nl))
@@ -1512,7 +1375,7 @@ PROGRAM HMx_driver
            WRITE(*,*) 'HMx_DRIVER: r1 [Mpc/h]:', REAL(r1)
            WRITE(*,*) 'HMx_DRIVER: r2 [Mpc/h]:', REAL(r2)
 
-           !Loop over all types of C(l) to create
+           ! Loop over all types of C(l) to create
            dir='data/'
            base=TRIM(dir)//'redshift_'
            mid='_'
@@ -1568,7 +1431,7 @@ PROGRAM HMx_driver
 
      END IF
 
-  ELSE IF(imode==12) THEN
+  ELSE IF(imode==12 .OR. imode==44) THEN
 
      ! Project triad
 
@@ -1576,11 +1439,12 @@ PROGRAM HMx_driver
      dir='data'
 
      ! Assign the cosmological model
-     icosmo=4 ! WMAP 9 - BAHAMAS
+     IF(imode==44) icosmo=4 ! WMAP 9 - BAHAMAS
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
+     IF(imode==44) ihm=18 ! AGN 7.8
      CALL assign_halomod(ihm,hmod,verbose)
 
      ! Initialise the lensing part of the calculation
@@ -1603,19 +1467,37 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
      WRITE(*,*)
 
+     ! Set to do the new or old triad
+     ! 1 - Old triad
+     ! 2 - New triad
+     itriad=2
+
+     IF(itriad==1) THEN
+        ntriad=3
+     ELSE IF(itriad==2) THEN
+        ntriad=7
+     ELSE
+        STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
+     END IF
+
      ! Loop over the triad (septad?)
      ! Original triad is 1,2,3 extended is tomographic lensing
-     DO i=1,7
+     DO i=1,ntriad
 
         IF(i==1) THEN
-           ! shear (z = 0.1->0.9) cross kappa
-           !ix(1)=4 ! CFHTLenS
-           !ix(1)=5 ! KiDS (z = 0.1 -> 0.9)
-           !ix(2)=3 ! CMB  
-           !outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
-           ix(1)=11 ! KiDS 450 (z = 0.1 -> 0.9)
-           ix(2)=3 ! CMB           
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-CMB.dat'
+           ! shear (z = 0.1->0.9) cross kappa            
+           IF(itriad==1) THEN
+              !ix(1)=4 ! CFHTLenS
+              ix(1)=5 ! KiDS (z = 0.1 -> 0.9)
+              ix(2)=3 ! CMB  
+              outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
+           ELSE IF(itriad==2) THEN
+              ix(1)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+              ix(2)=3 ! CMB
+              outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-CMB.dat'
+           ELSE
+              STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
+           END IF
         ELSE IF(i==2) THEN
            ! kappa cross y
            ix(1)=3 ! CMB
@@ -1623,13 +1505,18 @@ PROGRAM HMx_driver
            outfile=TRIM(dir)//'/triad_Cl_CMB-y.dat'
         ELSE IF(i==3) THEN
            ! y cross shear (z = 0.1->0.9)
-           !ix(1)=2 ! y
-           !ix(2)=4 ! CFHTLenS
-           !ix(2)=5 ! KiDS (z = 0.1 -> 0.9)
-           !outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
-           ix(1)=2 ! y
-           ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
-           outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.9.dat'
+           IF(itriad==1) THEN
+              ix(1)=2 ! y
+              !ix(2)=4 ! CFHTLenS
+              ix(2)=5 ! KiDS (z = 0.1 -> 0.9)
+              outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
+           ELSE IF(itriad==2) THEN
+              ix(1)=2 ! y
+              ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+              outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.9.dat'
+           ELSE
+              STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
+           END IF
         ELSE IF(i==4) THEN
            ! shear (z = 0.1 -> 0.5) cross kappa
            ix(1)=12 ! KiDS 450 (z = 0.1 -> 0.5)
@@ -1951,7 +1838,169 @@ PROGRAM HMx_driver
 
      END DO
 
+  ELSE IF(imode==17) THEN
+
+     ! 3D spectra for a user choice of fields
+
+     ! Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
+
+     ! Set number of k points and k range (log spaced)
+     ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+      !Set the number of redshifts and range (linearly spaced) and convert z -> a
+     nz=16
+     zmin=0.
+     zmax=4.
+     CALL fill_array(zmin,zmax,a,nz)
+     a=1./(1.+a)
+     na=nz
+
+     ! Choose the field types
+     DO i=1,2
+        WRITE(*,*) 'HMx_driver: Choose halo', i
+        CALL set_halo_type(ip(i))
+     END DO
+
+     ! User chooses halo model   
+     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
+
+     base='data/power'
+     CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
+
+  ELSE IF(imode==18) THEN
+
+     ! Create 3D bias function
+
+     ! Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     CALL assign_halomod(ihm,hmod,verbose)
+
+     ! Set number of k points and k range (log spaced)
+     ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     ! Set the number of redshifts and range (linearly spaced) and convert z -> a
+     nz=16
+     zmin=0.
+     zmax=4.
+     CALL fill_array(zmin,zmax,a,nz)
+     a=1./(1.+a)
+     na=nz
+
+     ! Select field type for bias study
+     CALL set_halo_type(ihalo)
+
+     DO j=1,3
+
+        IF(j==1) THEN
+           ! DMONLY-DMONLY
+           ip(1)=-1
+           ip(2)=-1
+           base='bias/power_mm'
+        ELSE IF(j==2) THEN
+           ! DMONLY-field
+           ip(1)=ihalo
+           ip(2)=-1
+           base='bias/power_mf'
+        ELSE IF(j==3) THEN
+           ! field-field
+           ip(1)=ihalo
+           ip(2)=ihalo
+           base='bias/power_ff'
+        END IF
+        
+        CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
+        CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose)
+
+     END DO
+
+  ELSE IF(imode==19) THEN
+
+     ! Create CCL benchmark data
+
+     ! Set number of k points and k range (log spaced)
+     IF(Alonso_k) THEN
+        ! This is *almost* kmin=1e-4, kmax=1e2, but minus the end points
+        nk=256
+        kmin=1.027350768179302566e-04
+        kmax=9.733773809039202263e+01
+     ELSE
+        nk=128
+        kmin=1e-3
+        kmax=1e1
+     END IF
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     ! Set the halo model to that for CCL tests
+     ihm=9
+
+     ! Loop over tests
+     DO j=1,3
+
+        ! Assigns the cosmological model
+        IF(j==1) icosmo=1
+        IF(j==2) icosmo=2
+        IF(j==3) icosmo=3
+        CALL assign_cosmology(icosmo,cosm,verbose)
+        CALL init_cosmology(cosm)
+        CALL print_cosmology(cosm)
+
+        ! Loop over redshifts
+        DO i=1,2
+
+           ! Sets the redshift and file names
+           IF(i==1) THEN
+              z=0.
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z0.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z0.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z0.txt'
+           ELSE IF(i==2) THEN
+              z=1.
+              IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z1.txt'
+              IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z1.txt'
+              IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z1.txt'
+           END IF
+
+           ! Initialise the halo-model calculation
+           CALL assign_halomod(ihm,hmod,verbose)
+           CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+           CALL print_halomod(hmod,cosm,verbose)
+
+           ! Do the halo-model calculation
+           CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
+
+           ! Write out the results
+           CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+
+        END DO
+
+     END DO
+
+
   ELSE IF(imode==20) THEN
+
+     ! Ma et al. Fig. 1
 
      ! Set the cosmology
      icosmo=3
@@ -1971,7 +2020,8 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==21) THEN
 
-     !Stuff for diagnosing problems with the window function integrand
+     ! Stuff for diagnosing problems with the window function integrand
+     
      outfile='winint/integrand.dat'
      irho=11
      rv=1.
@@ -1984,6 +2034,8 @@ PROGRAM HMx_driver
      CALL winint_diagnostics(rmin,rmax,rv,rs,p1,p2,irho,outfile)
 
   ELSE IF(imode==22) THEN
+
+     ! Speed tests for W(M,k) integrals
 
      !k range
      kmin=1e-2
@@ -2091,10 +2143,15 @@ PROGRAM HMx_driver
      icosmo=4
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
-     CALL print_cosmology(cosm)     
+     CALL print_cosmology(cosm)
+
+     ! Assign the base halo model
+     CALL assign_halomod(ihm,hmod,verbose)
 
      ! Choose fitting to do
-     ifit=2
+     ! 1 - Star autospectrum
+     ! 2 - Gas autospectrum
+     ifit=1
 
      ! Default number of refinements
      nref=3
@@ -2103,11 +2160,20 @@ PROGRAM HMx_driver
      ALLOCATE(pmin(np), pmax(np), pbest(np), pnow(np), prange(np))
      ALLOCATE(nrange(np), iii(np), ipbest(np))
 
+     !Set the redshift
+     z=0.0
+
+     ! Set the model
+     model='AGN_TUNED_nu0'
+     !model='AGN_7p6_nu0'
+     !model='AGN_8p0_nu0'
+
      ! Default number of parameters
      nrange=11
-
-     ! Star power spectra
+    
      IF(ifit==1) THEN
+
+        ! Star power spectra
         
         ! Halo type
         ip=3
@@ -2128,10 +2194,9 @@ PROGRAM HMx_driver
         plog(3)=.TRUE.
         nrange(3)=1
 
-        ! Halo model
-        ihm=4
-
      ELSE IF(ifit==2) THEN
+
+        ! Gas power spectra
 
         ! Halo type
         ip=2
@@ -2152,26 +2217,15 @@ PROGRAM HMx_driver
         plog(3)=.TRUE.
         nrange(3)=1
 
-        ! Halo model
-        ihm=4
-
      ELSE
 
         STOP 'FITTING: Error, ifit specified incorrectly'
         
      END IF
 
-     ! Set the redshift
-     z=0.5
-
-     ! Set the model
-     !model='AGN_TUNED_nu0'
-     !model='AGN_7p6_nu0'
-     model='AGN_8p0_nu0'
-
      ! Read in the data
      infile=BAHAMAS_power_file_name(model,z,ip)
-     CALL read_simulation_power_spectrum(k,pow_sim,nk,infile)
+     CALL read_simulation_power_spectrum(k,pow_sim,nk,infile,cut_nyquist=.TRUE.,verbose=.TRUE.)
      
      ! Fix the paramter range
      DO j=1,3
@@ -2255,12 +2309,8 @@ PROGRAM HMx_driver
                     STOP 'FITTING: Error, ifit specified incorrectly'
                  END IF
 
-                 STOP 'CHANGED COSM -> HMOD: check carefully'
-
-                 ! Initiliasation for the halomodel calcualtion
-                 CALL assign_halomod(ihm,hmod,verbose)
+                  ! Initiliasation for the halomodel calcualtion
                  CALL init_halomod(mmin,mmax,z,hmod,cosm,.FALSE.)
-                 CALL print_halomod(hmod,cosm,verbose)
 
                  ! Do the halo-model calculation
                  CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
@@ -2324,6 +2374,9 @@ PROGRAM HMx_driver
 
      END DO
 
+     ! Initiliasation for the halomodel calcualtion
+     CALL assign_halomod(ihm,hmod,verbose)
+
      ! Set to the best fit
      IF(ifit==1) THEN
         hmod%Astar=pbest(1)
@@ -2336,11 +2389,7 @@ PROGRAM HMx_driver
      ELSE
         STOP 'FITTING: Error, ifit specified incorrectly'
      END IF
-
-     STOP 'CHANGED COSM -> HMOD: check carefully'
-     
-     ! Initiliasation for the halomodel calcualtion
-     CALL assign_halomod(ihm,hmod,verbose)
+        
      CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
      CALL print_halomod(hmod,cosm,verbose)
      CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
@@ -2355,44 +2404,93 @@ PROGRAM HMx_driver
      END DO
      CLOSE(7)
 
-  ELSE IF(imode==25) THEN
+  ELSE IF(imode==25 .OR. imode==38 .OR. imode==39 .OR. imode==40 .OR. imode==41) THEN
 
      ! MCMC-like fitting
+     ! 25 - Mira Titan
+     ! 38 - FrankenEmu
+     ! 39 - Hydro
+     ! 40 - Random Mira Titan
+     ! 41 - Random FrankenEmu
 
      ! Set the random-number generator
      CALL RNG_set(1)
 
-     ! Allocate arrays
+     ! Number of MCMC points
      n=3000
+
+     ! Allocate array for cosmological models
      nz=4
-     ncos=38
-     ALLOCATE(cosms(ncos),zs(nz))
-     zs(1)=0.0
-     zs(2)=0.5
-     zs(3)=1.0
-     zs(4)=2.0
+     IF(imode==25 .OR. imode==40) THEN
+        ncos=10 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0.
+     ELSE IF(imode==38 .OR. imode==41) THEN
+        ncos=37 ! Number of FrankenEmu nodes
+     ELSE IF(imode==39) THEN
+        ncos=1 ! Only one cosmology for hydro
+     ELSE
+        STOP 'HMX_DRIVER: Error, something went wrong'
+     END IF
+     ALLOCATE(cosms(ncos))
+
+     ! Allocate array for redshifts
+     IF(imode==25 .OR. imode==38 .OR. imode==40 .OR. imode==41) THEN
+        nz=4 ! Mira Titan or FrankenEmu
+     ELSE IF(imode==39) THEN
+        nz=1 ! Hydro simulations
+     ELSE
+        STOP 'HMX_DRIVER: Error, something went wrong'
+     END IF
+     ALLOCATE(zs(nz))
+     IF(imode==25 .OR. imode==38 .OR. imode==40 .OR. imode==41) THEN
+        ! Mira Titan or FrankenEmu
+        zs(1)=0.0
+        zs(2)=0.5
+        zs(3)=1.0
+        zs(4)=2.0
+        ip=-1 ! DMONLY
+     ELSE IF(imode==39) THEN
+        ! Hydro simulations
+        zs(1)=0.0
+        ip=3 ! Stars
+        name='AGN_TUNED_nu0'
+     ELSE
+        STOP 'HMX_DRIVER: Error, something went wrong'
+     END IF
 
      ! Assign the cosmological models
      DO i=1,ncos
-        !icosmo=24 ! Random Mira Titan
-        !icosmo=25 ! Random FrankenEmu
-        !icosmo=100+(i-1) ! Set set Mira Titan node
-        icosmo=200+(i-1) ! Set set FrankenEmu node
+        IF(imode==40) icosmo=24 ! Random Mira Titan cosmology
+        IF(imode==41) icosmo=25 ! Random FrankenEmu cosmology
+        IF(imode==25) icosmo=100+i ! Set set Mira Titan node
+        IF(imode==38) icosmo=200+i ! Set set FrankenEmu node
+        IF(imode==39) icosmo=4
         CALL assign_cosmology(icosmo,cosms(i),verbose=.TRUE.)
         CALL init_cosmology(cosms(i))
         CALL print_cosmology(cosms(i))
      END DO
 
-     ! Get the Mira Titan power spectrum for the model     
+     ! Get the simulation power spectrum for the models
      DO i=1,ncos
         DO j=1,nz
-           !CALL get_Mira_Titan_power(k_sim,pow_sim,nk,zs(j),cosms(i),rebin=.TRUE.)
-           CALL get_FrankenEmu_power(k_sim,pow_sim,nk,zs(j),cosms(i),rebin=.TRUE.)
+
+           ! Read in power spectra
+           IF(imode==25 .OR. imode==40) THEN
+              CALL get_Mira_Titan_power(k_sim,pow_sim,nk,zs(j),cosms(i),rebin=.TRUE.)
+           ELSE IF(imode==38 .OR. imode==41) THEN
+              CALL get_FrankenEmu_power(k_sim,pow_sim,nk,zs(j),cosms(i),rebin=.TRUE.)
+           ELSE IF(imode==39) THEN
+              CALL get_BAHAMAS_power(k_sim,pow_sim,nk,zs(j),name,ip,cosms(i))
+           ELSE
+              STOP 'HMX_DRIVER: Error, something went wrong'
+           END IF
+           
+           ! Allocate big arrays for P(k,z,cosm)
            IF(i==1 .AND. j==1) THEN
               ALLOCATE(ks_sim(nk,nz,ncos),pows_sim(nk,nz,ncos))
            END IF
            ks_sim(:,j,i)=k_sim
            pows_sim(:,j,i)=pow_sim
+           
         END DO
      END DO
      
@@ -2400,38 +2498,57 @@ PROGRAM HMx_driver
      ALLOCATE(pows_full(nk,nz,ncos))
 
      ! Assign arrays associated with parameters for the fitting
-     np=12
+     IF(imode==25 .OR. imode==38 .OR. imode==40 .OR. imode==41) THEN
+        np=12
+     ELSE IF(imode==39) THEN
+        np=3
+     ELSE
+        STOP 'HMX_DRIVER: Error, something went wrong'
+     END IF
      ALLOCATE(pbest(np),pnew(np),pold(np),prange(np),porig(np))
 
      ! Assign the base halo model
      ALLOCATE(hmods(ncos))
-     ihm=15
+     IF(imode==25 .OR. imode==38 .OR. imode==40 .OR. imode==41) ihm=15 ! HMcode 2018
+     IF(imode==39) ihm=20 ! Standard halo-model response
      DO i=1,ncos
         CALL assign_halomod(ihm,hmods(i),verbose=.FALSE.)
      END DO
-     
-     ! Set initial parameters
-     porig(1)=418.
-     porig(2)=-0.352
-     porig(3)=1.59
-     porig(4)=0.0314
-     porig(5)=0.603
-     porig(6)=0.300
-     !porig(7)=0.0095 ! Mead (2016) damping
-     !porig(8)=1.37 ! Mead (2016) damping
-     porig(7)=0.188 ! Mead (2015) damping
-     porig(8)=4.29 ! Mead (2015) damping
-     porig(9)=0.584
-     porig(10)=3.13
-     porig(11)=3.24
-     porig(12)=1.85
+
+      ! Set initial parameters
+     IF(imode==25 .OR. imode==38 .OR. imode==40 .OR. imode==41) THEN
+        
+        ! Mira Titan or FrankenEmu fitting for HMcode
+        porig(1)=418. ! Dv0
+        porig(2)=-0.352 ! Dvp
+        porig(3)=1.59 ! dc0
+        porig(4)=0.0314 !dcp
+        porig(5)=0.603 !eta0
+        porig(6)=0.300 !eta1
+        !porig(7)=0.0095 ! Mead (2016) damping
+        !porig(8)=1.37 ! Mead (2016) damping
+        porig(7)=0.188 ! Mead (2015) damping
+        porig(8)=4.29 ! Mead (2015) damping
+        porig(9)=0.584 ! kstar
+        porig(10)=3.13 ! As 
+        porig(11)=3.24 ! alpha0
+        porig(12)=1.85 ! alpha1
+        
+     ELSE IF(imode==39) THEN
+
+        ! Hydro fitting
+        porig(1)=0.03 ! A_star
+        porig(2)=log(1e12) ! M_star
+        porig(3)=1.2 ! Sigma_star
+
+     END IF
 
      ! Set the new parameters
      pold=porig
      pnew=porig
 
      ! Set the ranges (sigma) for the parameters
-     CALL set_ranges(prange,delta,pold,np,ks_sim,nk,zs,nz,pows_sim,hmods,cosms,ncos,verbose=.TRUE.)
+     CALL set_mcmc_parameter_ranges(imode,ip,prange,pold,np,ks_sim,nk,zs,nz,pows_sim,hmods,cosms,ncos,verbose=.TRUE.)
      !prange(1)=0.7795723
      !prange(2)=0.0052369
      !prange(3)=0.0002930
@@ -2473,7 +2590,7 @@ PROGRAM HMx_driver
         END IF
 
         ! Calculate the figure-of-merit
-        CALL fom_multiple(fom_new,pnew,np,ks_sim,nk,zs,nz,pows_full,pows_sim,hmods,cosms,ncos)
+        CALL fom_multiple(imode,ip,fom_new,pnew,np,ks_sim,nk,zs,nz,pows_full,pows_sim,hmods,cosms,ncos)
 
         ! Write original power spectra to disk
         IF(l==1) THEN
@@ -3021,6 +3138,86 @@ PROGRAM HMx_driver
      END IF
      WRITE(*,*)
 
+  ELSE IF(imode==45) THEN
+
+     ! 45 - Comparison of Sheth-Tormen vs. Tinker mass function
+
+     ! Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
+
+     ! Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Sets the redshift
+     z=0.
+
+     DO j=1,2
+
+        IF(j==1) THEN
+           ! Sheth-Tormen mass function and bias
+           ihm=3  
+           outfile='data/power_ShethTormen.dat'
+        ELSEIF(j==2) THEN
+           ihm=23 ! Tinker mass function and bias
+           outfile='data/power_Tinker.dat'
+        END IF
+        
+        !Initiliasation for the halomodel calcualtion
+        CALL assign_halomod(ihm,hmod,verbose)
+        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+        CALL print_halomod(hmod,cosm,verbose)
+
+        ! Do the halo-model calculation
+        ip(1)=-1
+        ip(2)=-1
+        CALL calculate_halomod(ip(1),ip(2),k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
+
+        ! Write out data to disk
+        CALL write_power(k,pow_lin,pow_2h,pow_1h,pow_full,nk,outfile,verbose)
+
+     END DO
+
+  ELSE IF(imode==46) THEN
+
+     ! 46 - Mass function plots
+
+     ! Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Sets the redshift
+     z=0.
+
+     !Initiliasation for the halomodel calcualtion
+     ihm=3
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
+
+     nu_min=0.1
+     nu_max=4.
+     n=256
+
+     OPEN(7,file='data/bias_functions.dat')
+     OPEN(8,file='data/mass_functions.dat')
+     DO i=1,n
+        nu=progression(nu_min,nu_max,i,n)
+        WRITE(7,*) nu, b_ps(nu,hmod), b_st(nu,hmod), b_Tinker(nu,hmod)
+        WRITE(8,*) nu, g_ps(nu,hmod), g_st(nu,hmod), g_Tinker(nu,hmod)
+     END DO
+     CLOSE(7)
+     CLOSE(8)
+     
   ELSE
         
      STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
@@ -3031,6 +3228,7 @@ CONTAINS
 
   REAL FUNCTION figure_of_merit(a,b,n)
 
+    ! A figure-of-merit or cost function
     IMPLICIT NONE
     REAL, INTENT(IN) :: a(n), b(n)
     INTEGER, INTENT(IN) :: n
@@ -3041,18 +3239,25 @@ CONTAINS
     
   END FUNCTION figure_of_merit
 
-  SUBROUTINE fom_multiple(fom,p,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
+  SUBROUTINE fom_multiple(imode,ip,fom,p,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
 
     IMPLICIT NONE
-    REAL, INTENT(OUT) :: pow(nk,nz,n), fom
-    REAL, INTENT(IN) :: k(nk,nz,n), z(nz), pow_sim(nk,nz,n), p(np)
-    TYPE(halomod), INTENT(INOUT) :: hmod(n)
-    TYPE(cosmology), INTENT(INOUT) :: cosm(n)
-    INTEGER, INTENT(IN) :: np, nk, nz, n
+    INTEGER, INTENT(IN) :: imode ! Mode for the driver
+    INTEGER, INTENT(IN) :: ip(2) ! Field types
+    REAL, INTENT(OUT) :: fom ! Output figure of merit
+    REAL, INTENT(IN) :: p(np) ! Array of varying parameters
+    INTEGER, INTENT(IN) :: np ! Number of varying parameters
+    REAL, INTENT(IN) :: k(nk,nz,n) ! Array of k values for comparison data
+    INTEGER, INTENT(IN) :: nk ! Number of k values for comparison data
+    REAL, INTENT(IN) :: z(nz) ! Array of z values for comparison data
+    INTEGER, INTENT(IN) :: nz ! Number of z values
+    REAL, INTENT(OUT) :: pow(nk,nz,n) ! Output array for power as a function of k, z, cosmology
+    REAL, INTENT(IN) :: pow_sim(nk,nz,n) ! Comparison power as a function of k, z, cosmology 
+    TYPE(halomod), INTENT(INOUT) :: hmod(n) ! Array of halo models for each comparison
+    TYPE(cosmology), INTENT(INOUT) :: cosm(n) ! Array of cosmological models for each comparison
+    INTEGER, INTENT(IN) :: n ! Number of cosmological models being compared
     INTEGER :: i, j   
     REAL :: pow_lin(nk,nz,n), pow_2h(nk,nz,n), pow_1h(nk,nz,n)
-
-    INTEGER, PARAMETER :: ip(2)=-1
 
     ! Set this counting output variable to zero
     fom=0.
@@ -3063,19 +3268,34 @@ CONTAINS
     ! Loop over cosmologies
     DO i=1,n
 
-       ! Set HMcode parameters to those being varied
-       hmod(i)%Dv0=p(1)
-       hmod(i)%Dv1=p(2)
-       hmod(i)%dc0=p(3)
-       hmod(i)%dc1=p(4)
-       hmod(i)%eta0=p(5)
-       hmod(i)%eta1=p(6)
-       hmod(i)%f0=p(7)
-       hmod(i)%f1=p(8)
-       hmod(i)%ks=p(9)
-       hmod(i)%A=p(10)
-       hmod(i)%alp0=p(11)
-       hmod(i)%alp1=p(12)
+       IF(imode==25 .OR. imode==38 .OR. imode==40 .OR. imode==41) THEN
+
+          ! Set HMcode parameters to those being varied
+          hmod(i)%Dv0=p(1)
+          hmod(i)%Dv1=p(2)
+          hmod(i)%dc0=p(3)
+          hmod(i)%dc1=p(4)
+          hmod(i)%eta0=p(5)
+          hmod(i)%eta1=p(6)
+          hmod(i)%f0=p(7)
+          hmod(i)%f1=p(8)
+          hmod(i)%ks=p(9)
+          hmod(i)%A=p(10)
+          hmod(i)%alp0=p(11)
+          hmod(i)%alp1=p(12)
+
+       ELSE IF(imode==39) THEN
+
+          ! Set hydro parameters to those being varied
+          hmod(i)%Astar=p(1)
+          hmod(i)%Mstar=exp(p(2))
+          hmod(i)%sstar=p(3)
+          
+       ELSE
+
+          STOP 'FOM_MULTIPLE: Error, imode not specified correctly'
+          
+       END IF
 
        ! Loop over redshifts
        DO j=1,nz
@@ -3100,38 +3320,61 @@ CONTAINS
     
   END SUBROUTINE fom_multiple
 
-  SUBROUTINE set_ranges(sigma,delta,p,np,k,nk,z,nz,pow_sim,hmod,cosm,n,verbose)
+  SUBROUTINE set_mcmc_parameter_ranges(imode,ip,sigma,p,np,k,nk,z,nz,pow_sim,hmod,cosm,n,verbose)
 
     IMPLICIT NONE
+    INTEGER, INTENT(IN) :: imode
+    INTEGER, INTENT(IN) :: ip(2)
     REAL, INTENT(OUT) :: sigma(n)
-    REAL, INTENT(IN) :: k(nk,nz,n), z(nz), pow_sim(nk,nz,n), p(np), delta
+    REAL, INTENT(IN) :: p(np)
+    INTEGER, INTENT(IN) :: np
+    REAL, INTENT(IN) :: k(nk,nz,n)
+    INTEGER, INTENT(IN) :: nk
+    REAL, INTENT(IN) :: z(nz)
+    INTEGER, INTENT(IN) :: nz
+    REAL, INTENT(IN) :: pow_sim(nk,nz,n)
     TYPE(halomod), INTENT(INOUT) :: hmod(n)
     TYPE(cosmology), INTENT(INOUT) :: cosm(n)
-    INTEGER, INTENT(IN) :: np, nk, nz, n
+    INTEGER, INTENT(IN) :: n
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
     REAL :: fom_base, fom, df, p2(np), pow(nk,nz,n)
-
-    REAL, PARAMETER :: dp=1e-10 ! Used for derivative
+    REAL :: delta, dp
     LOGICAL, PARAMETER :: check=.TRUE.
 
+    IF(imode==25 .OR. imode==38 .OR. imode==40 .OR. imode==41) THEN
+       ! Mira Titan or FrankenEmu
+       delta=1e-4 ! Required change in figure-of-merit
+       dp=1e-10 ! Used for derivative
+    ELSE IF(imode==39) THEN
+       ! Hydro
+       delta=1e-3 ! Required change in figure-of-merit
+       dp=1e-10 ! Used for derivative
+    ELSE
+       STOP 'SET_MCMC_PARAMETER_RANGES: Error imode specified incorrectly'
+    END IF
+       
     ! Get the figure of merit for the base set of parameters
-    CALL fom_multiple(fom_base,p,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
+    CALL fom_multiple(imode,ip,fom_base,p,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
 
+    ! Calculate the change in parameter
     sigma=p*dp
 
+    ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) 'SET_RANGES: Setting parameter jump sizes'
-       WRITE(*,*) 'SET_RANGES: Number of parameters:', np
-       WRITE(*,*) 'SET_RANGES: Number of cosmologies:', n
-       WRITE(*,*) 'SET_RANGES: Number of wavenumbers:', nk
-       WRITE(*,*) 'SET_RANGES: Number of redshifts:', nz
-       WRITE(*,*) 'SET_RANGES: Derivatives being calculated with:', dp
-       WRITE(*,*) 'SET_RANGES: Fixing sigma to give change in fom:', delta
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Setting parameter jump sizes'
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of parameters:', np
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of cosmologies:', n
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of wavenumbers:', nk
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of redshifts:', nz
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Derivatives being calculated with:', dp
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Fixing sigma to give change in fom:', delta
        WRITE(*,*) '==================================================='
        WRITE(*,*) 'Parameter         Value         Sigma         Ratio'
        WRITE(*,*) '==================================================='
     END IF
+
+    ! Loop over parameters
     DO i=1,np
 
        ! Set the range of p to take the derivative over
@@ -3139,136 +3382,131 @@ CONTAINS
        p2(i)=p(i)+sigma(i)
        
        ! Get the figure of merit for the updated parameter
-       CALL fom_multiple(fom,p2,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
+       CALL fom_multiple(imode,ip,fom,p2,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
 
        ! Calculate the change in the figure of merit for this parameter
        df=fom-fom_base
 
+       ! Check that perturbing the parameter actually changes the figure of merit
        IF(df==0.) THEN
-          WRITE(*,*) 'Parameter:', i
-          STOP 'SET_RANGES: Error, changing parameter does not change power spectra'
+          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Parameter:', i
+          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Original value:', p(i)
+          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Perturbed value:', p2(i)
+          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Original figure-of-merit:', fom_base
+          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Perturbed figure-of-merit:', fom
+          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Change in figure-of-merit:', df
+          STOP 'SET_MCMC_PARAMETER_RANGES: Error, changing parameter does not change power spectra'
        END IF
 
-       ! Se sigma so that it gives a change of 'd' in fom
+       ! Set sigma so that it gives a change of 'delta' in fom
        sigma(i)=ABS(sigma(i)/df)*delta
 
+       ! Write parameters to screen
        IF(verbose) WRITE(*,fmt='(I10,3F14.7)') i, p(i), sigma(i), sigma(i)/ABS(p(i))
 
+       ! Do an extra check if necessary
        IF(check) THEN
           p2(i)=p(i)+sigma(i)
-          CALL fom_multiple(fom,p2,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
+          CALL fom_multiple(imode,ip,fom,p2,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
           WRITE(*,*) i, fom_base, fom, fom-fom_base
        END IF
      
     END DO
+
+    ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) '==================================================='
-       WRITE(*,*) 'SET_RANGES: Done'
+       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Done'
        WRITE(*,*)
     END IF
-    !STOP
     
-  END SUBROUTINE set_ranges
+  END SUBROUTINE set_mcmc_parameter_ranges
 
-  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
+  SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,cut_nyquist,verbose)
 
     IMPLICIT NONE
-    CHARACTER(len=*), INTENT(IN) :: model
-    REAL, INTENT(IN) :: z
-    INTEGER, INTENT(IN) :: ip(2)
-    CHARACTER(len=64) :: dir
-    CHARACTER(len=32) :: snap, field(2)
-
-    ! Directory containing everything
-    dir='/Users/Mead/Physics/BAHAMAS/power/M1024'
-
-    ! Set the redshift
-    IF(z==0.0) THEN
-       snap='snap32'
-    ELSE IF(z==0.5) THEN
-       snap='snap28'
-    ELSE IF(z==1.0) THEN
-       snap='snap26'
-    ELSE IF(z==2.0) THEN
-       snap='snap22'
-    ELSE
-       STOP 'BAHAMAS_POWER: Error, redshift specified incorrectly'
-    END IF
-
-    ! Set the fields
-    DO j=1,2
-       IF(ip(j)==0) THEN
-          field(j)='all'
-       ELSE IF(ip(j)==1) THEN
-          field(j)='dm'
-       ELSE IF(ip(j)==2) THEN
-          field(j)='gas'
-       ELSE IF(ip(j)==3) THEN
-          field(j)='stars'
-       ELSE IF(ip(j)==6) THEN
-          field(j)='epressure'
-       ELSE
-          STOP 'BAHAMAS_POWER: Error, ip specified incorrectly'
-       END IF
-    END DO
-
-    ! File name
-    BAHAMAS_power_file_name=TRIM(dir)//'/'//TRIM(model)//'_L400N1024_WMAP9_'//TRIM(snap)//'_'//TRIM(field(1))//'_'//TRIM(field(2))//'_power.dat'
-    
-  END FUNCTION BAHAMAS_power_file_name
-
-  SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile)
-
-    IMPLICIT NONE
-    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:)
-    INTEGER, INTENT(OUT) :: n
-    CHARACTER(len=*), INTENT(IN) :: infile
+    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:) ! Output simulation k and power
+    INTEGER, INTENT(OUT) :: n ! Number of output k values
+    CHARACTER(len=*), INTENT(IN) :: infile ! Input file location
+    LOGICAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
+    LOGICAL, INTENT(IN) :: verbose ! Logical verbose
     INTEGER :: i
     REAL :: s
+    LOGICAL :: lexist
 
     ! Deallocate arrays if they are already allocated
     IF(ALLOCATED(k))  DEALLOCATE(k)
     IF(ALLOCATED(Pk)) DEALLOCATE(Pk)
 
+    ! Check file exists
+    INQUIRE(file=infile,exist=lexist)
+    IF(.NOT. lexist) THEN
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', TRIM(infile)
+       STOP 'READ_SIMULATION_POWER_SPECTRUM: File does not exist'
+    END IF
+
     ! Get file length and allocate arrays for output
     n=file_length(infile,verbose=.FALSE.)
     ALLOCATE(k(n),Pk(n))
 
+    ! Write to screen
+    IF(verbose) THEN
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', TRIM(infile)
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: nk:', nk
+    END IF
+
     ! Read in data from file
-    OPEN(7,file=infile)
+    OPEN(7,file=infile,status='old')
     DO i=1,n
        READ(7,*) k(i), Pk(i), s
        Pk(i)=Pk(i)-s
     END DO
-    CLOSE(7)
+    CLOSE(7)  
 
-    ! Find position in array of half-Nyquist
-    kmax=k(n)
-    DO i=1,n
-       IF(k(i)>kmax/2.) EXIT
-    END DO
+    IF(cut_nyquist) THEN
 
-    ! Cut arrays down to half-Nyquist
-    CALL amputate(k,n,i)
-    CALL amputate(Pk,n,i)
-    n=i
+       ! Find position in array of half-Nyquist
+       kmax=k(n)
+       DO i=1,n
+          IF(k(i)>kmax/2.) EXIT
+       END DO
+
+       ! Cut arrays down to half-Nyquist
+       CALL amputate(k,n,i)
+       CALL amputate(Pk,n,i)
+       n=i
+
+       ! Write to screen
+       IF(verbose) THEN
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
+       END IF
+
+    END IF
+
+    ! Write to screen
+    IF(verbose) THEN
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
+       WRITE(*,*)
+    END IF
     
   END SUBROUTINE read_simulation_power_spectrum
 
   SUBROUTINE get_k_values(infile,k,nk)
 
+    ! Get k values from a data file, assumes they are the first column of a data file
     IMPLICIT NONE
-    CHARACTER(len=256), INTENT(IN) :: infile
-    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
-    INTEGER, INTENT(OUT) :: nk
+    CHARACTER(len=256), INTENT(IN) :: infile ! Input file location
+    REAL, ALLOCATABLE, INTENT(OUT) :: k(:) ! Output array of k values
+    INTEGER, INTENT(OUT) :: nk ! Output number of k values
 
-    !Get the number of k values
+    ! Get the number of k values
     nk=file_length(infile,verbose=.FALSE.)
 
-    !Allocate the array in k
+    ! Allocate the array in k
     ALLOCATE(k(nk))
 
-    !Read in the k values
+    ! Read in the k values
     OPEN(7,file=infile)
     DO i=1,nk
        READ(7,*) k(i)
@@ -3280,8 +3518,8 @@ CONTAINS
   SUBROUTINE YinZhe_Fig1(hmod,cosm)
 
     IMPLICIT NONE
-    TYPE(halomod), INTENT(INOUT) :: hmod
-    TYPE(cosmology), INTENT(INOUT) :: cosm
+    TYPE(halomod), INTENT(INOUT) :: hmod ! Halo model
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmological model
     INTEGER :: i
     REAL :: r, rs, rv, c, Mh, rh, r500c, m500c
 
@@ -3315,7 +3553,7 @@ CONTAINS
     WRITE(*,*) 'YINZHE_FIG1: M_500,c / M_v:', M500c/Mh
     WRITE(*,*) 'YINZHE_FIG1: Halo concentraiton:', c
 
-    OPEN(7,file='diagnostics/YinZhe_Fig1.dat')
+    OPEN(7,file='data/YinZhe_Fig1.dat')
     DO i=1,nr
        r=progression(rmin,rmax,i,nr) !Radius [Mpc]
        rh=r*cosm%h !Convert [Mpc/h]
@@ -3339,8 +3577,8 @@ CONTAINS
 
     IF(verbose) WRITE(*,*) 'WRITE_POWER: Writing power to ', TRIM(output)
 
-    !Loop over k values
-    !Fill the tables with one- and two-halo terms as well as total
+    ! Loop over k values
+    ! Fill the tables with one- and two-halo terms as well as total
     OPEN(7,file=output)
     DO i=1,nk       
        WRITE(7,fmt='(5ES20.10)') k(i), pow_lin(i), pow_2h(i), pow_1h(i), pow(i)
@@ -3401,7 +3639,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i, j
 
-    !Print to screen
+    ! Print to screen
     IF(verbose) THEN
        WRITE(*,*) 'WRITE_POWER_A: The first entry of the file is hashes - #####'
        WRITE(*,*) 'WRITE_POWER_A: The remainder of the first row are the scale factors - a'
@@ -3410,7 +3648,7 @@ CONTAINS
        WRITE(*,*) 'WRITE_POWER_A: Output:', TRIM(output)
     END IF
 
-    !Write out data to files
+    ! Write out data to files
     OPEN(7,file=output)
     DO i=0,nk
        IF(i==0) THEN
@@ -3421,7 +3659,7 @@ CONTAINS
     END DO
     CLOSE(7)
 
-    !Print to screen
+    ! Print to screen
     IF(verbose) THEN
        WRITE(*,*) 'WRITE_POWER_A: Done'
        WRITE(*,*)
@@ -3491,5 +3729,102 @@ CONTAINS
     hmod%Twhim=exp(hmod%Twhim)
     
   END SUBROUTINE random_baryon_parameters
+  
+  !SUBROUTINE BAHAMAS_power_file_name(name,model,z,ip)
+  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
+
+    IMPLICIT NONE
+    !CHARACTER(len=*), INTENT(OUT) :: name
+    CHARACTER(len=*), INTENT(IN) :: model
+    REAL, INTENT(IN) :: z
+    INTEGER, INTENT(IN) :: ip(2)
+    CHARACTER(len=64) :: dir
+    CHARACTER(len=32) :: snap, field(2)
+    LOGICAL :: lexist
+    INTEGER :: j
+    
+    ! Directory containing everything
+    dir='/Users/Mead/Physics/BAHAMAS/power/M1024'
+
+    ! Set the redshift
+    IF(z==0.0) THEN
+       snap='snap32'
+    ELSE IF(z==0.5) THEN
+       snap='snap28'
+    ELSE IF(z==1.0) THEN
+       snap='snap26'
+    ELSE IF(z==2.0) THEN
+       snap='snap22'
+    ELSE
+       STOP 'BAHAMAS_POWER_FILE_NAME: Error, redshift specified incorrectly'
+    END IF
+
+    ! Set the fields
+    DO j=1,2
+       IF(ip(j)==0) THEN
+          field(j)='all'
+       ELSE IF(ip(j)==1) THEN
+          field(j)='dm'
+       ELSE IF(ip(j)==2) THEN
+          field(j)='gas'
+       ELSE IF(ip(j)==3) THEN
+          field(j)='stars'
+       ELSE IF(ip(j)==6) THEN
+          field(j)='epressure'
+       ELSE
+          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Field number', j
+          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Halo type', ip(j)
+          STOP 'BAHAMAS_POWER_FILE_NAME: Error, ip specified incorrectly'
+       END IF
+    END DO
+
+    ! File name
+    BAHAMAS_power_file_name=TRIM(dir)//'/'//TRIM(model)//'_L400N1024_WMAP9_'//TRIM(snap)//'_'//TRIM(field(1))//'_'//TRIM(field(2))//'_power.dat'
+
+    INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
+    IF(.NOT. lexist) THEN
+       WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', TRIM(BAHAMAS_power_file_name)
+       STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
+    END IF
+    
+  END FUNCTION BAHAMAS_power_file_name
+
+  SUBROUTINE get_BAHAMAS_power(k,Pk,nk,z,name,field,cosm)
+
+    IMPLICIT NONE
+    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
+    REAL, ALLOCATABLE, INTENT(OUT) :: Pk(:)
+    INTEGER, INTENT(OUT) :: nk
+    REAL, INTENT(IN) :: z
+    CHARACTER(len=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: field(2)
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER :: i
+    REAL :: shot
+    REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
+    CHARACTER(len=32) :: field_name(2), snap
+    CHARACTER(len=256) :: infile, dmonly
+    INTEGER, PARAMETER :: field_dmonly(2)=1
+    TYPE(halomod) :: hmod
+    !REAL, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow(:)
+    REAL, PARAMETER :: mmin=1e7
+    REAL, PARAMETER :: mmax=1e17
+
+    dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',z,field_dmonly)
+    infile=BAHAMAS_power_file_name(name,z,field)
+
+    CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,cut_nyquist=.FALSE.,verbose=.TRUE.)
+    CALL read_simulation_power_spectrum(k,Pk,nk,infile,cut_nyquist=.FALSE.,verbose=.TRUE.)
+    Pk=Pk/Pk_DM
+    
+    ALLOCATE(Pk_HMcode(nk))
+    CALL calculate_HMcode(k,z,Pk_HMcode,nk,cosm)
+    Pk=Pk*Pk_HMcode
+
+!!$    DO i=1,nk
+!!$       WRITE(9,*) k(i), Pk(i)
+!!$    END DO
+    
+  END SUBROUTINE get_BAHAMAS_power
 
 END PROGRAM HMx_driver

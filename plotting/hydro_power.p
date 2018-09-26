@@ -36,8 +36,8 @@ print ''
 
 if(icomp==1){print 'Twat; icomp=1 does not work'; exit}
 # if(icomp==1){sims='cosmo-OWLS'; Om_m=0.272; Om_b=0.0455}
-if(icomp==2){sims='BAHAMAS'}
-if(icomp==3){sims=''}
+#if(icomp==2){sims='BAHAMAS'}
+#if(icomp==3){sims=''}
 
 # cosmological parameters (only used for plotting Om_b/Om_m lines)
 Om_m=0.2793
@@ -81,8 +81,8 @@ print ''
 # Simulation data files
 plot_title_name_z(sim,z)=sprintf('BAHAMAS comarison of %s at z = %1.1f', sim, z)
 plot_title_z(z)=sprintf('BAHAMAS comarison at z = %1.1f', z)
-data(sim,mesh,s,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M%d/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,s,type1,type2)
-data_dmonly='DMONLY_2fluid'
+simpk(sim,mesh,s,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M%d/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,s,type1,type2)
+sim_dmonly='DMONLY_2fluid'
 
 # File names - BAHAMAS
 if(icomp==2){
@@ -115,7 +115,8 @@ M=5
 # BAHAMAS simulation names
 if(icomp==2){hmpk_names="'DMONLY' 'AGN-lo' 'AGN' 'AGN-hi'"}
 if(icomp==3){hmpk_names="''"}
-data_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_TUNED' 'AGN_8p0'"
+sims="'DMONLY_2fluid' 'AGN_7p6' 'AGN_TUNED' 'AGN_8p0'"
+sim_names="'DMonly' 'AGN-lo' 'AGN' 'AGN-hi'"
 
 # Set the comparison model
 if(!exists('nsim')){nsim=3} # Default to AGN
@@ -123,8 +124,8 @@ if(iplot==8){nsim=3} # Default to AGN
 hmpk_name=word(hmpk_names,nsim)
 print 'Variable: *nsim* '.nsim.''
 print 'Halo model power file name: '.hmpk_name.''
-data_name=word(data_names,nsim)
-print 'Simuation power file: '.data_name.''
+sim=word(sims,nsim)
+print 'Simuation power file: '.sim.''
 print ''
 
 # All different fields for power spectra
@@ -136,7 +137,7 @@ fld2='gas'
 fld3='stars'
 fld6='epressure'
 
-print 'Example simulation file: ', data(data_name,mesh,snap,fld0,fld0)
+print 'Example simulation file: ', simpk(sim,mesh,snap,fld0,fld0)
 print 'Example halo-model file: ', hmpk(hmpk_name,z,0,0)
 print ''
 
@@ -180,7 +181,7 @@ set ylabel '{/Symbol D}_{i,j}^2(k)'
 set mytics 10
 
 # Set the overall plot titles
-set title plot_title_name_z(data_name,z)
+set title plot_title_name_z(sim,z)
 
 ## ##
 
@@ -188,12 +189,10 @@ if(iplot==1){
 
 if(print==1){
 outfile(name,z)=sprintf('%s_z%1.1f_power.eps',name,z)
-set output outfile(data_name,z)
-print 'Outfile: ', outfile(data_name,z)
+set output outfile(sim,z)
+print 'Outfile: ', outfile(sim,z)
 print ''
 }
-
-#set title 'Comparison of '.sims.' '.hm_name.' simulation to halo-model predictions'
 
 set multiplot layout 1,2
 
@@ -203,13 +202,13 @@ set key bottom right
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     data(data_name,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col1 noti,\
-     data(data_name,mesh,snap,fld1,fld1) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col2 noti,\
-     data(data_name,mesh,snap,fld2,fld2) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col3 noti,\
-     data(data_name,mesh,snap,fld3,fld3) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col4 noti,\
-     data(data_name,mesh,snap,fld0,fld1) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col2 noti,\
-     data(data_name,mesh,snap,fld0,fld2) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col3 noti,\
-     data(data_name,mesh,snap,fld0,fld3) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col4 noti,\
+     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col1 noti,\
+     simpk(sim,mesh,snap,fld1,fld1) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col2 noti,\
+     simpk(sim,mesh,snap,fld2,fld2) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col3 noti,\
+     simpk(sim,mesh,snap,fld3,fld3) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col4 noti,\
+     simpk(sim,mesh,snap,fld0,fld1) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col2 noti,\
+     simpk(sim,mesh,snap,fld0,fld2) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col3 noti,\
+     simpk(sim,mesh,snap,fld0,fld3) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col4 noti,\
      hmpk(hmpk_name,z,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'all matter',\
      hmpk(hmpk_name,z,1,1) u 1:(column(d)) w l lw 3 dt 1 lc col2 ti 'CDM',\
      hmpk(hmpk_name,z,2,2) u 1:(column(d)) w l lw 3 dt 1 lc col3 ti 'gas',\
@@ -220,9 +219,9 @@ plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     data(data_name,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e            pt 7 ps .5 lc col1 noti,\
-     data(data_name,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 ps .5 lc col6 noti,\
-     data(data_name,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 ps .5 lc col6 noti,\
+     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e            pt 7 ps .5 lc col1 noti,\
+     simpk(sim,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 ps .5 lc col6 noti,\
+     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 ps .5 lc col6 noti,\
      hmpk(hmpk_name,z,0,0) u 1:(column(d))    w l lw 3 dt 1 lc col1 ti 'all matter',\
      hmpk(hmpk_name,z,6,6) u 1:(f2*column(d)) w l lw 3 dt 1 lc col6 ti 'electron pressure',\
      hmpk(hmpk_name,z,0,6) u 1:(f1*column(d)) w l lw 3 dt 2 lc col6 noti
@@ -239,7 +238,7 @@ if(iplot==2){
 
 if(print==1){
 outfile(name,z)=sprintf('%s_z%1.1f_ratio.eps',name,z)
-set output outfile(data_name,z)
+set output outfile(sim,z)
 }
 
 set multiplot layout 1,2
@@ -259,14 +258,14 @@ plot 1 w l lt -1 noti,\
      Om_c/Om_m      w l lc -1 dt 2 noti,\
      (Om_b/Om_m)**2 w l lc -1 dt 2 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld1,fld1).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col2 noti,\
-     '<paste '.data(data_name,mesh,snap,fld2,fld2).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col3 noti,\
-     '<paste '.data(data_name,mesh,snap,fld3,fld3).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col4 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld1).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col2 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld2).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col3 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld3).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col4 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld1,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col2 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld2,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col3 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld3,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col4 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col1 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col2 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col3 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col4 noti,\
      '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'all matter',\
      '<paste '.hmpk(hmpk_name,z,1,1).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col2 ti 'CDM',\
      '<paste '.hmpk(hmpk_name,z,2,2).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col3 ti 'gas',\
@@ -284,9 +283,9 @@ set format y '10^{%T}'
 plot 1 w l lt -1 noti,\
      NaN w l lw 3 dt 1 lc -1 noti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 noti 'Cross with matter',\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld6).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((f1*column(c))/(column(c+L)-column(s+L)))        w p pt 6 lc col6 noti,\
-     '<paste '.data(data_name,mesh,snap,fld6,fld6).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((f2*column(c))/(column(c+L)-column(s+L)))        w p pt 7 lc col6 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((f1*column(c))/(column(c+L)-column(s+L)))        w p pt 6 lc col6 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((f2*column(c))/(column(c+L)-column(s+L)))        w p pt 7 lc col6 noti,\
      '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M))    w l lw 3 dt 1 lc col1 ti 'matter',\
      '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti ,\
      '<paste '.hmpk(hmpk_name,z,6,6).' '.hmpk_dmonly.'' u 1:(f2*column(d)/column(d+M)) w l lw 3 dt 1 lc col6 ti 'electron pressure'
@@ -319,13 +318,13 @@ cols="'black' 'orange' 'orange-red' 'red'"
 
 if(icomp==1 || icomp==2){
 plot 1 w l lt -1 noti,\
-     for [i=1:words(data_names)] '<paste '.data(word(data_names,i),mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(cols,i) noti,\
+     for [i=1:words(sims)] '<paste '.simpk(word(sims,i),mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(cols,i) noti,\
      for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc rgb word(cols,i) ti word(hmpk_names,i)
 }
 
 if(icomp==3){
 plot 1 w l lt -1 noti,\
-     for [i=1:words(data_names)] '<paste '.data(word(data_names,i),mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc i noti,\
+     for [i=1:words(sims)] '<paste '.simpk(word(sims,i),mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc i noti,\
      for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc -1 ti word(hmpk_names,i)
 }
 
@@ -339,7 +338,7 @@ if(iplot==4){
 
 if(print==1){
 outfile(name,z)=sprintf('%s_z%1.1f_residual.eps',name,z)
-set output outfile(data_name,z)
+set output outfile(sim,z)
 }
 
 if(icomp==3){print 'iplot=4 does not work with icomp=3 because the k axis do not align'; print ''; exit}
@@ -355,15 +354,15 @@ set ylabel 'P_{HM}(k) / P_{OWLS}(k)'
 plot NaN w l lw 2 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 2 dt 2 lc -1 ti 'Cross with matter',\
      1 w l lt -1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.hmpk(hmpk_name,z,0,0).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col1 ti 'all matter',\
-     '<paste '.data(data_name,mesh,snap,fld1,fld1).' '.hmpk(hmpk_name,z,1,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col2 ti 'CDM',\
-     '<paste '.data(data_name,mesh,snap,fld2,fld2).' '.hmpk(hmpk_name,z,2,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col3 ti 'gas',\
-     '<paste '.data(data_name,mesh,snap,fld3,fld3).' '.hmpk(hmpk_name,z,3,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col4 ti 'stars',\
-     '<paste '.data(data_name,mesh,snap,fld6,fld6).' '.hmpk(hmpk_name,z,6,6).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col6 ti 'electron pressure',\
-     '<paste '.data(data_name,mesh,snap,fld0,fld1).' '.hmpk(hmpk_name,z,0,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col2 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld2).' '.hmpk(hmpk_name,z,0,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col3 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld3).' '.hmpk(hmpk_name,z,0,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col4 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld6).' '.hmpk(hmpk_name,z,0,6).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col6 noti
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.hmpk(hmpk_name,z,0,0).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col1 ti 'all matter',\
+     '<paste '.simpk(sim,mesh,snap,fld1,fld1).' '.hmpk(hmpk_name,z,1,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col2 ti 'CDM',\
+     '<paste '.simpk(sim,mesh,snap,fld2,fld2).' '.hmpk(hmpk_name,z,2,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col3 ti 'gas',\
+     '<paste '.simpk(sim,mesh,snap,fld3,fld3).' '.hmpk(hmpk_name,z,3,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col4 ti 'stars',\
+     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.hmpk(hmpk_name,z,6,6).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col6 ti 'electron pressure',\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld1).' '.hmpk(hmpk_name,z,0,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col2 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld2).' '.hmpk(hmpk_name,z,0,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col3 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld3).' '.hmpk(hmpk_name,z,0,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col4 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.hmpk(hmpk_name,z,0,6).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col6 noti
 
 }
 
@@ -380,7 +379,7 @@ if(!exists('field2')){field2='all'}
 # File name for output
 if(print==1){
 outfile(name,field1,field2)=sprintf('%s_%s_%s_components.eps',name,field1,field2)
-set output outfile(data_name,field1,field2)
+set output outfile(sim,field1,field2)
 }
 
 # x axis
@@ -448,7 +447,7 @@ do for [i=1:4]{
 
 if(i==1){zz=0.0; ss='snap32'; set xlabel ''; set format x ''; set ylabel plab; set format y '10^{%T}';
 set tmargin at screen y2; set lmargin at screen x1; set rmargin at screen mx; set bmargin at screen my;
-set label title_function(data_name,field1,field2) at screen 0.37,0.95}
+set label title_function(sim,field1,field2) at screen 0.37,0.95}
 
 if(i==2){zz=0.5; ss='snap28'; set xlabel ''; set format x ''; set ylabel ''; set format y '';
 set tmargin at screen y2; set lmargin at screen mx; set rmargin at screen x2; set bmargin at screen my}
@@ -462,7 +461,7 @@ set tmargin at screen my; set lmargin at screen mx; set rmargin at screen x2; se
 zlab(z)=sprintf('z = %1.1f', z)
 set label zlab(zz) at graph 0.05,0.9
 
-plot data(data_name,mesh,ss,field1,field2) u 1:(column(c)-column(s)):5 w e lc 1,\
+plot simpk(sim,mesh,ss,field1,field2) u 1:(column(c)-column(s)):5 w e lc 1,\
      hmpk(hmpk_name,zz,i1,i2) u 1:3 w l lc -1 dt 2 lw 3,\
      hmpk(hmpk_name,zz,i1,i2) u 1:4 w l lc -1 dt 3 lw 3,\
      hmpk(hmpk_name,zz,i1,i2) u 1:5 w l lc -1 dt 1 lw 3
@@ -483,7 +482,7 @@ if(iplot==6){
 
 if(print==1){
 outfile(name,z)=sprintf('%s_z%1.1f_pressure.eps',name,z)
-set output outfile(data_name,z)
+set output outfile(sim,z)
 }
 
 set multiplot layout 2,1
@@ -493,9 +492,9 @@ set format x ''
 
 set key top left
 
-plot data(data_name,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5            w e pt 7 lc col1 noti,\
-     data(data_name,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 lc col5 noti,\
-     data(data_name,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 lc col6 noti,\
+plot simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5            w e pt 7 lc col1 noti,\
+     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 lc col5 noti,\
+     simpk(sim,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 lc col6 noti,\
      hmpk(hmpk_name,z,0,0) u 1:(column(d))      w l lw 3 dt 1 lc col1 ti 'matter-matter',\
      hmpk(hmpk_name,z,0,0) u 1:(column(d-2))    w l lw 3 dt 2 lc col1 noti,\
      hmpk(hmpk_name,z,0,0) u 1:(column(d-1))    w l lw 3 dt 3 lc col1 noti,\
@@ -518,9 +517,9 @@ set yrange [rmin:rmax]
 set ylabel 'P(k) / P_{DMONLY}(k)'
 
 plot 1 w l lt -1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L)))    w p pt 7 lc col1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld6).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col5 noti,\
-     '<paste '.data(data_name,mesh,snap,fld6,fld6).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:(f2*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col6 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L)))    w p pt 7 lc col1 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col5 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f2*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col6 noti,\
      '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M))    w l lw 3 dt 1 lc col1 noti '{/Symbol d}{/Symbol d}',\
      '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 1 lc col5 noti '{/Symbol d}p',\
      '<paste '.hmpk(hmpk_name,z,6,6).' '.hmpk_dmonly.'' u 1:(f2*column(d)/column(d+M)) w l lw 3 dt 1 lc col6 noti 'pp'
@@ -548,22 +547,20 @@ set mytics 10
 
 if(print==1){
 outfile(name,z)=sprintf('%s_z%1.1f_power.eps',name,z)
-set output outfile(data_name,z)
+set output outfile(sim,z)
 }
-
-#set title 'Comparison of '.sims.' '.hm_name.' simulation to halo-model predictions'
 
 set key bottom right
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     data(data_name,mesh,snap,fld0,fld0) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col1 noti,\
-     data(data_name,mesh,snap,fld1,fld1) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col2 noti,\
-     data(data_name,mesh,snap,fld2,fld2) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col3 noti,\
-     data(data_name,mesh,snap,fld3,fld3) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col4 noti,\
-     data(data_name,mesh,snap,fld0,fld1) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col2 noti,\
-     data(data_name,mesh,snap,fld0,fld2) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col3 noti,\
-     data(data_name,mesh,snap,fld0,fld3) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col4 noti,\
+     simpk(sim,mesh,snap,fld0,fld0) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col1 noti,\
+     simpk(sim,mesh,snap,fld1,fld1) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col2 noti,\
+     simpk(sim,mesh,snap,fld2,fld2) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col3 noti,\
+     simpk(sim,mesh,snap,fld3,fld3) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col4 noti,\
+     simpk(sim,mesh,snap,fld0,fld1) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col2 noti,\
+     simpk(sim,mesh,snap,fld0,fld2) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col3 noti,\
+     simpk(sim,mesh,snap,fld0,fld3) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col4 noti,\
      hmpk(hmpk_name,z,0,0) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col1 ti 'all matter',\
      hmpk(hmpk_name,z,1,1) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col2 ti 'CDM',\
      hmpk(hmpk_name,z,2,2) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col3 ti 'gas',\
@@ -590,11 +587,9 @@ print 'Outfile: ', outfile
 print ''
 }
 
-#set title 'Comparison of '.sims.' '.hm_name.' simulation to halo-model predictions'
-
 set multiplot layout 2,2
 
-set label ''.word(data_names,nsim).' ; z = '.sprintf('%1.1f', z).'' at graph 0.05,0.9
+set label ''.word(sim_names,nsim).' ; z = '.sprintf('%1.1f', z).'' at graph 0.05,0.9
 
 set xlabel ''
 set format x ''
@@ -606,13 +601,13 @@ unset title
 # Top left - matter spectra
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     data(data_name,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col1 noti,\
-     data(data_name,mesh,snap,fld1,fld1) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col2 noti,\
-     data(data_name,mesh,snap,fld2,fld2) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col3 noti,\
-     data(data_name,mesh,snap,fld3,fld3) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col4 noti,\
-     data(data_name,mesh,snap,fld0,fld1) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col2 noti,\
-     data(data_name,mesh,snap,fld0,fld2) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col3 noti,\
-     data(data_name,mesh,snap,fld0,fld3) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col4 noti,\
+     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col1 noti,\
+     simpk(sim,mesh,snap,fld1,fld1) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col2 noti,\
+     simpk(sim,mesh,snap,fld2,fld2) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col3 noti,\
+     simpk(sim,mesh,snap,fld3,fld3) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col4 noti,\
+     simpk(sim,mesh,snap,fld0,fld1) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col2 noti,\
+     simpk(sim,mesh,snap,fld0,fld2) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col3 noti,\
+     simpk(sim,mesh,snap,fld0,fld3) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col4 noti,\
      hmpk(hmpk_name,z,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'all matter',\
      hmpk(hmpk_name,z,1,1) u 1:(column(d)) w l lw 3 dt 1 lc col2 ti 'CDM',\
      hmpk(hmpk_name,z,2,2) u 1:(column(d)) w l lw 3 dt 1 lc col3 ti 'gas',\
@@ -626,9 +621,9 @@ unset label
 # Top right - pressure spectra
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     data(data_name,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5            w e pt 7 ps .5 lc col1 noti,\
-     data(data_name,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 ps .5 lc col6 noti,\
-     data(data_name,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 ps .5 lc col6 noti,\
+     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5            w e pt 7 ps .5 lc col1 noti,\
+     simpk(sim,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 ps .5 lc col6 noti,\
+     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 ps .5 lc col6 noti,\
      hmpk(hmpk_name,z,0,0) u 1:(column(d))    w l lw 3 dt 1 lc col1 ti 'all matter',\
      hmpk(hmpk_name,z,6,6) u 1:(f2*column(d)) w l lw 3 dt 1 lc col6 ti 'electron pressure',\
      hmpk(hmpk_name,z,0,6) u 1:(f1*column(d)) w l lw 3 dt 2 lc col6 noti
@@ -647,14 +642,14 @@ plot 1 w l lt -1 noti,\
      Om_c/Om_m      w l lc -1 dt 2 noti,\
      (Om_b/Om_m)**2 w l lc -1 dt 2 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld1,fld1).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col2 noti,\
-     '<paste '.data(data_name,mesh,snap,fld2,fld2).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col3 noti,\
-     '<paste '.data(data_name,mesh,snap,fld3,fld3).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col4 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld1).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col2 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld2).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col3 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld3).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col4 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col1 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld1,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col2 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld2,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col3 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld3,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col4 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col1 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col2 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col3 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col4 noti,\
      '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 noti,\
      '<paste '.hmpk(hmpk_name,z,1,1).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col2 noti,\
      '<paste '.hmpk(hmpk_name,z,2,2).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col3 noti,\
@@ -666,9 +661,9 @@ plot 1 w l lt -1 noti,\
 
 # Bottom right - pressure response
 plot 1 w l lt -1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld0).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L)))    w p pt 7 ps .5 lc col1 noti,\
-     '<paste '.data(data_name,mesh,snap,fld6,fld6).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:(f2*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col6 noti,\
-     '<paste '.data(data_name,mesh,snap,fld0,fld6).' '.data(data_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col6 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L)))    w p pt 7 ps .5 lc col1 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f2*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col6 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col6 noti,\
      '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M))    w l lw 3 dt 1 lc col1 noti,\
      '<paste '.hmpk(hmpk_name,z,6,6).' '.hmpk_dmonly.'' u 1:(f2*column(d)/column(d+M)) w l lw 3 dt 1 lc col6 noti,\
      '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti
@@ -725,7 +720,7 @@ unset title
 
 set key top left
 
-big_data(isim,iz,f1,f2)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],f1,f2).' '.hmpk('DMONLY',zs[iz],0,0).' '.data(word(data_names,isim),mesh,word(snaps,iz),word(fields,f1+1),word(fields,f2+1)).' '.data('DMONLY_2fluid',mesh,word(snaps,iz),fld0,fld0).'',isim,iz,f1,f2)
+combi(isim,iz,f1,f2)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],f1,f2).' '.hmpk('DMONLY',zs[iz],0,0).' '.data(word(sims,isim),mesh,word(snaps,iz),word(fields,f1+1),word(fields,f2+1)).' '.data('DMONLY_2fluid',mesh,word(snaps,iz),fld0,fld0).'',isim,iz,f1,f2)
 
 isim=3
 iz=2
@@ -758,15 +753,15 @@ if(iz==1 && isim==2){set key; unset label}
 plot 1 w l lt -1 noti,\
      NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     big_data(isim,iz,0,0) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[1] ti word(field_names,1+0),\
-     big_data(isim,iz,1,1) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[2] ti word(field_names,1+1),\
-     big_data(isim,iz,2,2) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[3] ti word(field_names,1+2),\
-     big_data(isim,iz,3,3) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[4] ti word(field_names,1+3),\
-     big_data(isim,iz,6,6) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[6] ti word(field_names,1+6),\
-     big_data(isim,iz,0,1) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[2] noti 'CDM',\
-     big_data(isim,iz,0,2) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[3] noti 'gas',\
-     big_data(isim,iz,0,3) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[4] noti 'stars',\
-     big_data(isim,iz,0,6) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[6] noti 'electron_pressure'
+     combi(isim,iz,0,0) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[1] ti word(field_names,1+0),\
+     combi(isim,iz,1,1) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[2] ti word(field_names,1+1),\
+     combi(isim,iz,2,2) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[3] ti word(field_names,1+2),\
+     combi(isim,iz,3,3) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[4] ti word(field_names,1+3),\
+     combi(isim,iz,6,6) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[6] ti word(field_names,1+6),\
+     combi(isim,iz,0,1) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[2] noti 'CDM',\
+     combi(isim,iz,0,2) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[3] noti 'gas',\
+     combi(isim,iz,0,3) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[4] noti 'stars',\
+     combi(isim,iz,0,6) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 2 lc cols[6] noti 'electron_pressure'
 
 unset label
 
