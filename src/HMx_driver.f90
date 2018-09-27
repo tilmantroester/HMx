@@ -143,6 +143,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '44 - PAPER: Project triad'
      WRITE(*,*) '45 - Comparison of Sheth-Tormen vs. Tinker mass function'
      WRITE(*,*) '46 - Mass function and bias plots'
+     WRITE(*,*) '47 - Make CMB lensing to compare with CAMB'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -910,7 +911,7 @@ PROGRAM HMx_driver
         WRITE(*,*)
      END DO
 
-  ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43) THEN
+  ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
 
      ! General stuff for all cross correlations
      !  7 - Do general angular cross correlation
@@ -921,27 +922,29 @@ PROGRAM HMx_driver
      ! 36 - CFHTLenS angular correlations
      ! 42 - PAPER: breakdown lensing-lensing per ell
      ! 43 - PAPER: breakdown lensing-y per ell
+     ! 47 - Make CMB-lensing data to compare with CAMB
      
      ! Set the fields
      ix=-1
-     IF(imode==37) ix=4 ! CFHTLenS
+     IF(imode==37) ix=4  ! CFHTLenS
      IF(imode==42) ix=11 ! KiDS-450 z=0.1->0.9
+     IF(imode==47) ix=3  ! CMB lensing
      IF(imode==43) THEN
         ix(1)=11 ! KiDS-450 z=0.1->0.9
         ix(2)=2 ! Compton y
      END IF
      CALL set_xcorr_type(ix,ip)
-     IF(imode==37) ip=-1 ! Set DMONLY haloes
+     IF(imode==37 .OR. imode==47) ip=-1 ! Set DMONLY haloes
 
      ! Assign the cosmological model
-     IF(imode==37) icosmo=4 ! WMAP9
-     IF(imode==42 .OR. imode==43) icosmo=1 ! WMAP9
+     IF(imode==37 .OR. imode==42 .OR. imode==43) icosmo=4 ! WMAP9
+     IF(imode==47) icosmo=26 ! Boring with CAMB linear spectrum
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
 
      ! Set the k range
      kmin=1e-3
-     kmax=1e2
+     kmax=1e1
      nk=128
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
@@ -993,7 +996,7 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx_DRIVER: maximum ell:', REAL(lmax)
      WRITE(*,*)     
 
-     IF(imode==7 .OR. imode==37 .OR. imode==42 .OR. imode==43) THEN
+     IF(imode==7 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
 
         ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL print_cosmology(cosm)
@@ -1002,7 +1005,7 @@ PROGRAM HMx_driver
         CALL write_distances(cosm)
 
         ! Write out diagnostics
-        IF(imode==37) ihm=1 ! HMcode (2016)
+        IF(imode==37 .OR. imode==47) ihm=1 ! HMcode (2016)
         IF(imode==42 .OR. imode==43) ihm=20 ! Standard halo-model in response
         CALL assign_halomod(ihm,hmod,verbose)
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
@@ -1030,7 +1033,7 @@ PROGRAM HMx_driver
         WRITE(*,*)
 
         ! Loop over all types of C(l) to create
-        DO j=1,4
+        DO j=4,1,-1
 
            IF(ifull .AND. (j .NE. 4)) CYCLE
            !IF(j==3) CYCLE ! Skip the fucking one-halo term
@@ -1040,21 +1043,25 @@ PROGRAM HMx_driver
               WRITE(*,*) 'HMx_DRIVER: Doing linear'
               outfile=TRIM(dir)//'cl_linear.dat'
               IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_linear.dat'
+              IF(imode==47) outfile=TRIM(dir)//'CMBlensing_cl_linear.dat'
               powa=powa_lin
            ELSE IF(j==2) THEN
               WRITE(*,*) 'HMx_DRIVER: Doing 2-halo'
               outfile=TRIM(dir)//'cl_2halo.dat'
               IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_2halo.dat'
+              IF(imode==47) outfile=TRIM(dir)//'CMBlensing_cl_2halo.dat'
               powa=powa_2h
            ELSE IF(j==3) THEN
               WRITE(*,*) 'HMx_DRIVER: Doing 1-halo'
               outfile=TRIM(dir)//'cl_1halo.dat'
               IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_1halo.dat'
+              IF(imode==47) outfile=TRIM(dir)//'CMBlensing_cl_1halo.dat'
               powa=powa_1h
            ELSE IF(j==4) THEN
               WRITE(*,*) 'HMx_DRIVER: Doing full'
               outfile=TRIM(dir)//'cl_full.dat'
               IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_cl_full.dat'
+              IF(imode==47) outfile=TRIM(dir)//'CMBlensing_cl_full.dat'
               powa=powa_full
            ELSE
               STOP 'HMx_DRIVER: Something went wrong'
@@ -1076,7 +1083,7 @@ PROGRAM HMx_driver
                  IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_linear.dat'
               ELSE IF(j==2) THEN
                  outfile=TRIM(dir)//'xi_2halo.dat'
-                 IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_2halo.dat'
+                 IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_2halo.dat'                 
               ELSE IF(j==3) THEN
                  outfile=TRIM(dir)//'xi_1halo.dat'
                  IF(imode==37) outfile=TRIM(dir)//'CFHTLenS_xi_1halo.dat'
@@ -1470,12 +1477,15 @@ PROGRAM HMx_driver
      ! Set to do the new or old triad
      ! 1 - Old triad
      ! 2 - New triad
-     itriad=2
+     ! 3 - Newer triad
+     itriad=3
 
      IF(itriad==1) THEN
         ntriad=3
      ELSE IF(itriad==2) THEN
         ntriad=7
+     ELSE IF(itriad==3) THEN
+        ntriad=13
      ELSE
         STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
      END IF
@@ -1484,14 +1494,12 @@ PROGRAM HMx_driver
      ! Original triad is 1,2,3 extended is tomographic lensing
      DO i=1,ntriad
 
-        IF(i==1) THEN
-           ! shear (z = 0.1->0.9) cross kappa            
+        IF(i==1) THEN           
            IF(itriad==1) THEN
-              !ix(1)=4 ! CFHTLenS
               ix(1)=5 ! KiDS (z = 0.1 -> 0.9)
               ix(2)=3 ! CMB  
               outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
-           ELSE IF(itriad==2) THEN
+           ELSE IF(itriad==2 .OR. itriad==3) THEN
               ix(1)=11 ! KiDS 450 (z = 0.1 -> 0.9)
               ix(2)=3 ! CMB
               outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-CMB.dat'
@@ -1499,18 +1507,15 @@ PROGRAM HMx_driver
               STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
            END IF
         ELSE IF(i==2) THEN
-           ! kappa cross y
            ix(1)=3 ! CMB
            ix(2)=2 ! y
            outfile=TRIM(dir)//'/triad_Cl_CMB-y.dat'
         ELSE IF(i==3) THEN
-           ! y cross shear (z = 0.1->0.9)
            IF(itriad==1) THEN
               ix(1)=2 ! y
-              !ix(2)=4 ! CFHTLenS
               ix(2)=5 ! KiDS (z = 0.1 -> 0.9)
               outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
-           ELSE IF(itriad==2) THEN
+           ELSE IF(itriad==2 .OR. itriad==3) THEN
               ix(1)=2 ! y
               ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
               outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.9.dat'
@@ -1518,27 +1523,48 @@ PROGRAM HMx_driver
               STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
            END IF
         ELSE IF(i==4) THEN
-           ! shear (z = 0.1 -> 0.5) cross kappa
            ix(1)=12 ! KiDS 450 (z = 0.1 -> 0.5)
            ix(2)=3 ! CMB
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-CMB.dat'
         ELSE IF(i==5) THEN
-           ! shear (z = 0.5 -> 0.9) cross kappa
            ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
            ix(2)=3 ! CMB
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-CMB.dat'
         ELSE IF(i==6) THEN
-           ! y cross shear (z = 0.1 -> 0.5)
            ix(1)=2 ! y
            ix(2)=12 ! KiDS 450 (z = 0.1 -> 0.5)
            outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.5.dat'
         ELSE IF(i==7) THEN
-           ! y cross shear (z = 0.5 -> 0.9)
            ix(1)=2 ! y
            ix(2)=13 ! KiDS 450 (z = 0.5 -> 0.9)
            outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.5-0.9.dat'
+        ELSE IF(i==8) THEN
+           ix(1)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           ix(2)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-gal_z0.1-0.5.dat'
+        ELSE IF(i==9) THEN
+           ix(1)=12 ! KiDS 450 (z =  0.1 -> 0.5)
+           ix(2)=11 ! KiDS 450 (z =  0.1 -> 0.9)
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-gal_z0.1-0.9.dat'
+        ELSE IF(i==10) THEN
+           ix(1)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+           ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-gal_z0.1-0.9.dat'
+        ELSE IF(i==11) THEN
+           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.1-0.5.dat'
+        ELSE IF(i==12) THEN
+           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.1-0.9.dat'
+        ELSE IF(i==13) THEN
+           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.5-0.9.dat'
         END IF
 
+        ! Do the cross correlation
         CALL xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
 
@@ -1549,25 +1575,23 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==13) THEN
 
-     !Calculate the cross-correlation coefficient
+     ! Calculate a cross-correlation coefficient
 
-     !Assign the cosmology
+     ! Assign the cosmology
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
 
      CALL assign_halomod(ihm,hmod,verbose)
 
-     !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     !CALL initialise_cosmology(verbose,cosm)
+     ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
      CALL print_cosmology(cosm)
 
-     !Initialise the lensing part of the calculation
-     !CALL initialise_distances(verbose,cosm)
+     ! Initialise the lensing part of the calculation
      CALL write_distances(cosm)
 
-     !Set the ell range and allocate arrays for l and C(l)
+     ! Set the ell range and allocate arrays for l and C(l)
      lmin=1e0
-     lmax=1e4 !Errors if this is increased to 10^5
+     lmax=1e4 ! Errors if this is increased to 10^5
      nl=64 
      CALL fill_array(log(lmin),log(lmax),ell,nl)
      ell=exp(ell)
@@ -1579,6 +1603,7 @@ PROGRAM HMx_driver
      CALL set_xcorr_type(ixx,ip)
 
      DO i=1,3
+        
         IF(i==1) THEN
            ix(1)=ixx(1)
            ix(2)=ixx(1)
@@ -1592,8 +1617,11 @@ PROGRAM HMx_driver
            ix(2)=ixx(2)
            outfile=TRIM(dir)//'/cl_full.dat'
         END IF
+
+        ! Do the cross correlation
         CALL xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
         CALL write_Cell(ell,Cell,nl,outfile)
+        
      END DO
 
   ELSE IF(imode==14 .OR. imode==33) THEN
