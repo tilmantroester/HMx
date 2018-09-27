@@ -22,8 +22,14 @@ MODULE Limber
   END TYPE lensing
   
   ! P(k,a) look-up table parameters
-  REAL, PARAMETER :: kmin_pka=1e-3 ! kmin value for P(k,a) table; P(k<kmin)=0
-  REAL, PARAMETER :: kmax_pka=1e2  ! kmax value for P(k,a) table; P(k>kmax)=0
+  REAL, PARAMETER :: kmin_pka=1e-3   ! k' value for P(k,a) table; P(k<k',a)=0
+  REAL, PARAMETER :: kmax_pka=1e2    ! k' value for P(k,a) table; P(k>k',a)=0
+  !REAL, PARAMETER :: kimin_pka=1e-3  ! k' value for P(k,a) to interpolate k<k'
+  !REAL, PARAMETER :: kimax_pka=1e2   ! k' value for P(k,a) to interpolate k>k'
+  REAL, PARAMETER :: amin_pka=0.01   ! a' value for P(k,a) table; P(k,a<a')=0
+  REAL, PARAMETER :: amax_pka=1.     ! a' value for P(k,a) table; P(k,a>a')=0
+  !REAL, PARAMETER :: aimin_pka=0.1   ! a' value for P(k,a) to interpolate a<a'
+  !REAL, PARAMETER :: aimax_pka=1.    ! a' value for P(k,a) to interpolate a>a'
 
   ! xcorr - C(l) calculation
   REAL, PARAMETER :: kmin_xcorr=1e-3 ! Minimum k
@@ -167,6 +173,7 @@ CONTAINS
     ! Allocate power arrays
     ALLOCATE(powa(nk,na),powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na))
 
+    ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) 'XCORR: Cross-correlation information'
        WRITE(*,*) 'XCORR: P(k) minimum k [h/Mpc]:', REAL(kmin_xcorr)
@@ -181,21 +188,24 @@ CONTAINS
        WRITE(*,*)
     END IF
 
+    ! Use the xcorrelation type to set the necessary halo profiles
     CALL set_xcorr_type(ix,ip)
 
+    ! Do the halo model power spectrum calculation
     CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,hmod,cosm,verbose,response=.FALSE.)
 
     ! Fill out the projection kernels
     CALL fill_projection_kernels(ix,proj,cosm)
     IF(verbose) CALL write_projection_kernels(proj,cosm)
 
-    ! Set the distance range for the Limber integral
+    ! Set the range in comoving distance for the Limber integral
     r1=0.
     r2=maxdist(proj)
 
     ! Actually calculate the C(ell), but only for the full halo model part
     CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
 
+    ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) 'XCORR: Done'
        WRITE(*,*)
@@ -706,7 +716,7 @@ CONTAINS
 
   FUNCTION y_kernel(r,cosm)
 
-    ! The Compton-y projeciton kernel
+    ! The Compton-y projection kernel
     IMPLICIT NONE
     REAL :: y_kernel
     REAL, INTENT(IN) :: r
@@ -718,13 +728,11 @@ CONTAINS
     z=redshift_r(r,cosm)
     a=scale_factor_z(z)
 
-    ! To stop compile-time warnings
-    crap=cosm%om_m
-    crap=r 
-
-    y_kernel=yfac*mpc ! Convert some units; note that there is no factor of 'a' here
-    y_kernel=y_kernel/a**2 ! NEW: These come from 'a^-3' for pressure and 'a' for comoving distance
-    y_kernel=y_kernel*eV*cm**(-3) !Convert from eV cm^-3 to J m^-3
+    ! Make the kernel and do some unit conversions
+    y_kernel=yfac                     ! yfac = sigma_T / m_e c^2 [kg^-1 s^2]
+    y_kernel=y_kernel*Mpc/cosm%h      ! NEW: Add Mpc/h units from the dr in the integral (h is new)
+    y_kernel=y_kernel/a**2            ! NEW: These come from 'a^-3' for pressure multiplied by 'a' for comoving distance
+    y_kernel=y_kernel*eV*(0.01)**(-3) ! Convert units of pressure spectrum from [eV/cm^3] to [J/m^3]
 
   END FUNCTION y_kernel
 
@@ -1195,7 +1203,7 @@ CONTAINS
     REAL, INTENT(IN) :: k, a
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
 
-    IF(k<=kmin_pka .OR. k>=kmax_pka) THEN
+    IF(k<kmin_pka .OR. k>kmax_pka .OR. a<amin_pka .OR. a>amax_pka) THEN
        find_pka=0.
     ELSE
        find_pka=exp(find2d(log(k),logktab,log(a),logatab,logptab,nk,na,3,3,1))
