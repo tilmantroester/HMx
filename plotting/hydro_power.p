@@ -303,30 +303,69 @@ if(iplot==3){
 set title plot_title_z(z)
 
 if(print==1){
-outfile(z)=sprintf('suppression_z%1.1f.eps',z)
-set output outfile(z)
+outfile='paper/suppression.eps'
+set output outfile
 }
 
-rmin=0.75
-rmax=1.1
+kmin=0.011
+kmax=9.9
+set xrange [kmin:kmax]
+
+rmin=0.76
+rmax=1.06
 unset log y
 set format y
 set yrange [rmin:rmax]
-set ylabel 'P(k) / P_{DMONLY}(k)'
 
 cols="'black' 'orange' 'orange-red' 'red'"
+
+top=0.98
+bot=0.10
+lef=0.10
+rig=0.98
+miy=(top+bot)/2.
+mix=(lef+rig)/2.
+
+unset title
+
+set multiplot layout 2,2
+
+do for [i=1:4] {
+
+set key bottom left
+
+if(i==1){snap='snap32'; zlab='z = 0.0'; set format x ''; set xlabel ''; set format y; set ylabel 'P(k) / P_{DMONLY}(k)'}
+if(i==2){snap='snap28'; zlab='z = 0.5'; set format x ''; set xlabel ''; set format y ''; set ylabel ''}
+if(i==3){snap='snap26'; zlab='z = 1.0'; set format x; set xlabel 'k / h^{-1} Mpc'; set format y; set ylabel 'P(k) / P_{DMONLY}(k)'}
+if(i==4){snap='snap22'; zlab='z = 2.0'; set format x; set xlabel 'k / h^{-1} Mpc'; set format y ''; set ylabel ''}
+
+if(i==1){set tmargin at screen top; set bmargin at screen miy; set lmargin at screen lef; set rmargin at screen mix}
+if(i==2){set tmargin at screen top; set bmargin at screen miy; set lmargin at screen mix; set rmargin at screen rig}
+if(i==3){set tmargin at screen miy; set bmargin at screen bot; set lmargin at screen lef; set rmargin at screen mix}
+if(i==4){set tmargin at screen miy; set bmargin at screen bot; set lmargin at screen mix; set rmargin at screen rig}
+
+names=hmpk_names
+if(i==2 || i==3 || i==4){names="''''''''"}
+
+set label zlab at graph 0.1,0.9
 
 if(icomp==1 || icomp==2){
 plot 1 w l lt -1 noti,\
      for [i=1:words(sims)] '<paste '.simpk(word(sims,i),mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(cols,i) noti,\
-     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc rgb word(cols,i) ti word(hmpk_names,i)
+     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc rgb word(cols,i) ti word(names,i)
 }
 
 if(icomp==3){
 plot 1 w l lt -1 noti,\
      for [i=1:words(sims)] '<paste '.simpk(word(sims,i),mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc i noti,\
-     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc -1 ti word(hmpk_names,i)
+     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc -1 ti word(names,i)
 }
+
+unset label
+
+}
+
+unset multiplot
 
 }
 
