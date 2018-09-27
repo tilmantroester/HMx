@@ -457,7 +457,7 @@ CONTAINS
 
     ! Gas parameters
     cosm%mup=4./(5.*cosm%YH+3.) ! Nuclear mass per particle (~0.588 if fH=0.76)
-    cosm%mue=2./(1.+cosm%YH) ! Nuclear mass per electron (~1.136 if fH=0.76)
+    cosm%mue=2./(1.+cosm%YH)    ! Nuclear mass per electron (~1.136 if fH=0.76)
 
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: mu_p:', cosm%mup
