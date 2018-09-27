@@ -147,7 +147,7 @@ function execute(block, config) result(status)
   type(HMx_setup_config), pointer :: HMx_config
   integer :: i
   integer, dimension(:) :: fields(2)
-  real(8) :: log10_eps, log10_M0, log10_whim
+  real(8) :: log10_eps, log10_M0, log10_whim, log10_Theat
   real(8), dimension(:), allocatable :: k_plin, z_plin
   real(8), dimension(:,:), allocatable :: pk_lin, pk_1h, pk_2h, pk_full
   character(len=256) :: pk_section
@@ -214,12 +214,13 @@ function execute(block, config) result(status)
   status = datablock_get_double(block, halo_model_parameters_section, "rstar", HMx_config%hm%rstar)
   status = datablock_get_double(block, halo_model_parameters_section, "sstar", HMx_config%hm%sstar)
   status = datablock_get_double(block, halo_model_parameters_section, "mstar", HMx_config%hm%mstar)
-  status = datablock_get_double(block, halo_model_parameters_section, "Theat", HMx_config%hm%Theat)
+  status = datablock_get_double_default(block, halo_model_parameters_section, "log10_Theat", log10(HMx_config%hm%Theat), log10_Theat)
 
   ! Exponentiate those parameters that will be explored in log space
   HMx_config%hm%eps = 10**log10_eps
   HMx_config%hm%M0 = 10**log10_M0
   HMx_config%hm%Twhim = 10**log10_whim
+  HMx_config%hm%Theat = 10**log10_Theat
 
   if(trim(HMx_config%p_lin_source) == "external") then
      status = datablock_get_double_grid(block, matter_power_lin_section, &
@@ -298,8 +299,8 @@ function execute(block, config) result(status)
        "z", 1.0/HMx_config%a-1.0, &
        "p_k", pk_full)
 
-  write(*,*) pk_section
-  write(*,*) pk_full(:,1)
+  !write(*,*) pk_section
+  !write(*,*) pk_full(:,1)
   if(status /= 0) then
      write(*,*) "Failed to write NL power spectrum to datablock."
   end if
