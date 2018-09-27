@@ -85,7 +85,7 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=23 ! Total number of pre-defined halo-model types (TODO: this is stupid)
+    INTEGER, PARAMETER :: nhalomod=24 ! Total number of pre-defined halo-model types (TODO: this is stupid)
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
@@ -110,6 +110,7 @@ CONTAINS
     names(21)='Cored profile model'
     names(22)='Delta function-NFW star profile model response'
     names(23)='Tinker mass function and bias'
+    names(24)='Universal pressure profile'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -537,6 +538,9 @@ CONTAINS
     ELSE IF(ihm==23) THEN
        ! 23 - Tinker mass function and bias
        hmod%imf=3
+    ELSE IF(ihm==24) THEN
+       ! 24 - UPP for electron pressure
+       hmod%electron_pressure=1
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -562,9 +566,7 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
-    REAL :: Dv, dc, m, nu, R, sig, A0, frac, a
-
-    
+    REAL :: Dv, dc, m, nu, R, sig, A0, frac, a    
 
     ! Set the redshift (this routine needs to be called anew for each z)
     hmod%z=z
@@ -1775,7 +1777,7 @@ CONTAINS
     
     IF(hmod%itrans==2) THEN
        ! From Mead et al. (2015, 2016)   
-       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff          
+       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff       
     ELSE IF(hmod%itrans==4) THEN
        ! Specially for HMx, exponentiated Mead et al. (2016) result
        alpha_transition=(hmod%alp0*hmod%alp1**hmod%neff)**2.5
@@ -3811,7 +3813,7 @@ CONTAINS
 
   REAL FUNCTION virial_temperature(M,rv,a,cosm)
 
-    ! Halo physical virial temperature in Kelvin
+    ! Halo physical virial temperature [K]
     ! Calculates the temperature as if pristine gas falls into the halo
     ! Energy is equally distributed between the particles
     IMPLICIT NONE
@@ -3820,10 +3822,10 @@ CONTAINS
     REAL, INTENT(IN) :: a ! scale factor
     TYPE(cosmology), INTENT(INOUT) :: cosm ! cosmology
 
-    REAL, PARAMETER :: modes=3. !1/2 k_BT per mode, 3 modes for 3 dimensions 
+    REAL, PARAMETER :: modes=3. ! 1/2 k_BT per mode, 3 modes for 3 dimensions 
 
     virial_temperature=bigG*((M*msun)*mp*cosm%mup)/(a*rv*mpc) ! NEW: a in denominator converts comoving->physical halo radius
-    virial_temperature=virial_temperature/(kb*modes/2.) !Convert to temperature from energy
+    virial_temperature=virial_temperature/(kb*modes/2.) ! Convert to temperature from energy
 
   END FUNCTION virial_temperature
 
@@ -3832,6 +3834,7 @@ CONTAINS
     ! Universal electron pressure profile (Arnaud et al. 2010; arxiv:0910.1234)
     ! Note *very* well that this is for *electron* pressure (see Arnaud 2010 and my notes on this)
     ! Note that is is also the physical pressure, and relates to the comoving pressure via (1+z)^3
+    ! The units of the pressure profile are [eV/cm^3]
     IMPLICIT NONE
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k
