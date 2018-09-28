@@ -30,12 +30,17 @@ if(!exists('icl')){icl=2}
 print 'icl = ', icl
 print ''
 
-# Planck beam
-fwhm = 10. # FWHM [arcmin]
-fwhm = fwhm/60. # FWHM [deg]
-fwhm = fwhm*pi/180. # FWHM [rad]
-sigma = fwhm/(2.*sqrt(2.*log(2.))) # sigma [rad]
-beam(l)=exp(-0.5*l*(l+1.)*sigma**2.)
+# x axis
+set log x
+set xlabel ''.ell.''
+
+# y axis
+if(icl==1){p1=0; p2=0; p3=0; ylab='C_{ij}('.ell.')'                                 ; c=2; clmin=1e-14; clmax=2e-12; set key top right}
+if(icl==2){p1=1; p2=1; p3=1; ylab=''.ell.'('.ell.'+1)C_{ij}('.ell.') / 2{/Symbol p}'; c=3; clmin=1e-10; clmax=7e-7;  set key top left}
+set log y
+set format y '10^{%T}'
+set ylabel ylab
+set yrange [clmin:clmax]
 
 if(icomp==1){
 
@@ -47,14 +52,13 @@ sim_names="'AGN 8.0' 'AGN 8.5' 'AGN 8.7'"
 
 cols="'gold' 'orange' 'red'"
 
-#Types of fields and names
+# Types of fields and names
+hms="'CMB' 'y' 'gal_z0.1-0.9'"
 fields="'CMB' 'y' 'gal'"
 field_names="'{/Symbol f}' 'y' '{/Symbol g}'"
 
+# Location of simulation data
 sim_file(x,y,mod)=sprintf('/Users/Mead/Physics/people/Tilman/cosmo-OWLS/Cl/Cl_%s-%s_%s.txt', x, y, mod)
-
-# No beam
-beam(l)=1.
 
 # Factor to shift down CMB-gal curves
 f=1e-3
@@ -68,6 +72,19 @@ disp(i,n)=1.+0.03*real(i-1)/real(n-1)
 # x axis
 lmin=90.
 lmax=3500.
+set xrange [lmin:lmax]
+
+nsim=words(sims)
+print 'Number of simulations: ', nsim
+print ''
+
+# Make the plot
+plot hm_file(word(hms,3),word(hms,1)) u 1:(f*column(c)) w l lw 3 lc -1 dt 1 ti ''.word(field_names,3).'-'.word(field_names,1).'',\
+     hm_file(word(hms,1),word(hms,2)) u 1:(column(c)) w l lw 3 lc -1 dt 4 ti ''.word(field_names,1).'-'.word(field_names,2).'',\
+     hm_file(word(hms,2),word(hms,3)) u 1:(column(c)) w l lw 3 lc -1 dt 5 ti ''.word(field_names,2).'-'.word(field_names,3).'',\
+     for [i=1:nsim] sim_file(word(fields,3),word(fields,1),word(sims,i)) u ($1*disp(i,nsim)):(f*($1**p1)*(($1+1)**p2)*$2/(2.*pi)**p3):(f*($1**p1)*(($1+1)**p2)*$3/(2.*pi)**p3) w errorbars lc rgb word(cols,i) pt 7 ti word(sim_names,i),\
+     for [i=1:nsim] sim_file(word(fields,1),word(fields,2),word(sims,i)) u ($1*disp(i,nsim)):(($1**p1)*(($1+1)**p2)*$2/(2.*pi)**p3):(f*($1**p1)*(($1+1)**p2)*$3/(2.*pi)**p3) w errorbars lc rgb word(cols,i) pt 7 noti,\
+     for [i=1:nsim] sim_file(word(fields,2),word(fields,3),word(sims,i)) u ($1*disp(i,nsim)):(($1**p1)*(($1+1)**p2)*$2/(2.*pi)**p3):(f*($1**p1)*(($1+1)**p2)*$3/(2.*pi)**p3) w errorbars lc rgb word(cols,i) pt 7 noti
 
 }
 
@@ -105,39 +122,6 @@ disp(i,n)=1.+0.03*real(i-1)/real(n-1)
 lmin=90.
 lmax=3500.
 
-}
-
-if(icomp==3){
-
-sim="TUNED"
-sim_name="AGN"
-col='orange'
-
-hms="'CMB' 'y' 'gal_z0.1-0.9' 'gal_z0.1-0.5' 'gal_z0.5-0.9'"
-fields="'CMBkappa' 'tSZ' 'shear_z0.1-0.9' 'shear_z0.1-0.5' 'shear_z0.5-0.9'"
-field_names="'{/Symbol f}' 'y' '{/Symbol g} (z = 0.1 -> 0.9)' '{/Symbol g} (z = 0.1 -> 0.5)' '{/Symbol g} (z = 0.5 -> 0.9)'"
-
-# Location of C(ell) measured from the simulations
-sim_file(x,y,mod)=sprintf('/Users/Mead/Physics/people/Tilman/BAHAMAS_triad_2/mean_Cl_%s-%s_%s.txt', x, y, mod)
-
-# No beam
-beam(l)=1.
-
-# No displacement
-disp(i,n)=1.
-
-# Factor to shift down CMB-gal curves
-f=1e-3
-print 'Note that CMB-galaxy lensing power has been multiplied by a factor to bring it down:'
-print 'Factor: ', f
-print ''
-
-# x axis
-lmin=90.
-lmax=4000.
-
-}
-
 set log x
 set xlabel ''.ell.''
 set xrange [lmin:lmax]
@@ -145,11 +129,6 @@ set xrange [lmin:lmax]
 # y axis
 set log y
 set format y '10^{%T}'
-
-if(icl==1){p1=0; p2=0; p3=0; ylab='C_{ij}('.ell.')'                                 ; c=2; clmin=1e-14; clmax=2e-12; set key top right}
-if(icl==2){p1=1; p2=1; p3=1; ylab=''.ell.'('.ell.'+1)C_{ij}('.ell.') / 2{/Symbol p}'; c=3; clmin=1e-10; clmax=7e-7;  set key top left}
-
-if(icomp==1 || icomp==2){
 
 set ylabel ylab
 set yrange [clmin:clmax]
@@ -178,13 +157,38 @@ plot hm_file(word(hms,3),word(hms,1)) u 1:(f*column(c)) w l lw 3 lc -1 dt 1 ti '
 
 if(icomp==3){
 
+sim="TUNED"
+sim_name="AGN"
+col='orange'
+
+hms="'CMB' 'y' 'gal_z0.1-0.9' 'gal_z0.1-0.5' 'gal_z0.5-0.9'"
+fields="'CMBkappa' 'tSZ' 'shear_z0.1-0.9' 'shear_z0.1-0.5' 'shear_z0.5-0.9'"
+field_names="'{/Symbol f}' 'y' '{/Symbol g} (z = 0.1 -> 0.9)' '{/Symbol g} (z = 0.1 -> 0.5)' '{/Symbol g} (z = 0.5 -> 0.9)'"
+
+# Location of C(ell) measured from the simulations
+sim_file(x,y,mod)=sprintf('/Users/Mead/Physics/people/Tilman/BAHAMAS_triad_2/mean_Cl_%s-%s_%s.txt', x, y, mod)
+
+# No displacement
+disp(i,n)=1.
+
+# Factor to shift down CMB-gal curves
+f=1e-3
+print 'Note that CMB-galaxy lensing power has been multiplied by a factor to bring it down:'
+print 'Factor: ', f
+print ''
+
+# x axis
+lmin=90.
+lmax=4000.
+set xrange [lmin:lmax]
+
 set ylabel ylab
 set yrange [*:*]
 
 set lmargin 10
 set rmargin 2
 
-set multiplot layout 2,1
+set multiplot layout 1,2
 
 # Make the upper (lensing-lensing) plot
 plot hm_file(word(hms,3),word(hms,1)) u 1:(column(c)) w l lw 3 lc -1 dt 1 ti ''.word(field_names,3).'-'.word(field_names,1).'',\
