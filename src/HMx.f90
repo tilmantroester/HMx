@@ -320,40 +320,40 @@ CONTAINS
     hmod%sstar=1.2
     hmod%Mstar=5e12
 
-    !$\alpha$ z and Theat variation
+    ! $\alpha$ z and Theat variation
     hmod%A_alpha=-0.005
     hmod%B_alpha=0.022
     hmod%C_alpha=0.865
     hmod%D_alpha=-13.565
     hmod%E_alpha=52.516
 
-    !$\log_{10} \epsilon_c$ z and Theat variation
+    ! $\log_{10} \epsilon_c$ z and Theat variation
     hmod%A_eps=-0.289
     hmod%B_eps=2.147
     hmod%C_eps=0.129
     hmod%D_eps=-0.867
 
-    !$\Gamma$ z and Theat variation
+    ! $\Gamma$ z and Theat variation
     hmod%A_Gamma=0.026
     hmod%B_Gamma=-0.064
     hmod%C_Gamma=1.150
     hmod%D_Gamma=-17.011
     hmod%E_Gamma=66.289
 
-    !$\log_{10}M_0$ z and Theat variation
+    ! $\log_{10}M_0$ z and Theat variation
     hmod%A_M0=-0.007
     hmod%B_M0=0.018
     hmod%C_M0=6.788
     hmod%D_M0=-103.453
     hmod%E_M0=406.705
 
-    !$A_*$ z and Theat variation
+    ! $A_*$ z and Theat variation
     hmod%A_Astar=0.004
     hmod%B_Astar=-0.034
     hmod%C_Astar=-0.017
     hmod%D_Astar=0.165
 
-    !$\log_{10}T_{WHIM}$ z and Theat variation
+    ! $\log_{10}T_{WHIM}$ z and Theat variation
     hmod%A_Twhim=-0.024
     hmod%B_Twhim=0.077
     hmod%C_Twhim=0.454
@@ -1095,7 +1095,7 @@ CONTAINS
        z=redshift_a(a(i))
        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose2)
        CALL print_halomod(hmod,cosm,verbose2)
-       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,response)
+       CALL calculate_halomod(itype,k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,response)
        IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'       
        IF(verbose) WRITE(*,fmt='(A15,I5,F10.2)') 'CALCULATE_HMx:', i, REAL(z)
        verbose2=.FALSE.
@@ -1107,12 +1107,12 @@ CONTAINS
 
   END SUBROUTINE calculate_HMx
 
-  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose,response)
+  SUBROUTINE calculate_halomod(itype,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose,response)
 
     ! Public facing function
     ! TODO: Change z -> a
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: itype1, itype2
+    INTEGER, INTENT(IN) :: itype(2)
     INTEGER, INTENT(IN) :: nk
     REAL, INTENT(IN) :: k(nk), z
     REAL, INTENT(OUT) :: pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
@@ -1124,11 +1124,14 @@ CONTAINS
     INTEGER :: i, ihmcode
     TYPE(halomod) :: hmcode
     REAL :: plin, a
+
+    INTEGER, PARAMETER :: ip(2)=-1 ! DMONLY
+    LOGICAL, PARAMETER :: do_epressure_correction=.FALSE.
     
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 1:', itype1
-       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 2:', itype2
+       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 1:', itype(1)
+       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 2:', itype(2)
        WRITE(*,*) 'CALCULATE_HALOMOD: k min:', REAL(k(1))
        WRITE(*,*) 'CALCULATE_HALOMOD: k max:', REAL(k(nk))
        WRITE(*,*) 'CALCULATE_HALOMOD: number of k:', nk
@@ -1159,12 +1162,12 @@ CONTAINS
        pow_lin(i)=plin
 
        ! Do the halo model calculation
-       CALL calculate_halomod_k(itype1,itype2,k(i),pow_2h(i),pow_1h(i),pow(i),plin,hmod,cosm)
+       CALL calculate_halomod_k(itype,k(i),pow_2h(i),pow_1h(i),pow(i),plin,hmod,cosm)
           
        IF(response .OR. hmod%response) THEN
 
           ! If doing a response then calculate a DMONLY prediction too
-          CALL calculate_halomod_k(-1,-1,k(i),powg_2h(i),powg_1h(i),powg(i),plin,hmod,cosm)
+          CALL calculate_halomod_k(ip,k(i),powg_2h(i),powg_1h(i),powg(i),plin,hmod,cosm)
           pow_lin(i)=1. ! This is just linear-over-linear, which is one
           pow_2h(i)=pow_2h(i)/powg_2h(i) ! Two-halo response
           pow_1h(i)=pow_1h(i)/powg_1h(i) ! One-halo response
@@ -1173,7 +1176,7 @@ CONTAINS
           IF((.NOT. response) .AND. hmod%response) THEN
 
              ! If multiplying the response by an 'accurate' HMcode prediction
-             CALL calculate_halomod_k(-1,-1,k(i),hmcode_2h(i),hmcode_1h(i),hmcode_full(i),plin,hmcode,cosm)
+             CALL calculate_halomod_k(ip,k(i),hmcode_2h(i),hmcode_1h(i),hmcode_full(i),plin,hmcode,cosm)
              pow_lin(i)=plin ! Linear power is just linear power again
              pow_2h(i)=pow_2h(i)*hmcode_2h(i) ! Multiply two-halo response through by HMcode two-halo
              pow_1h(i)=pow_1h(i)*hmcode_1h(i) ! Multiply one-halo response through by HMcode one-halo
@@ -1185,7 +1188,15 @@ CONTAINS
 
     END DO
 !!$OMP END PARALLEL DO
-    
+
+    IF(do_epressure_correction) THEN
+       DO i=1,2
+          IF(itype(i)==6) THEN
+             CALL correct_power(k,pow,nk)
+          END IF
+       END DO
+    END IF
+       
     IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_HALOMOD: Done'
        WRITE(*,*)
@@ -1193,24 +1204,40 @@ CONTAINS
 
   END SUBROUTINE calculate_halomod
 
-  SUBROUTINE calculate_halomod_k(ih1,ih2,k,p2h,p1h,pfull,plin,hmod,cosm)
+  SUBROUTINE correct_power(k,pow,nk)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k(nk)
+    REAL, INTENT(INOUT) :: pow(nk)
+    INTEGER, INTENT(IN) :: nk
+    INTEGER :: i
+    
+    DO i=1,nk
+       IF(k(i)>1.) THEN
+          pow(i)=pow(i)*(log10(k(i))+1.)
+       END IF
+    END DO
+
+  END SUBROUTINE correct_power
+
+  SUBROUTINE calculate_halomod_k(itype,k,p2h,p1h,pfull,plin,hmod,cosm)
 
     ! Gets the one- and two-halo terms and combines them
     ! TODO: Change 
     IMPLICIT NONE
+    INTEGER, INTENT(IN) :: itype(2)
     REAL, INTENT(OUT) :: p1h, p2h, pfull
     REAL, INTENT(IN) :: plin, k
-    INTEGER, INTENT(IN) :: ih1, ih2
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: alp, et, nu
     REAL :: wk(hmod%n,2), wk2(hmod%n), m, rv, rs
-    INTEGER :: i, j, ih(2)
+    INTEGER :: i, j!, ih(2)
     REAL :: c, dc
     
     !Initially fill this small array 
-    ih(1)=ih1
-    ih(2)=ih2
+    !ih(1)=ih1
+    !ih(2)=ih2
 
     !For the i's
     !-1 - DMonly
@@ -1250,9 +1277,9 @@ CONTAINS
                 c=hmod%c(i)
                 rs=rv/c
                 nu=hmod%nu(i)
-                wk(i,j)=win_type(.FALSE.,ih(j),1,k*nu**et,m,rv,rs,hmod,cosm)
+                wk(i,j)=win_type(.FALSE.,itype(j),1,k*nu**et,m,rv,rs,hmod,cosm)
              END DO
-             IF(ih(2)==ih(1)) THEN
+             IF(itype(2)==itype(1)) THEN
                 !Avoid having to call win_type twice if doing auto spectrum
                 wk(:,2)=wk(:,1)
                 EXIT
@@ -1273,7 +1300,7 @@ CONTAINS
              m=hmod%m(i)
              rv=hmod%rv(i)
              c=hmod%c(i)             
-             wk2(i)=integrate_scatter(c,dc,ih,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
+             wk2(i)=integrate_scatter(c,dc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
           END DO
           
        END IF
@@ -1290,10 +1317,10 @@ CONTAINS
                 rv=hmod%rv(i)
                 rs=rv/hmod%c(i)
                 nu=hmod%nu(i)
-                IF(hmod%ip2h==1) wk(i,j)=win_type(.FALSE.,ih(j),2,0.,m,rv,rs,hmod,cosm)
-                IF(hmod%smooth_freegas) wk(i,j)=win_type(.FALSE.,ih(j),2,k*nu**et,m,rv,rs,hmod,cosm)
+                IF(hmod%ip2h==1) wk(i,j)=win_type(.FALSE.,itype(j),2,0.,m,rv,rs,hmod,cosm)
+                IF(hmod%smooth_freegas) wk(i,j)=win_type(.FALSE.,itype(j),2,k*nu**et,m,rv,rs,hmod,cosm)
              END DO
-             IF(ih(2)==ih(1)) THEN
+             IF(itype(2)==itype(1)) THEN
                 !Avoid having to call win_type twice if doing auto spectrum
                 wk(:,2)=wk(:,1)
                 EXIT
@@ -1302,7 +1329,7 @@ CONTAINS
        END IF
 
        !Get the two-halo term
-       p2h=p_2h(ih,wk,k,plin,hmod,cosm)
+       p2h=p_2h(itype,wk,k,plin,hmod,cosm)
 
     END IF
 
@@ -1346,11 +1373,12 @@ CONTAINS
     TYPE(halomod) :: hmod
     
     INTEGER :: ihm=1 ! Set HMcode, could/should be parameter
+    INTEGER, PARAMETER :: ip(2)=-1 ! DMONLY
 
     ! Do an HMcode run
     CALL assign_halomod(ihm,hmod,verbose=.FALSE.)
     CALL init_halomod(mmin_hmcode,mmax_hmcode,z,hmod,cosm,verbose=.FALSE.)
-    CALL calculate_halomod(-1,-1,k,nk,z,pow_lin,pow_2h,pow_1h,Pk,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+    CALL calculate_halomod(ip,k,nk,z,pow_lin,pow_2h,pow_1h,Pk,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
   END SUBROUTINE calculate_HMcode
     
@@ -2807,7 +2835,7 @@ CONTAINS
 
     !Carries out the integration
     !Important to use basic trapezium rule because the integrand is messy due to rapid oscillations in W(k)
-    p_1h=comoving_matter_density(cosm)*integrate_table(hmod%nu,integrand,hmod%n,1,hmod%n,1)*(4.*pi)*(k/(2.*pi))**3
+    p_1h=comoving_matter_density(cosm)*integrate_table(hmod%nu,integrand,hmod%n,1,hmod%n,1)*(4.*pi)*(k/twopi)**3
 
     DEALLOCATE(integrand)
 
@@ -2903,7 +2931,7 @@ CONTAINS
        p_1void=integrate_table(hmod%nu,integrand,n,1,n,1)
     END IF
 
-    p_1void=p_1void*(4.*pi)*(k/(2.*pi))**3
+    p_1void=p_1void*(4.*pi)*(k/twopi)**3
 
   END FUNCTION p_1void
 
@@ -3206,7 +3234,7 @@ CONTAINS
 
        ! Convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
        win_boundgas=win_boundgas*(rho0/(mp*cosm%mue))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
-       win_boundgas=win_boundgas/(eV*cm**(-3)) ! Change units to pressure in [eV/cm^3]
+       win_boundgas=win_boundgas/(eV*(0.01)**(-3)) ! Change units to pressure in [eV/cm^3]
        win_boundgas=win_boundgas*cosm%mue/cosm%mup ! Convert from total thermal pressure to electron pressure
 
     ELSE
@@ -3435,7 +3463,7 @@ CONTAINS
 
                 !Factors to convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
                 win_freegas=win_freegas*(rho0/(mp*cosm%mup))*(kb*T0) !Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
-                win_freegas=win_freegas/(eV*cm**(-3)) !Change units to pressure in [eV/cm^3]
+                win_freegas=win_freegas/(eV*(0.01)**(-3)) !Change units to pressure in [eV/cm^3]
                 win_freegas=win_freegas*cosm%mue/cosm%mup !Convert from total thermal pressure to electron pressure
 
              END IF
@@ -4777,8 +4805,9 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: dc
 
-    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
+    dc=hmod%dc
 
     b_ps=1.+(nu**2-1.)/dc
 
@@ -4793,10 +4822,13 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: dc
 
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
-    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
+
+    dc=hmod%dc
+    !dc=1.686
 
     b_st=1.+(q*(nu**2)-1.+2.*p/(1.+(q*nu**2)**p))/dc
 
