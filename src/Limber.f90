@@ -7,6 +7,23 @@ MODULE Limber
 
   IMPLICIT NONE
 
+  PRIVATE
+
+  PUBLIC :: projection
+  PUBLIC :: lensing
+  PUBLIC :: maxdist
+  PUBLIC :: calculate_Cell
+  PUBLIC :: xcorr_type
+  PUBLIC :: cell_contribution
+  PUBLIC :: fill_projection_kernels
+  PUBLIC :: get_nz
+  PUBLIC :: set_xcorr_type
+  PUBLIC :: write_projection_kernels
+  PUBLIC :: write_xi
+  PUBLIC :: xcorr
+  PUBLIC :: calculate_xi
+  PUBLIC :: write_cell
+ 
   ! Projection quantities that need to be calculated only once; these relate to the Limber integrals
   TYPE projection    
      REAL, ALLOCATABLE :: X(:), r_X(:)
@@ -22,14 +39,8 @@ MODULE Limber
   END TYPE lensing
   
   ! P(k,a) look-up table parameters
-  REAL, PARAMETER :: kmin_pka=1e-3   ! k' value for P(k,a) table; P(k<k',a)=0
+  REAL, PARAMETER :: kmin_pka=1e-4   ! k' value for P(k,a) table; P(k<k',a)=0
   REAL, PARAMETER :: kmax_pka=1e2    ! k' value for P(k,a) table; P(k>k',a)=0
-  !REAL, PARAMETER :: kimin_pka=1e-3  ! k' value for P(k,a) to interpolate k<k'
-  !REAL, PARAMETER :: kimax_pka=1e2   ! k' value for P(k,a) to interpolate k>k'
-  REAL, PARAMETER :: amin_pka=0.01   ! a' value for P(k,a) table; P(k,a<a')=0
-  REAL, PARAMETER :: amax_pka=1.     ! a' value for P(k,a) table; P(k,a>a')=0
-  !REAL, PARAMETER :: aimin_pka=0.1   ! a' value for P(k,a) to interpolate a<a'
-  !REAL, PARAMETER :: aimax_pka=1.    ! a' value for P(k,a) to interpolate a>a'
 
   ! xcorr - C(l) calculation
   REAL, PARAMETER :: kmin_xcorr=1e-3 ! Minimum k
@@ -40,6 +51,7 @@ MODULE Limber
   INTEGER, PARAMETER :: na_xcorr=16 ! Number of scale factores
   LOGICAL, PARAMETER :: verbose_Limber=.FALSE. ! Verbosity
   !LOGICAL, PARAMETER :: verbose_cell=.FALSE. ! Verbosity
+  LOGICAL, PARAMETER :: verbose_xi=.FALSE. ! Verbosity
 
   ! Maxdist
   REAL, PARAMETER :: dr_max=0.01 ! Small subtraction from maxdist to prevent numerical issues
@@ -50,9 +62,9 @@ MODULE Limber
   REAL, PARAMETER :: acc_Limber=1e-4   ! Accuracy parameter for Limber integration
 
   ! n(z)
-  REAL, PARAMETER :: zmin_nz=0.  ! Minimum redshift for the n(z) tables
-  REAL, PARAMETER :: zmax_nz=2.5 ! Maximum redshift for the n(z) tables
-  INTEGER, PARAMETER :: n_nz=128 ! Number of entries in the n(z) tables
+  REAL, PARAMETER :: zmin_nz=0.  ! Minimum redshift for the analytic n(z) tables
+  REAL, PARAMETER :: zmax_nz=2.5 ! Maximum redshift for the analytic n(z) tables
+  INTEGER, PARAMETER :: n_nz=128 ! Number of entries in the analytic n(z) tables
 
   ! General kernel
   REAL, PARAMETER :: rmin_kernel=0.   ! Minimum r for table
@@ -139,6 +151,7 @@ CONTAINS
   SUBROUTINE xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
 
     ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
+    ! Public-facing function
     ! TODO: Remove this explicit HMx dependence, it cannot be necessary, it is the only place it appears
     ! TODO: Maybe this needs to be moved anyway
     USE HMx 
@@ -321,7 +334,7 @@ CONTAINS
 
   SUBROUTINE Cell_contribution(r1,r2,k,a,pow,nk,na,proj,cosm)
 
-    ! Calculates C(l) using the Limber approximation
+    ! Calculates the contribution to each ell of C(l) as a function of z, k, r
     ! Note that using Limber and flat-sky for sensible results limits lmin to ~10
     USE string_operations
     IMPLICIT NONE
@@ -334,9 +347,9 @@ CONTAINS
     INTEGER :: i, j, l
     CHARACTER(len=256) :: fbase, fext, outfile
 
-    INTEGER, PARAMETER :: n=16 ! Number of ell values to take, from ell=1 to ell=2**(n-1)
+    INTEGER, PARAMETER :: n=16 ! Number of ell values to take, from l=1 to l=2**(n-1); 2^15 ~ 32,000
 
-    ! Create log tables to speed up 2D find routine in find_pkz
+    ! Create log tables to speed up 2D find routine in find_pka
     logk=log(k)
     loga=log(a)
     DO j=1,na
@@ -347,7 +360,7 @@ CONTAINS
     fbase='data/Cell_contrib_ell_'
     fext='.dat'
     DO i=1,n
-       l=2**(i-1)
+       l=2**(i-1) ! Set the l
        outfile=number_file(fbase,i,fext)
        CALL Limber_contribution(REAL(l),r1,r2,logk,loga,logpow,nk,na,proj,cosm,outfile)
     END DO
@@ -365,7 +378,7 @@ CONTAINS
 
     OPEN(7,file=output)
     DO i=1,nl
-       WRITE(7,*) ell(i), Cell(i), ell(i)*(1.+ell(i))*Cell(i)/(2.*pi)
+       WRITE(7,*) ell(i), Cell(i), ell(i)*(1.+ell(i))*Cell(i)/twopi
     END DO
     CLOSE(7)
 
@@ -387,7 +400,7 @@ CONTAINS
     logl=log(l_tab)
     logCl=log(cl_tab)
 
-    !WRITE(*,*) 'CALCULATE_XI: Computing correlation functions via sum'
+    IF(verbose_xi) WRITE(*,*) 'CALCULATE_XI: Computing correlation functions via sum'
     DO i=1,nth
 
        ! Get theta value and convert from degrees to radians
@@ -398,15 +411,15 @@ CONTAINS
        xi2=0.
        xi4=0.
 
-       ! Do the conversion from Cl to xi as a summation over integer ell
+       ! Do the conversion from Cl to xi as a summation over integer l
        DO j=1,lmax
 
           l=REAL(j)
           Cl=exp(find(log(l),logl,logCl,nl,3,3,2))
 
-          xi0=xi0+(2.*l+1.)*Cl*Bessel(0,l*theta)
-          xi2=xi2+(2.*l+1.)*Cl*Bessel(2,l*theta)
-          xi4=xi4+(2.*l+1.)*Cl*Bessel(4,l*theta)
+          xi0=xi0+(2.*l+1.)*Cl*Bessel(0,l*theta) ! J0
+          xi2=xi2+(2.*l+1.)*Cl*Bessel(2,l*theta) ! J2
+          xi4=xi4+(2.*l+1.)*Cl*Bessel(4,l*theta) ! J4
 
        END DO
 
@@ -425,8 +438,10 @@ CONTAINS
        xi_tab(3,i)=xi4
 
     END DO
-    !WRITE(*,*) 'CALCULATE_XI: Done'
-    !WRITE(*,*)
+    IF(verbose_xi) THEN
+       WRITE(*,*) 'CALCULATE_XI: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE calculate_xi
 
@@ -722,7 +737,6 @@ CONTAINS
     REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: z, a
-    REAL :: crap
 
     ! Get the scale factor
     z=redshift_r(r,cosm)
@@ -808,7 +822,7 @@ CONTAINS
     REAL :: spam
     CHARACTER(len=256) :: input
 
-    !Get file name
+    ! Get file name
     IF(ix==5) THEN
        input='/Users/Mead/Physics/KiDS/nz/KiDS_z0.1-0.9_MEAD.txt'
     ELSE IF(ix==6) THEN
@@ -826,13 +840,13 @@ CONTAINS
     END IF
     WRITE(*,*) 'GET_NZ: Input file:', TRIM(input)
 
-    !Allocate arrays
+    ! Allocate arrays
     lens%nnz=count_number_of_lines(input)
     IF(ALLOCATED(lens%z_nz)) DEALLOCATE(lens%z_nz)
     IF(ALLOCATED(lens%nz))   DEALLOCATE(lens%nz)
     ALLOCATE(lens%z_nz(lens%nnz),lens%nz(lens%nnz))
 
-    !Read in n(z) table
+    ! Read in n(z) table
     OPEN(7,file=input)
     DO i=1,lens%nnz
        IF(ix==5 .OR. ix==6 .OR. ix==7 .OR. ix==8 .OR. ix==9) THEN
@@ -852,7 +866,7 @@ CONTAINS
     CLOSE(7)
 
     ! Do this because the KiDS-450 files contain the lower left edge of histograms
-    ! The bin sizes are 0.05 in z
+    ! The bin sizes are 0.05 in z, so need to add 0.05/2 = 0.025
     IF(ix==11 .OR. ix==12 .OR. ix==13 .OR. ix==14) THEN       
        lens%z_nz=lens%z_nz+0.025
     END IF
@@ -1194,16 +1208,19 @@ CONTAINS
 
   END SUBROUTINE Limber_contribution
 
-  FUNCTION find_pka(k,a,logktab,logatab,logptab,nk,na)
+  REAL FUNCTION find_pka(k,a,logktab,logatab,logptab,nk,na)
 
     ! Looks up the power as a 2D function of k and a
+    ! Note that it cuts P(k,a) off above and below certain wavenumbers defined in the header (kmin_pka, kmax_pka)
+    ! It will interpolate in log(a) outside range
+    ! It will interpolate in log(k) outside range of ktab until kmin_pka/kmax_pka
     IMPLICIT NONE
-    REAL :: find_pka
-    INTEGER, INTENT(IN) :: nk, na
-    REAL, INTENT(IN) :: k, a
-    REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na)
+    REAL, INTENT(IN) :: k, a ! Input desired values of k and a
+    INTEGER, INTENT(IN) :: nk, na ! Number of entried of k and a in arrays
+    REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na) ! Arrays of log(k), log(a) and log(P(k,a))
 
-    IF(k<kmin_pka .OR. k>kmax_pka .OR. a<amin_pka .OR. a>amax_pka) THEN
+    ! Get the power
+    IF(k<kmin_pka .OR. k>kmax_pka) THEN
        find_pka=0.
     ELSE
        find_pka=exp(find2d(log(k),logktab,log(a),logatab,logptab,nk,na,3,3,1))
