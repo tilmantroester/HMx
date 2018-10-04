@@ -177,7 +177,7 @@ pmax=1e3
 set log y
 set yrange [pmin:pmax]
 set format y '10^{%T}'
-set ylabel '{/Symbol D}_{i,j}^2(k)'
+set ylabel '{/Symbol D}_{uv}^2(k)'
 set mytics 10
 
 # Set the overall plot titles
@@ -427,7 +427,7 @@ set log x
 set xlabel klab
 
 # y axis
-plab='{/Symbol D}_{i,j}^2(k)'
+plab='{/Symbol D}_{uv}^2(k)'
 pmin=1e-7; pmax=1e3 # Suitable for matter spectra
 if(field1 eq 'pressure'){pmin=pmin/1e3; pmax=pmax/1e3}
 if(field2 eq 'pressure'){pmin=pmin/1e3; pmax=pmax/1e3}
@@ -581,7 +581,7 @@ pmax=1e2
 set log y
 set yrange [pmin:pmax]
 set format y '10^{%T}'
-set ylabel '{/Symbol D}_{i,j}^2(k) / [k / h^{-1} Mpc]^{1.5}'
+set ylabel '{/Symbol D}_{uv}^2(k) / [k / h^{-1} Mpc]^{1.5}'
 set mytics 10
 
 if(print==1){
@@ -628,7 +628,7 @@ print ''
 
 set multiplot layout 2,2
 
-set label ''.word(sim_names,nsim).' ; z = '.sprintf('%1.1f', z).'' at graph 0.05,0.9
+set label ''.word(sim_names,nsim).'; z = '.sprintf('%1.1f', z).'' at graph 0.05,0.9
 
 set xlabel ''
 set format x ''
@@ -672,7 +672,7 @@ set format x
 
 rmin=3e-5
 rmax=2
-set ylabel 'P_{ij}(k) / P_{no-hydro}(k)'
+set ylabel 'P_{uv}(k) / P_{no-hydro}(k)'
 set yrange [rmin:rmax]
 
 # Bottom left - matter response
