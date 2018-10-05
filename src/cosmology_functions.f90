@@ -1189,25 +1189,27 @@ CONTAINS
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    physical_angular_distance=f_k(physical_distance(a,cosm),cosm)
+    !physical_angular_distance=f_k(physical_distance(a,cosm),cosm)
+    physical_angular_distance=a*comoving_angular_distance(a,cosm)
 
   END FUNCTION physical_angular_distance
 
   FUNCTION comoving_angular_distance(a,cosm)
 
-    ! The physical angular-diameter distance to a galaxy at scale-factor a
+    ! The comoving angular-diameter distance to a galaxy at scale-factor a
     IMPLICIT NONE
     REAL :: comoving_angular_distance
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    comoving_angular_distance=a*physical_angular_distance(a,cosm)
+    !comoving_angular_distance=physical_angular_distance(a,cosm)/a
+    comoving_angular_distance=f_k(comoving_distance(a,cosm),cosm)
 
   END FUNCTION comoving_angular_distance
 
   FUNCTION luminosity_distance(a,cosm)
 
-    ! The luminosity distance to a galaxy at scale-factor a
+    ! The (physical) luminosity distance to a galaxy at scale-factor a
     IMPLICIT NONE
     REAL :: luminosity_distance
     REAL, INTENT(IN) :: a
@@ -1222,22 +1224,22 @@ CONTAINS
     ! Fill up tables of a vs. r(a) (comoving distance)
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: zmin, zmax, amin, amax
+    REAL :: zmax, amin, amax
     INTEGER :: i
 
     INTEGER, PARAMETER :: nr=128
+    REAL, PARAMETER :: zmin=0.
 
-    zmin=0.
     zmax=cosm%z_CMB
     amin=scale_factor_z(zmax)
     amax=scale_factor_z(zmin)
-    IF(cosm%verbose) THEN
+    !IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_DISTANCE: Redshift range for r(z) tables'
        WRITE(*,*) 'INIT_DISTANCE: minimum z:', REAL(zmin)
        WRITE(*,*) 'INIT_DISTANCE: maximum z:', REAL(zmax)
        WRITE(*,*) 'INIT_DISTANCE: minimum a:', REAL(amin)
        WRITE(*,*) 'INIT_DISTANCE: maximum a:', REAL(amax)
-    END IF
+    !END IF
     cosm%n_r=nr
     CALL fill_array(amin,amax,cosm%a_r,cosm%n_r)
     IF(ALLOCATED(cosm%r)) DEALLOCATE(cosm%r)
@@ -1247,18 +1249,18 @@ CONTAINS
     DO i=1,cosm%n_r
        cosm%r(i)=integrate_cosm(cosm%a_r(i),1.,distance_integrand,cosm,acc_cosm,3)
     END DO
-    IF(cosm%verbose) THEN
+    !IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_DISTANCE: minimum r [Mpc/h]:', REAL(cosm%r(cosm%n_r))
        WRITE(*,*) 'INIT_DISTANCE: maximum r [Mpc/h]:', REAL(cosm%r(1))
-    END IF
+    !END IF
 
     ! Find the horizon distance in your cosmology
     cosm%horizon=integrate_cosm(0.,1.,distance_integrand,cosm,acc_cosm,3)
-    IF(cosm%verbose) THEN
+    !IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_DISTANCE: Horizon distance [Mpc/h]:', REAL(cosm%horizon)
        WRITE(*,*) 'INIT_DISTANCE: Done'
        WRITE(*,*)
-    END IF
+    !END IF
 
     cosm%has_distance=.TRUE.
 
