@@ -16,7 +16,7 @@ MODULE HMx
      INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans, iscatter
      LOGICAL :: voids, smooth_freegas
      REAL :: z, a, dc, Dv
-     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar, Theat ! HMx baryon parameters
+     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar, Theat, fcold ! HMx baryon parameters
      REAL :: A_alpha, B_alpha, C_alpha, D_alpha, E_alpha
      REAL :: A_eps, B_eps, C_eps, D_eps
      REAL :: A_Gamma, B_Gamma, C_Gamma, D_Gamma, E_gamma
@@ -32,9 +32,9 @@ MODULE HMx
      REAL :: Dv0, Dv1, dc0, dc1, eta0, eta1, f0, f1, ks, As, alp0, alp1 ! HMcode parameters
      REAL :: mgal, HImin, HImax, rcore, hmass
      INTEGER :: n
-     INTEGER :: halo_DMONLY, halo_CDM, halo_boundgas, halo_freegas, halo_star, halo_HI
+     INTEGER :: halo_DMONLY, halo_CDM, halo_boundgas, halo_coldgas, halo_freegas, halo_star, halo_HI
      INTEGER :: halo_void, halo_compensated_void, electron_pressure
-     INTEGER :: frac_boundgas, frac_star, frac_HI
+     INTEGER :: frac_boundgas, frac_star, frac_HI, frac_coldgas
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
      LOGICAL :: fixed_HMx, response
      REAL :: acc_HMx, large_nu
@@ -233,6 +233,10 @@ CONTAINS
     ! 3 - Universal baryon fraction
     hmod%frac_boundgas=2
 
+    ! Halo cold gas fraction
+    ! 1 - Constant fraction of halo gas
+    hmod%frac_coldgas=1
+    
     ! Halo star fraction
     ! 1 - Fedeli (2014)
     ! 2 - Constant stellar fraction
@@ -261,6 +265,10 @@ CONTAINS
     ! 2 - Isothermal beta model
     ! 3 - Full Komatsu & Seljak (2001) gas model
     hmod%halo_boundgas=1
+
+    ! Cold gas halo profile
+    ! 1 - Delta function
+    hmod%halo_coldgas=1
 
     ! Free gas halo profile
     ! 1 - Isothermal model (out to 2rv)
@@ -326,15 +334,16 @@ CONTAINS
 
     ! HMx parameters
     hmod%fixed_HMx=.TRUE.
-    hmod%alpha=0.333333 ! Non-virial temperature thing
-    hmod%eps=1. ! Concentration modification
-    hmod%Gamma=1.17 ! Polytropic gas index
-    hmod%M0=1e14 ! Halo mass that has lost half gas
-    hmod%Astar=0.03 ! Maximum star-formation efficiency
-    hmod%Twhim=1e6 ! WHIM temperature [K]
-    hmod%cstar=10. ! Stellar concentration r_* = rv/c
-    hmod%sstar=1.2 ! sigma_* for f_* distribution
-    hmod%Mstar=5e12 ! M* for most efficient halo mass for star formation
+    hmod%alpha=0.3333 ! Non-virial temperature thing
+    hmod%eps=1.       ! Concentration modification
+    hmod%Gamma=1.17   ! Polytropic gas index
+    hmod%M0=1e14      ! Halo mass that has lost half gas
+    hmod%Astar=0.03   ! Maximum star-formation efficiency
+    hmod%Twhim=1e6    ! WHIM temperature [K]
+    hmod%cstar=10.    ! Stellar concentration r_* = rv/c
+    hmod%sstar=1.2    ! sigma_* for f_* distribution
+    hmod%Mstar=5e12   ! M* for most efficient halo mass for star formation
+    hmod%fcold=0.0    ! Fraction of cold gas, in addition to bound gas
 
     ! $\alpha$ z and Theat variation
     hmod%A_alpha=-0.005
@@ -812,10 +821,13 @@ CONTAINS
        IF(hmod%iDolag==2) WRITE(*,*) 'HALOMODEL: Dolag (2004) dark energy halo concentration correction'
        IF(hmod%iDolag==3) WRITE(*,*) 'HALOMODEL: Dolag (2004) dark energy halo concentration correction with 1.5 exponent'
 
-       ! Gas fraction
+       ! Bound gas fraction
        IF(hmod%frac_boundgas==1) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Fedeli (2014a)'
        IF(hmod%frac_boundgas==2) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Schneider (2015)'
-       IF(hmod%frac_boundgas==3) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Universal baryon fraction'    
+       IF(hmod%frac_boundgas==3) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Universal baryon fraction'
+
+       ! Cold gas fraction
+       IF(hmod%frac_coldgas==1) WRITE(*,*) 'HALOMODEL: Cold gas fraction: Constant fraction of halo gas'
 
        ! Star fraction
        IF(hmod%frac_star==1) WRITE(*,*) 'HALOMODEL: Halo star fraction: Fedeli (2014)'
@@ -841,6 +853,9 @@ CONTAINS
        IF(hmod%halo_boundgas==1) WRITE(*,*) 'HALOMODEL: Bound gas profile: Simplified Komatsu & Seljak (2001)'
        IF(hmod%halo_boundgas==2) WRITE(*,*) 'HALOMODEL: Bound gas profile: Isothermal beta profile'
        IF(hmod%halo_boundgas==3) WRITE(*,*) 'HALOMODEL: Bound gas profile: Full Komatsu & Seljak (2001)'
+
+       ! Cold gas profile
+       IF(hmod%halo_coldgas==1) WRITE(*,*) 'HALOMODEL: Cold gas profile: Delta function'
 
        ! Free gas halo profile
        IF(hmod%halo_freegas==1) WRITE(*,*) 'HALOMODEL: Free gas profile: Isothermal model (out to 2rv)'
@@ -962,6 +977,7 @@ CONTAINS
        WRITE(*,fmt='(A30,F10.5)') 'c*:', hmod%cstar
        WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
        WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
+       WRITE(*,fmt='(A30,F10.5)') 'f_cold:', hmod%fcold
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HOD parameters'
        WRITE(*,*) '======================================='
@@ -1084,6 +1100,7 @@ CONTAINS
     IF(i==10) halo_type='Satellite galaxies'
     IF(i==11) halo_type='Galaxies'
     IF(i==12) halo_type='HI'
+    IF(i==13) halo_type='Cold gas'
     IF(halo_type=='') STOP 'HALO_TYPE: Error, i not specified correctly'
     
   END FUNCTION halo_type
@@ -3266,13 +3283,13 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    win_gas=win_boundgas(real_space,1,k,m,rv,rs,hmod,cosm)+win_freegas(real_space,1,ipnh,k,m,rv,rs,hmod,cosm)
+    win_gas=win_boundgas(real_space,1,k,m,rv,rs,hmod,cosm)+win_freegas(real_space,1,ipnh,k,m,rv,rs,hmod,cosm)+win_coldgas(real_space,1,k,m,rv,rs,hmod,cosm)
 
   END FUNCTION win_gas
 
   REAL FUNCTION win_boundgas(real_space,itype,k,m,rv,rs,hmod,cosm)
 
-    ! Halo profile for the electron pressure of the bound component
+    ! Halo profile for the bound gas component
     IMPLICIT NONE
     LOGICAL, INTENT(IN) :: real_space
     INTEGER, INTENT(IN) :: itype
@@ -3366,6 +3383,64 @@ CONTAINS
     END IF
 
   END FUNCTION win_boundgas
+
+  REAL FUNCTION win_coldgas(real_space,itype,k,m,rv,rs,hmod,cosm)
+
+    ! Halo profile for the cold gas component
+    IMPLICIT NONE
+    LOGICAL, INTENT(IN) :: real_space
+    INTEGER, INTENT(IN) :: itype
+    REAL, INTENT(IN) :: k
+    REAL, INTENT(IN) :: m
+    REAL, INTENT(IN) :: rv
+    REAL, INTENT(IN) :: rs
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: rho0, T0, r, a
+    REAL :: rmin, rmax, p1, p2
+    INTEGER :: irho
+
+    ! Initially set the halo parameters to zero
+    p1=0.
+    p2=0.
+
+    ! Set maximum and minimum integration radius
+    rmin=0.
+    rmax=rv
+
+    IF(hmod%halo_coldgas==1) THEN
+        ! Delta function
+       irho=0       
+    ELSE    
+       STOP 'WIN_COLDGAS: Error, halo_coldgas not specified correctly'
+    END IF
+
+    IF(itype==1) THEN
+
+       ! Density profile of cold gas
+       IF(real_space) THEN
+          r=k
+          win_coldgas=rho(r,rmin,rmax,rv,rs,p1,p2,irho)
+          win_coldgas=win_coldgas/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          ! Properly normalise and convert to overdensity
+          win_coldgas=m*win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)/comoving_matter_density(cosm)
+       END IF
+
+       win_coldgas=halo_coldgas_fraction(m,hmod,cosm)*win_coldgas
+
+    ELSE IF(itype==2) THEN
+
+       ! No electron-pressure contribution from the cold gas
+       win_coldgas=0.
+
+    ELSE
+
+       STOP 'WIN_COLDGAS: Error, itype not specified correctly'
+
+    END IF
+
+  END FUNCTION win_coldgas
 
   REAL FUNCTION win_freegas(real_space,itype,ipnh,k,m,rv,rs,hmod,cosm)
 
@@ -5301,11 +5376,10 @@ CONTAINS
 
   END FUNCTION wk_isothermal_2
 
-  FUNCTION halo_fraction(itype,m,hmod,cosm)
+  REAL FUNCTION halo_fraction(itype,m,hmod,cosm)
 
     ! Mass fraction of a type within a halo
     IMPLICIT NONE
-    REAL :: halo_fraction
     INTEGER, INTENT(IN) :: itype
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
@@ -5323,6 +5397,8 @@ CONTAINS
        halo_fraction=halo_boundgas_fraction(m,hmod,cosm)
     ELSE IF(itype==5) THEN
        halo_fraction=halo_freegas_fraction(m,hmod,cosm)
+    ELSE IF(itype==13) THEN
+       halo_fraction=halo_coldgas_fraction(m,hmod,cosm)
     ELSE
        STOP 'HALO_FRACTION: Error, itype not specified correcntly'
     END IF
@@ -5347,24 +5423,22 @@ CONTAINS
 
   END FUNCTION halo_CDM_fraction
 
-  FUNCTION halo_gas_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_gas_fraction(m,hmod,cosm)
 
     ! Mass fraction of a halo in gas
     IMPLICIT NONE
-    REAL :: halo_gas_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    halo_gas_fraction=halo_boundgas_fraction(m,hmod,cosm)+halo_freegas_fraction(m,hmod,cosm)
+    halo_gas_fraction=halo_boundgas_fraction(m,hmod,cosm)+halo_freegas_fraction(m,hmod,cosm)+halo_coldgas_fraction(m,hmod,cosm)
 
   END FUNCTION halo_gas_fraction
 
-  FUNCTION halo_boundgas_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_boundgas_fraction(m,hmod,cosm)
 
     ! Fraction of a halo in bound gas
     IMPLICIT NONE
-    REAL :: halo_boundgas_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm    
@@ -5372,7 +5446,7 @@ CONTAINS
 
     IF(hmod%frac_boundgas==1) THEN
        ! From Fedeli (2014a)
-       m0=1.e12
+       m0=1e12
        sigma=3.
        IF(m<m0) THEN
           halo_boundgas_fraction=0.
@@ -5381,7 +5455,6 @@ CONTAINS
        END IF
     ELSE IF(hmod%frac_boundgas==2) THEN
        ! From Schneider (2015)
-       !m0=1.2d14
        M0=HMx_M0(hmod)
        beta=0.6
        halo_boundgas_fraction=(cosm%om_b/cosm%om_m)/(1.+(M0/m)**beta)
@@ -5392,28 +5465,50 @@ CONTAINS
        STOP 'HALO_BOUNDGAS_FRACTION: Error, frac_boundgas not specified correctly'
     END IF
 
+    IF(hmod%frac_coldgas==1) THEN
+       ! Constant fraction of halo gas
+       halo_boundgas_fraction=(1.-hmod%fcold)*halo_boundgas_fraction
+    ELSE
+       STOP 'HALO_BOUNDGAS_FRACTION: Error, frac_coldgas not specified correctly'
+    END IF
+
   END FUNCTION halo_boundgas_fraction
 
-  FUNCTION halo_freegas_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_coldgas_fraction(m,hmod,cosm)
+
+    ! Fraction of cold gas in haloes
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    IF(hmod%frac_coldgas==1) THEN
+       ! Constant fraction of halo gas
+       halo_coldgas_fraction=hmod%fcold*halo_boundgas_fraction(m,hmod,cosm)
+    ELSE
+       STOP 'HALO_COLDGAS_FRACTION: Error, frac_coldgas not specified correctly'
+    END IF
+    
+  END FUNCTION halo_coldgas_fraction
+
+  REAL FUNCTION halo_freegas_fraction(m,hmod,cosm)
 
     ! Mass fraction of a halo in free gas
     IMPLICIT NONE
-    REAL :: halo_freegas_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     ! This is necessarily all the gas that is not bound or in stars
-    halo_freegas_fraction=cosm%om_b/cosm%om_m-halo_star_fraction(m,hmod,cosm)-halo_boundgas_fraction(m,hmod,cosm)
+    halo_freegas_fraction=cosm%om_b/cosm%om_m-halo_star_fraction(m,hmod,cosm)-halo_boundgas_fraction(m,hmod,cosm)-halo_coldgas_fraction(m,hmod,cosm)
     IF(halo_freegas_fraction<0.) halo_freegas_fraction=0.
 
   END FUNCTION halo_freegas_fraction
 
-  FUNCTION halo_star_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_star_fraction(m,hmod,cosm)
 
     ! Mass fraction of a halo in stars
     IMPLICIT NONE
-    REAL :: halo_star_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -5424,8 +5519,6 @@ CONTAINS
 
     IF(hmod%frac_star==1 .OR. hmod%frac_star==3) THEN
        ! Fedeli (2014)
-       !A=0.02
-       !IF(variation) A=param(5)
        A=HMx_Astar(hmod)
        m0=hmod%Mstar
        sigma=hmod%sstar

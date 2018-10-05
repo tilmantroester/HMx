@@ -965,6 +965,20 @@ PROGRAM HMx_driver
      na=16
      CALL fill_array(amin,amax,a,na)
 
+     ! Need to call 'comoving_distance' at least once first so as to stop
+     ! a write trying to happen while printing to screen
+     spam=comoving_distance(1.,cosm) ! CARE: This needs to be called before the write-to-screen below
+     lmax=5000.
+     WRITE(*,*) 'HMx_DRIVER: lmax:', lmax
+     WRITE(*,*) '======================================================='
+     WRITE(*,*) '            a             z     r [Mpc/h]     k [h/MPc]'
+     WRITE(*,*) '======================================================='
+     DO i=1,na
+        WRITE(*,fmt='(4F14.4)') a(i), redshift_a(a(i)), comoving_distance(a(i),cosm), k_ell(lmax,a(i),cosm)
+     END DO
+     WRITE(*,*) '======================================================='
+     WRITE(*,*)
+
      ! Assign arrays for power spectra
      ALLOCATE(powa_lin(nk,na),powa_1h(nk,na),powa_2h(nk,na),powa_full(nk,na),powa(nk,na))
 
@@ -1012,7 +1026,7 @@ PROGRAM HMx_driver
         CALL print_cosmology(cosm)
 
         ! Initialise the lensing part of the calculation
-        CALL write_distances(cosm)
+        !CALL write_distances(cosm)
 
         ! Write out diagnostics
         IF(imode==37 .OR. imode==47) ihm=1 ! HMcode (2016)
@@ -1185,15 +1199,15 @@ PROGRAM HMx_driver
 
      ELSE IF(imode==9) THEN
 
-        !Breakdown cross-correlation in terms of mass
+        ! Breakdown cross-correlation in terms of mass
 
-        !Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         !CALL initialise_cosmology(verbose,cosm)
         CALL print_cosmology(cosm)
 
-        !Initialise the lensing part of the calculation
+        ! Initialise the lensing part of the calculation
         !CALL initialise_distances(verbose,cosm)
-        CALL write_distances(cosm)
+        !CALL write_distances(cosm)
 
         !Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
@@ -1201,7 +1215,7 @@ PROGRAM HMx_driver
 
         DO i=0,6
            IF(icumulative .EQV. .FALSE.) THEN
-              !Set the mass intervals
+              ! Set the mass intervals
               IF(i==0) THEN
                  m1=mmin
                  m2=mmax
@@ -1349,7 +1363,7 @@ PROGRAM HMx_driver
         CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
 
         ! Write distances
-        CALL write_distances(cosm)
+        !CALL write_distances(cosm)
 
         ! Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
@@ -1467,7 +1481,7 @@ PROGRAM HMx_driver
      CALL assign_halomod(ihm,hmod,verbose)
 
      ! Initialise the lensing part of the calculation
-     CALL write_distances(cosm)
+     !CALL write_distances(cosm)
 
      ! Set the ell range
      lmin=100.
@@ -1599,7 +1613,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Initialise the lensing part of the calculation
-     CALL write_distances(cosm)
+     !CALL write_distances(cosm)
 
      ! Set the ell range and allocate arrays for l and C(l)
      lmin=1e0
@@ -2469,7 +2483,7 @@ PROGRAM HMx_driver
      CALL RNG_set(1)
 
      ! Number of MCMC points
-     n=2000
+     n=1000
 
      ! Allocate array for cosmological models
      nz=4
@@ -2499,11 +2513,13 @@ PROGRAM HMx_driver
         ! Hydro simulations
         nz=1
         ALLOCATE(zs(nz))
-        zs(1)=0.5 ! Set the redshift
-        ip(1)=3   ! Stars
-        ip(2)=3   ! Stars
-        !ip(1)=0  ! Matter
-        !ip(2)=6  ! Pressure
+        zs(1)=2.0 ! Set the redshift
+        !ip(1)=3   ! Stars
+        !ip(2)=3   ! Stars
+        !ip(1)=0   ! Matter
+        !ip(2)=6   ! Pressure
+        ip(1)=2   ! Gas
+        ip(2)=2   ! Gas
         name='AGN_TUNED_nu0'
      ELSE
         STOP 'HMX_DRIVER: Error, something went wrong'
@@ -2589,7 +2605,7 @@ PROGRAM HMx_driver
      ELSE IF(imode==39) THEN
 
         ! Hydro fitting
-        np=2
+        np=3
         ALLOCATE(pbest(np),pnew(np),pold(np),prange(np),porig(np),plog(np))
         plog=.TRUE. ! All of these parameters are explored in log
 
@@ -2600,11 +2616,17 @@ PROGRAM HMx_driver
         !porig(4)=1.2  ! sigma_star
 
         ! stars-stars - simple
-        porig(1)=0.03 ! A_star
-        porig(2)=10.  ! c_star
+        !porig(1)=0.03 ! A_star
+        !porig(2)=10.  ! c_star
 
         ! matter-pressure 
         !porig(1)=1e6 ! T_whim
+
+        ! gas-gas
+        porig(1)=1.1    ! eps (not one because log(1)=0 and this messes things up in setting the ranges
+        porig(2)=1.17   ! Gamma
+        plog(2)=.FALSE. ! Gamma not explored in log
+        porig(3)=1e14   ! M0      
         
      END IF
 
@@ -3090,6 +3112,8 @@ PROGRAM HMx_driver
      ! Assign the halo model
      ihm=3
      CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
      
      ! Initially assume all the tests will pass
      ifail=.FALSE.
@@ -3415,11 +3439,16 @@ CONTAINS
           !hmod(i)%sstar=pexp(4)
 
           ! stars-stars simple
-          hmod(i)%Astar=pexp(1)
-          hmod(i)%cstar=pexp(2)
+          !hmod(i)%Astar=pexp(1)
+          !hmod(i)%cstar=pexp(2)
 
           ! matter-pressure
           !hmod(i)%Twhim=10**pexp(1)
+
+          ! gas-gas
+          hmod(i)%eps=pexp(1)
+          hmod(i)%Gamma=pexp(2)
+          hmod(i)%M0=pexp(3)
           
        ELSE
 
@@ -3481,7 +3510,7 @@ CONTAINS
        dp=1e-10 ! Used for derivative
     ELSE IF(imode==39) THEN
        ! Hydro
-       delta=1e-3 ! Required change in figure-of-merit
+       delta=1e-2 ! Required change in figure-of-merit
        dp=1e-10 ! Used for derivative
     ELSE
        STOP 'SET_MCMC_PARAMETER_RANGES: Error imode specified incorrectly'
@@ -3490,14 +3519,16 @@ CONTAINS
     ! Get the figure of merit for the base set of parameters
     CALL fom_multiple(imode,ip,fom_base,p,plog,np,k,nk,z,nz,pow,pow_sim,hmod,cosm,n)
 
-    ! Calculate the change in parameter
+!!$    ! Calculate the change in parameter
 !!$    DO i=1,np
 !!$       IF(plog(i)) THEN
-!!$          sigma(i)=log10(p(i))*dp
+!!$          sigma(i)=p(i)+dp
 !!$       ELSE
 !!$          sigma(i)=p(i)*dp
 !!$       END IF
 !!$    END DO
+
+    ! Is this the correct thing to do in log?
     sigma=p*dp
 
     ! Write to screen
@@ -3530,6 +3561,7 @@ CONTAINS
        ! Check that perturbing the parameter actually changes the figure of merit
        IF(df==0.) THEN
           WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Parameter:', i
+          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: sigma:', sigma(i)
           IF(plog(i)) THEN
              WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Original value:', 10**p(i)
              WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Perturbed value:', 10**p2(i)
@@ -3816,28 +3848,28 @@ CONTAINS
 
   END SUBROUTINE write_power_a
 
-  SUBROUTINE write_distances(cosm)
-
-    ! Write file of z vs. r(z)
-    IMPLICIT NONE
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    CHARACTER(len=256) :: output
-    INTEGER :: i
-    REAL :: z
-
-    ! Now write the results of r(z) calculation
-    output='projection/distance.dat'
-    WRITE(*,*) 'WRITE_DISTANCE: Writing r(a): ', TRIM(output)
-    OPEN(7,file=output)
-    DO i=1,cosm%n_r
-       z=redshift_a(cosm%a_r(i))
-       WRITE(7,*) z, cosm%r(i), f_k(cosm%r(i),cosm)
-    END DO
-    CLOSE(7)
-    WRITE(*,*) 'WRITE_DISTANCE: Done'
-    WRITE(*,*)
-
-  END SUBROUTINE write_distances
+!!$  SUBROUTINE write_distances(cosm)
+!!$
+!!$    ! Write file of z vs. r(z)
+!!$    IMPLICIT NONE
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    CHARACTER(len=256) :: output
+!!$    INTEGER :: i
+!!$    REAL :: z
+!!$
+!!$    ! Now write the results of r(z) calculation
+!!$    output='data/distance.dat'
+!!$    WRITE(*,*) 'WRITE_DISTANCE: Writing r(a): ', TRIM(output)
+!!$    OPEN(7,file=output)
+!!$    DO i=1,cosm%n_r
+!!$       z=redshift_a(cosm%a_r(i))
+!!$       WRITE(7,*) z, cosm%r(i), f_k(cosm%r(i),cosm)
+!!$    END DO
+!!$    CLOSE(7)
+!!$    WRITE(*,*) 'WRITE_DISTANCE: Done'
+!!$    WRITE(*,*)
+!!$
+!!$  END SUBROUTINE write_distances
 
   SUBROUTINE random_baryon_parameters(hmod)
 
