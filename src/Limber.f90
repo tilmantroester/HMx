@@ -23,6 +23,7 @@ MODULE Limber
   PUBLIC :: xcorr
   PUBLIC :: calculate_xi
   PUBLIC :: write_cell
+  PUBLIC :: k_ell
  
   ! Projection quantities that need to be calculated only once; these relate to the Limber integrals
   TYPE projection    
@@ -225,6 +226,26 @@ CONTAINS
     END IF
 
   END SUBROUTINE xcorr
+
+  REAL FUNCTION k_ell(ell,a,cosm)
+
+    ! Finds the k that corresponds to ell at the given a
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: ell ! angular wave number
+    REAL, INTENT(IN) :: a   ! scale factor
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! cosmology
+    REAL :: r
+
+    IF(a==1.) THEN
+       ! This should really be infinite
+       ! Stops a division by infinity
+       k_ell=1e3
+    ELSE
+       r=comoving_distance(a,cosm)
+       k_ell=(ell+lcorr)/f_k(r,cosm)
+    END IF
+    
+  END FUNCTION k_ell
 
   SUBROUTINE write_nz(lens,output)
 
