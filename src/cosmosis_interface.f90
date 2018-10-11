@@ -211,10 +211,11 @@ function execute(block, config) result(status)
   status = datablock_get_double_default(block, halo_model_parameters_section, "log10_M0", log10(HMx_config%hm%M0), log10_M0)
   status = datablock_get_double(block, halo_model_parameters_section, "Astar", HMx_config%hm%Astar)
   status = datablock_get_double_default(block, halo_model_parameters_section, "log10_whim", log10(HMx_config%hm%Twhim), log10_whim)
-  status = datablock_get_double(block, halo_model_parameters_section, "rstar", HMx_config%hm%rstar)
+  status = datablock_get_double(block, halo_model_parameters_section, "cstar", HMx_config%hm%cstar)
   status = datablock_get_double(block, halo_model_parameters_section, "sstar", HMx_config%hm%sstar)
   status = datablock_get_double(block, halo_model_parameters_section, "mstar", HMx_config%hm%mstar)
   status = datablock_get_double_default(block, halo_model_parameters_section, "log10_Theat", log10(HMx_config%hm%Theat), log10_Theat)
+  status = datablock_get_double(block, halo_model_parameters_section, "fcold", HMx_config%hm%fcold)
 
   ! Exponentiate those parameters that will be explored in log space
   HMx_config%hm%eps = 10**log10_eps
@@ -249,10 +250,11 @@ function execute(block, config) result(status)
      WRITE(*,*) "M0       :", HMx_config%hm%M0
      WRITE(*,*) "Astar    :", HMx_config%hm%Astar
      WRITE(*,*) "Twhim    :", HMx_config%hm%Twhim
-     WRITE(*,*) "rstar    :", HMx_config%hm%rstar
+     WRITE(*,*) "cstar    :", HMx_config%hm%cstar
      WRITE(*,*) "sstar    :", HMx_config%hm%sstar
      WRITE(*,*) "mstar    :", HMx_config%hm%mstar
      WRITE(*,*) "Theat    :", HMx_config%hm%Theat
+     WRITE(*,*) "fcold    :", HMx_config%hm%fcold
   end if
 
   call calculate_HMx(HMx_config%fields, &
