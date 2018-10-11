@@ -14,9 +14,9 @@ MODULE HMx
   TYPE halomod
      INTEGER :: ip2h, ibias, imf, iconc, iDolag, iAs, ip2h_corr, ikb
      INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans, iscatter
-     LOGICAL :: voids, use_UPP, smooth_freegas
-     REAL :: z, a
-     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, rstar, sstar, mstar, Theat ! HMx baryon parameters
+     LOGICAL :: voids, smooth_freegas
+     REAL :: z, a, dc, Dv
+     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar, Theat, fcold ! HMx baryon parameters
      REAL :: A_alpha, B_alpha, C_alpha, D_alpha, E_alpha
      REAL :: A_eps, B_eps, C_eps, D_eps
      REAL :: A_Gamma, B_Gamma, C_Gamma, D_Gamma, E_gamma
@@ -28,26 +28,50 @@ MODULE HMx
      REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
      REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
      REAL :: gmin, gmax, gbmin, gbmax
-     REAL :: n_c, n_s, n_g, rho_HI
+     REAL :: n_c, n_s, n_g, rho_HI, dlnc
      REAL :: Dv0, Dv1, dc0, dc1, eta0, eta1, f0, f1, ks, As, alp0, alp1 ! HMcode parameters
-     REAL :: mgal, HImin, HImax, rcore ! HOD parameters
+     REAL :: mgal, HImin, HImax, rcore, hmass
      INTEGER :: n
-     INTEGER :: halo_DMONLY, halo_CDM, halo_boundgas, halo_freegas, halo_star
-     INTEGER :: halo_void, halo_compensated_void
-     INTEGER :: frac_boundgas, frac_star
+     INTEGER :: halo_DMONLY, halo_CDM, halo_boundgas, halo_coldgas, halo_freegas, halo_star, halo_HI
+     INTEGER :: halo_void, halo_compensated_void, electron_pressure
+     INTEGER :: frac_boundgas, frac_star, frac_HI, frac_coldgas
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
      LOGICAL :: fixed_HMx, response
-     !LOGICAL :: verbose
      REAL :: acc_HMx, large_nu
      CHARACTER(len=256) :: name
      REAL, ALLOCATABLE :: log_k_pdamp(:), log_pdamp(:)
      INTEGER :: n_pdamp
   END TYPE halomod
 
-  ! Global parameters
-  ! TODO: Probably get rid of these somehow
-  REAL, PARAMETER :: acc_win=1e-3 ! Halo-model accuracy parameter
-  INTEGER, PARAMETER :: imeth_win=3 ! Winint method
+  ! Window integration
+  REAL, PARAMETER :: acc_win=1e-3           ! Window-function integration accuracy parameter
+  INTEGER, PARAMETER :: imeth_win=3         ! Window-function integration method
+  INTEGER, PARAMETER :: winint_order=3      ! Window-function integration order
+  REAL, PARAMETER :: winint_test_seconds=2. ! Approximately how many seconds should each timing test take
+    
+  ! Halomodel
+  LOGICAL, PARAMETER :: slow_hmod=.FALSE.            ! Choose to do the slower hmod initialisation (unnecessary calculations)  
+  REAL, PARAMETER :: mmin_response=1e7               ! For HMcode if doing a response
+  REAL, PARAMETER :: mmax_response=1e17              ! For HMcode if doing a response
+  LOGICAL, PARAMETER :: verbose_convert_mass=.FALSE. ! Verbosity when running the mass-definition-conversion routines
+  REAL, PARAMETER :: zinf_Dolag=100.                 ! An approximate infinite z; I changed this from 10 -> 100 to make it more infinite, I used zinf=10 for Mead (2017)!
+
+  ! HMcode
+  REAL, PARAMETER :: mmin_hmcode=1e7          ! Minimum mass to consider for one-halo integration
+  REAL, PARAMETER :: mmax_hmcode=1e17         ! Maximum mass to consider for one-halo integration
+  REAL, PARAMETER :: fdamp_min=1e-3           ! Minimum value for f_damp parameter
+  REAL, PARAMETER :: fdamp_max=0.99           ! Maximum value for f_damp parameter
+  REAL, PARAMETER :: alpha_transition_min=0.5 ! Minimum value for alpha transition parameter
+  REAL, PARAMETER :: alpha_transition_max=2.0 ! Maximum value for alpha transition parameter
+
+  ! HMx
+  REAL, PARAMETER :: HMx_alpha_min=1e-2 ! Minimum alpha parameter; needs to be set at not zero
+  REAL, PARAMETER :: HMx_Gamma_max=2.   ! Maximum polytropic index
+  REAL, PARAMETER :: HMx_Astar_min=1e-3 ! Minimum halo star fraction
+
+  ! Halo types
+  LOGICAL, PARAMETER :: verbose_galaxies=.FALSE. ! Verbosity when doing the galaxies initialisation
+  LOGICAL, PARAMETER :: verbose_HI=.TRUE.       ! Verbosity when doing the HI initialisation
 
 CONTAINS
 
@@ -60,7 +84,7 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=22 ! Total number of pre-defined halo-model types
+    INTEGER, PARAMETER :: nhalomod=26 ! Total number of pre-defined halo-model types (TODO: this is stupid)
     CHARACTER(len=256):: names(1:nhalomod)    
     names(1)='Accurate HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
@@ -84,6 +108,10 @@ CONTAINS
     names(20)='Standard halo-model (Seljak 2000) in response'
     names(21)='Cored profile model'
     names(22)='Delta function-NFW star profile model response'
+    names(23)='Tinker mass function and bias'
+    names(24)='Universal pressure profile'
+    names(25)='Villaescusa-Navarro HI halo model'
+    names(26)='Delta-function mass function'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -102,6 +130,7 @@ CONTAINS
     ! 1 - Linear theory
     ! 2 - Standard from Seljak (2000)
     ! 3 - Linear theory with damped wiggles
+    ! 4 - No two-halo term
     hmod%ip2h=2
 
     ! Method to correct the two-halo integral
@@ -132,6 +161,7 @@ CONTAINS
     ! 1 - Press & Schecter (1974)
     ! 2 - Sheth & Tormen (1999)
     ! 3 - Tinker et al. (2010)
+    ! 4 - Delta function in mass
     hmod%imf=2
 
     ! Concentration-mass relation
@@ -197,20 +227,29 @@ CONTAINS
     ! 1 - Scatter in halo concentration 
     hmod%iscatter=0
 
-    ! Gas fraction
+    ! Halo gas fraction
     ! 1 - Fedeli (2014a) bound gas model
     ! 2 - Schneider (2015) bound gas
     ! 3 - Universal baryon fraction
     hmod%frac_boundgas=2
 
-    ! Star fraction
+    ! Halo cold gas fraction
+    ! 1 - Constant fraction of halo gas
+    hmod%frac_coldgas=1
+    
+    ! Halo star fraction
     ! 1 - Fedeli (2014)
     ! 2 - Constant stellar fraction
     ! 3 - Fedeli (2014) but saturates at high halo mass
     ! 4 - No stars
     hmod%frac_star=3
 
-    ! DMONLY halo model
+    ! Halo HI fraction
+    ! 1 - Simple model
+    ! 2 - Villaescusa-Navarro et al. (2018; 1804.09180)
+    hmod%frac_HI=1
+
+    ! DMONLY halo profile
     ! 1 - Analyical NFW
     ! 2 - Non-analytical NFW (good for testing W(k) functions)
     ! 3 - Tophat
@@ -226,6 +265,10 @@ CONTAINS
     ! 2 - Isothermal beta model
     ! 3 - Full Komatsu & Seljak (2001) gas model
     hmod%halo_boundgas=1
+
+    ! Cold gas halo profile
+    ! 1 - Delta function
+    hmod%halo_coldgas=1
 
     ! Free gas halo profile
     ! 1 - Isothermal model (out to 2rv)
@@ -245,6 +288,19 @@ CONTAINS
     ! 4 - Delta function at low mass and NFW at high mass
     hmod%halo_star=1
 
+    ! HI halo profile
+    ! 1 - NFW
+    ! 2 - Delta function
+    ! 3 - Exponentially truncated polynomial
+    ! 4 - Exponetnially truncated modified NFW
+    ! 5 - Modified NFW
+    hmod%halo_HI=1
+
+    ! Electron pressure
+    ! 1 - UPP (Arnaud et al. 2010)
+    ! 2 - Bound and free gas profiles
+    hmod%electron_pressure=2
+
     ! Do voids?
     hmod%voids=.FALSE.
 
@@ -255,9 +311,6 @@ CONTAINS
     ! Set the compensated void model
     ! 1 - Top-hat void
     hmod%halo_compensated_void=1
-
-    ! Use UPP for electron pressure?
-    hmod%use_UPP=.FALSE.
 
     ! Smoothly distribute free gas?
     hmod%smooth_freegas=.TRUE.
@@ -281,50 +334,51 @@ CONTAINS
 
     ! HMx parameters
     hmod%fixed_HMx=.TRUE.
-    hmod%alpha=0.333333
-    hmod%eps=1.
-    hmod%Gamma=1.17
-    hmod%M0=1e14 ! Halo mass that has lost half gas
-    hmod%Astar=0.03 ! Maximum star-formation efficiency
-    hmod%Twhim=1e6 ! WHIM temperature [K]
-    hmod%rstar=0.1
-    hmod%sstar=1.2
-    hmod%Mstar=5e12
+    hmod%alpha=0.3333 ! Non-virial temperature thing
+    hmod%eps=1.       ! Concentration modification
+    hmod%Gamma=1.17   ! Polytropic gas index
+    hmod%M0=1e14      ! Halo mass that has lost half gas
+    hmod%Astar=0.03   ! Maximum star-formation efficiency
+    hmod%Twhim=1e6    ! WHIM temperature [K]
+    hmod%cstar=10.    ! Stellar concentration r_* = rv/c
+    hmod%sstar=1.2    ! sigma_* for f_* distribution
+    hmod%Mstar=5e12   ! M* for most efficient halo mass for star formation
+    hmod%fcold=0.0    ! Fraction of cold gas, in addition to bound gas
 
-    !$\alpha$ z and Theat variation
+    ! $\alpha$ z and Theat variation
     hmod%A_alpha=-0.005
     hmod%B_alpha=0.022
     hmod%C_alpha=0.865
     hmod%D_alpha=-13.565
     hmod%E_alpha=52.516
 
-    !$\log_{10} \epsilon_c$ z and Theat variation
+    ! $\log_{10} \epsilon_c$ z and Theat variation
     hmod%A_eps=-0.289
     hmod%B_eps=2.147
     hmod%C_eps=0.129
     hmod%D_eps=-0.867
 
-    !$\Gamma$ z and Theat variation
+    ! $\Gamma$ z and Theat variation
     hmod%A_Gamma=0.026
     hmod%B_Gamma=-0.064
     hmod%C_Gamma=1.150
     hmod%D_Gamma=-17.011
     hmod%E_Gamma=66.289
 
-    !$\log_{10}M_0$ z and Theat variation
+    ! $\log_{10}M_0$ z and Theat variation
     hmod%A_M0=-0.007
     hmod%B_M0=0.018
     hmod%C_M0=6.788
     hmod%D_M0=-103.453
     hmod%E_M0=406.705
 
-    !$A_*$ z and Theat variation
+    ! $A_*$ z and Theat variation
     hmod%A_Astar=0.004
     hmod%B_Astar=-0.034
     hmod%C_Astar=-0.017
     hmod%D_Astar=0.165
 
-    !$\log_{10}T_{WHIM}$ z and Theat variation
+    ! $\log_{10}T_{WHIM}$ z and Theat variation
     hmod%A_Twhim=-0.024
     hmod%B_Twhim=0.077
     hmod%C_Twhim=0.454
@@ -332,6 +386,12 @@ CONTAINS
 
     ! Do we treat the halomodel as a response model (multiply by HMcode) or not
     hmod%response=.FALSE.
+
+    ! Halo mass if the mass function is a delta function
+    hmod%hmass=1e13
+
+    ! Scatter in ln(c)
+    hmod%dlnc=0.25
 
     ! HOD parameters
     hmod%mgal=1e13
@@ -353,8 +413,8 @@ CONTAINS
     END IF
        
     IF(ihm==1 .OR. ihm==7 .OR. ihm==15) THEN
-       ! 1 - Accurate HMcode  (Mead et al. 2016)
-       ! 7 - Accurate HMcode  (Mead et al. 2015)
+       !  1 - Accurate HMcode  (Mead et al. 2016)
+       !  7 - Accurate HMcode  (Mead et al. 2015)
        ! 15 - Accurate HMcode  (Mead et al. 2018)
        hmod%ip2h=1
        hmod%i1hdamp=2
@@ -368,7 +428,7 @@ CONTAINS
        hmod%itrans=2
        hmod%iDolag=3
        IF(ihm==7) THEN
-          ! 7 - Mead et al. (2015)
+          ! Mead et al. (2015)
           hmod%i2hdamp=2
           hmod%itrans=2
           hmod%f0=0.188
@@ -377,10 +437,10 @@ CONTAINS
           hmod%alp1=1.77
           hmod%iDolag=2
        ELSE IF(ihm==15) THEN
-          ! 15 - Mead et al. (2018)
+          ! Mead et al. (2018)
           hmod%i1hdamp=3 ! k^4 at large scales for one-halo term
-          hmod%ip2h=3 ! Linear theory with damped wiggles
-          hmod%i2hdamp=2 ! Change back to Mead (2015) model
+          hmod%ip2h=3    ! Linear theory with damped wiggles
+          hmod%i2hdamp=2 ! Change back to Mead (2015) model for two-halo damping
           hmod%Dv0=446.8
           hmod%Dv1=-0.3237
           hmod%dc0=1.6145
@@ -395,27 +455,27 @@ CONTAINS
           hmod%alp1=1.848
        END IF       
     ELSE IF(ihm==2) THEN
-       ! 2 - Basic halo model with linear two halo term (Delta_v = 200, delta_c = 1.686))
+       ! Basic halo model with linear two halo term (Delta_v = 200, delta_c = 1.686))
        hmod%ip2h=1
        hmod%idc=1
        hmod%iDv=1
        hmod%iconc=1
     ELSE IF(ihm==3) THEN
-       ! 3 - Standard halo-model calculation (Seljak 2000)
-       !This is the default, so do nothing here
+       ! Standard halo-model calculation (Seljak 2000)
+       ! This is the default, so do nothing here
     ELSE IF(ihm==4) THEN
-       ! 4 - Standard halo-model calculation but with Mead et al. (2015) smoothed two- to one-halo transition and one-halo damping       
+       ! Standard halo-model calculation but with Mead et al. (2015) smoothed two- to one-halo transition and one-halo damping       
        hmod%itrans=4
        hmod%ikstar=2
        hmod%i1hdamp=3
        hmod%safe_negative=.TRUE.
     ELSE IF(ihm==5) THEN
-       ! 5 - Standard halo-model calculation but with Delta_v = 200 and delta_c = 1.686 fixed and Bullock c(M)
+       ! Standard halo-model calculation but with Delta_v = 200 and delta_c = 1.686 fixed and Bullock c(M)
        hmod%idc=1
        hmod%iDv=1
        hmod%iconc=1
     ELSE IF(ihm==6) THEN
-       ! 6 - Half-accurate halo-model calculation (Mead et al. 2015, 2016)
+       ! Half-accurate halo-model calculation, inspired by (Mead et al. 2015, 2016)
        hmod%ikstar=2
        hmod%i1hdamp=3
        hmod%i2hdamp=3
@@ -428,13 +488,13 @@ CONTAINS
        hmod%iconc=1
        hmod%iDolag=3
     ELSE IF(ihm==8) THEN
-       ! 8 - Include scatter in halo properties
+       ! Include scatter in halo properties
        hmod%idc=1
        hmod%iDv=1
        hmod%iconc=1
        hmod%iscatter=1
     ELSE IF(ihm==9) THEN
-       ! 9 - For CCL comparison
+       ! For CCL comparison and benchmark generation
        hmod%n=2048 ! Increase accuracy for the CCL benchmarks
        hmod%acc_HMx=1e-5 ! Increase accuracy for the CCL benchmarks
        hmod%ip2h=2
@@ -443,8 +503,8 @@ CONTAINS
        hmod%i1hdamp=1
        hmod%imf=2
        hmod%iconc=4 ! Virial Duffy relation
-       hmod%idc=2 ! Virial dc
-       hmod%iDv=2 ! Virial Dv
+       hmod%idc=2   ! Virial dc
+       hmod%iDv=2   ! Virial Dv
        hmod%ieta=1
        hmod%ikstar=1
        hmod%iAs=1
@@ -452,35 +512,36 @@ CONTAINS
        hmod%itrans=1
        hmod%iDolag=1
        hmod%iscatter=0
-       hmod%use_UPP=.FALSE.
        hmod%smooth_freegas=.FALSE.
     ELSE IF(ihm==10) THEN
-       ! 10 - For mass conversions comparison with Wayne Hu's code
+       ! For mass conversions comparison with Wayne Hu's code
        hmod%iconc=2
        hmod%idc=1
        hmod%iDv=1
     ELSE IF(ihm==11) THEN
-       ! 11 - UPP
-       hmod%use_UPP=.TRUE.
+       ! UPP
+       hmod%electron_pressure=1
     ELSE IF(ihm==12) THEN
-       ! 12 - Spherical-collapse model to produce Mead (2017) results
+       ! Spherical-collapse model to produce Mead (2017) results
        hmod%iconc=1
        hmod%idc=5
        hmod%iDv=5
        hmod%iDolag=2 ! This seems not to be important for these results
     ELSE IF(ihm==13) THEN
-       ! 13 - Experimental log-tanh transition
+       ! Experimental log-tanh transition
        hmod%itrans=5
     ELSE IF(ihm==14) THEN
-       ! 14 - Experimental scale-dependent halo bias
+       ! Experimental scale-dependent halo bias
        hmod%ikb=3
        hmod%ikstar=2
        hmod%i1hdamp=3
     ELSE IF(ihm==16) THEN
-       ! 16 - Halo-void model
+       ! Halo-void model
        hmod%voids=.TRUE.
     ELSE IF(ihm==17 .OR. ihm==18 .OR. ihm==19) THEN
-       ! 17, 18, 19 - HMx
+       ! 17 - HMx AGN 7.6
+       ! 18 - HMx AGN 7.8
+       ! 19 - HMx AGN 8.0
        hmod%fixed_HMx=.FALSE.
        hmod%itrans=4
        hmod%ikstar=2
@@ -488,25 +549,41 @@ CONTAINS
        hmod%safe_negative=.TRUE.
        hmod%response=.TRUE.
        IF(ihm==17) THEN
-          ! 17 - AGN 7.6
+          ! AGN 7.6
           hmod%Theat=10**7.6
        ELSE IF(ihm==18) THEN
-          ! 18 - AGN 7.8
+          ! AGN 7.8
           hmod%Theat=10**7.8
        ELSE IF(ihm==19) THEN
-          ! 19 - AGN 8.0
+          ! AGN 8.0
           hmod%Theat=10**8.0
        END IF
     ELSE IF(ihm==20) THEN
-       ! 20 - Standard halo model but as response
+       ! Standard halo model but as response with HMcode
        hmod%response=.TRUE.
     ELSE IF(ihm==21) THEN
-       ! 21 - Cored halo profile model
-       hmod%halo_DMONLY=5
+       ! Cored NFW halo profile model
+       hmod%halo_DMONLY=5 ! Cored profile
     ELSE IF(ihm==22) THEN
-       ! 22 - Different stellar profile
-       hmod%halo_star=4
+       ! Different stellar profile
+       hmod%halo_star=2 ! Schneider & Teyssier (2015)
        hmod%response=.TRUE.
+    ELSE IF(ihm==23) THEN
+       ! Tinker mass function and bias
+       hmod%imf=3
+    ELSE IF(ihm==24) THEN
+       ! UPP for electron pressure
+       hmod%electron_pressure=1
+    ELSE IF(ihm==25) THEN
+       ! Villaescusa-Navarro HI halo model
+       ! TODO: Could try and include effect of small box via Lbox in cosmology
+       hmod%imf=3     ! Tinker mass function
+       hmod%frac_HI=3 ! Villaescusa-Navarro HI mass fraction with z evolution
+       hmod%halo_HI=3 ! Villaescusa-Navarro exponentially suppressed polynomial
+    ELSE IF(ihm==26) THEN
+       ! Delta function mass function
+       hmod%ip2h=2 ! Standard two-halo term
+       hmod%imf=4  ! Delta function mass function
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -532,9 +609,7 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i
-    REAL :: Dv, dc, m, nu, R, sig, A0, frac, a
-
-    LOGICAL, PARAMETER :: slow=.FALSE.
+    REAL :: Dv, dc, m, nu, R, sig, A0, a    
 
     ! Set the redshift (this routine needs to be called anew for each z)
     hmod%z=z
@@ -587,9 +662,11 @@ CONTAINS
 
     ! Get delta_c
     dc=delta_c(hmod,cosm)
+    hmod%dc=dc
 
     ! Fill virial radius table using real radius table
     Dv=Delta_v(hmod,cosm)
+    hmod%Dv=Dv
     hmod%rv=hmod%rr/(Dv**(1./3.))
 
     ! Write some useful information to the screen
@@ -601,36 +678,43 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: Maximum nu:', REAL(hmod%nu(hmod%n))
        WRITE(*,*) 'INIT_HALOMOD: Minimum R_v [Mpc/h]:', REAL(hmod%rv(1))
        WRITE(*,*) 'INIT_HALOMOD: Maximum R_v [Mpc/h]:', REAL(hmod%rv(hmod%n))
-       WRITE(*,*) 'INIT_HALOMOD: Minimum log10(M/[Msun/h]):', REAL(log10(hmod%m(1)))
-       WRITE(*,*) 'INIT_HALOMOD: Maximum log10(M/[Msun/h]):', REAL(log10(hmod%m(hmod%n)))
+       WRITE(*,*) 'INIT_HALOMOD: Minimum log10(M) [Msun/h]:', REAL(log10(hmod%m(1)))
+       WRITE(*,*) 'INIT_HALOMOD: Maximum log10(M) [Msun/h]:', REAL(log10(hmod%m(hmod%n)))
     END IF
+    
+    IF(hmod%imf==4) THEN
 
-    ! Calculate missing mass things if necessary
-    IF(hmod%ip2h_corr==2 .OR. hmod%ip2h_corr==3) THEN 
-       IF(slow) hmod%gmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
-       IF(slow) hmod%gmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
-       hmod%gbmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
-       IF(slow) hmod%gbmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
-       IF(verbose) THEN
-          IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
-          IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
-          WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at low end:', REAL(hmod%gbmin)
-          IF(slow) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax)
+       ! Do nothing
+       
+    ELSE
+
+       ! Calculate missing mass things if necessary
+
+       IF(hmod%ip2h_corr==2 .OR. hmod%ip2h_corr==3) THEN
+
+          IF(slow_hmod) hmod%gmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
+          IF(slow_hmod) hmod%gmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
+          hmod%gbmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
+          IF(slow_hmod) hmod%gbmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
+
+          IF(verbose) THEN          
+             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
+             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
+             WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at low end:', REAL(hmod%gbmin)
+             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax)          
+          END IF
+
+          IF(slow_hmod .AND. hmod%gmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu) at low end is less than zero'       
+          IF(slow_hmod .AND. hmod%gmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu) at high end is less than zero'
+          IF(hmod%gbmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at low end is less than zero'
+          IF(slow_hmod .AND. hmod%gbmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at high end is less than zero'       
+
        END IF
+
     END IF
        
     ! Calculate the total stellar mass fraction
-    IF(slow) THEN
-       !ALLOCATE(integrand(hmod%n))
-       !DO i=1,hmod%n
-       !   integrand(i)=halo_fraction(3,hmod%m(i),cosm)*g_nu(hmod%nu(i),hmod)
-       !END DO
-       !frac=integrate_table(hmod%nu,integrand,hmod%n,1,hmod%n,3)
-       !frac=total_stellar_mass_fraction(hmod,cosm)
-       !WRITE(*,*) 'INIT_HALOMOD: Total stellar mass fraction:', frac
-       frac=total_stellar_mass_fraction(hmod,cosm)
-       IF(verbose) WRITE(*,*) 'INIT_HALOMOD: Total stellar mass fraction:', frac
-    END IF
+    IF(slow_hmod .AND. verbose) WRITE(*,*) 'INIT_HALOMOD: Omega_stars:', Omega_stars(hmod,cosm)
 
     ! Find non-linear radius and scale
     ! This is defined as nu(M_star)=1 *not* sigma(M_star)=1, so depends on delta_c
@@ -639,7 +723,7 @@ CONTAINS
     hmod%knl=1./hmod%rnl
 
     IF(verbose) THEN
-       WRITE(*,*) 'INIT_HALOMOD: Non-linear mass [log10(M*/[Msun/h])]:', REAL(log10(hmod%mnl))
+       WRITE(*,*) 'INIT_HALOMOD: Non-linear mass [log10(M*) [Msun/h]]:', REAL(log10(hmod%mnl))
        WRITE(*,*) 'INIT_HALOMOD: Non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(hmod%mnl,hmod,cosm))
        WRITE(*,*) 'INIT_HALOMOD: Non-linear Lagrangian radius [Mpc/h]:', REAL(hmod%rnl)
        WRITE(*,*) 'INIT_HALOMOD: Non-linear wavenumber [h/Mpc]:', REAL(hmod%knl)
@@ -657,11 +741,11 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: Maximum concentration:', REAL(hmod%c(1))
     END IF
 
-    IF(slow) THEN
+    IF(slow_hmod) THEN
        A0=one_halo_amplitude(hmod,cosm)
        IF(verbose) THEN
           WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [Mpc/h]^3:', REAL(A0)
-          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [log10(M/[Msun/h])]:', REAL(log10(A0*comoving_matter_density(cosm)))
+          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [log10(M) [Msun/h]]:', REAL(log10(A0*comoving_matter_density(cosm)))
        END IF
     END IF
 
@@ -699,21 +783,22 @@ CONTAINS
        IF(hmod%ip2h==1) WRITE(*,*) 'HALOMODEL: Linear two-halo term'
        IF(hmod%ip2h==2) WRITE(*,*) 'HALOMODEL: Standard two-halo term (Seljak 2000)'
        IF(hmod%ip2h==3) WRITE(*,*) 'HALOMODEL: Linear two-halo term with damped wiggles'
+       IF(hmod%ip2h==4) WRITE(*,*) 'HALOMODEL: No two-halo term'
 
        ! Order to go to in halo bias
-       IF(hmod%ip2h .NE. 1) THEN
+       IF(hmod%ip2h==2) THEN
           IF(hmod%ibias==1) WRITE(*,*) 'HALOMODEL: Linear halo bias'
           IF(hmod%ibias==2) WRITE(*,*) 'HALOMODEL: Second-order halo bias'
        END IF
 
        ! Correction for missing low-mass haloes
-       IF(hmod%ip2h .NE. 1) THEN
+       IF(hmod%ip2h==2) THEN
           IF(hmod%ip2h_corr==1) WRITE(*,*) 'HALOMODEL: No two-halo correction applied for missing low-mass haloes'
           IF(hmod%ip2h_corr==2) WRITE(*,*) 'HALOMODEL: Two-halo term corrected by adding missing g(nu)b(nu)' 
           IF(hmod%ip2h_corr==3) WRITE(*,*) 'HALOMODEL: Two-halo term corrected via delta function at low mass end'      
        END IF
 
-       ! Scale-dependent halo bias
+       ! 'Scale-dependent halo bias' - not really a halo bias, this is more of a fudge
        IF(hmod%ikb==1) WRITE(*,*) 'HALOMODEL: Scale-independent halo bias'
        IF(hmod%ikb==2) WRITE(*,*) 'HALOMODEL: Scale-dependent halo bias fudge from Fedeli (2014b)'
        IF(hmod%ikb==3) WRITE(*,*) 'HALOMODEL: Scale-dependent halo bias fudge'
@@ -722,6 +807,7 @@ CONTAINS
        IF(hmod%imf==1) WRITE(*,*) 'HALOMODEL: Press & Schecter (1974) mass function'
        IF(hmod%imf==2) WRITE(*,*) 'HALOMODEL: Sheth & Tormen (1999) mass function'
        IF(hmod%imf==3) WRITE(*,*) 'HALOMODEL: Tinker et al. (2010) mass function'
+       IF(hmod%imf==4) WRITE(*,*) 'HALOMODEL: Delta function mass function'
 
        ! Concentration-mass relation
        IF(hmod%iconc==1) WRITE(*,*) 'HALOMODEL: Full Bullock et al. (2001) concentration-mass relation'
@@ -735,16 +821,23 @@ CONTAINS
        IF(hmod%iDolag==2) WRITE(*,*) 'HALOMODEL: Dolag (2004) dark energy halo concentration correction'
        IF(hmod%iDolag==3) WRITE(*,*) 'HALOMODEL: Dolag (2004) dark energy halo concentration correction with 1.5 exponent'
 
-       ! Gas fraction
+       ! Bound gas fraction
        IF(hmod%frac_boundgas==1) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Fedeli (2014a)'
        IF(hmod%frac_boundgas==2) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Schneider (2015)'
-       IF(hmod%frac_boundgas==3) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Universal baryon fraction'    
+       IF(hmod%frac_boundgas==3) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Universal baryon fraction'
+
+       ! Cold gas fraction
+       IF(hmod%frac_coldgas==1) WRITE(*,*) 'HALOMODEL: Cold gas fraction: Constant fraction of halo gas'
 
        ! Star fraction
        IF(hmod%frac_star==1) WRITE(*,*) 'HALOMODEL: Halo star fraction: Fedeli (2014)'
        IF(hmod%frac_star==2) WRITE(*,*) 'HALOMODEL: Halo star fraction: Constant'
        IF(hmod%frac_star==3) WRITE(*,*) 'HALOMODEL: Halo star fraction: Fedeli (2014) but saturated at high halo mass'
        IF(hmod%frac_star==4) WRITE(*,*) 'HALOMODEL: Halo star fraction: No stars in haloes'
+
+       ! HI fraction
+       IF(hmod%frac_HI==1) WRITE(*,*) 'HALOMODEL: Halo HI fraction: Simple model'
+       IF(hmod%frac_HI==2) WRITE(*,*) 'HALOMODEL: Halo HI fraction: Villaescusa-Navarro et al. (2018; 1804.09180)'
 
        ! DMONLY halo model
        IF(hmod%halo_DMONLY==1) WRITE(*,*) 'HALOMODEL: DMONLY halo profile: NFW'
@@ -761,6 +854,9 @@ CONTAINS
        IF(hmod%halo_boundgas==2) WRITE(*,*) 'HALOMODEL: Bound gas profile: Isothermal beta profile'
        IF(hmod%halo_boundgas==3) WRITE(*,*) 'HALOMODEL: Bound gas profile: Full Komatsu & Seljak (2001)'
 
+       ! Cold gas profile
+       IF(hmod%halo_coldgas==1) WRITE(*,*) 'HALOMODEL: Cold gas profile: Delta function'
+
        ! Free gas halo profile
        IF(hmod%halo_freegas==1) WRITE(*,*) 'HALOMODEL: Free gas profile: Isothermal model (out to 2rv)'
        IF(hmod%halo_freegas==2) WRITE(*,*) 'HALOMODEL: Free gas profile: Ejected gas model from Schneider (2015)'
@@ -776,6 +872,17 @@ CONTAINS
        IF(hmod%halo_star==2) WRITE(*,*) 'HALOMODEL: Star profile: Schneider (2015) stellar distribution'
        IF(hmod%halo_star==3) WRITE(*,*) 'HALOMODEL: Star profile: Delta function'
        IF(hmod%halo_star==4) WRITE(*,*) 'HALOMODEL: Star profile: Delta function at low mass and NFW at high mass'
+
+       ! HI halo profile
+       IF(hmod%halo_HI==1) WRITE(*,*) 'HALOMODEL: HI profile: NFW profile'
+       IF(hmod%halo_HI==2) WRITE(*,*) 'HALOMODEL: HI profile: Delta function'
+       IF(hmod%halo_HI==3) WRITE(*,*) 'HALOMODEL: HI profile: Exponentially truncated polynomial'
+       IF(hmod%halo_HI==4) WRITE(*,*) 'HALOMODEL: HI profile: Exponentially truncated modified NFW'
+       IF(hmod%halo_HI==5) WRITE(*,*) 'HALOMODEL: HI profile: Modified NFW'
+
+       ! Electron pressure profile
+       IF(hmod%electron_pressure==1) WRITE(*,*) 'HALOMODEL: Electron pressure: Using UPP'
+       IF(hmod%electron_pressure==2) WRITE(*,*) 'HALOMODEL: Electron pressure: Using gas profiles'
 
        ! Are voids being done?
        IF(hmod%voids) THEN
@@ -838,8 +945,7 @@ CONTAINS
        IF(hmod%itrans==4) WRITE(*,*) 'HALOMODEL: Experimental smoothed transition for HMx'
        IF(hmod%itrans==5) WRITE(*,*) 'HALOMODEL: Tanh transition with k_nl'
 
-       IF(hmod%use_UPP) WRITE(*,*) 'HALOMODEL: Using UPP for all electron pressure calculations'
-
+       ! Response
        IF(hmod%response) WRITE(*,*) 'HALOMODEL: Treated as response with HMcode multiplication'
 
        ! Numerical parameters
@@ -868,9 +974,10 @@ CONTAINS
        WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(HMx_M0(hmod))
        WRITE(*,fmt='(A30,F10.5)') 'A*:', HMx_Astar(hmod)
        WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(HMx_Twhim(hmod))
-       WRITE(*,fmt='(A30,F10.5)') 'R*:', hmod%rstar
+       WRITE(*,fmt='(A30,F10.5)') 'c*:', hmod%cstar
        WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
        WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
+       WRITE(*,fmt='(A30,F10.5)') 'f_cold:', hmod%fcold
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HOD parameters'
        WRITE(*,*) '======================================='
@@ -878,7 +985,9 @@ CONTAINS
        WRITE(*,fmt='(A30,F10.5)') 'log10(M_HI_min) [Msun/h]:', log10(hmod%HImin)
        WRITE(*,fmt='(A30,F10.5)') 'log10(M_HI_max) [Msun/h]:', log10(hmod%HImax)
        WRITE(*,*) '======================================='
-       IF(hmod%halo_DMONLY==5) WRITE(*,fmt='(A30,F10.5)') 'log10(r_core) [Mpc/h]:', hmod%rcore
+       IF(hmod%halo_DMONLY==5) WRITE(*,fmt='(A30,F10.5)') 'r_core [Mpc/h]:', hmod%rcore
+       IF(hmod%iscatter==1) WRITE(*,fmt='(A30,F10.5)') 'delta ln(c):', hmod%dlnc
+       IF(hmod%imf==4) WRITE(*,*) 'Halo mass log10(M) [Msun/h]:', log10(hmod%hmass)
        WRITE(*,*)
        
     END IF
@@ -970,7 +1079,8 @@ CONTAINS
 
   FUNCTION halo_type(i)
 
-    !Name halo types
+    ! Name function for halo types
+    ! TODO: This must be able to be combined with set_halo_type
     IMPLICIT NONE
     CHARACTER(len=256) :: halo_type
     INTEGER :: i
@@ -990,13 +1100,15 @@ CONTAINS
     IF(i==10) halo_type='Satellite galaxies'
     IF(i==11) halo_type='Galaxies'
     IF(i==12) halo_type='HI'
+    IF(i==13) halo_type='Cold gas'
     IF(halo_type=='') STOP 'HALO_TYPE: Error, i not specified correctly'
     
   END FUNCTION halo_type
 
   SUBROUTINE set_halo_type(ip)
 
-    !Set the halo types
+    ! Set the halo types
+    ! TODO: This must be able to be combined with halo_type
     IMPLICIT NONE
     INTEGER, INTENT(OUT) :: ip
     INTEGER :: i
@@ -1048,7 +1160,7 @@ CONTAINS
        z=redshift_a(a(i))
        CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose2)
        CALL print_halomod(hmod,cosm,verbose2)
-       CALL calculate_halomod(itype(1),itype(2),k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,response)
+       CALL calculate_halomod(itype,k,nk,z,powa_lin(:,i),powa_2h(:,i),powa_1h(:,i),powa_full(:,i),hmod,cosm,verbose2,response)
        IF(i==na .and. verbose) WRITE(*,*) 'CALCULATE_HMx: Doing calculation'       
        IF(verbose) WRITE(*,fmt='(A15,I5,F10.2)') 'CALCULATE_HMx:', i, REAL(z)
        verbose2=.FALSE.
@@ -1060,12 +1172,12 @@ CONTAINS
 
   END SUBROUTINE calculate_HMx
 
-  SUBROUTINE calculate_halomod(itype1,itype2,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose,response)
+  SUBROUTINE calculate_halomod(itype,k,nk,z,pow_lin,pow_2h,pow_1h,pow,hmod,cosm,verbose,response)
 
     ! Public facing function
     ! TODO: Change z -> a
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: itype1, itype2
+    INTEGER, INTENT(IN) :: itype(2)
     INTEGER, INTENT(IN) :: nk
     REAL, INTENT(IN) :: k(nk), z
     REAL, INTENT(OUT) :: pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
@@ -1078,14 +1190,13 @@ CONTAINS
     TYPE(halomod) :: hmcode
     REAL :: plin, a
 
-    ! For HMcode if response == 3
-    REAL, PARAMETER :: mmin=1e7
-    REAL, PARAMETER :: mmax=1e17
+    INTEGER, PARAMETER :: ip(2)=-1 ! DMONLY
+    LOGICAL, PARAMETER :: do_epressure_correction=.FALSE.
     
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 1:', itype1
-       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 2:', itype2
+       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 1:', itype(1)
+       WRITE(*,*) 'CALCUALTE_HALOMOD: Halo type 2:', itype(2)
        WRITE(*,*) 'CALCULATE_HALOMOD: k min:', REAL(k(1))
        WRITE(*,*) 'CALCULATE_HALOMOD: k max:', REAL(k(nk))
        WRITE(*,*) 'CALCULATE_HALOMOD: number of k:', nk
@@ -1101,7 +1212,7 @@ CONTAINS
     IF(hmod%response) THEN
        ihmcode=1
        CALL assign_halomod(ihmcode,hmcode,verbose=.FALSE.)
-       CALL init_halomod(mmin,mmax,z,hmcode,cosm,verbose=.FALSE.)
+       CALL init_halomod(mmin_response,mmax_response,z,hmcode,cosm,verbose=.FALSE.)
     END IF
     
     ! Loop over k values
@@ -1116,12 +1227,12 @@ CONTAINS
        pow_lin(i)=plin
 
        ! Do the halo model calculation
-       CALL calculate_halomod_k(itype1,itype2,k(i),pow_2h(i),pow_1h(i),pow(i),plin,hmod,cosm)
+       CALL calculate_halomod_k(itype,k(i),pow_2h(i),pow_1h(i),pow(i),plin,hmod,cosm)
           
        IF(response .OR. hmod%response) THEN
 
           ! If doing a response then calculate a DMONLY prediction too
-          CALL calculate_halomod_k(-1,-1,k(i),powg_2h(i),powg_1h(i),powg(i),plin,hmod,cosm)
+          CALL calculate_halomod_k(ip,k(i),powg_2h(i),powg_1h(i),powg(i),plin,hmod,cosm)
           pow_lin(i)=1. ! This is just linear-over-linear, which is one
           pow_2h(i)=pow_2h(i)/powg_2h(i) ! Two-halo response
           pow_1h(i)=pow_1h(i)/powg_1h(i) ! One-halo response
@@ -1130,7 +1241,7 @@ CONTAINS
           IF((.NOT. response) .AND. hmod%response) THEN
 
              ! If multiplying the response by an 'accurate' HMcode prediction
-             CALL calculate_halomod_k(-1,-1,k(i),hmcode_2h(i),hmcode_1h(i),hmcode_full(i),plin,hmcode,cosm)
+             CALL calculate_halomod_k(ip,k(i),hmcode_2h(i),hmcode_1h(i),hmcode_full(i),plin,hmcode,cosm)
              pow_lin(i)=plin ! Linear power is just linear power again
              pow_2h(i)=pow_2h(i)*hmcode_2h(i) ! Multiply two-halo response through by HMcode two-halo
              pow_1h(i)=pow_1h(i)*hmcode_1h(i) ! Multiply one-halo response through by HMcode one-halo
@@ -1142,7 +1253,15 @@ CONTAINS
 
     END DO
 !!$OMP END PARALLEL DO
-    
+
+    IF(do_epressure_correction) THEN
+       DO i=1,2
+          IF(itype(i)==6) THEN
+             CALL correct_power(k,pow,nk)
+          END IF
+       END DO
+    END IF
+       
     IF(verbose) THEN
        WRITE(*,*) 'CALCULATE_HALOMOD: Done'
        WRITE(*,*)
@@ -1150,56 +1269,68 @@ CONTAINS
 
   END SUBROUTINE calculate_halomod
 
-  SUBROUTINE calculate_halomod_k(ih1,ih2,k,p2h,p1h,pfull,plin,hmod,cosm)
+  SUBROUTINE correct_power(k,pow,nk)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k(nk)
+    REAL, INTENT(INOUT) :: pow(nk)
+    INTEGER, INTENT(IN) :: nk
+    INTEGER :: i
+    
+    DO i=1,nk
+       IF(k(i)>1.) THEN
+          pow(i)=pow(i)*(log10(k(i))+1.)
+       END IF
+    END DO
+
+  END SUBROUTINE correct_power
+
+  SUBROUTINE calculate_halomod_k(itype,k,p2h,p1h,pfull,plin,hmod,cosm)
 
     ! Gets the one- and two-halo terms and combines them
     ! TODO: Change 
     IMPLICIT NONE
+    INTEGER, INTENT(IN) :: itype(2)
     REAL, INTENT(OUT) :: p1h, p2h, pfull
     REAL, INTENT(IN) :: plin, k
-    INTEGER, INTENT(IN) :: ih1, ih2
     TYPE(cosmology), INTENT(INOUT) :: cosm
     TYPE(halomod), INTENT(INOUT) :: hmod
-    REAL :: alp, et, nu
+    REAL :: alp, et, nu, c
     REAL :: wk(hmod%n,2), wk2(hmod%n), m, rv, rs
-    INTEGER :: i, j, ih(2)
-    REAL :: c, dc
-    
-    !Initially fill this small array 
-    ih(1)=ih1
-    ih(2)=ih2
+    INTEGER :: i, j
 
-    !For the i's
-    !-1 - DMonly
-    ! 0 - All matter
-    ! 1 - CDM
-    ! 2 - Gas
-    ! 3 - Stars
-    ! 4 - Bound gas
-    ! 5 - Free gas
-    ! 6 - Electron pressure
-    ! 7 - Voids
-    ! 8 - Compensated voids
-    ! 9 - Central galaxies
-    !10 - Satellite galaxies
+    ! For the i's
+    ! -1 - DMonly
+    !  0 - All matter
+    !  1 - CDM
+    !  2 - Gas
+    !  3 - Stars
+    !  4 - Bound gas
+    !  5 - Free gas
+    !  6 - Electron pressure
+    !  7 - Voids
+    !  8 - Compensated voids
+    !  9 - Central galaxies
+    ! 10 - Satellite galaxies
+    ! 11 -
+    ! 12 - HI
 
-    !Calls expressions for one- and two-halo terms and then combines
-    !to form the full power spectrum
+    ! Calls expressions for one- and two-halo terms and then combines to form the full power spectrum
     IF(k==0.) THEN
 
-       !This should really never be called for k=0
+       ! This should really never be called for k=0
        p1h=0.
        p2h=0.
 
     ELSE
 
-       !Get eta
+       ! Get eta
        et=eta(hmod,cosm)
        
-       !No scatter in halo properties
+       ! No scatter in halo properties
        IF(hmod%iscatter==0) THEN
 
-          !Calculate the halo window functions
+          ! Calculate the halo window functions
           DO j=1,2
              DO i=1,hmod%n
                 m=hmod%m(i)
@@ -1207,59 +1338,60 @@ CONTAINS
                 c=hmod%c(i)
                 rs=rv/c
                 nu=hmod%nu(i)
-                wk(i,j)=win_type(.FALSE.,ih(j),1,k*nu**et,m,rv,rs,hmod,cosm)
+                wk(i,j)=win_type(.FALSE.,itype(j),1,k*nu**et,m,rv,rs,hmod,cosm)
              END DO
-             IF(ih(2)==ih(1)) THEN
-                !Avoid having to call win_type twice if doing auto spectrum
+             IF(itype(2)==itype(1)) THEN
+                ! Avoid having to call win_type twice if doing auto spectrum
                 wk(:,2)=wk(:,1)
                 EXIT
              END IF
           END DO
 
-          !wk(1)*wk(2) in the case of no scatter
+          ! wk(1)*wk(2) in the case of no scatter
           wk2=wk(:,1)*wk(:,2)
           
        ELSE IF(hmod%iscatter==1) THEN
 
-          !Scatter in log concentration: sigma_ln(c)
-          dc=0.25
-
-          !Scatter in halo properties
-          !TODO: include scatter in two-halo term
+          ! Scatter in halo properties
+          ! TODO: include scatter in two-halo term
           DO i=1,hmod%n
              m=hmod%m(i)
              rv=hmod%rv(i)
-             c=hmod%c(i)             
-             wk2(i)=integrate_scatter(c,dc,ih,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
+             c=hmod%c(i)
+             wk2(i)=integrate_scatter(c,hmod%dlnc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
           END DO
           
        END IF
 
-       !Get the one-halo term
+       ! Get the one-halo term
        p1h=p_1h(wk2,k,hmod,cosm)
 
-       !If linear theory if used for two-halo term we need to recalculate the window
-       !functions for the two-halo term with k=0 fixed
+       ! If linear theory is used for two-halo term we need to recalculate the window functions for the two-halo term with k=0 fixed
        IF(hmod%ip2h==1 .OR. hmod%smooth_freegas) THEN
+          
           DO j=1,2
              DO i=1,hmod%n
+                
                 m=hmod%m(i)
                 rv=hmod%rv(i)
                 rs=rv/hmod%c(i)
                 nu=hmod%nu(i)
-                IF(hmod%ip2h==1) wk(i,j)=win_type(.FALSE.,ih(j),2,0.,m,rv,rs,hmod,cosm)
-                IF(hmod%smooth_freegas) wk(i,j)=win_type(.FALSE.,ih(j),2,k*nu**et,m,rv,rs,hmod,cosm)
+                IF(hmod%ip2h==1) wk(i,j)=win_type(.FALSE.,itype(j),2,0.,m,rv,rs,hmod,cosm)
+                IF(hmod%smooth_freegas) wk(i,j)=win_type(.FALSE.,itype(j),2,k*nu**et,m,rv,rs,hmod,cosm)
+                
              END DO
-             IF(ih(2)==ih(1)) THEN
-                !Avoid having to call win_type twice if doing auto spectrum
+             
+             IF(itype(2)==itype(1)) THEN
+                ! Avoid having to call win_type twice if doing auto spectrum
                 wk(:,2)=wk(:,1)
                 EXIT
              END IF
+             
           END DO
        END IF
 
-       !Get the two-halo term
-       p2h=p_2h(ih,wk,k,plin,hmod,cosm)
+       ! Get the two-halo term
+       p2h=p_2h(itype,wk,k,plin,hmod,cosm)
 
     END IF
 
@@ -1284,12 +1416,33 @@ CONTAINS
        pfull=p2h+p1h
     END IF
 
-    !If we are worrying about voids...
+    ! If we are adding in compensated voids
     IF(hmod%voids) THEN
        pfull=pfull+p_1void(k,hmod)
     END IF
 
   END SUBROUTINE calculate_halomod_k
+
+  SUBROUTINE calculate_HMcode(k,z,Pk,nk,cosm)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k(nk)
+    REAL, INTENT(IN) :: z
+    REAL, INTENT(OUT) :: Pk(nk)
+    INTEGER, INTENT(IN) :: nk
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: pow_lin(nk), pow_2h(nk), pow_1h(nk)
+    TYPE(halomod) :: hmod
+    
+    INTEGER :: ihm=1 ! Set HMcode, could/should be parameter
+    INTEGER, PARAMETER :: ip(2)=-1 ! DMONLY
+
+    ! Do an HMcode run
+    CALL assign_halomod(ihm,hmod,verbose=.FALSE.)
+    CALL init_halomod(mmin_hmcode,mmax_hmcode,z,hmod,cosm,verbose=.FALSE.)
+    CALL calculate_halomod(ip,k,nk,z,pow_lin,pow_2h,pow_1h,Pk,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+
+  END SUBROUTINE calculate_HMcode
     
   SUBROUTINE halo_diagnostics(hmod,cosm,dir)
 
@@ -1302,11 +1455,11 @@ CONTAINS
     CHARACTER(len=64) :: ext
     CHARACTER(len=512) :: base
     CHARACTER(len=1024) :: outfile
-    INTEGER :: m
+    INTEGER :: m, mi1, mi2
 
     ! Integer 10^m to produce haloes between
-    INTEGER, PARAMETER :: m1=10
-    INTEGER, PARAMETER :: m2=16
+    REAL, PARAMETER :: m1=1e10
+    REAL, PARAMETER :: m2=1e16
 
     WRITE(*,*) 'HALO_DIAGNOSTICS: Outputting diagnostics'
 
@@ -1326,7 +1479,10 @@ CONTAINS
        STOP 'HALO_DIAGNOSTICS: Error, need to make this better with z'
     END IF
 
-    DO m=m1,m2
+    mi1=NINT(log10(m1))
+    mi2=NINT(log10(m2))
+    
+    DO m=mi1,mi2
 
        mass=10.**m
 
@@ -1439,17 +1595,17 @@ CONTAINS
 
   SUBROUTINE write_mass_fractions(hmod,cosm,outfile)
 
-    !Writes out the halo mass fractions
+    ! Writes out the halo mass fractions
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     CHARACTER(len=*), INTENT(IN) :: outfile   
-    REAL :: m, mmin, mmax
-    INTEGER :: i, j, n
+    REAL :: m
+    INTEGER :: i, j
 
-    mmin=1e10
-    mmax=1e16
-    n=101
+    REAL, PARAMETER :: mmin=1e10
+    REAL, PARAMETER :: mmax=1e16
+    INTEGER, PARAMETER :: n=101
 
     OPEN(7,file=outfile)
     DO i=1,n
@@ -1462,7 +1618,7 @@ CONTAINS
 
   SUBROUTINE write_halo_profiles(m,hmod,cosm,outfile)
 
-    !Writes out the halo density profiles
+    ! Writes out the halo density profiles
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
@@ -1471,22 +1627,22 @@ CONTAINS
     REAL :: r, rv, rs, c
     INTEGER :: i, j   
 
-    REAL, PARAMETER :: rmin=1e-3 !Mininum r/rv
-    REAL, PARAMETER :: rmax=1.1e0 !Maximum r/rv
-    INTEGER, PARAMETER :: n=512 !Number of points
-    LOGICAL, PARAMETER :: rsp=.TRUE. !Real profiles
+    REAL, PARAMETER :: rmin=1e-3     ! Mininum r/rv
+    REAL, PARAMETER :: rmax=1.1e0    ! Maximum r/rv
+    INTEGER, PARAMETER :: n=512      ! Number of points
+    LOGICAL, PARAMETER :: real_space=.TRUE. ! Real profiles
 
-    !Calculate halo attributes
+    ! Calculate halo attributes
     rv=exp(find(log(m),hmod%log_m,log(hmod%rv),hmod%n,3,3,2))
     c=find(log(m),hmod%log_m,hmod%c,hmod%n,3,3,2)
     rs=rv/c
 
-    !Write file
+    ! Write file
     OPEN(7,file=outfile)
     DO i=1,n
        r=exp(progression(log(rmin),log(rmax),i,n))
        r=r*rv
-       WRITE(7,*) r/rv, (win_type(rsp,j,1,r,m,rv,rs,hmod,cosm)*rv**3, j=1,6) !rv**3 here is from r^2 dr in integral
+       WRITE(7,*) r/rv, (win_type(real_space,j,1,r,m,rv,rs,hmod,cosm)*rv**3, j=1,6) ! rv**3 here is from r^2 dr in integral
     END DO
     CLOSE(7)
 
@@ -1503,10 +1659,10 @@ CONTAINS
     REAL :: x, rv, c, rs, k, rhobar
     INTEGER :: i, j
 
-    REAL, PARAMETER :: xmin=1e-1 !Minimum r/rv
-    REAL, PARAMETER :: xmax=1e2 !Maximum r/rv
-    INTEGER, PARAMETER :: n=512 !Number of points
-    LOGICAL, PARAMETER :: rsp=.FALSE. !Fourier profiles
+    REAL, PARAMETER :: xmin=1e-1      ! Minimum r/rv
+    REAL, PARAMETER :: xmax=1e2       ! Maximum r/rv
+    INTEGER, PARAMETER :: n=512       ! Number of points
+    LOGICAL, PARAMETER :: rsp=.FALSE. ! Fourier profiles
 
     !Calculate halo attributes
     rv=exp(find(log(m),hmod%log_m,log(hmod%rv),hmod%n,3,3,2))
@@ -1673,9 +1829,6 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: crap
 
-    REAL, PARAMETER :: fdamp_min=1e-3
-    REAL, PARAMETER :: fdamp_max=0.99
-
     !To prevent compile-time warnings
     crap=cosm%A
 
@@ -1702,33 +1855,29 @@ CONTAINS
 
   FUNCTION alpha_transition(hmod,cosm)
 
-    !Calculates the alpha to smooth the two- to one-halo transition
+    ! Calculates the alpha to smooth the two- to one-halo transition
     IMPLICIT NONE
     REAL :: alpha_transition
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
 
-    REAL, PARAMETER :: alpha_min=0.5
-    REAL, PARAMETER :: alpha_max=2.0
-
-    !To prevent compile-time warnings
+    ! To prevent compile-time warnings
     crap=cosm%A
     
     IF(hmod%itrans==2) THEN
-       !From Mead et al. (2015, 2016)   
-       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff          
+       ! From Mead et al. (2015, 2016)   
+       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff       
     ELSE IF(hmod%itrans==4) THEN
-       !Specially for HMx, exponentiated Mead et al. (2016) result
-       !alpha_transition=(3.24*1.85**hmod%neff)**2.5
+       ! Specially for HMx, exponentiated Mead et al. (2016) result
        alpha_transition=(hmod%alp0*hmod%alp1**hmod%neff)**2.5
     ELSE
        alpha_transition=1.
     END IF
 
-    !Catches values of alpha that are crazy
-    IF(alpha_transition<alpha_min) alpha_transition=alpha_min
-    IF(alpha_transition>alpha_max) alpha_transition=alpha_max 
+    ! Catches values of alpha that are crazy
+    IF(alpha_transition<alpha_transition_min) alpha_transition=alpha_transition_min
+    IF(alpha_transition>alpha_transition_max) alpha_transition=alpha_transition_max 
 
   END FUNCTION alpha_transition
 
@@ -1737,7 +1886,6 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E
-    REAL, PARAMETER :: alpha_min=1e-2 ! Needs to be set at not zero
 
     IF(hmod%fixed_HMx) THEN
 
@@ -1759,7 +1907,7 @@ CONTAINS
 
     END IF
 
-    IF(HMx_alpha<alpha_min) HMx_alpha=alpha_min
+    IF(HMx_alpha<HMx_alpha_min) HMx_alpha=HMx_alpha_min
        
   END FUNCTION HMx_alpha
   
@@ -1794,7 +1942,6 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E
-    REAL, PARAMETER :: Gamma_max=2.
 
     IF(hmod%fixed_HMx) THEN
 
@@ -1815,7 +1962,7 @@ CONTAINS
 
     END IF
 
-    IF(HMx_Gamma>Gamma_max) HMx_Gamma=Gamma_max
+    IF(HMx_Gamma>HMx_Gamma_max) HMx_Gamma=HMx_Gamma_max
        
   END FUNCTION HMx_Gamma
 
@@ -1852,7 +1999,6 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D
-    REAL, PARAMETER :: Astar_min=1e-3
 
     IF(hmod%fixed_HMx) THEN
 
@@ -1871,7 +2017,7 @@ CONTAINS
 
     END IF
 
-    IF(HMx_Astar<Astar_min) HMx_Astar=Astar_min
+    IF(HMx_Astar<HMx_Astar_min) HMx_Astar=HMx_Astar_min
        
   END FUNCTION HMx_Astar
 
@@ -1880,10 +2026,33 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D
+    REAL :: zs(4), Ts(4)
+    LOGICAL, PARAMETER :: simple_model=.TRUE.
 
     IF(hmod%fixed_HMx) THEN
 
-       HMx_Twhim=hmod%Twhim
+       IF(simple_model) THEN
+       
+          HMx_Twhim=hmod%Twhim
+
+       ELSE
+
+          ! From my fitting
+          
+          zs(1)=0.0
+          zs(2)=0.5
+          zs(3)=1.0
+          zs(4)=2.0
+          
+          Ts(1)=5.894
+          Ts(2)=5.899
+          Ts(3)=5.791
+          Ts(4)=5.474
+          
+          z=hmod%z
+          HMx_Twhim=10**find(z,zs,Ts,4,3,3,2)
+
+       END IF
 
     ELSE
 
@@ -1987,41 +2156,16 @@ CONTAINS
 
   END SUBROUTINE deallocate_HMOD
 
-  SUBROUTINE convert_mass_definitions(hmod,cosm)
-
-    IMPLICIT NONE
-    TYPE(halomod), INTENT(INOUT) :: hmod
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: rhom, rhoc, Dv, a
-
-    !Scale factor
-    a=hmod%a
-
-    !Get the densities
-    rhom=comoving_matter_density(cosm)
-    rhoc=comoving_critical_density(a,cosm)
-    Dv=Delta_v(hmod,cosm)
-
-    !Calculate Delta = 200, 500 and Delta_c = 200, 500 quantities
-    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,1.,hmod%r500,hmod%c500,hmod%m500,500.,1.,hmod%n)
-    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,1.,hmod%r200,hmod%c200,hmod%m200,200.,1.,hmod%n)
-    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,rhom,hmod%r500c,hmod%c500c,hmod%m500c,500.,rhoc,hmod%n)
-    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,rhom,hmod%r200c,hmod%c200c,hmod%m200c,200.,rhoc,hmod%n)
-
-    hmod%has_mass_conversions=.TRUE.
-    
-  END SUBROUTINE convert_mass_definitions
-
-  REAL FUNCTION total_stellar_mass_fraction(hmod,cosm)
+  REAL FUNCTION Omega_stars(hmod,cosm)
 
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    total_stellar_mass_fraction=rhobar(hmod%nu(1),hmod%large_nu,rhobar_star_integrand,hmod,cosm)
-    total_stellar_mass_fraction=total_stellar_mass_fraction/comoving_matter_density(cosm)
+    Omega_stars=rhobar(hmod%nu(1),hmod%large_nu,rhobar_star_integrand,hmod,cosm)
+    Omega_stars=Omega_stars/comoving_critical_density(hmod%a,cosm)
 
-  END FUNCTION total_stellar_mass_fraction
+  END FUNCTION Omega_stars
 
   SUBROUTINE init_galaxies(hmod,cosm)
 
@@ -2030,13 +2174,12 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: nu_min
-    LOGICAL, PARAMETER :: verbose=.FALSE.
 
     nu_min=nu_M(hmod%mgal,hmod,cosm)
     hmod%n_c=rhobar(nu_min,hmod%large_nu,rhobar_central_integrand,hmod,cosm)
     hmod%n_s=rhobar(nu_min,hmod%large_nu,rhobar_satellite_integrand,hmod,cosm)
     hmod%n_g=hmod%n_c+hmod%n_s
-    IF(verbose) THEN
+    IF(verbose_galaxies) THEN
        WRITE(*,*) 'INIT_GALAXIES: Comoving density of central galaxies [(Mpc/h)^-3]:', REAL(hmod%n_c)
        WRITE(*,*) 'INIT_GALAXIES: Comoving density of satellite galaxies [(Mpc/h)^-3]:', REAL(hmod%n_s)
        WRITE(*,*) 'INIT_GALAXIES: Comoving density of all galaxies [(Mpc/h)^-3]:', REAL(hmod%n_g)
@@ -2049,19 +2192,21 @@ CONTAINS
 
   SUBROUTINE init_HI(hmod,cosm)
 
+    ! Gets the background HI density by integrating the HI mass function
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: nu_min, nu_max
 
-    LOGICAL, PARAMETER :: verbose=.FALSE.
-
-    !Calculate the normalisation constant for HI
-    nu_min=nu_M(hmod%HImin,hmod,cosm)
-    nu_max=nu_M(hmod%HImax,hmod,cosm)
-    hmod%rho_HI=comoving_matter_density(cosm)*integrate_hmod(nu_min,nu_max,g_nu,hmod,hmod%acc_HMx,3)
-    IF(verbose) THEN
-       WRITE(*,*) 'INIT_HI: HI normalisation factor [log10(rho/(Msun/h)/(Mpc/h)^3)]:', REAL(log10(hmod%rho_HI))
+    nu_min=hmod%nu(1)
+    nu_max=hmod%nu(hmod%n)
+    hmod%rho_HI=rhobar(nu_min,hmod%large_nu,rhobar_HI_integrand,hmod,cosm)
+    IF(verbose_HI) THEN
+       WRITE(*,*) 'INIT_HI: z:', hmod%z
+       WRITE(*,*) 'INIT_HI: HI density [log10(rho/(Msun/h)/(Mpc/h)^3)]:', REAL(log10(hmod%rho_HI))
+       WRITE(*,*) 'INIT_HI: Omega_HI(z):', hmod%rho_HI/comoving_critical_density(hmod%a,cosm)
+       WRITE(*,*) 'INIT_HI: Omega_HI(z) relative to z=0 critical density:', hmod%rho_HI/comoving_critical_density(1.,cosm)
+       WRITE(*,*) 'INIT_HI: rho_HI / rho_matter:', hmod%rho_HI/comoving_matter_density(cosm)
        WRITE(*,*)
     END IF
 
@@ -2143,7 +2288,7 @@ CONTAINS
 
   REAL FUNCTION rhobar_star_integrand(nu,hmod,cosm)
 
-    !Integrand for the number density of satellite galaxies
+    !Integrand for the matter density of stars
     IMPLICIT NONE
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
@@ -2151,24 +2296,23 @@ CONTAINS
     REAL :: M
 
     M=M_nu(nu,hmod)    
-    !rhobar_star_integrand=M*halo_star_fraction(M,cosm)*g_nu(nu,hmod)
     rhobar_star_integrand=halo_star_fraction(M,hmod,cosm)*g_nu(nu,hmod)
     
   END FUNCTION rhobar_star_integrand
 
-!!$  REAL FUNCTION rhobar_HI_integrand(nu,hmod,cosm)
-!!$
-!!$    !Integrand for the mean HI density
-!!$    IMPLICIT NONE
-!!$    REAL, INTENT(IN) :: nu
-!!$    TYPE(halomod), INTENT(INOUT) :: hmod
-!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
-!!$    REAL :: M
-!!$
-!!$    M=M_nu(nu,hmod)    
-!!$    rhobar_HI_integrand=HI_fraction(M,cosm)*g_nu(nu,hmod)
-!!$    
-!!$  END FUNCTION rhobar_HI_integrand
+  REAL FUNCTION rhobar_HI_integrand(nu,hmod,cosm)
+
+    !Integrand for the HI mass density
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: M
+
+    M=M_nu(nu,hmod)    
+    rhobar_HI_integrand=halo_HI_fraction(M,hmod,cosm)*g_nu(nu,hmod)
+    
+  END FUNCTION rhobar_HI_integrand
 
   REAL FUNCTION rhobar(nu_min,nu_max,integrand,hmod,cosm)
 
@@ -2212,7 +2356,47 @@ CONTAINS
 
     one_halo_amplitude=integrate_table(hmod%nu,integrand,hmod%n,1,hmod%n,1)/comoving_matter_density(cosm)
 
-  END FUNCTIOn one_halo_amplitude
+  END FUNCTION one_halo_amplitude
+
+  REAL FUNCTION mass_function(m,hmod,cosm)
+
+    ! Calculates the halo mass function, what I call n(M)
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m ! Halo mass
+    TYPE(halomod), INTENT(INOUT) :: hmod ! Halo model
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmology
+    REAL :: nu, dnu_dm
+
+    nu=nu_M(m,hmod,cosm)
+    dnu_dm=derivative_table(m,hmod%m,hmod%nu,hmod%n,3,3)
+    mass_function=comoving_matter_density(cosm)*g_nu(nu,hmod)*dnu_dm/m
+    
+  END FUNCTION mass_function
+
+  SUBROUTINE convert_mass_definitions(hmod,cosm)
+
+    IMPLICIT NONE
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: rhom, rhoc, Dv, a
+
+    ! Scale factor
+    a=hmod%a
+
+    ! Get the densities
+    rhom=comoving_matter_density(cosm)
+    rhoc=comoving_critical_density(a,cosm)
+    Dv=Delta_v(hmod,cosm)
+
+    ! Calculate Delta = 200, 500 and Delta_c = 200, 500 quantities
+    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,1.,hmod%r500,hmod%c500,hmod%m500,500.,1.,hmod%n)
+    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,1.,hmod%r200,hmod%c200,hmod%m200,200.,1.,hmod%n)
+    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,rhom,hmod%r500c,hmod%c500c,hmod%m500c,500.,rhoc,hmod%n)
+    CALL convert_mass_definition(hmod%rv,hmod%c,hmod%m,Dv,rhom,hmod%r200c,hmod%c200c,hmod%m200c,200.,rhoc,hmod%n)
+
+    hmod%has_mass_conversions=.TRUE.
+    
+  END SUBROUTINE convert_mass_definitions
 
   SUBROUTINE convert_mass_definition(r1,c1,m1,D1,rho1,r2,c2,m2,D2,rho2,n)
 
@@ -2234,9 +2418,7 @@ CONTAINS
     REAL, ALLOCATABLE :: r(:)
     INTEGER :: i, j
 
-    LOGICAL, PARAMETER :: verbose = .FALSE.
-
-    IF(verbose) THEN
+    IF(verbose_convert_mass) THEN
        WRITE(*,*) 'CONVERT_MASS_DEFINITION: Converting mass definitions:'
        WRITE(*,*) 'CONVERT_MASS_DEFINITION: Initial overdensity:', D1
        WRITE(*,*) 'CONVERT_MASS_DEFINITION: Final overdensity:', D2
@@ -2248,14 +2430,14 @@ CONTAINS
     CALL fill_array(log(rmin),log(rmax),r,n) !Necessary to log space
     r=exp(r)
     
-    IF(verbose) THEN
+    IF(verbose_convert_mass) THEN
        WRITE(*,*) 'CONVERT_MASS_DEFINITION: rmin:', rmin
        WRITE(*,*) 'CONVERT_MASS_DEFINITION: rmax:', rmax
        WRITE(*,*) 'CONVERT_MASS_DEFINITION: nr:', n
     END IF
     
     !Now use the find algorithm to invert L(r_i)=R(r_j) so that r_j=R^{-1}[L(r_i)]
-    IF(verbose) THEN
+    IF(verbose_convert_mass) THEN
        WRITE(*,*) '========================================================================================================'
        WRITE(*,*) '         M_old         rv_old          c_old    M_new/M_old    r_new/r_old    c_new/c_old  M`_new/M`_old' 
        WRITE(*,*) '========================================================================================================'
@@ -2279,15 +2461,15 @@ CONTAINS
        m2(i)=m1(i)*(rho2*D2*r2(i)**3)/(rho1*D1*r1(i)**3)
        !m2(i)=m1(i)*NFW_factor(c2(i))/NFW_factor(c1(i))
 
-       IF(verbose) THEN
+       IF(verbose_convert_mass) THEN
           WRITE(*,fmt='(ES15.7,6F15.7)') m1(i), r1(i), c1(i), m2(i)/m1(i), r2(i)/r1(i), c2(i)/c1(i), NFW_factor(c2(i))/NFW_factor(c1(i))
        END IF
 
     END DO
 
-    IF(verbose) WRITE(*,*) '========================================================================================================'
+    IF(verbose_convert_mass) WRITE(*,*) '========================================================================================================'
 
-    IF(verbose) THEN
+    IF(verbose_convert_mass) THEN
        WRITE(*,*) 'CONVERT_MASS_DEFINITION: Done'
        WRITE(*,*)
        STOP
@@ -2430,10 +2612,8 @@ CONTAINS
     REAL :: g_LCDM, g_wCDM, ainf, f
     TYPE(cosmology) :: cosm_LCDM
 
-    REAL, PARAMETER :: zinf=100. ! I changed this from 10 -> 100 to make it more infinite, I used zinf=10 for Mead (2017)!
-
     ! The 'infinite' scale factor
-    ainf=scale_factor_z(zinf)
+    ainf=scale_factor_z(zinf_Dolag)
 
     ! Save the growth function in the current cosmology
     g_wCDM=grow(ainf,cosm)
@@ -2469,7 +2649,6 @@ CONTAINS
     REAL, INTENT(IN) :: z
     REAL, INTENT(IN) :: zc
 
-    !PARAMETERS
     REAL, PARAMETER :: A=4. !Pre-factor for Bullock relation
     
     conc_Bullock=A*(1.+zc)/(1.+z)
@@ -2597,7 +2776,7 @@ CONTAINS
 
   REAL FUNCTION p_2h(ih,wk,k,plin,hmod,cosm)
 
-    !Produces the 'two-halo' power
+    ! Produces the 'two-halo' power
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ih(2)
     REAL, INTENT(IN) :: k
@@ -2606,7 +2785,7 @@ CONTAINS
     REAL, INTENT(IN) :: wk(hmod%n,2) ! This needs to be defined after halomod type, annoying
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: sigv, frac, rhom
-    REAL :: nu, m, m0, wki(2)
+    REAL :: nu, m, m0, wki(2), b0, wk0(2), nu0
     REAL :: integrand1(hmod%n,2), integrand2(hmod%n,2)
     REAL :: sum1(2), sum2(2)
     INTEGER :: i, j
@@ -2622,80 +2801,105 @@ CONTAINS
 
        ! Damped BAO linear theory
        p_2h=p_dewiggle(k,hmod,cosm)
+
+    ELSE IF(hmod%ip2h==4) THEN
+
+       ! No two-halo term
+       p_2h=0.
        
     ELSE
 
-       DO i=1,hmod%n
+       IF(hmod%imf==4) THEN
 
-          !Some variables to make equations cleaner below
-          m=hmod%m(i)
-          nu=hmod%nu(i)
-          wki=wk(i,:)
+          ! In this case the mass function is a delta function...
+          
+          m0=hmod%hmass
+          nu0=nu_M(m0,hmod,cosm)
+          b0=b_nu(nu0,hmod)
+          wk0(1)=find(log(m0),hmod%log_m,wk(:,1),hmod%n,3,3,2)
+          wk0(2)=find(log(m0),hmod%log_m,wk(:,2),hmod%n,3,3,2)
+          sum1(1)=rhom*b0*wk0(1)/m0
+          sum1(2)=rhom*b0*wk0(2)/m0
 
-          DO j=1,2
-
-             !Linear bias term, standard two-halo term integral
-             integrand1(i,j)=g_nu(nu,hmod)*b_nu(nu,hmod)*wki(j)/m
-
-             IF(hmod%ibias==2) THEN
-                !Second-order bias term
-                integrand2(i,j)=g_nu(nu,hmod)*b2_nu(nu,hmod)*wki(j)/m
-             END IF
-
-          END DO
-
-       END DO
-
-       !Evaluate these integrals from the tabled values
-       DO j=1,2
-          sum1(j)=integrate_table(hmod%nu,integrand1(:,j),hmod%n,1,hmod%n,3)
-       END DO
-
-       IF(hmod%ip2h_corr==1) THEN
-          !Do nothing in this case
-          !There will be large errors if any signal is from low-mass haloes
-          !e.g., for the matter power spectrum
-       ELSE IF(hmod%ip2h_corr==2) THEN
-          !Add on the value of integral b(nu)*g(nu) assuming W(k)=1
-          !Advised by Yoo et al. (????) and Cacciato et al. (2012)
-          !THIS WILL NOT WORK FOR FIEDS THAT DO NOT HAVE MASS FUNCTIONS DEFINED
-          STOP 'P_2H: This will not work for fields that do not have mass fractions defined'
-          DO j=1,2
-             sum1(j)=sum1(j)+hmod%gbmin*halo_fraction(ih(j),m,hmod,cosm)/rhom
-          END DO
-       ELSE IF(hmod%ip2h_corr==3) THEN
-          !Put the missing part of the integrand as a delta function at the low-mass limit of the integral
-          !I think this is the best thing to do
-          m0=hmod%m(1)
-          wki=wk(1,:)
-          DO j=1,2             
-             sum1(j)=sum1(j)+hmod%gbmin*wki(j)/m0
-          END DO
        ELSE
-          STOP 'P_2h: Error, ip2h_corr not specified correctly'
+
+          ! ...otherwise you need to do an integral
+          
+          DO i=1,hmod%n
+
+             ! Some variables to make equations cleaner below
+             m=hmod%m(i)
+             nu=hmod%nu(i)
+             wki=wk(i,:)
+
+             DO j=1,2
+
+                ! Linear bias term, standard two-halo term integral
+                integrand1(i,j)=rhom*g_nu(nu,hmod)*b_nu(nu,hmod)*wki(j)/m
+
+                IF(hmod%ibias==2) THEN
+                   ! Second-order bias term
+                   integrand2(i,j)=rhom*g_nu(nu,hmod)*b2_nu(nu,hmod)*wki(j)/m
+                END IF
+
+             END DO
+
+          END DO
+
+          ! Evaluate these integrals from the tabulated values
+          DO j=1,2
+             sum1(j)=integrate_table(hmod%nu,integrand1(:,j),hmod%n,1,hmod%n,3)
+          END DO
+
+          IF(hmod%ip2h_corr==1) THEN
+             ! Do nothing in this case
+             ! There will be large errors if any signal is from low-mass haloes
+             ! e.g., for the matter power spectrum
+          ELSE IF(hmod%ip2h_corr==2) THEN
+             ! Add on the value of integral b(nu)*g(nu) assuming W(k)=1
+             ! Advised by Yoo et al. (????) and Cacciato et al. (2012)
+             ! THIS WILL NOT WORK FOR FIEDS THAT DO NOT HAVE MASS FUNCTIONS DEFINED
+             STOP 'P_2H: This will not work for fields that do not have mass fractions defined'
+             DO j=1,2
+                sum1(j)=sum1(j)+hmod%gbmin*halo_fraction(ih(j),m,hmod,cosm)!/rhom
+             END DO
+          ELSE IF(hmod%ip2h_corr==3) THEN
+             ! Put the missing part of the integrand as a delta function at the low-mass limit of the integral
+             ! I think this is the best thing to do
+             m0=hmod%m(1)
+             wki=wk(1,:)
+             DO j=1,2             
+                sum1(j)=sum1(j)+rhom*hmod%gbmin*wki(j)/m0
+             END DO
+          ELSE
+             STOP 'P_2h: Error, ip2h_corr not specified correctly'
+          END IF
+
        END IF
 
-       p_2h=plin*sum1(1)*sum1(2)*(rhom**2)
+       p_2h=plin*sum1(1)*sum1(2)!*(rhom**2)
 
+       ! Second-order bias correction
+       ! This needs to have the property that \int f(nu)b2(nu) du = 0
+       ! This means it is hard to check that the normalisation is correct
+       ! e.g., how much do low mass haloes matter
        IF(hmod%ibias==2) THEN
-          !Second-order bias correction
-          !This needs to have the property that \int f(nu)b2(nu) du = 0
-          !This means it is hard to check that the normalisation is correct
-          !e.g., how much do low mass haloes matter
-          !Varying mmin *does* make a difference to the values of the integrals
+                  
+          ! Varying mmin *does* make a difference to the values of the integrals
           !sum21=integrate_table(hmod%nu,integrand21,hmod%n,1,hmod%n,3)
           !sum22=integrate_table(hmod%nu,integrand22,hmod%n,1,hmod%n,3)
           DO j=1,2
              sum2(j)=integrate_table(hmod%nu,integrand2(:,j),hmod%n,1,hmod%n,3)
           END DO
           p_2h=p_2h+(plin**2)*sum2(1)*sum2(2)*rhom**2
+          
        END IF
 
     END IF
 
-    !Apply the damping to the two-halo term
+    ! Apply the damping to the two-halo term
     IF(hmod%i2hdamp .NE. 1) THEN
-       !Two-halo damping parameters
+       ! Two-halo damping parameters
        sigv=hmod%sigv
        frac=fdamp(hmod,cosm)
        IF(frac==0.) THEN
@@ -2713,7 +2917,7 @@ CONTAINS
        p_2h=p_2h*(1.+(k/hmod%knl))**0.5
     END IF
 
-    !For some extreme cosmologies frac>1. so this must be added to prevent p_2h<0
+    ! For some extreme cosmologies frac>1. so this must be added to prevent p_2h<0
     IF(p_2h<0.) THEN
        WRITE(*,*) 'P_2H: Halo type 1:', ih(1)
        WRITE(*,*) 'P_2H: Halo type 1:', ih(2)
@@ -2729,58 +2933,71 @@ CONTAINS
 
   REAL FUNCTION p_1h(wk2,k,hmod,cosm)
 
-    !Calculates the one-halo term
+    ! Calculates the one-halo term
     IMPLICIT NONE
     REAL, INTENT(IN) :: k
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL, INTENT(IN) :: wk2(hmod%n) ! This needs to be defined after halomod type, annoyingly
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: m, g, fac, ks
+    REAL :: m, g, fac, ks, wk20, m0, rhom
     REAL, ALLOCATABLE :: integrand(:)
     INTEGER :: i
 
-    !REAL, PARAMETER :: zmax_1halo=5.
+    INTEGER, PARAMETER :: iorder=1 ! Use basic trapezium rule because the integrand is messy due to possible rapid oscillations in W(k)
 
-    !IF(z>zmax_1halo) THEN
-    !
-    !   p_1h=0.
-    !
-    !ELSE
+    ! Matter density
+    rhom=comoving_matter_density(cosm)
 
-    ALLOCATE(integrand(hmod%n))
-    integrand=0.
+    IF(hmod%imf==4) THEN
 
-    !Calculates the value of the integrand at all nu values!
-    DO i=1,hmod%n
-       g=g_nu(hmod%nu(i),hmod)
-       m=hmod%m(i)
-       integrand(i)=g*wk2(i)/m
-    END DO
+       ! In this case the mass function is a delta function...
+       
+       m0=hmod%hmass
+       wk20=find(log(m0),hmod%log_m,wk2,hmod%n,3,3,2)
+       p_1h=rhom*wk20/m0
 
-    !Carries out the integration
-    !Important to use basic trapezium rule because the integrand is messy due to rapid oscillations in W(k)
-    p_1h=comoving_matter_density(cosm)*integrate_table(hmod%nu,integrand,hmod%n,1,hmod%n,1)*(4.*pi)*(k/(2.*pi))**3
+    ELSE
 
-    DEALLOCATE(integrand)
+       ! ...otherwise you need to do an integral
 
-    !Damping of the 1-halo term at very large scales
+       ALLOCATE(integrand(hmod%n))
+       integrand=0.
+
+       ! Calculates the value of the integrand at all nu values!
+       DO i=1,hmod%n
+          g=g_nu(hmod%nu(i),hmod)
+          m=hmod%m(i)
+          integrand(i)=g*wk2(i)/m
+       END DO
+
+       ! Carries out the integration   
+       p_1h=rhom*integrate_table(hmod%nu,integrand,hmod%n,iorder,hmod%n,1)
+
+       DEALLOCATE(integrand)
+
+    END IF
+
+    ! Convert from P(k) -> Delta^2(k)
+    p_1h=p_1h*(4.*pi)*(k/twopi)**3
+
+    ! Damping of the 1-halo term at very large scales
     ks=kstar(hmod,cosm)       
 
     IF(ks>0.) THEN
 
        IF(hmod%i1hdamp==1) THEN
-          !Do nothing in this case
+          ! Do nothing in this case
        ELSE IF(hmod%i1hdamp==2) THEN
           IF((k/ks)**2>7.) THEN
-             !Prevents problems if k/ks is very large
+             ! Prevents problems if k/ks is very large
              fac=0.
           ELSE
              fac=exp(-((k/ks)**2))
           END IF
           p_1h=p_1h*(1.-fac)
        ELSE IF(hmod%i1hdamp==3) THEN
-          !Note that the power here should be 4 because it multiplies Delta^2(k) ~ k^3 at low k (NOT 7)
-          !Want f(k<<ks) ~ k^4; f(k>>ks) = 1
+          ! Note that the power here should be 4 because it multiplies Delta^2(k) ~ k^3 at low k (NOT 7)
+          ! Want f(k<<ks) ~ k^4; f(k>>ks) = 1
           fac=1./(1.+(ks/k)**4)
           p_1h=p_1h*fac
        ELSE
@@ -2789,22 +3006,18 @@ CONTAINS
 
     END IF
 
-    !END IF
-
   END FUNCTION p_1h
 
-  FUNCTION p_1void(k,hmod)!,cosm)
+  FUNCTION p_1void(k,hmod)
 
     IMPLICIT NONE
     REAL :: p_1void
     REAL, INTENT(IN) :: k
     TYPE(halomod), INTENT(INOUT) :: hmod
-    !TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: dc, wk, V, rvoid, rcomp, nu
     REAL :: integrand(hmod%n)
     INTEGER :: i, n
 
-    !Parameters
     REAL, PARAMETER :: dv=-3.
     REAL, PARAMETER :: fvoid=1.1
     LOGICAL, PARAMETER :: compensate=.TRUE.
@@ -2857,7 +3070,7 @@ CONTAINS
        p_1void=integrate_table(hmod%nu,integrand,n,1,n,1)
     END IF
 
-    p_1void=p_1void*(4.*pi)*(k/(2.*pi))**3
+    p_1void=p_1void*(4.*pi)*(k/twopi)**3
 
   END FUNCTION p_1void
 
@@ -3070,13 +3283,13 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    win_gas=win_boundgas(real_space,1,k,m,rv,rs,hmod,cosm)+win_freegas(real_space,1,ipnh,k,m,rv,rs,hmod,cosm)
+    win_gas=win_boundgas(real_space,1,k,m,rv,rs,hmod,cosm)+win_freegas(real_space,1,ipnh,k,m,rv,rs,hmod,cosm)+win_coldgas(real_space,1,k,m,rv,rs,hmod,cosm)
 
   END FUNCTION win_gas
 
   REAL FUNCTION win_boundgas(real_space,itype,k,m,rv,rs,hmod,cosm)
 
-    ! Halo profile for the electron pressure of the bound component
+    ! Halo profile for the bound gas component
     IMPLICIT NONE
     LOGICAL, INTENT(IN) :: real_space
     INTEGER, INTENT(IN) :: itype
@@ -3099,7 +3312,8 @@ CONTAINS
     rmax=rv
 
     IF(hmod%halo_boundgas==1 .OR. hmod%halo_boundgas==3) THEN
-       ! Komatsu & Seljak profile
+       
+       ! Komatsu & Seljak (2001) profile
        IF(hmod%halo_boundgas==1) THEN
           ! Simplified KS model
           irho_density=11
@@ -3108,14 +3322,16 @@ CONTAINS
           ! Full KS model
           irho_density=21
           irho_electron_pressure=23
-       END IF
-       
+       END IF    
        p1=HMx_Gamma(hmod)
+       
     ELSE IF(hmod%halo_boundgas==2) THEN
+       
        ! Set cored isothermal profile with beta=2/3 
        irho_density=6 
        irho_electron_pressure=irho_density ! okay to use density for electron pressure because temperature is constant
-    ELSE        
+       
+    ELSE       
        STOP 'WIN_BOUNDGAS: Error, halo_boundgas not specified correctly'
     END IF
 
@@ -3148,8 +3364,8 @@ CONTAINS
 
        ! Calculate the value of the density profile prefactor and change units from cosmological to SI
        rho0=m*halo_boundgas_fraction(m,hmod,cosm)/normalisation(rmin,rmax,rv,rs,p1,p2,irho_density)
-       rho0=rho0*msun/mpc/mpc/mpc !Overflow with REAL*4 if you use mpc**3
-       rho0=rho0*cosm%h**2 !Absorb factors of h, so now [kg/m^3]
+       rho0=rho0*msun/mpc/mpc/mpc ! Overflow with REAL*4 if you use mpc**3
+       rho0=rho0*cosm%h**2 ! Absorb factors of h, so now [kg/m^3]
 
        ! Calculate the value of the temperature prefactor [K]
        a=hmod%a
@@ -3157,7 +3373,7 @@ CONTAINS
 
        ! Convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
        win_boundgas=win_boundgas*(rho0/(mp*cosm%mue))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
-       win_boundgas=win_boundgas/(eV*cm**(-3)) ! Change units to pressure in [eV/cm^3]
+       win_boundgas=win_boundgas/(eV*(0.01)**(-3)) ! Change units to pressure in [eV/cm^3]
        win_boundgas=win_boundgas*cosm%mue/cosm%mup ! Convert from total thermal pressure to electron pressure
 
     ELSE
@@ -3167,6 +3383,64 @@ CONTAINS
     END IF
 
   END FUNCTION win_boundgas
+
+  REAL FUNCTION win_coldgas(real_space,itype,k,m,rv,rs,hmod,cosm)
+
+    ! Halo profile for the cold gas component
+    IMPLICIT NONE
+    LOGICAL, INTENT(IN) :: real_space
+    INTEGER, INTENT(IN) :: itype
+    REAL, INTENT(IN) :: k
+    REAL, INTENT(IN) :: m
+    REAL, INTENT(IN) :: rv
+    REAL, INTENT(IN) :: rs
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: rho0, T0, r, a
+    REAL :: rmin, rmax, p1, p2
+    INTEGER :: irho
+
+    ! Initially set the halo parameters to zero
+    p1=0.
+    p2=0.
+
+    ! Set maximum and minimum integration radius
+    rmin=0.
+    rmax=rv
+
+    IF(hmod%halo_coldgas==1) THEN
+        ! Delta function
+       irho=0       
+    ELSE    
+       STOP 'WIN_COLDGAS: Error, halo_coldgas not specified correctly'
+    END IF
+
+    IF(itype==1) THEN
+
+       ! Density profile of cold gas
+       IF(real_space) THEN
+          r=k
+          win_coldgas=rho(r,rmin,rmax,rv,rs,p1,p2,irho)
+          win_coldgas=win_coldgas/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+       ELSE
+          ! Properly normalise and convert to overdensity
+          win_coldgas=m*win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)/comoving_matter_density(cosm)
+       END IF
+
+       win_coldgas=halo_coldgas_fraction(m,hmod,cosm)*win_coldgas
+
+    ELSE IF(itype==2) THEN
+
+       ! No electron-pressure contribution from the cold gas
+       win_coldgas=0.
+
+    ELSE
+
+       STOP 'WIN_COLDGAS: Error, itype not specified correctly'
+
+    END IF
+
+  END FUNCTION win_coldgas
 
   REAL FUNCTION win_freegas(real_space,itype,ipnh,k,m,rv,rs,hmod,cosm)
 
@@ -3386,7 +3660,7 @@ CONTAINS
 
                 !Factors to convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
                 win_freegas=win_freegas*(rho0/(mp*cosm%mup))*(kb*T0) !Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
-                win_freegas=win_freegas/(eV*cm**(-3)) !Change units to pressure in [eV/cm^3]
+                win_freegas=win_freegas/(eV*(0.01)**(-3)) !Change units to pressure in [eV/cm^3]
                 win_freegas=win_freegas*cosm%mue/cosm%mup !Convert from total thermal pressure to electron pressure
 
              END IF
@@ -3428,20 +3702,19 @@ CONTAINS
     IF(hmod%halo_star==1) THEN
        ! Fedeli (2014)
        irho=7
-       ! rstar=0.1*rv
-       rstar=hmod%rstar*rv
+       rstar=rv/hmod%cstar
        p1=rstar
        rmax=rv ! Set so that not too much bigger than rstar, otherwise bumps integration goes tits
     ELSE IF(hmod%halo_star==2) THEN
        ! Schneider (2015), following Mohammed (2014)
        irho=9
-       rstar=0.01*rv
+       !rstar=0.01*rv
+       rstar=rv/hmod%cstar
        p1=rstar
-       rmax=10.*rstar ! Set so that not too much bigger than rstar, otherwise bumps integration goes tits
+       rmax=10.*rstar ! Set so that not too much bigger than rstar, otherwise bumps integration goes crazy
     ELSE IF(hmod%halo_star==3) THEN
        ! Delta function
        irho=0
-       !rmax=rv ! Set this although it does not matter
     ELSE IF(hmod%halo_star==4) THEN
        ! Transition mass between NFW and delta function
        ! NOTE: mstar here is the same as in the stellar halo-mass fraction. It should probably not be this
@@ -3480,11 +3753,14 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm    
 
-    IF(hmod%use_UPP) THEN
-       !This overrides everything and just uses the UPP
+    IF(hmod%electron_pressure==1) THEN
+       ! This overrides everything and just uses the UPP
        win_electron_pressure=UPP(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE
+    ELSE IF(hmod%electron_pressure==2) THEN
+       ! Otherwise use...
        win_electron_pressure=win_boundgas(real_space,2,k,m,rv,rs,hmod,cosm)+win_freegas(real_space,2,ipnh,k,m,rv,rs,hmod,cosm)
+    ELSE
+       STOP 'WIN_ELECTRON_PRESSURE: Error, electron_pressure specified incorrectly'
     END IF
 
   END FUNCTION win_electron_pressure
@@ -3708,20 +3984,22 @@ CONTAINS
 
   REAL FUNCTION win_HI(real_space,k,m,rv,rs,hmod,cosm)
 
+    ! Returns the real or Fourier space HI halo profile
     IMPLICIT NONE
-    LOGICAL, INTENT(IN) :: real_space
-    REAL, INTENT(IN) :: k
-    REAL, INTENT(IN) :: m
-    REAL, INTENT(IN) :: rv
-    REAL, INTENT(IN) :: rs
-    TYPE(halomod), INTENT(INOUT) :: hmod
-    TYPE(cosmology), INTENT(INOUT) :: cosm
+    LOGICAL, INTENT(IN) :: real_space ! Real space or Fourier space
+    REAL, INTENT(IN) :: k  ! Comoving wave vector (or radius)
+    REAL, INTENT(IN) :: m  ! Halo mass
+    REAL, INTENT(IN) :: rv ! Halo virial radius
+    REAL, INTENT(IN) :: rs ! Halo scale radius 
+    TYPE(halomod), INTENT(INOUT) :: hmod ! Halomodel
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmology
     INTEGER :: irho
     REAL :: r, rmin, rmax, p1, p2
+    REAL :: r0, alpha, c_HI, r_HI, z
 
     IF(hmod%has_HI .EQV. .FALSE.) CALL init_HI(hmod,cosm)
 
-    ! Default minimum and maximum radiix
+    ! Default minimum and maximum radii
     rmin=0.
     rmax=rv
 
@@ -3729,39 +4007,54 @@ CONTAINS
     p1=0.
     p2=0.
 
-    ! NFW profile
-    irho=5
+    IF(hmod%halo_HI==1) THEN
+       ! NFW profile
+       irho=5
+    ELSE IF(hmod%halo_HI==2) THEN
+       ! Delta function
+       irho=0
+    ELSE IF(hmod%halo_HI==3) THEN
+       ! Polynomial with exponential cut off (1804.09180)
+       irho=25
+       r0=10**(-2.5) ! 0.003 Mpc/h (really small)
+       alpha=3.00 ! Tending to homogeneity  
+       p1=r0
+       p2=alpha
+    ELSE IF(hmod%halo_HI==4) THEN
+       ! Modified NFW with exponential cut off (1804.09180)
+       irho=26
+       r0=10**(-2.5) ! 0.003 Mpc/h (really small)
+       r_HI=10**(-3.0)    
+       p1=r0
+       p2=r_HI
+    ELSE IF(hmod%halo_HI==5) THEN
+       ! Modified NFW
+       irho=27
+       z=hmod%z
+       c_HI=100.
+       c_HI=4.*c_HI*((M/1e11)**(-0.109))/(1.+z)
+       r_HI=rv/c_HI
+       p1=r_HI
+    ELSE
+       STOP 'win_HI: Error, halo_HI not specified correctly'
+    END IF
 
     IF(real_space) THEN
        r=k
        win_HI=rho(r,rmin,rmax,rv,rs,p1,p2,irho)
        win_HI=win_HI/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
     ELSE
-       !win_HI=win_norm(k,rmin,rmax,rv,rs,p1,p2,irho) !Wrong, but is what I first sent Richard and Kiyo
+       !win_HI=win_norm(k,rmin,rmax,rv,rs,p1,p2,irho) ! Wrong, but is what I first sent Richard and Kiyo
        win_HI=m*win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)/hmod%rho_HI
     END IF
 
-    win_HI=HI_fraction(m,hmod)*win_HI
+    win_HI=halo_HI_fraction(m,hmod,cosm)*win_HI
 
   END FUNCTION win_HI
 
-  REAL FUNCTION HI_fraction(m,hmod)
-
-    IMPLICIT NONE
-    REAL, INTENT(IN) :: m
-    TYPE(halomod), INTENT(INOUT) :: hmod
-
-    IF(m>=hmod%HImin .AND. m<=hmod%HImax) THEN
-       HI_fraction=1.
-    ELSE
-       HI_fraction=0.
-    END IF
-    
-  END FUNCTION HI_fraction
-
   REAL FUNCTION virial_temperature(M,rv,a,cosm)
 
-    ! Halo physical virial temperature in Kelvin
+    ! Halo physical virial temperature [K]
     ! Calculates the temperature as if pristine gas falls into the halo
     ! Energy is equally distributed between the particles
     IMPLICIT NONE
@@ -3770,10 +4063,10 @@ CONTAINS
     REAL, INTENT(IN) :: a ! scale factor
     TYPE(cosmology), INTENT(INOUT) :: cosm ! cosmology
 
-    REAL, PARAMETER :: modes=3. !1/2 k_BT per mode, 3 modes for 3 dimensions 
+    REAL, PARAMETER :: modes=3. ! 1/2 k_BT per mode, 3 modes for 3 dimensions 
 
     virial_temperature=bigG*((M*msun)*mp*cosm%mup)/(a*rv*mpc) ! NEW: a in denominator converts comoving->physical halo radius
-    virial_temperature=virial_temperature/(kb*modes/2.) !Convert to temperature from energy
+    virial_temperature=virial_temperature/(kb*modes/2.) ! Convert to temperature from energy
 
   END FUNCTION virial_temperature
 
@@ -3782,6 +4075,7 @@ CONTAINS
     ! Universal electron pressure profile (Arnaud et al. 2010; arxiv:0910.1234)
     ! Note *very* well that this is for *electron* pressure (see Arnaud 2010 and my notes on this)
     ! Note that is is also the physical pressure, and relates to the comoving pressure via (1+z)^3
+    ! The units of the pressure profile are [eV/cm^3]
     IMPLICIT NONE
     LOGICAL, INTENT(IN) :: real_space
     REAL, INTENT(IN) :: k
@@ -3791,9 +4085,10 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod 
     TYPE(cosmology), INTENT(INOUT) :: cosm 
     REAL :: r500c, rmin, rmax, a, z, r, m500c, E
+    
     REAL, PARAMETER :: alphap=0.12 ! Exponent correction
-    REAL, PARAMETER :: b=0. ! Hydrostatic mass bias
-    INTEGER, PARAMETER :: irho=14 ! Set UPP profile
+    REAL, PARAMETER :: b=0.        ! Hydrostatic mass bias
+    INTEGER, PARAMETER :: irho=14  ! Set UPP profile
 
     IF(hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod,cosm)
 
@@ -3829,108 +4124,6 @@ CONTAINS
 
   END FUNCTION UPP
 
-  REAL FUNCTION win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)
-
-    ! Calculates the normalised spherical Fourier Transform of the density profile
-    ! Note that this means win_norm(k->0)=1
-    ! and that win must be between 0 and 1
-    IMPLICIT NONE
-    REAL, INTENT(IN) :: k
-    REAL, INTENT(IN) :: rmin
-    REAL, INTENT(IN) :: rmax
-    REAL, INTENT(IN) :: rv
-    REAL, INTENT(IN) :: rs
-    REAL, INTENT(IN) :: p1
-    REAL, INTENT(IN) :: p2
-    INTEGER, INTENT(IN) :: irho
-    REAL :: re, f1, f2, rstar, kstar, rb    
-
-    IF(k==0.) THEN
-
-       ! If called for the zero mode (e.g. for the normalisation)
-       win_norm=1.
-
-    ELSE
-
-       IF(irho==0) THEN
-          ! Delta function profile is not localised in Fourier Space
-          win_norm=1.
-       ELSE IF(irho==1) THEN
-          win_norm=wk_isothermal(k*rmax)
-       ELSE IF(irho==2) THEN
-          ! Analytic for top hat
-          win_norm=wk_tophat(k*rmax)
-       ELSE IF(irho==5) THEN
-          ! Analytic for NFW
-          win_norm=win_NFW(k,rmax,rs)
-       ELSE IF(irho==7) THEN
-          ! Analytic for Fedeli (2014) stellar profile
-          rstar=p1
-          kstar=k*rstar
-          f1=kstar-exp(-rmax/rstar)*(sin(k*rmax)+kstar*cos(k*rmax))
-          f2=kstar*(1.+kstar**2)
-          win_norm=f1/f2
-          !win_norm=1./(1.+kstar**2) !bigRstar -> infinity limit (rmax >> rstar)
-       ELSE IF(irho==9) THEN
-          ! Only valid if rmin=0 and rmax=inf
-          rstar=p1
-          win_norm=(sqrt(pi)/2.)*erf(k*rstar)/(k*rstar)
-       ELSE IF(irho==10) THEN
-          ! Ejected gas profile
-          re=p1
-          win_norm=exp(-1.5*(k*re)**2.)
-       ELSE IF(irho==16) THEN
-          ! Isothermal shells
-          win_norm=wk_isothermal_2(k*rmax,k*rmin)
-       ELSE IF(irho==19) THEN
-          ! Smooth profile (not sure this is physical)
-          win_norm=0.
-       ELSE IF(irho==20) THEN
-          ! Exponential profile
-          re=p1
-          win_norm=1./(1.+(k*re)**2)**2
-       ELSE IF(irho==24) THEN
-          !  Cored NFW profile
-          rb=p1
-          IF(rb==0.) THEN
-             ! In this case there is no core
-             win_norm=win_NFW(k,rmax,rs)
-          ELSE
-             ! Otherwise there is a core
-             win_norm=win_cored_NFW(k,rmax,rs,rb)
-          END IF
-       ELSE
-          ! Numerical integral over the density profile (slower)
-          win_norm=winint(k,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
-       END IF
-
-    END IF
-
-  END FUNCTION win_norm
-
-  REAL FUNCTION rhor2at0(irho)
-
-    ! This is the value of r^2 * rho(r) at r=0.
-    ! For most profiles this is zero, BUT not if rho(r->0) -> r^-2
-    ! Note if rho(r->0) -> r^n with n<-2 then the profile mass would diverge!
-
-    IMPLICIT NONE
-    INTEGER, INTENT(IN) :: irho
-
-    IF(irho==0) THEN
-       STOP 'RHOR2AT0: You should not be here for a delta-function profile'
-    ELSE IF(irho==1 .OR. irho==9) THEN
-       !1 - Isothermal
-       !9 - Stellar profile from Schneider (2015)
-       rhor2at0=1.
-    ELSE IF(irho==18) THEN
-       STOP 'RHOR2AT0: Error, profile diverges at the origin'
-    ELSE
-       rhor2at0=0.
-    END IF
-
-  END FUNCTION rhor2at0
-
   FUNCTION rho(r,rmin,rmax,rv,rs,p1,p2,irho)
 
     ! This is an UNNORMALISED halo profile of any sort
@@ -3962,12 +4155,14 @@ CONTAINS
     ! 22 - Full Komatsu & Seljak (2001) temperature
     ! 23 - Full Komatsu & Seljak (2001) pressure
     ! 24 - Cored NFW profile (Copeland, Taylor & Hall 2018)
+    ! 25 - Exponential cutoff polynomial
+    ! 26 - Modified NFW
 
     IMPLICIT NONE
     REAL :: rho
     REAL, INTENT(IN) :: r, rmin, rmax, rv, rs, p1, p2 ! Standard profile parameters
     INTEGER, INTENT(IN) :: irho
-    REAL :: y, ct, t, c, beta, Gamma, r500c, rt, A, re, rstar, B, rb
+    REAL :: y, ct, t, c, beta, Gamma, r500c, rt, A, re, rstar, B, rb, r0, alpha, rh
     REAL :: f1, f2
     REAL :: crap
 
@@ -4117,6 +4312,20 @@ CONTAINS
           f1=(r+rb)/rs
           f2=(1.+r/rs)**2
           rho=1./(f1*f2)
+       ELSE IF(irho==25) THEN
+          ! 25 - Exponentially cut-off polynomail
+          r0=p1
+          alpha=p2
+          rho=(r**(-alpha))*exp(-r0/r)
+       ELSE IF(irho==26) THEN
+          ! 26 - Modified NFW with exponential cut-off
+          r0=p1
+          rh=p2
+          rho=(1./((0.75+r/rh)*(1.+r/rh)**2))*exp(-r0/r)
+       ELSE IF(irho==27) THEN
+          ! 27 - Modified NFW
+          rh=p1
+          rho=(1./((0.75+r/rh)*(1.+r/rh)**2))
        ELSE
           STOP 'RHO: Error, irho not specified correctly'
        END IF
@@ -4125,37 +4334,305 @@ CONTAINS
 
   END FUNCTION rho
 
+  REAL FUNCTION rhor2at0(irho)
+
+    ! This is the value of rho(r)*r^2 at r=0
+    ! For most profiles this is zero, BUT not if rho(r->0) -> r^-2
+    ! Note if rho(r->0) -> r^n with n<-2 then the profile mass would diverge!
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: irho
+
+    IF(irho==0) THEN
+       STOP 'RHOR2AT0: You should not be here for a delta-function profile'
+    ELSE IF(irho==1 .OR. irho==9) THEN
+       !1 - Isothermal
+       !9 - Stellar profile from Schneider (2015)
+       rhor2at0=1.
+    ELSE IF(irho==18) THEN
+       STOP 'RHOR2AT0: Error, profile diverges at the origin'
+    ELSE
+       rhor2at0=0.
+    END IF
+
+  END FUNCTION rhor2at0
+
+  FUNCTION normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+
+    ! This calculates the normalisation of a halo
+    ! This is the integral of 4pir^2*rho(r)*dr between rmin and rmax
+
+    ! Profile results
+    !  0 - Delta function (M = 1)
+    !  1 - Isothermal (M = 4pi*rv)
+    !  2 - Top hat (M = (4pi/3)*rv^3)
+    !  3 - Moore (M = (8pi/3)*rv^3*ln(1+c^1.5)/c^3)
+    !  4 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
+    !  5 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
+    !  6 - Beta model with beta=2/3 (M = 4*pi*rs^3*(rv/rs-atan(rv/rs)))
+    !  7 - Fedeli stellar model (M = 4*pi*rstar^2 * [1-exp(-rmax/rstar)*(1.+rmax/rstar)]
+    !  8 - No
+    !  9 - Stellar profile (Schneider (2015)
+    ! 10 - Ejected gas profile (Schneider 2015)
+    ! 11 - No
+    ! 12 - No
+    ! 13 - No
+    ! 14 - No
+    ! 15 - No
+    ! 16 - Isothermal shell (M = 4pi*(rmax-rmin))
+    ! 17 - No
+    ! 18 - Cubic profile
+    ! 19 - Smooth profile (physically dubious)
+    ! 20 - No
+    ! 21 - No
+    ! 22 - No
+    ! 23 - No
+    ! 24 - No
+    ! 25 - No
+    ! 26 - No
+    ! 27 - No 
+
+    IMPLICIT NONE
+    REAL :: normalisation
+    REAL, INTENT(IN) :: rmin, rmax, rv, rs, p1, p2
+    INTEGER, INTENT(IN) :: irho
+    REAL :: cmax, re, rstar, beta, rb, c, b
+
+    IF(irho==0) THEN
+       ! Delta function
+       normalisation=1.
+    ELSE IF(irho==1 .OR. irho==16) THEN
+       ! Isothermal
+       normalisation=4.*pi*(rmax-rmin)
+    ELSE IF(irho==2) THEN
+       ! Top hat
+       normalisation=4.*pi*(rmax**3-rmin**3)/3.
+    ELSE IF(irho==3) THEN
+       ! Moore et al. (1999)
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
+       ELSE
+          cmax=rmax/rs
+          normalisation=(2./3.)*4.*pi*(rs**3)*log(1.+cmax**1.5)
+       END IF
+    ELSE IF(irho==4 .OR. irho==5) THEN
+       ! NFW (1997)
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
+       ELSE
+          cmax=rmax/rs
+          normalisation=4.*pi*(rs**3)*NFW_factor(cmax)!(log(1.+cmax)-cmax/(1.+cmax))
+       END IF
+    ELSE IF(irho==6) THEN
+       ! Beta model with beta=2/3
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
+       ELSE
+          cmax=rmax/rs
+          normalisation=4.*pi*(rs**3)*(cmax-atan(cmax))
+       END IF
+    ELSE IF(irho==7) THEN
+       ! Fedeli (2014) stellar model
+       IF(rmin .NE. 0) THEN
+          ! I could actually derive an analytical expression here if this was ever necessary
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
+       ELSE
+          ! This would be even easier if rmax -> infinity (just 4*pi*rstar^2)
+          rstar=p1
+          normalisation=4.*pi*(rstar**3)*(1.-exp(-rmax/rstar)*(1.+rmax/rstar))
+          !normalisation=4.*pi*rstar**3 ! rmax/rstar -> infinity limit (rmax >> rstar)
+       END IF
+    ELSE IF(irho==9) THEN
+       ! Stellar profile from Schneider & Teyssier (2015)       
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
+       ELSE
+          ! Assumed to go on to r -> infinity
+          rstar=p1
+          normalisation=4.*(pi**(3./2.))*rstar
+       END IF
+    ELSE IF(irho==10) THEN
+       ! Ejected gas profile from Schneider (2015)
+       ! Assumed to go on to r -> infinity
+       IF(rmin .NE. 0.) THEN
+          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
+       ELSE
+          ! Assumed to go on to r -> infinity
+          re=p1
+          normalisation=4.*pi*sqrt(pi/2.)*re**3
+       END IF
+    ELSE IF(irho==17) THEN
+       ! Power-law profile
+       beta=p1
+       normalisation=(4.*pi/(beta+3.))*(rmax**(beta+3.)-rmin**(beta+3.))
+    ELSE IF(irho==18) THEN
+       ! Cubic profile
+       normalisation=4.*pi*log(rmax/rmin)
+    ELSE IF(irho==19) THEN
+       ! ?
+       normalisation=1.
+    ELSE IF(irho==24) THEN
+       ! Cored NFW profile
+       rb=p1
+       IF(rb==0.) THEN
+          ! This is then the standard NFW case
+          c=rv/rs
+          normalisation=4.*pi*(rs**3)*NFW_factor(c)
+       ELSE
+          ! Otherwise there is actually a core
+          b=rv/rb
+          c=rv/rs
+          normalisation=(4.*pi*rs**3)/(b-c)**2
+          normalisation=normalisation*(b*(b-2.*c)*NFW_factor(c)+(log(1.+b)-b/(1.+c))*c**2)
+       END IF
+    ELSE
+       ! Otherwise need to do the integral numerically
+       ! k=0 gives normalisation
+       normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
+    END IF
+
+  END FUNCTION normalisation
+  
+  REAL FUNCTION win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)
+
+    ! This is an UNNORMALISED halo profile of any sort
+
+    ! Types of profile
+    ! ================
+    !  0 - Delta function at r=0
+    !  1 - Isothermal: r^-2
+    !  2 - Top hat: constant
+    !  3 - No
+    !  4 - No
+    !  5 - NFW
+    !  6 - No
+    !  7 - Star profile
+    !  8 - No
+    !  9 - Stellar profile from Schneider (2015)
+    ! 10 - Ejected gas profile (Schneider 2015)
+    ! 11 - No
+    ! 12 - No
+    ! 13 - No
+    ! 14 - No
+    ! 15 - No
+    ! 16 - Isothermal shell
+    ! 17 - No
+    ! 18 - No
+    ! 19 - Smooth profile (rho = 0, not really physical)
+    ! 20 - Exponential profile
+    ! 21 - No
+    ! 22 - No
+    ! 23 - No
+    ! 24 - Cored NFW profile (Copeland, Taylor & Hall 2018)
+    ! 25 - No
+    ! 26 - No
+    ! 27 - No
+
+    ! Calculates the normalised spherical Fourier Transform of the density profile
+    ! Note that this means win_norm(k->0)=1
+    ! and that win must be between 0 and 1
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k
+    REAL, INTENT(IN) :: rmin
+    REAL, INTENT(IN) :: rmax
+    REAL, INTENT(IN) :: rv
+    REAL, INTENT(IN) :: rs
+    REAL, INTENT(IN) :: p1
+    REAL, INTENT(IN) :: p2
+    INTEGER, INTENT(IN) :: irho
+    REAL :: re, f1, f2, rstar, kstar, rb    
+
+    IF(k==0.) THEN
+
+       ! If called for the zero mode (e.g. for the normalisation)
+       win_norm=1.
+
+    ELSE
+
+       IF(irho==0) THEN
+          ! Delta function profile is not localised in Fourier Space
+          win_norm=1.
+       ELSE IF(irho==1) THEN
+          win_norm=wk_isothermal(k*rmax)
+       ELSE IF(irho==2) THEN
+          ! Analytic for top hat
+          win_norm=wk_tophat(k*rmax)
+       ELSE IF(irho==5) THEN
+          ! Analytic for NFW
+          win_norm=win_NFW(k,rmax,rs)
+       ELSE IF(irho==7) THEN
+          ! Analytic for Fedeli (2014) stellar profile
+          rstar=p1
+          kstar=k*rstar
+          f1=kstar-exp(-rmax/rstar)*(sin(k*rmax)+kstar*cos(k*rmax))
+          f2=kstar*(1.+kstar**2)
+          win_norm=f1/f2
+          !win_norm=1./(1.+kstar**2) !bigRstar -> infinity limit (rmax >> rstar)
+       ELSE IF(irho==9) THEN
+          ! Only valid if rmin=0 and rmax=inf
+          rstar=p1
+          win_norm=(sqrt(pi)/2.)*erf(k*rstar)/(k*rstar)
+       ELSE IF(irho==10) THEN
+          ! Ejected gas profile
+          re=p1
+          win_norm=exp(-1.5*(k*re)**2.)
+       ELSE IF(irho==16) THEN
+          ! Isothermal shells
+          win_norm=wk_isothermal_2(k*rmax,k*rmin)
+       ELSE IF(irho==19) THEN
+          ! Smooth profile (not sure this is physical)
+          win_norm=0.
+       ELSE IF(irho==20) THEN
+          ! Exponential profile
+          re=p1
+          win_norm=1./(1.+(k*re)**2)**2
+       ELSE IF(irho==24) THEN
+          !  Cored NFW profile
+          rb=p1
+          IF(rb==0.) THEN
+             ! In this case there is no core
+             win_norm=win_NFW(k,rmax,rs)
+          ELSE
+             ! Otherwise there is a core
+             win_norm=win_cored_NFW(k,rmax,rs,rb)
+          END IF
+       ELSE
+          ! Numerical integral over the density profile (slower)
+          win_norm=winint(k,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+       END IF
+
+    END IF
+
+  END FUNCTION win_norm
+
   FUNCTION winint(k,rmin,rmax,rv,rs,p1,p2,irho,imeth)
 
-    !Calculates W(k,M)
+    ! Calculates W(k,M)
     IMPLICIT NONE
     REAL :: winint
     REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho, imeth
 
-    !Integration order
-    INTEGER, PARAMETER :: iorder=3
+    ! Integration method
+    ! imeth = 1 - normal integration
+    ! imeth = 2 - bumps with normal integration
+    ! imeth = 3 - storage integration
+    ! imeth = 4 - bumps with storage integration
+    ! imeth = 5 - linear bumps
+    ! imeth = 6 - cubic bumps
+    ! imeth = 7 - Hybrid with storage and cubic bumps
 
-    !Integration method
-    !imeth = 1 - normal integration
-    !imeth = 2 - bumps with normal integration
-    !imeth = 3 - storage integration
-    !imeth = 4 - bumps with storage integration
-    !imeth = 5 - linear bumps
-    !imeth = 6 - cubic bumps
-    !imeth = 7 - Hybrid with storage and cubic bumps
+    ! Bump methods go crazy with some star profiles (those that drop too fast)
+    ! You need to make sure that the rmax for the integration does not extend too far out
 
-    !Bump methods go crazy with some star profiles (those that drop too fast)
-    !You need to make sure that the rmax for the integration does not extend too far out
-
-    !The hybrid method seems not to be faster for practical calculations here
+    ! The hybrid method seems not to be faster for practical calculations here
 
     IF(imeth==1) THEN
-       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_win)
+       winint=winint_normal(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,winint_order,acc_win)
     ELSE IF(imeth==2 .OR. imeth==4 .OR. imeth==5 .OR. imeth==6 .OR. imeth==7) THEN
-       winint=winint_bumps(k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_win,imeth)
+       winint=winint_bumps(k,rmin,rmax,rv,rs,p1,p2,irho,winint_order,acc_win,imeth)
     ELSE IF(imeth==3) THEN
-       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc_win)
+       winint=winint_store(rmin,rmax,k,rmin,rmax,rv,rs,p1,p2,irho,winint_order,acc_win)
     ELSE
        STOP 'WININT: Error, imeth not specified correctly'
     END IF
@@ -4164,7 +4641,7 @@ CONTAINS
 
   SUBROUTINE winint_diagnostics(rmin,rmax,rv,rs,p1,p2,irho,outfile)
 
-    !Write out the winint integrand as a function of k
+    ! Write out the winint integrand as a function of k
     IMPLICIT NONE
     REAL, INTENT(IN) :: rmin, rmax, rv, rs, p1, p2
     INTEGER, INTENT(IN) :: irho
@@ -4175,8 +4652,8 @@ CONTAINS
 
     REAL, PARAMETER :: kmin=1d-1
     REAL, PARAMETER :: kmax=1d2
-    INTEGER, PARAMETER :: nr=256 !Number of points in r
-    INTEGER, PARAMETER :: nk=16 !Number of points in k
+    INTEGER, PARAMETER :: nr=256 ! Number of points in r
+    INTEGER, PARAMETER :: nk=16  ! Number of points in k
 
     WRITE(*,*) 'WININT_DIAGNOSTICS: Doing these'
     WRITE(*,*) 'WININT_DIAGNOSTICS: minimum r [Mpc/h]:', REAL(rmin)
@@ -4209,7 +4686,7 @@ CONTAINS
 
   FUNCTION winint_normal(a,b,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
 
-    !Integration routine using 'normal' method to calculate the normalised halo FT
+    ! Integration routine using 'normal' method to calculate the normalised halo FT
     IMPLICIT NONE
     REAL :: winint_normal
     REAL, INTENT(IN) :: k, rmin, rmax, rv, rs, p1, p2
@@ -4409,7 +4886,7 @@ CONTAINS
     REAL :: y1, y2, y3, y4
     INTEGER :: i, n
 
-    INTEGER, PARAMETER :: nlim=3 !Do the bumps approximation after this number of bumps
+    INTEGER, PARAMETER :: nlim=3 ! Do the bumps approximation after this number of bumps
 
     !This MUST be set to zero for this routine
     IF(rmin .NE. 0.) STOP 'WININT_BUMPS: Error, rmin must be zero'
@@ -4581,213 +5058,119 @@ CONTAINS
 
   END FUNCTION G_NFW
 
-  FUNCTION normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+  REAL FUNCTION b_nu(nu,hmod)
 
-    ! This calculates the normalisation of a halo
-    ! This is the integral of 4pir^2*rho(r)*dr between rmin and rmax
-
-    ! Profile results
-    !  0 - Delta function (M = 1)
-    !  1 - Isothermal (M = 4pi*rv)
-    !  2 - Top hat (M = (4pi/3)*rv^3)
-    !  3 - Moore (M = (8pi/3)*rv^3*ln(1+c^1.5)/c^3)
-    !  4,5 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
-    !  6 - Beta model with beta=2/3 (M = 4*pi*rs^3*(rv/rs-atan(rv/rs)))
-    !  7 - Fedeli stellar model (M = 4*pi*rstar^2 * [1-exp(-rmax/rstar)*(1.+rmax/rstar)]
-    !  9 - Stellar profile (Schneider (2015)
-    ! 10 - Ejected gas profile (Schneider 2015)
-    ! 16 - Isothermal shell (M = 4pi*(rmax-rmin))
-    ! 18 - Cubic profile
-    ! 19 - Smooth profile (physically dubious)
-
+    ! Bias function selection
     IMPLICIT NONE
-    REAL :: normalisation
-    REAL, INTENT(IN) :: rmin, rmax, rv, rs, p1, p2
-    INTEGER, INTENT(IN) :: irho
-    REAL :: cmax, re, rstar, beta, rb, c, b
-
-    IF(irho==0) THEN
-       ! Delta function
-       normalisation=1.
-    ELSE IF(irho==1 .OR. irho==16) THEN
-       ! Isothermal
-       normalisation=4.*pi*(rmax-rmin)
-    ELSE IF(irho==2) THEN
-       ! Top hat
-       normalisation=4.*pi*(rmax**3-rmin**3)/3.
-    ELSE IF(irho==3) THEN
-       ! Moore et al. (1999)
-       IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
-       ELSE
-          cmax=rmax/rs
-          normalisation=(2./3.)*4.*pi*(rs**3)*log(1.+cmax**1.5)
-       END IF
-    ELSE IF(irho==4 .OR. irho==5) THEN
-       ! NFW (1997)
-       IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
-       ELSE
-          cmax=rmax/rs
-          normalisation=4.*pi*(rs**3)*NFW_factor(cmax)!(log(1.+cmax)-cmax/(1.+cmax))
-       END IF
-    ELSE IF(irho==6) THEN
-       ! Beta model with beta=2/3
-       IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
-       ELSE
-          cmax=rmax/rs
-          normalisation=4.*pi*(rs**3)*(cmax-atan(cmax))
-       END IF
-    ELSE IF(irho==7) THEN
-       ! Fedeli (2014) stellar model
-       IF(rmin .NE. 0) THEN
-          ! I could actually derive an analytical expression here if this was ever necessary
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
-       ELSE
-          ! This would be even easier if rmax -> infinity (just 4*pi*rstar^2)
-          rstar=p1
-          normalisation=4.*pi*(rstar**3)*(1.-exp(-rmax/rstar)*(1.+rmax/rstar))
-          !normalisation=4.*pi*rstar**3 ! rmax/rstar -> infinity limit (rmax >> rstar)
-       END IF
-    ELSE IF(irho==9) THEN
-       ! Stellar profile from Schneider & Teyssier (2015)       
-       IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
-       ELSE
-          ! Assumed to go on to r -> infinity
-          rstar=p1
-          normalisation=4.*(pi**(3./2.))*rstar
-       END IF
-    ELSE IF(irho==10) THEN
-       ! Ejected gas profile from Schneider (2015)
-       ! Assumed to go on to r -> infinity
-       IF(rmin .NE. 0.) THEN
-          normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
-       ELSE
-          ! Assumed to go on to r -> infinity
-          re=p1
-          normalisation=4.*pi*sqrt(pi/2.)*re**3
-       END IF
-    ELSE IF(irho==17) THEN
-       ! Power-law profile
-       beta=p1
-       normalisation=(4.*pi/(beta+3.))*(rmax**(beta+3.)-rmin**(beta+3.))
-    ELSE IF(irho==18) THEN
-       ! Cubic profile
-       normalisation=4.*pi*log(rmax/rmin)
-    ELSE IF(irho==19) THEN
-       ! ?
-       normalisation=1.
-    ELSE IF(irho==24) THEN
-       ! Cored NFW profile
-       rb=p1
-       IF(rb==0.) THEN
-          ! This is then the standard NFW case
-          c=rv/rs
-          normalisation=4.*pi*(rs**3)*NFW_factor(c)
-       ELSE
-          ! Otherwise there is actually a core
-          b=rv/rb
-          c=rv/rs
-          normalisation=(4.*pi*rs**3)/(b-c)**2
-          normalisation=normalisation*(b*(b-2.*c)*NFW_factor(c)+(log(1.+b)-b/(1.+c))*c**2)
-       END IF
-    ELSE
-       ! Otherwise need to do the integral numerically
-       ! k=0 gives normalisation
-       normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
-    END IF
-
-  END FUNCTION normalisation
-
-  FUNCTION b_nu(nu,hmod)
-
-    ! Bias function selection!
-    IMPLICIT NONE
-    REAL :: b_nu
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
 
     IF(hmod%imf==1) THEN
-       b_nu=b_ps(nu)
+       b_nu=b_ps(nu,hmod)
     ELSE IF(hmod%imf==2) THEN
-       b_nu=b_st(nu)
+       b_nu=b_st(nu,hmod)
     ELSE IF(hmod%imf==3) THEN
-       b_nu=b_Tinker(nu)
+       b_nu=b_Tinker(nu,hmod)
+    ELSE IF(hmod%imf==4) THEN
+       b_nu=1.
     ELSE
        STOP 'B_NU: Error, imf not specified correctly'
     END IF
 
   END FUNCTION b_nu
 
-  FUNCTION b_ps(nu)
+  REAL FUNCTION b_ps(nu,hmod)
 
     ! Press & Scheter (1974) halo bias
     IMPLICIT NONE
-    REAL :: b_ps
     REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: dc
 
-    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
+    dc=hmod%dc
 
     b_ps=1.+(nu**2-1.)/dc
 
   END FUNCTION b_ps
 
-  FUNCTION b_st(nu)
+  REAL FUNCTION b_st(nu,hmod)
 
     ! Sheth & Tormen (1999) halo bias (equation 12 in 9901122)
     ! Comes from peak-background split
     ! Haloes defined with SO relative to mean matter density with SC Delta_v relation
     ! A redshift dependent delta_c is used for barrier height, again from SC
     IMPLICIT NONE
-    REAL :: b_st
     REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: dc
 
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
-    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
+
+    dc=hmod%dc
+    !dc=1.686
 
     b_st=1.+(q*(nu**2)-1.+2.*p/(1.+(q*nu**2)**p))/dc
 
   END FUNCTION b_st
 
-  FUNCTION b_Tinker(nu)
+  REAL FUNCTION b_Tinker(nu,hmod)
 
     ! Tinker et al. (2010; 1001.3162) halo bias
+    ! TODO: Common functions between this and mass function
     IMPLICIT NONE
-    REAL :: b_Tinker
     REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, Dv, dc
+    REAL :: alpha, beta, gamma, phi, eta
 
-    ! Delta_v=200,m and delta_c=1.686 are hard-coded
-    REAL, PARAMETER :: Delta_v=337.2
-    REAL, PARAMETER :: delta_c=1.686
-    REAL, PARAMETER :: y=log10(Delta_v) ! This is the Delta_v dependence
-    REAL, PARAMETER :: bigA=1.0+0.24*y*exp(-(4./y)**4)
-    REAL, PARAMETER :: a=0.44*y-0.88
-    REAL, PARAMETER :: bigB=0.183
-    REAL, PARAMETER :: b=1.5
-    REAL, PARAMETER :: bigC=0.019+0.107*y+0.19*exp(-(4./y)**4)
-    REAL, PARAMETER :: c=2.4
+    ! Parameter arrays from Tinker (2010)
+    INTEGER, PARAMETER :: n=9 ! Number of entries in parameter lists
+    REAL, PARAMETER :: Delta_v(n)=[200.,300.,400.,600.,800.,1200.,1600.,2400.,3200.]
+    REAL, PARAMETER :: alpha0(n)=[0.368,0.363,0.385,0.389,0.393,0.365,0.379,0.355,0.327]
+    REAL, PARAMETER :: beta0(n)=[0.589,0.585,0.544,0.543,0.564,0.623,0.637,0.673,0.702]
+    REAL, PARAMETER :: gamma0(n)=[0.864,0.922,0.987,1.09,1.20,1.34,1.50,1.68,1.81]
+    REAL, PARAMETER :: phi0(n)=[-0.729,-0.789,-0.910,-1.05,-1.20,-1.26,-1.45,-1.50,-1.49]
+    REAL, PARAMETER :: eta0(n)=[-0.243,-0.261,-0.261,-0.273,-0.278,-0.301,-0.301,-0.319,-0.336]
+    REAL, PARAMETER :: beta_z_exp=0.20
+    REAL, PARAMETER :: gamma_z_exp=-0.01
+    REAL, PARAMETER :: phi_z_exp=-0.08
+    REAL, PARAMETER :: eta_z_exp=0.27
 
-    STOP 'B_TINKER: Be careful, redshift dependence is missing'
-    
-    b_Tinker=1.-bigA*(nu**a)/(nu**a+delta_c**a)+bigB*nu**b+bigC*nu**c
+    ! Get these from the halo-model structure
+    z=hmod%z
+    IF(z>3.) z=3. ! Recommendation from Tinker et al. (2010)
+    dc=hmod%dc
+    Dv=hmod%Dv
+
+    ! Delta_v dependence
+    alpha=find(Dv,Delta_v,alpha0,n,3,3,2)
+    beta=find(Dv,Delta_v,beta0,n,3,3,2)
+    gamma=find(Dv,Delta_v,gamma0,n,3,3,2)
+    phi=find(Dv,Delta_v,phi0,n,3,3,2)
+    eta=find(Dv,Delta_v,eta0,n,3,3,2)
+
+    ! Redshift dependence
+    beta=beta*(1.+z)**beta_z_exp
+    gamma=gamma**(1.+z)**gamma_z_exp
+    phi=phi*(1.+z)**phi_z_exp
+    eta=eta*(1.+z)**eta_z_exp
+  
+    b_Tinker=1.+(gamma*nu**2-(1.+2.*eta))/dc+(2.*phi/dc)/(1.+(beta*nu)**(2.*phi))
     
   END FUNCTION b_Tinker
 
-  FUNCTION b2_nu(nu,hmod)
+  REAL FUNCTION b2_nu(nu,hmod)
 
-    ! Bias function selection!
+    ! Bias function selection
     IMPLICIT NONE
-    REAL :: b2_nu
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
 
     IF(hmod%imf==1) THEN
-       b2_nu=b2_ps(nu)
+       b2_nu=b2_ps(nu,hmod)
     ELSE IF(hmod%imf==2) THEN
-       b2_nu=b2_st(nu)
+       b2_nu=b2_st(nu,hmod)
     ELSE IF(hmod%imf==3) THEN
        STOP 'B2_NU: Error, second-order bias not specified for Tinker mass function'
     ELSE
@@ -4796,18 +5179,19 @@ CONTAINS
 
   END FUNCTION b2_nu
 
-  FUNCTION b2_ps(nu)
+  REAL FUNCTION b2_ps(nu,hmod)
 
     ! Press & Schechter (1974) second order bias
     IMPLICIT NONE
-    REAL :: b2_ps
     REAL, INTENT(IN) :: nu
-    REAL :: eps1, eps2, E1, E2
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: eps1, eps2, E1, E2, dc
 
     REAL, PARAMETER :: a2=-17./21.
     REAL, PARAMETER :: p=0.0
     REAL, PARAMETER :: q=1.0
-    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
+
+    dc=hmod%dc
 
     STOP 'B2_PS: Check this very carefully'
     ! I just took the ST form and set p=0 and q=1
@@ -4821,20 +5205,21 @@ CONTAINS
 
   END FUNCTION b2_ps
 
-  FUNCTION b2_st(nu)
+  REAL FUNCTION b2_st(nu,hmod)
 
     ! Sheth, Mo & Tormen (2001) second-order bias
     IMPLICIT NONE
-    REAL :: b2_st
     REAL, INTENT(IN) :: nu
-    REAL :: eps1, eps2, E1, E2
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: eps1, eps2, E1, E2, dc
 
     ! Notation follows from Cooray & Sheth (2002) pp 25-26
 
     REAL, PARAMETER :: a2=-17./21.
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
-    REAL, PARAMETER :: dc=1.686 ! TODO: This is probably not consistent
+
+    dc=hmod%dc
 
     eps1=(q*nu**2-1.)/dc
     eps2=(q*nu**2)*(q*nu**2-3.)/dc**2
@@ -4845,69 +5230,73 @@ CONTAINS
 
   END FUNCTION b2_st
 
-  FUNCTION g_nu(nu,hmod)
+  REAL FUNCTION g_nu(nu,hmod)
 
     ! Mass function
     IMPLICIT NONE
-    REAL :: g_nu
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
 
     IF(hmod%imf==1) THEN
-       g_nu=g_ps(nu)
+       g_nu=g_ps(nu,hmod)
     ELSE IF(hmod%imf==2) THEN
-       g_nu=g_st(nu)
+       g_nu=g_st(nu,hmod)
     ELSE IF(hmod%imf==3) THEN
-       g_nu=g_Tinker(nu)
+       g_nu=g_Tinker(nu,hmod)
     ELSE
        STOP 'G_NU: Error, imf specified incorrectly'
     END IF
 
   END FUNCTION g_nu
 
-  FUNCTION g_ps(nu)
+  REAL FUNCTION g_ps(nu,hmod)
 
     ! Press & Scheter (1974) mass function!
     IMPLICIT NONE
-    REAL :: g_ps
     REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: crap
 
     REAL, PARAMETER :: A=sqrt(2./pi)
+
+    ! Stop compile-time warnings
+    crap=hmod%a
 
     g_ps=A*exp(-(nu**2)/2.)
 
   END FUNCTION g_ps
 
-  FUNCTION g_st(nu)
+  REAL FUNCTION g_st(nu,hmod)
 
     ! Sheth & Tormen (1999) mass function, equation (10) in arXiv:9901122
     ! Note I use nu=dc/sigma(M) and this Sheth & Tormen (1999) use nu=(dc/sigma)^2, which accounts for some small differences
     ! Haloes defined with SO relative to mean matter density with SC Delta_v relation
     ! A redshift dependent delta_c is used for barrier height, again from SC
     IMPLICIT NONE
-    REAL :: g_st
     REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: crap
 
     REAL, PARAMETER :: p=0.3
     REAL, PARAMETER :: q=0.707
     REAL, PARAMETER :: A=0.21616
 
+    ! Stop compile-time warnings
+    crap=hmod%a
+
     g_st=A*(1.+((q*nu**2)**(-p)))*exp(-q*nu**2/2.)
 
   END FUNCTION g_st
 
-  FUNCTION g_Tinker(nu)
+  REAL FUNCTION g_Tinker(nu,hmod)
 
     ! Tinker et al. (2010; 1001.3162) mass function (also 2008; xxxx.xxxx)
+    ! TODO: Common functions between this and mass function
     IMPLICIT NONE
-    REAL :: g_Tinker
     REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: alpha, beta, gamma, phi, eta
-
-    ! Hard-coded at z=0.
-    ! TODO: Un-hard-code this
-    REAL, PARAMETER :: z=0.
-    REAL, PARAMETER :: Dv=200.
+    REAL :: z, Dv
 
     ! Parameter arrays from Tinker (2010)
     INTEGER, PARAMETER :: n=9 ! Number of entries in parameter lists
@@ -4917,6 +5306,15 @@ CONTAINS
     REAL, PARAMETER :: gamma0(n)=[0.864,0.922,0.987,1.09,1.20,1.34,1.50,1.68,1.81]
     REAL, PARAMETER :: phi0(n)=[-0.729,-0.789,-0.910,-1.05,-1.20,-1.26,-1.45,-1.50,-1.49]
     REAL, PARAMETER :: eta0(n)=[-0.243,-0.261,-0.261,-0.273,-0.278,-0.301,-0.301,-0.319,-0.336]
+    REAL, PARAMETER :: beta_z_exp=0.20
+    REAL, PARAMETER :: gamma_z_exp=-0.01
+    REAL, PARAMETER :: phi_z_exp=-0.08
+    REAL, PARAMETER :: eta_z_exp=0.27
+
+    ! Get these from the halo-model structure
+    z=hmod%z
+    IF(z>3.) z=3. ! Recommendation from Tinker et al. (2010)
+    Dv=hmod%Dv
 
     ! Delta_v dependence
     alpha=find(Dv,Delta_v,alpha0,n,3,3,2)
@@ -4926,21 +5324,20 @@ CONTAINS
     eta=find(Dv,Delta_v,eta0,n,3,3,2)
 
     ! Redshift dependence
-    beta=beta*(1.+z)**0.20
-    gamma=gamma**(1.+z)**(-0.01)
-    phi=phi*(1.+z)**(-0.08)
-    eta=eta*(1.+z)**0.27
+    beta=beta*(1.+z)**beta_z_exp
+    gamma=gamma**(1.+z)**gamma_z_exp
+    phi=phi*(1.+z)**phi_z_exp
+    eta=eta*(1.+z)**eta_z_exp
 
     ! The actual mass function
     g_Tinker=alpha*(1.+(beta*nu)**(-2.*phi))*nu**(2.*eta)*exp(-0.5*gamma*nu**2)
     
   END FUNCTION g_Tinker
 
-  FUNCTION gb_nu(nu,hmod)
+  REAL FUNCTION gb_nu(nu,hmod)
 
     ! g(nu) times b(nu)
     IMPLICIT NONE
-    REAL :: gb_nu
     REAL, INTENT(IN) :: nu
     TYPE(halomod), INTENT(INOUT) :: hmod
 
@@ -4979,11 +5376,10 @@ CONTAINS
 
   END FUNCTION wk_isothermal_2
 
-  FUNCTION halo_fraction(itype,m,hmod,cosm)
+  REAL FUNCTION halo_fraction(itype,m,hmod,cosm)
 
     ! Mass fraction of a type within a halo
     IMPLICIT NONE
-    REAL :: halo_fraction
     INTEGER, INTENT(IN) :: itype
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
@@ -5001,6 +5397,8 @@ CONTAINS
        halo_fraction=halo_boundgas_fraction(m,hmod,cosm)
     ELSE IF(itype==5) THEN
        halo_fraction=halo_freegas_fraction(m,hmod,cosm)
+    ELSE IF(itype==13) THEN
+       halo_fraction=halo_coldgas_fraction(m,hmod,cosm)
     ELSE
        STOP 'HALO_FRACTION: Error, itype not specified correcntly'
     END IF
@@ -5025,24 +5423,22 @@ CONTAINS
 
   END FUNCTION halo_CDM_fraction
 
-  FUNCTION halo_gas_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_gas_fraction(m,hmod,cosm)
 
     ! Mass fraction of a halo in gas
     IMPLICIT NONE
-    REAL :: halo_gas_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    halo_gas_fraction=halo_boundgas_fraction(m,hmod,cosm)+halo_freegas_fraction(m,hmod,cosm)
+    halo_gas_fraction=halo_boundgas_fraction(m,hmod,cosm)+halo_freegas_fraction(m,hmod,cosm)+halo_coldgas_fraction(m,hmod,cosm)
 
   END FUNCTION halo_gas_fraction
 
-  FUNCTION halo_boundgas_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_boundgas_fraction(m,hmod,cosm)
 
     ! Fraction of a halo in bound gas
     IMPLICIT NONE
-    REAL :: halo_boundgas_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm    
@@ -5050,7 +5446,7 @@ CONTAINS
 
     IF(hmod%frac_boundgas==1) THEN
        ! From Fedeli (2014a)
-       m0=1.e12
+       m0=1e12
        sigma=3.
        IF(m<m0) THEN
           halo_boundgas_fraction=0.
@@ -5059,7 +5455,6 @@ CONTAINS
        END IF
     ELSE IF(hmod%frac_boundgas==2) THEN
        ! From Schneider (2015)
-       !m0=1.2d14
        M0=HMx_M0(hmod)
        beta=0.6
        halo_boundgas_fraction=(cosm%om_b/cosm%om_m)/(1.+(M0/m)**beta)
@@ -5070,28 +5465,50 @@ CONTAINS
        STOP 'HALO_BOUNDGAS_FRACTION: Error, frac_boundgas not specified correctly'
     END IF
 
+    IF(hmod%frac_coldgas==1) THEN
+       ! Constant fraction of halo gas
+       halo_boundgas_fraction=(1.-hmod%fcold)*halo_boundgas_fraction
+    ELSE
+       STOP 'HALO_BOUNDGAS_FRACTION: Error, frac_coldgas not specified correctly'
+    END IF
+
   END FUNCTION halo_boundgas_fraction
 
-  FUNCTION halo_freegas_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_coldgas_fraction(m,hmod,cosm)
+
+    ! Fraction of cold gas in haloes
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    IF(hmod%frac_coldgas==1) THEN
+       ! Constant fraction of halo gas
+       halo_coldgas_fraction=hmod%fcold*halo_boundgas_fraction(m,hmod,cosm)
+    ELSE
+       STOP 'HALO_COLDGAS_FRACTION: Error, frac_coldgas not specified correctly'
+    END IF
+    
+  END FUNCTION halo_coldgas_fraction
+
+  REAL FUNCTION halo_freegas_fraction(m,hmod,cosm)
 
     ! Mass fraction of a halo in free gas
     IMPLICIT NONE
-    REAL :: halo_freegas_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     ! This is necessarily all the gas that is not bound or in stars
-    halo_freegas_fraction=cosm%om_b/cosm%om_m-halo_star_fraction(m,hmod,cosm)-halo_boundgas_fraction(m,hmod,cosm)
+    halo_freegas_fraction=cosm%om_b/cosm%om_m-halo_star_fraction(m,hmod,cosm)-halo_boundgas_fraction(m,hmod,cosm)-halo_coldgas_fraction(m,hmod,cosm)
     IF(halo_freegas_fraction<0.) halo_freegas_fraction=0.
 
   END FUNCTION halo_freegas_fraction
 
-  FUNCTION halo_star_fraction(m,hmod,cosm)
+  REAL FUNCTION halo_star_fraction(m,hmod,cosm)
 
     ! Mass fraction of a halo in stars
     IMPLICIT NONE
-    REAL :: halo_star_fraction
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -5102,8 +5519,6 @@ CONTAINS
 
     IF(hmod%frac_star==1 .OR. hmod%frac_star==3) THEN
        ! Fedeli (2014)
-       !A=0.02
-       !IF(variation) A=param(5)
        A=HMx_Astar(hmod)
        m0=hmod%Mstar
        sigma=hmod%sstar
@@ -5126,6 +5541,64 @@ CONTAINS
     END IF
 
   END FUNCTION halo_star_fraction
+
+  REAL FUNCTION halo_HI_fraction(M,hmod,cosm)
+
+    ! Dimensionless M_HI/M_halo
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: M ! Host-halo mass
+    TYPE(halomod), INTENT(INOUT) :: hmod ! Halomodel
+    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmology
+    REAL :: alpha, M0, Mmin
+    REAL :: crap
+
+    ! Prevent compile-time warnings
+    crap=cosm%A
+
+    IF(hmod%frac_HI==1) THEN
+       ! Simple model with hard truncation
+       IF(m>=hmod%HImin .AND. m<=hmod%HImax) THEN
+          halo_HI_fraction=1.
+       ELSE
+          halo_HI_fraction=0.
+       END IF
+    ELSE IF(hmod%frac_HI==2 .OR. hmod%frac_HI==3) THEN
+       ! From Villaescusa-Navarro et al. (2018; 1804.09180)
+       ! 2 - Just z=0 results
+       ! 3 - Using z evolution
+       IF(hmod%frac_HI==2 .OR. hmod%z==0.) THEN
+          alpha=0.24
+          M0=4.3e10
+          Mmin=2e12
+       ELSE IF(hmod%z==1.) THEN
+          alpha=0.53
+          M0=1.5e10
+          Mmin=6e11
+       ELSE IF(hmod%z==2.) THEN
+          alpha=0.60
+          M0=1.3e10
+          Mmin=3.6e11
+       ELSE IF(hmod%z==3.) THEN
+          alpha=0.76
+          M0=2.9e9
+          Mmin=6.7e10
+       ELSE IF(hmod%z==4.) THEN
+          alpha=0.79
+          M0=1.4e9
+          Mmin=2.1e10
+       ELSE IF(hmod%z==5.) THEN
+          alpha=0.74
+          M0=1.9e9
+          Mmin=2e10
+       ELSE
+          STOP 'HALO_HI_FRACTION: Error, redshift not supported here'
+       END IF
+       halo_HI_fraction=(M0/M)*((M/Mmin)**alpha)*exp(-(M/Mmin)**(-0.35))
+    ELSE
+       STOP 'HALO_HI_FRACTION: Error, frac_HI specified incorrectly'
+    END IF
+       
+  END FUNCTION halo_HI_fraction
 
   FUNCTION integrate_hmod(a,b,f,hmod,acc,iorder)
 
@@ -5568,8 +6041,6 @@ CONTAINS
     LOGICAL :: timing
     REAL :: t1, t2, w
 
-    REAL, PARAMETER :: seconds=2. ! How many seconds should each timing test take (approximate)
-
     base='winint/results_'
     ext='.dat'
 
@@ -5623,7 +6094,7 @@ CONTAINS
              CLOSE(7)
              IF(imeth==1) THEN
                 CALL cpu_time(t2)
-                ntime=CEILING(seconds/(t2-t1))
+                ntime=CEILING(winint_test_seconds/(t2-t1))
              END IF
           ELSE
              CALL cpu_time(t2)
