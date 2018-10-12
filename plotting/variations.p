@@ -21,12 +21,14 @@ UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat'
 
 #Fix the parameter to plot
 if(!exists("param")){param=1}
-if(param==1){pname='{/Symbol a}';       min=0.05;  max=0.65;  ilog=0; coll='light-blue'}
-if(param==2){pname='{/Symbol e}';       min=0.5;   max=2.0;   ilog=1; coll='pink'}
-if(param==3){pname='{/Symbol G}';       min=1.12;  max=1.22;  ilog=0; coll='orange'}
-if(param==4){pname='M_B / M_{'.sun.'}'; min=1e13;  max=1e15;  ilog=1; coll='light-green'}
-if(param==5){pname='A_*';               min=0.02;  max=0.04;  ilog=0; coll='gold'}
-if(param==6){pname='T_{WHIM} / K';      min=1e5;   max=1e7;   ilog=1; coll='cyan'}
+if(param==1){pname='{/Symbol a}';       min=0.05; max=0.65; ilog=0; coll='light-blue'}
+if(param==2){pname='{/Symbol e}';       min=0.5;  max=2.0;  ilog=1; coll='pink'}
+if(param==3){pname='{/Symbol G}';       min=1.12; max=1.22; ilog=0; coll='orange'}
+if(param==4){pname='M_B / M_{'.sun.'}'; min=1e13; max=1e15; ilog=1; coll='light-green'}
+if(param==5){pname='A_*';               min=0.02; max=0.04; ilog=0; coll='gold'}
+if(param==6){pname='T_{WHIM} / K';      min=1e5;  max=1e7;  ilog=1; coll='cyan'}
+if(param==7){pname='c_*';               min=10.;  max=100.; ilog=1; coll='purple'}
+if(param==8){pname='f_{c}';             min=0.;   max=0.25; ilog=0; coll='green'}
 print 'Comparison for parameter (set with *param*): '.param.''
 
 #Output figure
