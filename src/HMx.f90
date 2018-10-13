@@ -984,49 +984,6 @@ CONTAINS
 
   END SUBROUTINE init_halomod_new
 
-!!$  SUBROUTINE init_windows(k,nk,hmod,cosm)
-!!$
-!!$    IMPLICIT NONE
-!!$    REAL, INTENT(IN) :: k(nk)
-!!$    INTEGER, INTENT(IN) :: nk
-!!$    TYPE(halomod), INTENT(INOUT) :: hmod
-!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
-!!$    INTEGER :: if, ik, i
-!!$    REAL :: M, rv, c, rs, nu, et
-!!$
-!!$    ALLOCATE(hmod%k(nk))
-!!$    hmod%nk=nk
-!!$    hmod%k=k
-!!$
-!!$    ! Fill arrays
-!!$    ALLOCATE(hmod%wk(0:6,nk,hmod%n))
-!!$    wk=0.
-!!$
-!!$    ! Get HMcode eta
-!!$    et=eta(hmod,cosm)
-!!$
-!!$    ! Loop over field types, k and M
-!!$    DO if=1,6
-!!$       IF(if==4 .OR. if==5) CYCLE
-!!$       DO ik=1,nk
-!!$          DO i=1,hmod%n
-!!$
-!!$             ! Halo properties
-!!$             M=hmod%m(i)
-!!$             rv=hmod%rv(i)
-!!$             c=hmod%c(i)
-!!$             rs=rv/c
-!!$             nu=hmod%nu(i)
-!!$
-!!$             ! Fill window-function array
-!!$             wk(if,ik,i)=win_type(.FALSE.,if,1,k(i)*nu**et,M,rv,rs,hmod,cosm)
-!!$             
-!!$          END DO
-!!$       END DO
-!!$    END DO
-!!$    
-!!$  END SUBROUTINE init_windows
-
   SUBROUTINE print_halomod(hmod,cosm,verbose)
 
     !This subroutine writes out the physical halo-model parameters at some redshift 
@@ -1540,7 +1497,6 @@ CONTAINS
   SUBROUTINE calculate_HMcode_a(k,a,Pk,nk,cosm)
 
     ! Get the HMcode prediction at this z for this cosmology
-    ! TODO: I think this should not work because pow routines should be (1,1,nk) ??? WTF ???
     IMPLICIT NONE
     REAL, INTENT(IN) :: k(nk)
     REAL, INTENT(IN) :: a
@@ -1894,7 +1850,6 @@ CONTAINS
     REAL, INTENT(OUT) :: pow_hm(nt,nt)    
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: et, nu, c, m, rv, rs
     REAL :: wk(nt,hmod%n), wk2(hmod%n,2)
     INTEGER :: i, j, ih(2)
 
@@ -1922,30 +1877,14 @@ CONTAINS
        pow_1h=0.
 
     ELSE
-
-       ! Get eta
-       et=eta(hmod,cosm)
        
        ! No scatter in halo properties
        IF(hmod%iscatter==0) THEN
 
-          ! Calculate the halo window functions for each field
-          DO j=1,nt
+          CALL init_windows(k,1,itype,wk,nt,hmod%n,hmod,cosm)
 
-             ! Loopp over masses to fill window-function array
-             DO i=1,hmod%n
-                m=hmod%m(i)
-                rv=hmod%rv(i)
-                c=hmod%c(i)
-                rs=rv/c
-                nu=hmod%nu(i)
-                wk(j,i)=win_type(.FALSE.,itype(j),1,k*nu**et,m,rv,rs,hmod,cosm)
-             END DO
-
-          END DO
-
-          ! wk(1)*wk(2) in the case of no scatter
-          !wk2=wk(:,1)*wk(:,2)
+!!$          ! wk(1)*wk(2) in the case of no scatter
+!!$          !wk2=wk(:,1)*wk(:,2)
           
        ELSE IF(hmod%iscatter==1) THEN
 
@@ -1973,19 +1912,7 @@ CONTAINS
        ! TODO: Can I avoid this somehow?
        IF(hmod%ip2h==1 .OR. hmod%ip2h==3 .OR. hmod%smooth_freegas) THEN
 
-          ! Loop over fields
-          DO j=1,nt
-             
-             DO i=1,hmod%n                
-                m=hmod%m(i)
-                rv=hmod%rv(i)
-                rs=rv/hmod%c(i)
-                nu=hmod%nu(i)
-                IF(hmod%ip2h==1)        wk(j,i)=win_type(.FALSE.,itype(j),2,0.,m,rv,rs,hmod,cosm)
-                IF(hmod%smooth_freegas) wk(j,i)=win_type(.FALSE.,itype(j),2,k*nu**et,m,rv,rs,hmod,cosm)               
-             END DO
-             
-          END DO
+          CALL init_windows(k,2,itype,wk,nt,hmod%n,hmod,cosm)
           
        END IF
 
@@ -2019,6 +1946,57 @@ CONTAINS
     END DO
 
   END SUBROUTINE calculate_HMx_ka
+
+  SUBROUTINE init_windows(k,ipnh,fields,wk,nf,nm,hmod,cosm)
+
+    ! Fill the window functions for all the different fields
+    ! TODO: Surely I can remove the ipnh dependence?
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k
+    INTEGER, INTENT(IN) :: ipnh
+    INTEGER, INTENT(IN) :: fields(nf)
+    REAL, INTENT(OUT) :: wk(nf,nm)
+    INTEGER, INTENT(IN) :: nf
+    INTEGER, INTENT(IN) :: nm
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm    
+    INTEGER :: i, j
+    REAL :: m, rv, c, rs, nu, et
+
+    ! Get eta
+    et=eta(hmod,cosm)
+
+    ! Calculate the halo window functions for each field
+    DO j=1,nf
+
+       ! Loop over masses to fill window-function array
+       DO i=1,nm
+          
+          m=hmod%m(i)
+          rv=hmod%rv(i)
+          c=hmod%c(i)
+          rs=rv/c
+          nu=hmod%nu(i)
+          
+          IF(ipnh==1) THEN
+             wk(j,i)=win_type(.FALSE.,fields(j),1,k*nu**et,m,rv,rs,hmod,cosm)
+          ELSE IF(ipnh==2) THEN
+             IF(hmod%ip2h==1 .OR. hmod%ip2h==3) THEN
+                wk(j,i)=win_type(.FALSE.,fields(j),2,0.,m,rv,rs,hmod,cosm)
+             ELSE IF(hmod%smooth_freegas) THEN
+                wk(j,i)=win_type(.FALSE.,fields(j),2,k*nu**et,m,rv,rs,hmod,cosm)
+             ELSE
+                STOP 'INIT_WIN: Error, something went wrong with ipnh=2'
+             END IF
+          ELSE
+             STOP 'INIT_WIN: Error, ipnh specified incorrectly'
+          END IF
+          
+       END DO
+
+    END DO
+
+  END SUBROUTINE init_windows
 
   REAL FUNCTION p_2h(ih,wk,k,plin,hmod,cosm)
 
@@ -5461,8 +5439,8 @@ CONTAINS
     REAL :: r, k
     REAL, ALLOCATABLE :: integrand(:)
 
-    REAL, PARAMETER :: kmin=1d-1
-    REAL, PARAMETER :: kmax=1d2
+    REAL, PARAMETER :: kmin=1e-1
+    REAL, PARAMETER :: kmax=1e2
     INTEGER, PARAMETER :: nr=256 ! Number of points in r
     INTEGER, PARAMETER :: nk=16  ! Number of points in k
 
