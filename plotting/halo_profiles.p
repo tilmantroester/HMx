@@ -8,8 +8,8 @@ if(print==0){set term aqua dashed; msun='sun'}
 if(print==1){set term post enh col font ',10' fontfile cmsy; msun='{/cmsy10 \014}'}
 
 #File locations
-file(m,z)=sprintf('diagnostics/halo_profile_m%i_z%1.1f.dat',m,z)
-UPP(m,z)=sprintf('diagnostics/UPP/halo_profile_m%i_z%1.1f.dat',m,z)
+file(m,z)=sprintf('data/halo_profile_m%i_z%1.1f.dat',m,z)
+UPP(m,z)=sprintf('data/UPP/halo_profile_m%i_z%1.1f.dat',m,z)
 
 #Initial white space
 print ''

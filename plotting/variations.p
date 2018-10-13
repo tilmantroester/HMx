@@ -13,10 +13,10 @@ if(print==1){set term post enh col dashed dl 1 fontfile cmsy font ',10'; sun='{/
 print ''
 
 #File paths
-dmonly='variations/DMONLY.dat'
-power(param,value,type)=sprintf('variations/power_param_%i_value_%i_%s.dat',param,value,type)
-profile(mass,param,value)=sprintf('variations/profile_mass_%i_param_%i_value_%i.dat',mass,param,value)
-mass_fraction(param,value)=sprintf('variations/mass_fractions_param_%i_value_%i.dat',param,value)
+dmonly='data/DMONLY.dat'
+power(param,value,type)=sprintf('data/power_param_%i_value_%i_%s.dat',param,value,type)
+profile(mass,param,value)=sprintf('data/profile_mass_%i_param_%i_value_%i.dat',mass,param,value)
+mass_fraction(param,value)=sprintf('data/mass_fractions_param_%i_value_%i.dat',param,value)
 UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat',mass)
 
 #Fix the parameter to plot
@@ -69,8 +69,10 @@ ssim='stars'
 psim='epressure'
 
 #Name of halo-model power spectrum types
-types_density='dd dc cc dg gg ds ss'
-types_pressure='dd dp pp'
+#types_density='dd dc cc dg gg ds ss'
+#types_pressure='dd dp pp'
+types_density="'00' '01' '11' '02' '22' '03' '33''"
+types_pressure="'00' '06' '66'"
 
 #Label information
 ddlab='{/Symbol d}{/Symbol d}'
@@ -252,9 +254,9 @@ set label '{/Symbol d}{/Symbol d}' at graph 0.02,0.35
 set label '{/Symbol d}g'           at graph 0.02,0.25
 set label '{/Symbol d}s'           at graph 0.02,0.15
 
-plot for [i=1:n] power(param,i,'dd') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     for [i=1:n] power(param,i,'dg') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     for [i=1:n] power(param,i,'ds') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
+plot for [i=1:n] power(param,i,'00') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
+     for [i=1:n] power(param,i,'02') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
+     for [i=1:n] power(param,i,'03') u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      simulation(sim_name,snap,dsim,dsim) u 1:($2-$3):5 w e pt 2 lc 'black' ti sim_title(name,z),\
      simulation(sim_name,snap,dsim,gsim) u 1:($2-$3):5 w e pt 2 lc 'black' noti,\
      simulation(sim_name,snap,dsim,ssim) u 1:($2-$3):5 w e pt 2 lc 'black' noti
@@ -277,7 +279,6 @@ set format x
 
 set ylabel 'P_{i,j}(k) / P_{DMONLY}(k)'
 set yrange [d_ratio_min*dy:d_ratio_max/dy]
-#set yrange [*:*]
 
 set key top left
 
@@ -285,13 +286,12 @@ set label '{/Symbol d}{/Symbol d}' at graph 0.03,0.93
 set label '{/Symbol d}g'           at graph 0.03,0.63
 set label '{/Symbol d}s'           at graph 0.03,0.27
 
-plot for [i=1:n] '<paste '.power(param,i,'dd').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     for [i=1:n] '<paste '.power(param,i,'dg').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
-     for [i=1:n] '<paste '.power(param,i,'ds').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
+plot for [i=1:n] '<paste '.power(param,i,'00').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
+     for [i=1:n] '<paste '.power(param,i,'02').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
+     for [i=1:n] '<paste '.power(param,i,'03').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      '<paste '.simulation(sim_name,snap,dsim,dsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti,\
      '<paste '.simulation(sim_name,snap,dsim,gsim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti,\
      '<paste '.simulation(sim_name,snap,dsim,ssim).' '.simulation(dmsim,snap,dsim,dsim).'' u 1:((column(cs)-column(ss))/(column(cs+Ls)-column(ss+Ls))) w p pt 2 lc 'black' noti
-#for [i=1:n] '<paste '.power(param,i,'ds').' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
 
 unset label
 
