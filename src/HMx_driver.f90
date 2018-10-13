@@ -7,15 +7,18 @@ PROGRAM HMx_driver
   USE cosmic_emu_stuff
   USE calculus_table
   USE string_operations
+
+  ! TODO: Many pow(1,1,nk) could be pow(nk)
+  ! TODO: Too many different pow(:,:), pow(:,:,:), pow(:,:,:,:), ...
+  ! TODO: Maybe could use pow1(:), pow2(:,:), ...
   
   IMPLICIT NONE
 
   ! Parameter definitions
   REAL, ALLOCATABLE :: k(:), a(:)
-  REAL, ALLOCATABLE :: pow_lin(:), pow_2h(:), pow_1h(:), pow_full(:)
+  REAL, ALLOCATABLE :: pow_li(:),   pow_2h(:,:,:),   pow_1h(:,:,:),   pow_hm(:,:,:)
   REAL, ALLOCATABLE :: powa(:,:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa_full(:,:)
   REAL, ALLOCATABLE :: powd_li(:),   powd_2h(:,:,:),   powd_1h(:,:,:),   powd_hm(:,:,:)
-  REAL, ALLOCATABLE :: powf_li(:),   powf_2h(:,:,:),   powf_1h(:,:,:),   powf_hm(:,:,:)
   REAL, ALLOCATABLE :: pows_li(:,:), pows_2h(:,:,:,:), pows_1h(:,:,:,:), pows_hm(:,:,:,:)
   REAL, ALLOCATABLE :: powb_hm(:,:,:,:)
   REAL, ALLOCATABLE :: kwow(:,:,:), powow_sim(:,:,:,:,:), powow_hm(:,:,:,:,:)
@@ -70,14 +73,16 @@ PROGRAM HMx_driver
 
   ! Fitting
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
-  REAL, ALLOCATABLE :: pmin(:), pmax(:), pbest(:), pnow(:), prange(:)
+  REAL, ALLOCATABLE :: pmin(:), pmax(:), pbest(:), prange(:)
   REAL, ALLOCATABLE :: pnew(:), pold(:), porig(:)
   LOGICAL, ALLOCATABLE :: plog(:)
-  INTEGER, ALLOCATABLE :: nrange(:), iii(:), ipbest(:)
   REAL :: fom, fom_best, fom_new, fom_old, fom_orig
-  INTEGER :: i1, i2, i3, ifit, nref, np, ibest
-  LOGICAL :: refine, jump
-  CHARACTER(len=256) :: model
+  LOGICAL :: jump
+  INTEGER :: ibest, np
+  !INTEGER, ALLOCATABLE :: nrange(:), iii(:), ipbest(:)  
+  !INTEGER :: i1, i2, i3, ifit, nref, np, ibest
+  !LOGICAL :: refine, jump
+  !CHARACTER(len=256) :: model
 
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
@@ -165,13 +170,15 @@ PROGRAM HMx_driver
           
   IF(imode==0) THEN
 
+     ! Calculate halo model at one z
+     ! TODO: Change to calculate_HMx_a
+
      ! Set number of k points and k range (log spaced)
      nk=128
      kmin=1e-3
      kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
-     !ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
 
      ! Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
@@ -310,7 +317,7 @@ PROGRAM HMx_driver
 
      ! Allocate the arrays for P(k)
      ALLOCATE(powd_li(nk),powd_2h(1,1,nk),powd_1h(1,1,nk),powd_hm(1,1,nk))
-     ALLOCATE(powf_li(nk),powf_2h(nf,nf,nk),powf_1h(nf,nf,nk),powf_hm(nf,nf,nk))
+     ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
 
      DO iowl=1,n
 
@@ -720,7 +727,7 @@ PROGRAM HMx_driver
            CALL write_power(k,powd_li,powd_2h(1,1,:),powd_1h(1,1,:),powd_hm(1,1,:),nk,outfile,verbose)
 
            ! Do the calculation for the rest of the fields
-           CALL calculate_HMx_a_new(fields,nf,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose,response=.FALSE.)
+           CALL calculate_HMx_a_new(fields,nf,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
            ! Loop over fields and write data to disk
            DO j1=1,nf
@@ -733,7 +740,7 @@ PROGRAM HMx_driver
                  WRITE(*,*) fields(j1), fields(j2), TRIM(outfile)
 
                  ! Write P(k) to disk
-                 CALL write_power(k,powf_li,powf_2h(j1,j2,:),powf_1h(j1,j2,:),powf_hm(j1,j2,:),nk,outfile,verbose=.FALSE.)
+                 CALL write_power(k,pow_li,pow_2h(j1,j2,:),pow_1h(j1,j2,:),pow_hm(j1,j2,:),nk,outfile,verbose=.FALSE.)
 
               END DO
            END DO
@@ -797,7 +804,7 @@ PROGRAM HMx_driver
      fields(5)=6
 
      ! Allocate arrays for power
-     ALLOCATE(powf_li(nk),powf_2h(nf,nf,nk),powf_1h(nf,nf,nk),powf_hm(nf,nf,nk))
+     ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
 
      ! Assigns the cosmological model
      CALL assign_cosmology(icosmo,cosm,verbose)
@@ -818,14 +825,14 @@ PROGRAM HMx_driver
         CALL init_halomod_new(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
         CALL print_halomod(hmod,cosm,verbose)
 
-        CALL calculate_HMx_a_new(fields,nf,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+        CALL calculate_HMx_a_new(fields,nf,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
         ! Do the halo-model calculation for a range of halo types
         DO j1=1,nf
            DO j2=1,nf
               
               DO i=1,nk
-                 IF(ISNAN(powf_hm(j1,j2,i))) THEN
+                 IF(ISNAN(pow_hm(j1,j2,i))) THEN
                     CALL print_halomod(hmod,cosm,verbose)
                     WRITE(*,*) 'HMx_DRIVER: Halo types:', fields(j1), fields(j2)
                     WRITE(*,*) 'HMx_DRIVER: k [h/Mpc]:', k(i)
@@ -1712,7 +1719,7 @@ PROGRAM HMx_driver
 
      ! Allocate arrays for the power spectra
      ALLOCATE(powd_li(nk),powd_2h(1,1,nk),powd_1h(1,1,nk),powd_hm(1,1,nk))
-     ALLOCATE(powf_li(nk),powf_2h(nf,nf,nk),powf_1h(nf,nf,nk),powf_hm(nf,nf,nk))
+     ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
 
      ! Set the redshift
      z=0.
@@ -1877,7 +1884,7 @@ PROGRAM HMx_driver
            outfile=number_file2(base,ipa,mid,i,ext)
            CALL write_mass_fractions(hmod,cosm,outfile)           
 
-           CALL calculate_HMx_a_new(fields,nf,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose,response=.FALSE.)
+           CALL calculate_HMx_a_new(fields,nf,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
            
            ! Loop over field combinations and do the calculation
            !DO j=1,9
@@ -1898,7 +1905,7 @@ PROGRAM HMx_driver
                  WRITE(*,fmt='(4I5,F14.7,A50)') ipa, i, fields(j1), fields(j2), param_neat, TRIM(outfile)
 
                  ! Do the halo-model calculation and write to file
-                 CALL write_power(k,powf_li,powf_2h(j1,j2,:),powf_1h(j1,j2,:),powf_hm(j1,j2,:),nk,outfile,verbose=.FALSE.)
+                 CALL write_power(k,pow_li,pow_2h(j1,j2,:),pow_1h(j1,j2,:),pow_hm(j1,j2,:),nk,outfile,verbose=.FALSE.)
 
               END DO
            END DO
@@ -2033,7 +2040,7 @@ PROGRAM HMx_driver
      END IF
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
-     ALLOCATE(powf_li(nk),powf_2h(1,1,nk),powf_1h(1,1,nk),powf_hm(1,1,nk))
+     ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
      ! Set the halo model to that for CCL tests
      ihm=9
@@ -2071,10 +2078,10 @@ PROGRAM HMx_driver
            CALL print_halomod(hmod,cosm,verbose)
 
            ! Do the halo-model calculation
-           CALL calculate_HMx_a_new(dmonly,1,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose,response=.FALSE.)
+           CALL calculate_HMx_a_new(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
            ! Write out the results
-           CALL write_power(k,powf_li,powf_2h(1,1,:),powf_1h(1,1,:),powf_hm(1,1,:),nk,outfile,verbose)
+           CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose)
 
         END DO
 
@@ -2149,7 +2156,7 @@ PROGRAM HMx_driver
      kmax=1e1
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
-     ALLOCATE(powf_li(nk),powf_2h(1,1,nk),powf_1h(1,1,nk),powf_hm(1,1,nk))
+     ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
      ! Set the redshift
      z=0.
@@ -2214,11 +2221,11 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose)
 
         ! Do the halo-model calculation
-        CALL calculate_HMx_a_new(dmonly,1,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose,response=.FALSE.)
+        CALL calculate_HMx_a_new(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
         ! Write out the results
         outfile=TRIM(dir)//'/power_'//TRIM(outfile)//'.dat'
-        CALL write_power(k,powf_li,powf_2h(1,1,:),powf_1h(1,1,:),powf_hm(1,1,:),nk,outfile,verbose)
+        CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose)
 
      END DO
 
@@ -2504,7 +2511,7 @@ PROGRAM HMx_driver
 
      ! MCMC: Set number of points
      ! Number of MCMC points
-     n=50
+     n=5000
 
      ! MCMC: Set number of cosmologies (or power spectra combinations)
      ! Allocate array for cosmological models
@@ -2537,24 +2544,6 @@ PROGRAM HMx_driver
         nz=1
         ALLOCATE(zs(nz))
         zs(1)=0.0 ! Set the redshift
-!!$        !ip(1)=3   ! Stars
-!!$        !ip(2)=3   ! Stars
-!!$        !ip(1)=0   ! Matter
-!!$        !ip(2)=6   ! Pressure
-!!$        !ip(1)=2   ! gas
-!!$        !ip(2)=2   ! gas
-!!$        ips(1,1)=1   ! CDM
-!!$        ips(1,2)=1   ! CDM
-!!$        ips(2,1)=1   ! CDM
-!!$        ips(2,2)=2   ! has
-!!$        ips(3,1)=2   ! has
-!!$        ips(3,2)=2   ! has
-!!$        ips(4,1)=1   ! CDM
-!!$        ips(4,2)=3   ! stars
-!!$        ips(5,1)=2   ! gas
-!!$        ips(5,2)=3   ! stars
-!!$        ips(6,1)=3   ! stars
-!!$        ips(6,2)=3   ! stars
         fields(1)=1 ! CDM
         fields(2)=2 ! gas
         fields(3)=3 ! stars
@@ -2816,6 +2805,8 @@ PROGRAM HMx_driver
      ! Loop over number of runs
      WRITE(*,*) 'MCMC: Starting MCMC'
      WRITE(*,*) 'MCMC: Number of points:', n
+     WRITE(*,*)
+     
      ii=0
      OPEN(10,file='data/mcmc.dat')
      DO l=1,n
@@ -3049,21 +3040,21 @@ PROGRAM HMx_driver
            IF(imode==27 .OR. imode==29) CALL get_Mira_Titan_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
            IF(imode==28 .OR. imode==30) CALL get_FrankenEmu_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
 
-           ALLOCATE(powf_li(nk),powf_2h(1,1,nk),powf_1h(1,1,nk),powf_hm(1,1,nk))
+           ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
            CALL init_halomod_new(mmin,mmax,a(j),hmod,cosm,verbose=.FALSE.)
            CALL print_halomod(hmod,cosm,verbose=.FALSE.)
-           CALL calculate_HMx_a_new(dmonly,1,k_sim,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+           CALL calculate_HMx_a_new(dmonly,1,k_sim,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
            ! Write data to disk
            outfile=number_file2(base,i,mid,j,ext)
            OPEN(7,file=outfile)
            DO ii=1,nk
-              WRITE(7,*) k_sim(ii), powf_hm(1,1,ii), pow_sim(ii)
+              WRITE(7,*) k_sim(ii), pow_hm(1,1,ii), pow_sim(ii)
            END DO
            CLOSE(7)
 
-           DEALLOCATE(powf_li,powf_2h,powf_1h,powf_hm)
+           DEALLOCATE(pow_li,pow_2h,pow_1h,pow_hm)
            DEALLOCATE(k_sim,pow_sim)
            
         END DO
@@ -3088,7 +3079,7 @@ PROGRAM HMx_driver
      fields(2)=6
 
      ! Allocate arrays for power
-     ALLOCATE(powf_li(nk),powf_2h(nf,nf,nk),powf_1h(nf,nf,nk),powf_hm(nf,nf,nk))
+     ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
 
      ! Assign the cosmological model
      icosmo=4 ! BAHAMAS cosmology
@@ -3115,7 +3106,7 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose)
 
         ! Do the halo-model calculation
-        CALL calculate_HMx_a_new(fields,nf,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose,response=.FALSE.)
+        CALL calculate_HMx_a_new(fields,nf,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
         ! Loop over fields
         DO j1=1,nf
@@ -3128,7 +3119,7 @@ PROGRAM HMx_driver
               base=number_file2(base,fields(j1),mid,fields(j2),ext)
               ext='.dat'
               outfile=number_file(base,i,ext)
-              CALL write_power(k,powf_li,powf_2h(j1,j2,:),powf_1h(j1,j2,:),powf_hm(j1,j2,:),nk,outfile,verbose)
+              CALL write_power(k,pow_li,pow_2h(j1,j2,:),pow_1h(j1,j2,:),pow_hm(j1,j2,:),nk,outfile,verbose)
 
            END DO
         END DO
@@ -3192,7 +3183,7 @@ PROGRAM HMx_driver
      k=exp(k)
 
      ! Allocate arrays for the power calculation
-     ALLOCATE(powf_li(nk),powf_2h(1,1,nk),powf_1h(1,1,nk),powf_hm(1,1,nk))
+     ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
      ! Assign the cosmological model
      icosmo=1 ! Boring
@@ -3227,13 +3218,13 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose2)
         
         ! Do the halo-model calculation
-        CALL calculate_HMx_a_new(dmonly,1,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+        CALL calculate_HMx_a_new(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
         ! Write out the results
         base='data/power_cored_'
         ext='.dat'
         outfile=number_file(base,i,ext)
-        CALL write_power(k,powf_li,powf_2h(1,1,:),powf_1h(1,1,:),powf_hm(1,1,:),nk,outfile,verbose)
+        CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose)
 
      END DO
 
@@ -3413,7 +3404,7 @@ PROGRAM HMx_driver
      k=exp(k)
 
      ! Allocate arrays for power
-     ALLOCATE(powf_li(nk),powf_2h(1,1,nk),powf_1h(1,1,nk),powf_hm(1,1,nk))
+     ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
      ! Assigns the cosmological model
      icosmo=1
@@ -3450,10 +3441,10 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose2)
 
         ! Do the halo-model calculation
-        CALL calculate_HMx_a_new(dmonly,1,k,nk,powf_li,powf_2h,powf_1h,powf_hm,hmod,cosm,verbose2,response=.FALSE.)
+        CALL calculate_HMx_a_new(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose2,response=.FALSE.)
 
         ! Write out data to disk
-        CALL write_power(k,powf_li,powf_2h(1,1,:),powf_1h(1,1,:),powf_hm(1,1,:),nk,outfile,verbose)
+        CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose)
 
      END DO
 
@@ -4299,7 +4290,7 @@ CONTAINS
                 END DO
                 CLOSE(7)
                 WRITE(*,*) 'WRITE_FITTING_POWER: Done'
-                WRITE(*,*) ''
+                WRITE(*,*)
              END DO
           END DO
        END DO
