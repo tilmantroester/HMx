@@ -403,7 +403,7 @@ CONTAINS
        cosm%sig8=0.8159       
        cosm%Om_v=0. ! Necessary for CAMB
        cosm%box=.TRUE.
-       cosm%Lbox=7500. ! 75 Mpc/h box
+       cosm%Lbox=75. ! 75 Mpc/h box
     ELSE IF(icosmo==28) THEN
        ! Finite box
        cosm%box=.TRUE.
@@ -656,6 +656,9 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: sigi, sigf, kbox
     LOGICAL, PARAMETER :: run_twice=.FALSE.
+
+    ! Need to give this a value otherwise get a warning in debug mode
+    kbox=0.
 
     ! Change the flag *before* doing this calculation because it calls power
     cosm%is_normalised=.TRUE.
