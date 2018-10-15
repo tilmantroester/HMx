@@ -2,6 +2,7 @@ MODULE HMx
 
   ! Module usage statements
   USE constants
+  USE array_operations
   USE solve_equations
   USE special_functions
   USE string_operations
@@ -28,6 +29,10 @@ MODULE HMx
   PUBLIC :: M_nu
   PUBLIC :: virial_radius
   PUBLIC :: convert_mass_definitions
+  PUBLIC :: win_type
+  PUBLIC :: UPP ! TODO: Retire
+  PUBLIC :: p_1void ! TODO: Retire
+  PUBLIC :: halo_HI_fraction ! TODO: Retire
 
   ! Diagnostics
   PUBLIC :: halo_definitions
@@ -35,12 +40,6 @@ MODULE HMx
   PUBLIC :: halo_properties
   PUBLIC :: write_halo_profiles
   PUBLIC :: write_mass_fractions
-
-  ! TODO: Things that should be private
-  PUBLIC :: UPP
-  PUBLIC :: win_electron_pressure
-  PUBLIC :: p_1void
-  PUBLIC :: halo_HI_fraction
 
   ! Winint functions
   PUBLIC :: winint_diagnostics
@@ -990,7 +989,7 @@ CONTAINS
     !(e.g., Delta_v) rather than the model parameters
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
-    TYPE(cosmology), INTENT(INOUT) :: cosm    
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose
 
     IF(verbose) THEN
@@ -1413,6 +1412,7 @@ CONTAINS
   SUBROUTINE calculate_HMx_new(itype,nt,mmin,mmax,k,nk,a,na,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response)
 
     ! Public facing function, calculates the halo model power for the desired 'k' and 'a' range
+    ! TODO: Change :,:,i to i,:,: for speed
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype(nt)
     INTEGER, INTENT(IN) :: nt
@@ -1450,7 +1450,7 @@ CONTAINS
        z=redshift_a(a(i))
        CALL init_halomod_new(mmin,mmax,a(i),hmod,cosm,verbose2)
        CALL print_halomod(hmod,cosm,verbose2)
-       CALL calculate_HMx_a_new(itype,nt,k,nk,pow_li(:,i),pow_2h(:,:,:,i),pow_1h(:,:,:,i),pow_hm(:,:,:,i),hmod,cosm,verbose2,response)
+       CALL calculate_HMx_a_new(itype,nt,k,nk,pow_li(:,i),pow_2h(:,:,:,i),pow_1h(:,:,:,i),pow_hm(:,:,:,i),hmod,cosm,verbose2,response) ! Slow
        IF(i==na .and. verbose) THEN
           WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
           DO j=1,nt
@@ -1620,8 +1620,8 @@ CONTAINS
     LOGICAL, INTENT(IN) :: verbose
     LOGICAL, INTENT(IN) :: response
     REAL :: plin
-    REAL :: powg_2h(1,1,nk), powg_1h(1,1,nk), powg_hm(1,1,nk)
-    REAL :: hmcode_2h(1,1,nk), hmcode_1h(1,1,nk), hmcode_hm(1,1,nk)
+    REAL :: powg_2h(nk), powg_1h(nk), powg_hm(nk)
+    REAL :: hmcode_2h(nk), hmcode_1h(nk), hmcode_hm(nk)
     INTEGER :: i, ihmcode
     TYPE(halomod) :: hmcode
     
@@ -1663,25 +1663,25 @@ CONTAINS
        pow_li(i)=plin
 
        ! Do the halo model calculation
-       CALL calculate_HMx_ka(itype,nt,k(i),plin,pow_2h(:,:,i),pow_1h(:,:,i),pow_hm(:,:,i),hmod,cosm)
+       CALL calculate_HMx_ka(itype,nt,k(i),plin,pow_2h(:,:,i),pow_1h(:,:,i),pow_hm(:,:,i),hmod,cosm) ! (slow array accessing)
           
        IF(response .OR. hmod%response) THEN
 
           ! If doing a response then calculate a DMONLY prediction too
-          CALL calculate_HMx_ka(dmonly,1,k(i),plin,powg_2h(:,:,i),powg_1h(:,:,i),powg_hm(:,:,i),hmod,cosm)
+          CALL calculate_HMx_ka(dmonly,1,k(i),plin,powg_2h(i),powg_1h(i),powg_hm(i),hmod,cosm)
           pow_li(i)=1.                               ! This is just linear-over-linear, which is one
-          pow_2h(:,:,i)=pow_2h(:,:,i)/powg_2h(1,1,i) ! Two-halo response
-          pow_1h(:,:,i)=pow_1h(:,:,i)/powg_1h(1,1,i) ! One-halo response
-          pow_hm(:,:,i)=pow_hm(:,:,i)/powg_hm(1,1,i) ! Full model response
+          pow_2h(:,:,i)=pow_2h(:,:,i)/powg_2h(i) ! Two-halo response (slow array accessing)
+          pow_1h(:,:,i)=pow_1h(:,:,i)/powg_1h(i) ! One-halo response (slow array accessing)
+          pow_hm(:,:,i)=pow_hm(:,:,i)/powg_hm(i) ! Full model response (slow array accessing)
 
           IF((.NOT. response) .AND. hmod%response) THEN
 
              ! If multiplying the response by an 'accurate' HMcode prediction
-             CALL calculate_HMx_ka(dmonly,1,k(i),plin,hmcode_2h(:,:,i),hmcode_1h(:,:,i),hmcode_hm(:,:,i),hmcode,cosm)
+             CALL calculate_HMx_ka(dmonly,1,k(i),plin,hmcode_2h(i),hmcode_1h(i),hmcode_hm(i),hmcode,cosm)
              pow_li(i)=plin                               ! Linear power is just linear power again
-             pow_2h(:,:,i)=pow_2h(:,:,i)*hmcode_2h(1,1,i) ! Multiply two-halo response through by HMcode two-halo term
-             pow_1h(:,:,i)=pow_1h(:,:,i)*hmcode_1h(1,1,i) ! Multiply one-halo response through by HMcode one-halo term
-             pow_hm(:,:,i)=pow_hm(:,:,i)*hmcode_hm(1,1,i) ! Multiply response through by HMcode
+             pow_2h(:,:,i)=pow_2h(:,:,i)*hmcode_2h(i) ! Multiply two-halo response through by HMcode two-halo term (slow array accessing)
+             pow_1h(:,:,i)=pow_1h(:,:,i)*hmcode_1h(i) ! Multiply one-halo response through by HMcode one-halo term (slow array accessing)
+             pow_hm(:,:,i)=pow_hm(:,:,i)*hmcode_hm(i) ! Multiply response through by HMcode (slow array accessing)
              
           END IF
           
@@ -1801,7 +1801,7 @@ CONTAINS
        END IF
 
        ! Get the two-halo term
-       p2h=p_2h(itype,wk,k,plin,hmod,cosm)
+       p2h=p_2h(itype,wk,hmod%n,k,plin,hmod,cosm)
 
     END IF
 
@@ -1837,9 +1837,8 @@ CONTAINS
 
     ! Gets the one- and two-halo terms and combines them
     ! TODO: Re-support scatter
-    ! TODO: Check if arrays should be (2,n) or (n,2)
+    ! TODO: include scatter in two-halo term
     ! TODO: Can I avoid calling Window twice for smooth gas etc. ?
-    ! TODO: If one if itype=0 and also 1,2,3 the could use W0 = W1+W2+W3 to avoid excess calculations
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype(nt)
     INTEGER, INTENT(IN) :: nt
@@ -1850,8 +1849,9 @@ CONTAINS
     REAL, INTENT(OUT) :: pow_hm(nt,nt)    
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: wk(nt,hmod%n), wk2(hmod%n,2)
+    REAL :: wk(hmod%n,nt), wk2(hmod%n,2)!, wk_squared(hmod%n)
     INTEGER :: i, j, ih(2)
+    REAL :: m, fc
 
     ! For the i's
     ! -1 - DMONLY
@@ -1881,7 +1881,7 @@ CONTAINS
        ! No scatter in halo properties
        IF(hmod%iscatter==0) THEN
 
-          CALL init_windows(k,1,itype,wk,nt,hmod%n,hmod,cosm)
+          CALL init_windows(k,1,itype,nt,wk,hmod%n,hmod,cosm)
 
 !!$          ! wk(1)*wk(2) in the case of no scatter
 !!$          !wk2=wk(:,1)*wk(:,2)
@@ -1890,13 +1890,12 @@ CONTAINS
 
           STOP 'CALCULATE_HALOMOD_K: Need to support scatter again'
 
-!!$          ! Scatter in halo properties
-!!$          ! TODO: include scatter in two-halo term
+!!$          ! Scatter in halo properties in one-halo term
 !!$          DO i=1,hmod%n
 !!$             m=hmod%m(i)
 !!$             rv=hmod%rv(i)
 !!$             c=hmod%c(i)
-!!$             wk2(i)=integrate_scatter(c,hmod%dlnc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
+!!$             wk_squared(i)=integrate_scatter(c,hmod%dlnc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
 !!$          END DO
           
        END IF
@@ -1904,7 +1903,7 @@ CONTAINS
        ! Loop over fields and get the one-halo term for each pair
        DO i=1,nt
           DO j=i,nt
-             pow_1h(i,j)=p_1h(wk(i,:)*wk(j,:),k,hmod,cosm)
+             pow_1h(i,j)=p_1h(wk(:,i)*wk(:,j),k,hmod,cosm)
           END DO
        END DO
 
@@ -1912,7 +1911,7 @@ CONTAINS
        ! TODO: Can I avoid this somehow?
        IF(hmod%ip2h==1 .OR. hmod%ip2h==3 .OR. hmod%smooth_freegas) THEN
 
-          CALL init_windows(k,2,itype,wk,nt,hmod%n,hmod,cosm)
+          CALL reinit_windows(k,2,itype,nt,wk,hmod%n,hmod,cosm)
           
        END IF
 
@@ -1921,9 +1920,9 @@ CONTAINS
           DO j=i,nt
              ih(1)=itype(i)
              ih(2)=itype(j)
-             wk2(:,1)=wk(i,:)
-             wk2(:,2)=wk(j,:)
-             pow_2h(i,j)=p_2h(ih,wk2,k,plin,hmod,cosm)
+             wk2(:,1)=wk(:,i)
+             wk2(:,2)=wk(:,j)
+             pow_2h(i,j)=p_2h(ih,wk2,hmod%n,k,plin,hmod,cosm)
           END DO
        END DO
 
@@ -1947,27 +1946,42 @@ CONTAINS
 
   END SUBROUTINE calculate_HMx_ka
 
-  SUBROUTINE init_windows(k,ipnh,fields,wk,nf,nm,hmod,cosm)
+  SUBROUTINE init_windows(k,ipnh,fields,nf,wk,nm,hmod,cosm)
 
     ! Fill the window functions for all the different fields
-    ! TODO: Surely I can remove the ipnh dependence?
+    ! TODO: Surely I can think of some way to remove the ipnh dependence?
     IMPLICIT NONE
     REAL, INTENT(IN) :: k
-    INTEGER, INTENT(IN) :: ipnh
+    INTEGER, INTENT(IN) :: ipnh ! TODO: Remove
     INTEGER, INTENT(IN) :: fields(nf)
-    REAL, INTENT(OUT) :: wk(nf,nm)
+    REAL, INTENT(OUT) :: wk(nm,nf)
     INTEGER, INTENT(IN) :: nf
     INTEGER, INTENT(IN) :: nm
     TYPE(halomod), INTENT(INOUT) :: hmod
-    TYPE(cosmology), INTENT(INOUT) :: cosm    
+    TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER :: i, j
     REAL :: m, rv, c, rs, nu, et
+    INTEGER :: i_all, i_cdm, i_gas, i_sta
+    LOGICAL :: quick_matter=.FALSE.
+
+    ! Get the array positions corresponding to all, cdm, gas, stars if they exist
+    i_all=array_position(0,fields,nf)
+    i_cdm=array_position(1,fields,nf)
+    i_gas=array_position(2,fields,nf)
+    i_sta=array_position(3,fields,nf)
+
+    ! If all, cdm, gas and stars exist then activate the quick-matter mode
+    IF((i_all .NE. 0) .AND. (i_cdm .NE. 0) .AND. (i_gas .NE. 0) .AND. (i_sta .NE. 0)) THEN
+       quick_matter=.TRUE.
+    END IF
 
     ! Get eta
     et=eta(hmod,cosm)
 
     ! Calculate the halo window functions for each field
     DO j=1,nf
+
+       IF(quick_matter .AND. j==i_all) CYCLE
 
        ! Loop over masses to fill window-function array
        DO i=1,nm
@@ -1979,12 +1993,13 @@ CONTAINS
           nu=hmod%nu(i)
           
           IF(ipnh==1) THEN
-             wk(j,i)=win_type(.FALSE.,fields(j),1,k*nu**et,m,rv,rs,hmod,cosm)
+             wk(i,j)=win_type(.FALSE.,fields(j),1,k*nu**et,m,rv,rs,hmod,cosm)
           ELSE IF(ipnh==2) THEN
              IF(hmod%ip2h==1 .OR. hmod%ip2h==3) THEN
-                wk(j,i)=win_type(.FALSE.,fields(j),2,0.,m,rv,rs,hmod,cosm)
+                ! Re-run the calculation but with k=0 fixed
+                wk(i,j)=win_type(.FALSE.,fields(j),2,0.,m,rv,rs,hmod,cosm)
              ELSE IF(hmod%smooth_freegas) THEN
-                wk(j,i)=win_type(.FALSE.,fields(j),2,k*nu**et,m,rv,rs,hmod,cosm)
+                wk(i,j)=win_type(.FALSE.,fields(j),2,k*nu**et,m,rv,rs,hmod,cosm)
              ELSE
                 STOP 'INIT_WIN: Error, something went wrong with ipnh=2'
              END IF
@@ -1996,22 +2011,82 @@ CONTAINS
 
     END DO
 
+    ! If quick-matter mode is active then create the total matter window by summing contributions
+    IF(quick_matter) THEN
+       wk(:,i_all)=wk(:,i_cdm)+wk(:,i_gas)+wk(:,i_sta)
+    END IF
+
   END SUBROUTINE init_windows
 
-  REAL FUNCTION p_2h(ih,wk,k,plin,hmod,cosm)
+  SUBROUTINE reinit_windows(k,ipnh,fields,nf,wk,nm,hmod,cosm)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k
+    INTEGER, INTENT(IN) :: ipnh ! TODO: Remove
+    INTEGER, INTENT(IN) :: fields(nf)
+    REAL, INTENT(INOUT) :: wk(nm,nf)
+    INTEGER, INTENT(IN) :: nf
+    INTEGER, INTENT(IN) :: nm
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: m, rv, c, rs, nu, et, fc
+    INTEGER :: i
+    INTEGER :: i_all, i_gas, i_pre
+    
+    ! Get the array positions corresponding to all, cdm, gas, stars if they exist
+    i_all=array_position(0,fields,nf)
+    i_gas=array_position(2,fields,nf)
+    i_pre=array_position(6,fields,nf)
+
+    IF(i_all==0 .AND. i_gas==0 .AND. i_pre==0) THEN
+
+       ! Do nothing
+
+    ELSE
+
+       ! Get eta
+       et=eta(hmod,cosm)
+       
+       ! Loop over mass and apply corrections
+
+       DO i=1,hmod%n
+
+          m=hmod%m(i)
+          rv=hmod%rv(i)
+          c=hmod%c(i)
+          rs=rv/c
+          nu=hmod%nu(i)
+          
+!!$          IF((i_all .NE. 0) .OR. (i_gas .NE. 0)) THEN
+!!$             fc=halo_freegas_fraction(m,hmod,cosm)*m/comoving_matter_density(cosm)
+!!$             IF(i_all .NE. 0) wk(i,i_all)=wk(i,i_all)+fc
+!!$             IF(i_gas .NE. 0) wk(i,i_gas)=wk(i,i_gas)+fc
+!!$          END IF
+
+          IF(i_all .NE. 0) wk(i,i_all)=win_type(.FALSE.,fields(i_all),2,k*nu**et,m,rv,rs,hmod,cosm)
+          IF(i_gas .NE. 0) wk(i,i_gas)=win_type(.FALSE.,fields(i_gas),2,k*nu**et,m,rv,rs,hmod,cosm)
+          IF(i_pre .NE. 0) wk(i,i_pre)=win_type(.FALSE.,fields(i_pre),2,k*nu**et,m,rv,rs,hmod,cosm)
+          
+       END DO
+
+    END IF
+    
+  END SUBROUTINE reinit_windows
+
+  REAL FUNCTION p_2h(ih,wk,n,k,plin,hmod,cosm)
 
     ! Produces the 'two-halo' power
-    ! TODO: Check if arrays should be (2,n) or (n,2)
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ih(2)
+    REAL, INTENT(IN) :: wk(n,2)
+    INTEGER, INTENT(IN) :: n
     REAL, INTENT(IN) :: k
     REAL, INTENT(IN) :: plin
-    TYPE(halomod), INTENT(INOUT) :: hmod
-    REAL, INTENT(IN) :: wk(hmod%n,2) ! This needs to be defined after halomod type, annoying
+    TYPE(halomod), INTENT(INOUT) :: hmod    
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: sigv, frac, rhom
     REAL :: nu, m, m0, wki(2), b0, wk0(2), nu0
-    REAL :: integrand1(hmod%n,2), integrand2(hmod%n,2)
+    REAL :: integrand1(n,2), integrand2(n,2)
     REAL :: sum1(2), sum2(2)
     INTEGER :: i, j
 
@@ -2041,8 +2116,8 @@ CONTAINS
           m0=hmod%hmass
           nu0=nu_M(m0,hmod,cosm)
           b0=b_nu(nu0,hmod)
-          wk0(1)=find(log(m0),hmod%log_m,wk(:,1),hmod%n,3,3,2)
-          wk0(2)=find(log(m0),hmod%log_m,wk(:,2),hmod%n,3,3,2)
+          wk0(1)=find(log(m0),hmod%log_m,wk(:,1),n,3,3,2)
+          wk0(2)=find(log(m0),hmod%log_m,wk(:,2),n,3,3,2)
           sum1(1)=rhom*b0*wk0(1)/m0
           sum1(2)=rhom*b0*wk0(2)/m0
 
@@ -2050,12 +2125,12 @@ CONTAINS
 
           ! ...otherwise you need to do an integral
           
-          DO i=1,hmod%n
+          DO i=1,n
 
              ! Some variables to make equations cleaner below
              m=hmod%m(i)
              nu=hmod%nu(i)
-             wki=wk(i,:)
+             wki=wk(i,:) ! (slow array accessing)x
 
              DO j=1,2
 
@@ -2073,7 +2148,7 @@ CONTAINS
 
           ! Evaluate these integrals from the tabulated values
           DO j=1,2
-             sum1(j)=integrate_table(hmod%nu,integrand1(:,j),hmod%n,1,hmod%n,3)
+             sum1(j)=integrate_table(hmod%nu,integrand1(:,j),n,1,n,3)
           END DO
 
           IF(hmod%ip2h_corr==1) THEN
@@ -2086,13 +2161,13 @@ CONTAINS
              ! THIS WILL NOT WORK FOR FIEDS THAT DO NOT HAVE MASS FUNCTIONS DEFINED
              STOP 'P_2H: This will not work for fields that do not have mass fractions defined'
              DO j=1,2
-                sum1(j)=sum1(j)+hmod%gbmin*halo_fraction(ih(j),m,hmod,cosm)!/rhom
+                sum1(j)=sum1(j)+hmod%gbmin*halo_fraction(ih(j),m,hmod,cosm)
              END DO
           ELSE IF(hmod%ip2h_corr==3) THEN
              ! Put the missing part of the integrand as a delta function at the low-mass limit of the integral
              ! I think this is the best thing to do
              m0=hmod%m(1)
-             wki=wk(1,:)
+             wki=wk(1,:) ! (slow array accessing)
              DO j=1,2             
                 sum1(j)=sum1(j)+rhom*hmod%gbmin*wki(j)/m0
              END DO
@@ -2102,7 +2177,7 @@ CONTAINS
 
        END IF
 
-       p_2h=plin*sum1(1)*sum1(2)!*(rhom**2)
+       p_2h=plin*sum1(1)*sum1(2)
 
        ! Second-order bias correction
        ! This needs to have the property that \int f(nu)b2(nu) du = 0
@@ -2111,10 +2186,8 @@ CONTAINS
        IF(hmod%ibias==2) THEN
                   
           ! Varying mmin *does* make a difference to the values of the integrals
-          !sum21=integrate_table(hmod%nu,integrand21,hmod%n,1,hmod%n,3)
-          !sum22=integrate_table(hmod%nu,integrand22,hmod%n,1,hmod%n,3)
           DO j=1,2
-             sum2(j)=integrate_table(hmod%nu,integrand2(:,j),hmod%n,1,hmod%n,3)
+             sum2(j)=integrate_table(hmod%nu,integrand2(:,j),n,1,n,3)
           END DO
           p_2h=p_2h+(plin**2)*sum2(1)*sum2(2)*rhom**2
           
@@ -2155,164 +2228,6 @@ CONTAINS
     END IF
 
   END FUNCTION p_2h
-
-!!$  REAL FUNCTION p_2h_new(ih,wk,k,plin,hmod,cosm)
-!!$
-!!$    ! Produces the 'two-halo' power
-!!$    ! TODO: Retire
-!!$    IMPLICIT NONE
-!!$    INTEGER, INTENT(IN) :: ih(2)
-!!$    REAL, INTENT(IN) :: k
-!!$    REAL, INTENT(IN) :: plin
-!!$    TYPE(halomod), INTENT(INOUT) :: hmod
-!!$    REAL, INTENT(IN) :: wk(hmod%n,2) ! This needs to be defined after halomod type, annoying
-!!$    TYPE(cosmology), INTENT(INOUT) :: cosm    
-!!$    REAL :: sigv, frac, rhom
-!!$    REAL :: nu, m, m0, wki(2), b0, wk0(2), nu0
-!!$    REAL :: integrand1(hmod%n,2), integrand2(hmod%n,2)
-!!$    REAL :: sum1(2), sum2(2)
-!!$    INTEGER :: i, j
-!!$
-!!$    rhom=comoving_matter_density(cosm)
-!!$
-!!$    IF(hmod%ip2h==1) THEN
-!!$
-!!$       ! Simply linear theory
-!!$       p_2h=plin
-!!$
-!!$    ELSE IF(hmod%ip2h==3) THEN
-!!$
-!!$       ! Damped BAO linear theory
-!!$       p_2h=p_dewiggle(k,hmod,cosm)
-!!$
-!!$    ELSE IF(hmod%ip2h==4) THEN
-!!$
-!!$       ! No two-halo term
-!!$       p_2h=0.
-!!$       
-!!$    ELSE
-!!$
-!!$       IF(hmod%imf==4) THEN
-!!$
-!!$          ! In this case the mass function is a delta function...
-!!$          
-!!$          m0=hmod%hmass
-!!$          nu0=nu_M(m0,hmod,cosm)
-!!$          b0=b_nu(nu0,hmod)
-!!$          wk0(1)=find(log(m0),hmod%log_m,wk(:,1),hmod%n,3,3,2)
-!!$          wk0(2)=find(log(m0),hmod%log_m,wk(:,2),hmod%n,3,3,2)
-!!$          sum1(1)=rhom*b0*wk0(1)/m0
-!!$          sum1(2)=rhom*b0*wk0(2)/m0
-!!$
-!!$       ELSE
-!!$
-!!$          ! ...otherwise you need to do an integral
-!!$          
-!!$          DO i=1,hmod%n
-!!$
-!!$             ! Some variables to make equations cleaner below
-!!$             m=hmod%m(i)
-!!$             nu=hmod%nu(i)
-!!$             wki=wk(i,:)
-!!$
-!!$             DO j=1,2
-!!$
-!!$                ! Linear bias term, standard two-halo term integral
-!!$                integrand1(i,j)=rhom*g_nu(nu,hmod)*b_nu(nu,hmod)*wki(j)/m
-!!$
-!!$                IF(hmod%ibias==2) THEN
-!!$                   ! Second-order bias term
-!!$                   integrand2(i,j)=rhom*g_nu(nu,hmod)*b2_nu(nu,hmod)*wki(j)/m
-!!$                END IF
-!!$
-!!$             END DO
-!!$
-!!$          END DO
-!!$
-!!$          ! Evaluate these integrals from the tabulated values
-!!$          DO j=1,2
-!!$             sum1(j)=integrate_table(hmod%nu,integrand1(:,j),hmod%n,1,hmod%n,3)
-!!$          END DO
-!!$
-!!$          IF(hmod%ip2h_corr==1) THEN
-!!$             ! Do nothing in this case
-!!$             ! There will be large errors if any signal is from low-mass haloes
-!!$             ! e.g., for the matter power spectrum
-!!$          ELSE IF(hmod%ip2h_corr==2) THEN
-!!$             ! Add on the value of integral b(nu)*g(nu) assuming W(k)=1
-!!$             ! Advised by Yoo et al. (????) and Cacciato et al. (2012)
-!!$             ! THIS WILL NOT WORK FOR FIEDS THAT DO NOT HAVE MASS FUNCTIONS DEFINED
-!!$             STOP 'P_2H: This will not work for fields that do not have mass fractions defined'
-!!$             DO j=1,2
-!!$                sum1(j)=sum1(j)+hmod%gbmin*halo_fraction(ih(j),m,hmod,cosm)!/rhom
-!!$             END DO
-!!$          ELSE IF(hmod%ip2h_corr==3) THEN
-!!$             ! Put the missing part of the integrand as a delta function at the low-mass limit of the integral
-!!$             ! I think this is the best thing to do
-!!$             m0=hmod%m(1)
-!!$             wki=wk(1,:)
-!!$             DO j=1,2             
-!!$                sum1(j)=sum1(j)+rhom*hmod%gbmin*wki(j)/m0
-!!$             END DO
-!!$          ELSE
-!!$             STOP 'P_2h: Error, ip2h_corr not specified correctly'
-!!$          END IF
-!!$
-!!$       END IF
-!!$
-!!$       p_2h=plin*sum1(1)*sum1(2)!*(rhom**2)
-!!$
-!!$       ! Second-order bias correction
-!!$       ! This needs to have the property that \int f(nu)b2(nu) du = 0
-!!$       ! This means it is hard to check that the normalisation is correct
-!!$       ! e.g., how much do low mass haloes matter
-!!$       IF(hmod%ibias==2) THEN
-!!$                  
-!!$          ! Varying mmin *does* make a difference to the values of the integrals
-!!$          !sum21=integrate_table(hmod%nu,integrand21,hmod%n,1,hmod%n,3)
-!!$          !sum22=integrate_table(hmod%nu,integrand22,hmod%n,1,hmod%n,3)
-!!$          DO j=1,2
-!!$             sum2(j)=integrate_table(hmod%nu,integrand2(:,j),hmod%n,1,hmod%n,3)
-!!$          END DO
-!!$          p_2h=p_2h+(plin**2)*sum2(1)*sum2(2)*rhom**2
-!!$          
-!!$       END IF
-!!$
-!!$    END IF
-!!$
-!!$    ! Apply the damping to the two-halo term
-!!$    IF(hmod%i2hdamp .NE. 1) THEN
-!!$       ! Two-halo damping parameters
-!!$       sigv=hmod%sigv
-!!$       frac=fdamp(hmod,cosm)
-!!$       IF(frac==0.) THEN
-!!$          p_2h=p_2h
-!!$       ELSE
-!!$          p_2h=p_2h*(1.-frac*(tanh(k*sigv/sqrt(ABS(frac))))**2)
-!!$       END IF
-!!$    END IF
-!!$       
-!!$    IF(hmod%ikb==2) THEN
-!!$       ! Fedeli (2014b) 'scale-dependent halo bias'
-!!$       p_2h=p_2h*(1.+k)**0.54
-!!$    ELSE IF(hmod%ikb==3) THEN
-!!$       ! My own experimental model
-!!$       p_2h=p_2h*(1.+(k/hmod%knl))**0.5
-!!$    END IF
-!!$
-!!$    ! For some extreme cosmologies frac>1. so this must be added to prevent p_2h<0
-!!$    IF(p_2h<0.) THEN
-!!$       WRITE(*,*) 'P_2H: Halo type 1:', ih(1)
-!!$       WRITE(*,*) 'P_2H: Halo type 1:', ih(2)
-!!$       WRITE(*,*) 'P_2H: k [h/Mpc]:', k
-!!$       WRITE(*,*) 'P_2H: z:', hmod%z
-!!$       WRITE(*,*) 'P_2H: Delta^2_{2H}:', p_2h
-!!$       WRITE(*,*) 'P_2H: Caution! P_2h < 0, this was previously fixed by setting P_2h = 0 explicitly'
-!!$       !p_2h=0.
-!!$       STOP
-!!$    END IF
-!!$
-!!$  END FUNCTION p_2h_new
 
   REAL FUNCTION p_1h(wk2,k,hmod,cosm)
 
@@ -3173,13 +3088,6 @@ CONTAINS
     ALLOCATE(hmod%m500c(n),hmod%r500c(n),hmod%c500c(n))
     ALLOCATE(hmod%m200(n),hmod%r200(n),hmod%c200(n))
     ALLOCATE(hmod%m200c(n),hmod%r200c(n),hmod%c200c(n))
-
-    ! Experimental window look-up table
-    !hmod%nk=nk
-    !ALLOCATE(hmod%log_m(n),hmod%log_k(nk),hmod%log_win(n,nk))
-    !hmod%log_k=0.
-    !hmod%log_win=0.
-    !hmod%iwin=.FALSE.
 
     hmod%log_m=0.
     hmod%zc=0.

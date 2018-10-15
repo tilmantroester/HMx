@@ -3963,6 +3963,10 @@ CONTAINS
     REAL, PARAMETER :: rmax=8    ! Maximum radius [Mpc] 
     INTEGER, PARAMETER :: nr=512 ! Number of points in radius
 
+    LOGICAL, PARAMETER :: real_space=.TRUE.
+    INTEGER, PARAMETER :: itype=6 ! electron pressure
+    INTEGER, PARAMETER :: ipnh=1 ! Type of term to consider
+
     IF(hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod,cosm)
 
     Mh=M*cosm%h ! This virial mass is now [Msun/h]
@@ -3992,7 +3996,7 @@ CONTAINS
     DO i=1,nr
        r=progression(rmin,rmax,i,nr) ! Radius [Mpc]
        rh=r*cosm%h ! Convert [Mpc/h]
-       WRITE(7,*) r, UPP(.TRUE.,rh,Mh,rv,rs,hmod,cosm)*r**2, win_electron_pressure(.TRUE.,1,rh,Mh,rv,rs,hmod,cosm)*r**2
+       WRITE(7,*) r, UPP(real_space,rh,Mh,rv,rs,hmod,cosm)*r**2, win_type(real_space,itype,ipnh,rh,Mh,rv,rs,hmod,cosm)*r**2
     END DO
     CLOSE(7)
 
