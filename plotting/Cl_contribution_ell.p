@@ -19,16 +19,16 @@ print 'iplot = 3: PAPER: k-y'
 print 'iplot = ', iplot
 print ''
 
-if(print==1 && iplot==1){set output 'ell_contribution.eps'}
-if(print==1 && iplot==2){set output 'paper/ell_contribution_kk.eps'}
-if(print==1 && iplot==3){set output 'paper/ell_contribution_ky.eps'}
+if(print==1 && iplot==1){set output 'Cl_contribution_ell.eps'}
+if(print==1 && iplot==2){set output 'paper/Cl_contribution_ell_kk.eps'}
+if(print==1 && iplot==3){set output 'paper/Cl_contribution_ell_ky.eps'}
 
 if(iplot==1){lab=''}
 if(iplot==2){lab='{/Symbol k}-{/Symbol k}'}
 if(iplot==3){lab='{/Symbol k}-y'}
 
 # Files to plot
-file(n)=sprintf('data/Cell_contrib_ell_%d.dat', n)
+file(n)=sprintf('data/Cl_contribution_ell_%d.dat', n)
 
 # Fix the y axis to have no label
 set ylabel ''

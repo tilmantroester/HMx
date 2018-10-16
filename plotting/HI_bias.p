@@ -5,9 +5,9 @@ if(!exists('print')){print=0}
 if(print==0){set term aqua}
 if(print==1){set term post enh col; set output 'HI_bias.eps'}
 
-mm='data/power_mm_full.dat'
-mf='data/power_mf_full.dat'
-ff='data/power_ff_full.dat'
+mm='data/power_mm_hm.dat'
+mf='data/power_mf_hm.dat'
+ff='data/power_ff_hm.dat'
 sim(f1,f2,z)=sprintf('/Users/Mead/Physics/people/Villaescusa_Navarro/HI_bias/b_%s%s_mm_z=%d.txt',f1,f2,z)
 
 kmin=0.1
