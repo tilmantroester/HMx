@@ -12,17 +12,16 @@ MODULE Limber
   PUBLIC :: projection
   PUBLIC :: lensing
   PUBLIC :: maxdist
-  PUBLIC :: calculate_Cell
+  PUBLIC :: calculate_Cl
   PUBLIC :: xcorr_type
-  PUBLIC :: cell_contribution
+  PUBLIC :: Cl_contribution_ell
   PUBLIC :: fill_projection_kernels
   PUBLIC :: get_nz
   PUBLIC :: set_xcorr_type
   PUBLIC :: write_projection_kernels
   PUBLIC :: write_xi
-  PUBLIC :: xcorr
   PUBLIC :: calculate_xi
-  PUBLIC :: write_cell
+  PUBLIC :: write_Cl
   PUBLIC :: k_ell
  
   ! Projection quantities that need to be calculated only once; these relate to the Limber integrals
@@ -44,23 +43,16 @@ MODULE Limber
   REAL, PARAMETER :: kmax_pka=1e2    ! k' value for P(k,a) table; P(k>k',a)=0
 
   ! xcorr - C(l) calculation
-  REAL, PARAMETER :: kmin_xcorr=1e-3 ! Minimum k
-  REAL, PARAMETER :: kmax_xcorr=1e1  ! Maximum k (some halo-model things go hectic for k>10)
-  INTEGER, PARAMETER :: nk_xcorr=64  ! Number of k values (used to be 32)
-  REAL, PARAMETER :: amin_xcorr=0.1 ! Minimum scale factor (problems with one-halo term if amin is less than 0.1 (CMB lensing?))
-  REAL, PARAMETER :: amax_xcorr=1.0 ! Maximum scale factor
-  INTEGER, PARAMETER :: na_xcorr=16 ! Number of scale factores
   LOGICAL, PARAMETER :: verbose_Limber=.FALSE. ! Verbosity
-  !LOGICAL, PARAMETER :: verbose_cell=.FALSE. ! Verbosity
   LOGICAL, PARAMETER :: verbose_xi=.FALSE. ! Verbosity
 
   ! Maxdist
   REAL, PARAMETER :: dr_max=0.01 ! Small subtraction from maxdist to prevent numerical issues
 
   ! Limber integration parameters
-  INTEGER, PARAMETER  :: n_Limber=1024 ! Number of samples to take in r for Limber integration  
-  REAL, PARAMETER :: lcorr=0.5         ! 1/2 in LoVerde (2008) Limber correction k(r)=(l+1/2)/f_k(r)
-  REAL, PARAMETER :: acc_Limber=1e-4   ! Accuracy parameter for Limber integration
+  INTEGER, PARAMETER  :: n_cont=1024 ! Number of samples to take in r for Cl ell contribution calculation
+  REAL, PARAMETER :: lcorr=0.5       ! 1/2 in LoVerde (2008) Limber correction k(r)=(l+1/2)/f_k(r)
+  REAL, PARAMETER :: acc_Limber=1e-4 ! Accuracy parameter for Limber integration
 
   ! n(z)
   REAL, PARAMETER :: zmin_nz=0.  ! Minimum redshift for the analytic n(z) tables
@@ -149,84 +141,6 @@ CONTAINS
 
   END SUBROUTINE set_xcorr_type
 
-  SUBROUTINE xcorr(ix,mmin,mmax,ell,Cell,nl,hmod,cosm,verbose)
-
-    ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
-    ! Public-facing function
-    ! TODO: Remove this explicit HMx dependence, it cannot be necessary, it is the only place it appears
-    ! TODO: Maybe this needs to be moved anyway
-    USE HMx 
-    IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: ix(2)
-    REAL, INTENT(IN) :: mmin, mmax
-    REAL, INTENT(IN) :: ell(nl)
-    REAL, INTENT(OUT) :: Cell(nl)
-    INTEGER, INTENT(IN) :: nl
-    TYPE(halomod), INTENT(INOUT) :: hmod
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    LOGICAL, INTENT(IN) :: verbose
-    REAL, ALLOCATABLE :: a(:), k(:), powa_lin(:,:), powa_2h(:,:), powa_1h(:,:), powa(:,:)
-    TYPE(projection) :: proj(2)    
-    REAL :: lmin, lmax
-    INTEGER :: ip(2), nk, na
-    REAL :: r1, r2
-
-    ! Set the k range
-    nk=nk_xcorr
-    CALL fill_array(log(kmin_xcorr),log(kmax_xcorr),k,nk)
-    k=exp(k)   
-
-    ! Set the a range
-    na=na_xcorr
-    CALL fill_array(amin_xcorr,amax_xcorr,a,na)
-
-    ! Set the ell range
-    lmin=ell(1)
-    lmax=ell(nl)
-
-    ! Allocate power arrays
-    ALLOCATE(powa(nk,na),powa_lin(nk,na),powa_2h(nk,na),powa_1h(nk,na))
-
-    ! Write to screen
-    IF(verbose) THEN
-       WRITE(*,*) 'XCORR: Cross-correlation information'
-       WRITE(*,*) 'XCORR: P(k) minimum k [h/Mpc]:', REAL(kmin_xcorr)
-       WRITE(*,*) 'XCORR: P(k) maximum k [h/Mpc]:', REAL(kmax_xcorr)
-       WRITE(*,*) 'XCORR: Number of k:', nk
-       WRITE(*,*) 'XCORR: minimum a:', REAL(amin_xcorr)
-       WRITE(*,*) 'XCORR: maximum a:', REAL(amax_xcorr)
-       WRITE(*,*) 'XCORR: number of a:', na
-       WRITE(*,*) 'XCORR: minimum ell:', REAL(lmin)
-       WRITE(*,*) 'XCORR: maximum ell:', REAL(lmax)
-       WRITE(*,*) 'XCORR: number of ell:', nl
-       WRITE(*,*)
-    END IF
-
-    ! Use the xcorrelation type to set the necessary halo profiles
-    CALL set_xcorr_type(ix,ip)
-
-    ! Do the halo model power spectrum calculation
-    CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa,hmod,cosm,verbose,response=.FALSE.)
-
-    ! Fill out the projection kernels
-    CALL fill_projection_kernels(ix,proj,cosm)
-    IF(verbose) CALL write_projection_kernels(proj,cosm)
-
-    ! Set the range in comoving distance for the Limber integral
-    r1=0.
-    r2=maxdist(proj)
-
-    ! Actually calculate the C(ell), but only for the full halo model part
-    CALL calculate_Cell(r1,r2,ell,Cell,nl,k,a,powa,nk,na,proj,cosm)
-
-    ! Write to screen
-    IF(verbose) THEN
-       WRITE(*,*) 'XCORR: Done'
-       WRITE(*,*)
-    END IF
-
-  END SUBROUTINE xcorr
-
   REAL FUNCTION k_ell(ell,a,cosm)
 
     ! Finds the k that corresponds to ell at the given a
@@ -307,7 +221,7 @@ CONTAINS
 
   END SUBROUTINE fill_projection_kernel
 
-  SUBROUTINE calculate_Cell(r1,r2,ell,Cell,nl,k,a,pow,nk,na,proj,cosm)
+  SUBROUTINE calculate_Cl(r1,r2,ell,Cell,nl,k,a,pow,nk,na,proj,cosm)
 
     ! Calculates C(l) using the Limber approximation
     ! Note that using Limber and flat-sky for sensible results limits lmin to ell~10
@@ -332,28 +246,28 @@ CONTAINS
 
     ! Write some useful things to the screen
     IF(verbose_Limber) THEN
-       WRITE(*,*) 'CALCULATE_CELL: ell min:', REAL(ell(1))
-       WRITE(*,*) 'CALCULATE_CELL: ell max:', REAL(ell(nl))
-       WRITE(*,*) 'CALCULATE_CELL: number of ell:', nl
-       WRITE(*,*) 'CALCULATE_CELL: number of k:', nk
-       WRITE(*,*) 'CALCULATE_CELL: number of a:', na
-       WRITE(*,*) 'CALCULATE_CELL: Minimum distance [Mpc/h]:', REAL(r1)
-       WRITE(*,*) 'CALCULATE_CELL: Maximum distance [Mpc/h]:', REAL(r2)
+       WRITE(*,*) 'CALCULATE_CL: ell min:', REAL(ell(1))
+       WRITE(*,*) 'CALCULATE_CL: ell max:', REAL(ell(nl))
+       WRITE(*,*) 'CALCULATE_CL: number of ell:', nl
+       WRITE(*,*) 'CALCULATE_CL: number of k:', nk
+       WRITE(*,*) 'CALCULATE_CL: number of a:', na
+       WRITE(*,*) 'CALCULATE_CL: Minimum distance [Mpc/h]:', REAL(r1)
+       WRITE(*,*) 'CALCULATE_CL: Maximum distance [Mpc/h]:', REAL(r2)
     END IF
 
     ! Finally do the integration
-    IF(verbose_Limber) WRITE(*,*) 'CALCULATE CELL: Doing calculation'
+    IF(verbose_Limber) WRITE(*,*) 'CALCULATE_CL: Doing calculation'
     DO i=1,nl
        Cell(i)=integrate_Limber(ell(i),r1,r2,logk,loga,logpow,nk,na,acc_Limber,3,proj,cosm)
     END DO
     IF(verbose_Limber) THEN
-       WRITE(*,*) 'CALCULATE_CELL: Done'
+       WRITE(*,*) 'CALCULATE_CL: Done'
        WRITE(*,*)
     END IF
 
-  END SUBROUTINE calculate_Cell
+  END SUBROUTINE calculate_Cl
 
-  SUBROUTINE Cell_contribution(r1,r2,k,a,pow,nk,na,proj,cosm)
+  SUBROUTINE Cl_contribution_ell(r1,r2,k,a,pow,nk,na,proj,cosm)
 
     ! Calculates the contribution to each ell of C(l) as a function of z, k, r
     ! Note that using Limber and flat-sky for sensible results limits lmin to ~10
@@ -378,7 +292,7 @@ CONTAINS
     END DO
 
     ! Now call the contribution subroutine
-    fbase='data/Cell_contrib_ell_'
+    fbase='data/Cl_contribution_ell_'
     fext='.dat'
     DO i=1,n
        l=2**(i-1) ! Set the l
@@ -386,24 +300,24 @@ CONTAINS
        CALL Limber_contribution(REAL(l),r1,r2,logk,loga,logpow,nk,na,proj,cosm,outfile)
     END DO
 
-  END SUBROUTINE Cell_contribution
+  END SUBROUTINE Cl_contribution_ell
 
-  SUBROUTINE write_Cell(ell,Cell,nl,output)
+  SUBROUTINE write_Cl(l,Cl,nl,output)
 
     ! Write C(l) to a file; writes l, C(l), l(l+1)C(l)/2pi
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nl
-    REAL, INTENT(IN) :: ell(nl), Cell(nl)
+    REAL, INTENT(IN) :: l(nl), Cl(nl)
     CHARACTER(len=256) :: output
     INTEGER :: i
 
     OPEN(7,file=output)
     DO i=1,nl
-       WRITE(7,*) ell(i), Cell(i), ell(i)*(1.+ell(i))*Cell(i)/twopi
+       WRITE(7,*) l(i), Cl(i), l(i)*(l(i)+1.)*Cl(i)/twopi
     END DO
     CLOSE(7)
 
-  END SUBROUTINE write_Cell
+  END SUBROUTINE write_Cl
 
   SUBROUTINE calculate_xi(th_tab,xi_tab,nth,l_tab,cl_tab,nl,lmax)
 
@@ -544,7 +458,7 @@ CONTAINS
 
   SUBROUTINE fill_lensing_kernel(ix,proj,lens,cosm)
 
-    !Fill the lensing projection kernel
+    ! Fill the lensing projection kernel
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix
     TYPE(lensing) :: lens
@@ -556,7 +470,7 @@ CONTAINS
 
     IF(ix==2 .OR. ix==10) STOP 'FILL_LENSING_KERNEL: Error, trying to do this for a non-lensing ix'
 
-    !Choose either n(z) or fixed z_s
+    ! Choose either n(z) or fixed z_s
     IF(ix==3) THEN      
        zmin=0.
        zmax=cosm%z_cmb
@@ -569,7 +483,7 @@ CONTAINS
        CALL write_nz(lens,output)
     END IF
 
-    !Get the distance range for the lensing kernel
+    ! Get the distance range for the lensing kernel
     amax=scale_factor_z(zmax)
     rmax=comoving_distance(amax,cosm)
     IF(verbose_Limber) THEN
@@ -580,14 +494,14 @@ CONTAINS
        WRITE(*,*)
     END IF
 
-    !Fill the q(r) table
+    ! Fill the q(r) table
     CALL fill_lensing_efficiency(ix,rmin_lensing,rmax,zmax,lens,cosm)
 
-    !Write the q(r) table to file
+    ! Write the q(r) table to file
     output='data/lensing_efficiency.dat'
     CALL write_lensing_efficiency(lens,cosm,output)
 
-    !Assign arrays for the projection function
+    ! Assign arrays for the projection function
     nX=nX_lensing
     proj%nx=nx
     CALL fill_array(rmin_lensing,rmax,proj%r_x,nx)
@@ -596,10 +510,10 @@ CONTAINS
     ALLOCATE(proj%x(proj%nx))
 
     DO i=1,nx
-       !Get r and fill X(r)
+       ! Get r and fill X(r)
        r=proj%r_x(i)
        proj%x(i)=lensing_kernel(r,lens,cosm)  
-       !Enforce that the kernel must not be negative (is this necessary?)
+       ! Enforce that the kernel must not be negative (is this necessary?)
        IF(proj%x(i)<0.) proj%x(i)=0.
     END DO
     IF(verbose_Limber) THEN
@@ -1211,8 +1125,8 @@ CONTAINS
     ! z - z/H(z)
     ! r - r
     OPEN(7,file=TRIM(outfile))
-    DO i=1,n_Limber
-       r=progression(r1,r2,i,n_Limber)
+    DO i=1,n_cont
+       r=progression(r1,r2,i,n_cont)
        IF(r==0.) THEN
           ! Avoid trouble for r = 0 exactly
           ! Maybe should do some sort of awful Taylor expansion here
@@ -1239,12 +1153,20 @@ CONTAINS
     REAL, INTENT(IN) :: k, a ! Input desired values of k and a
     INTEGER, INTENT(IN) :: nk, na ! Number of entried of k and a in arrays
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na) ! Arrays of log(k), log(a) and log(P(k,a))
+    REAL :: logk, loga
+
+    logk=log(k)
+    loga=log(a)
 
     ! Get the power
-    IF(k<kmin_pka .OR. k>kmax_pka) THEN
+    IF((logk<logktab(1) .OR. logk>logktab(nk)) .AND. (loga<logatab(1) .OR. loga>logatab(na))) THEN
        find_pka=0.
+    ELSE IF(k<kmin_pka .OR. k>kmax_pka) THEN
+       find_pka=0.
+!!$    IF(k<exp(logktab(1)) .OR. k>exp(logktab(nk))) THEN
+!!$       find_pka=0.
     ELSE
-       find_pka=exp(find2d(log(k),logktab,log(a),logatab,logptab,nk,na,3,3,1))
+       find_pka=exp(find2d(logk,logktab,loga,logatab,logptab,nk,na,3,3,1))
     END IF
 
   END FUNCTION find_pka
