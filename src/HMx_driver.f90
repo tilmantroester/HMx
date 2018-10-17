@@ -26,8 +26,8 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: z_tab(:), HI_frac(:)
   INTEGER :: i, j, ii, l, nk, na, j1, j2, itriad, nf
   INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, ntriad
-  INTEGER :: ip(2), ix(2), ixx(2)
-  INTEGER, ALLOCATABLE :: fields(:), field(:)
+  INTEGER :: ip(2), ix(2), ixx(2), field(1)
+  INTEGER, ALLOCATABLE :: fields(:)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: rcore_min, rcore_max
   REAL :: z, z1, z2, r1, r2, a1, a2
@@ -55,7 +55,6 @@ PROGRAM HMx_driver
   Logical, PARAMETER :: verbose=.TRUE. ! Verbosity
   REAL, PARAMETER :: mmin=1e7        ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17       ! Maximum halo mass for the calculation
-  INTEGER, PARAMETER :: dmonly(1)=-1 ! DMonly halo-model calculation
 
   ! Test parameters
   REAL, PARAMETER :: tolerance=3e-3
@@ -126,7 +125,7 @@ PROGRAM HMx_driver
      WRITE(*,*) ' 8 - Angular cross correlation as a function of cosmology'
      WRITE(*,*) ' 9 - Breakdown angular correlations in halo mass'
      WRITE(*,*) '10 - Breakdown angular correlations in redshift'
-     WRITE(*,*) '11 - *none*'
+     WRITE(*,*) '11 - Do general angular cross correlation and correlation functions'
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra for variations in baryon parameters'
@@ -200,7 +199,8 @@ PROGRAM HMx_driver
      ALLOCATE(powd_li(nk),powd_2h(nk),powd_1h(nk),powd_hm(nk))
 
      ! Do the halo-model calculation
-     CALL calculate_HMx_a(dmonly,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
+     field=field_dmonly
+     CALL calculate_HMx_a(field,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
 
      ! Write out the results
      outfile='data/power.dat'
@@ -239,8 +239,7 @@ PROGRAM HMx_driver
      a=1./(1.+a)
      na=nz
 
-     ALLOCATE(field(1))
-     field=-1
+     field=field_dmonly
      CALL calculate_HMx(field,1,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
      
      base='data/power'
@@ -314,11 +313,11 @@ PROGRAM HMx_driver
      ! Field types
      nf=5
      ALLOCATE(fields(nf))
-     fields(1)=0
-     fields(2)=1
-     fields(3)=2
-     fields(4)=3
-     fields(5)=6
+     fields(1)=field_matter
+     fields(2)=field_cdm
+     fields(3)=field_gas
+     fields(4)=field_star
+     fields(5)=field_electron_pressure
 
      ! Allocate the arrays for P(k)
      ALLOCATE(powd_li(nk),powd_2h(nk),powd_1h(nk),powd_hm(nk))
@@ -724,11 +723,11 @@ PROGRAM HMx_driver
            END IF
 
            ! Write some things to the screen
-           ip=-1
-           WRITE(*,*) dmonly(1), dmonly(1), TRIM(outfile)
+           field=field_dmonly
+           WRITE(*,*) field(1), field(1), TRIM(outfile)
 
            ! Do the calculation for DMonly
-           CALL calculate_HMx_a(dmonly,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
+           CALL calculate_HMx_a(field,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
            CALL write_power(k,powd_li,powd_2h,powd_1h,powd_hm,nk,outfile,verbose)
 
            ! Do the calculation for the rest of the fields
@@ -802,11 +801,11 @@ PROGRAM HMx_driver
      ! Set the number of fields
      nf=5
      ALLOCATE(fields(nf))
-     fields(1)=0
-     fields(2)=1
-     fields(3)=2
-     fields(4)=3
-     fields(5)=6
+     fields(1)=field_matter
+     fields(2)=field_cdm
+     fields(3)=field_gas
+     fields(4)=field_star
+     fields(5)=field_electron_pressure
 
      ! Allocate arrays for power
      ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
@@ -972,7 +971,7 @@ PROGRAM HMx_driver
         WRITE(*,*)
      END DO
 
-  ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
+  ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
 
      ! General stuff for various 2D projections
      !  7 - Do general angular cross correlation
@@ -987,15 +986,15 @@ PROGRAM HMx_driver
      
      ! Set the fields
      ix=-1
-     IF(imode==37) ix=4  ! CFHTLenS autospectrum
-     IF(imode==42) ix=11 ! KiDS-450 z=0.1->0.9 autospectrum
-     IF(imode==47) ix=3  ! CMB lensing autospectrum
+     IF(imode==37) ix=tracer_CFHTLenS    ! CFHTLenS autospectrum
+     IF(imode==42) ix=tracer_KiDS_450    ! KiDS-450 autospectrum
+     IF(imode==47) ix=tracer_CMB_lensing ! CMB lensing autospectrum
      IF(imode==43) THEN
-        ix(1)=11 ! KiDS-450 z=0.1->0.9
-        ix(2)=2 ! Compton y
+        ix(1)=tracer_KiDS_450  ! KiDS-450 z = 0.1->0.9
+        ix(2)=tracer_Compton_y ! Compton y
      END IF
      CALL set_xcorr_type(ix,ip)
-     IF(imode==37 .OR. imode==47) ip=-1 ! Set DMONLY haloes
+     IF(imode==37 .OR. imode==47) ip=field_dmonly ! Set DMONLY haloes
 
      ! Assign the cosmological model
      IF(imode==37 .OR. imode==42 .OR. imode==43) icosmo=4 ! WMAP9
@@ -1033,7 +1032,7 @@ PROGRAM HMx_driver
      ! Set the ell range
      lmin=1
      lmax=1e4 ! Problems if this is pushed up to 10^5
-     IF(imode==7 .OR. imode==37) lmax=1e5 ! Need higher lmax for the correlation functions
+     IF(imode==11 .OR. imode==37) lmax=1e5 ! Need higher lmax for the correlation functions
      nl=128
 
      ! Allocate arrays for l and C(l)
@@ -1067,7 +1066,7 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx_DRIVER: maximum ell:', REAL(lmax)
      WRITE(*,*)     
 
-     IF(imode==7 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
+     IF(imode==7 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
 
         ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL print_cosmology(cosm)
@@ -1076,7 +1075,6 @@ PROGRAM HMx_driver
         IF(imode==37 .OR. imode==47) ihm=1  ! HMcode (2016)
         IF(imode==42 .OR. imode==43) ihm=20 ! Standard halo-model in response
         CALL assign_halomod(ihm,hmod,verbose)
-        !CALL calculate_HMx(ip,mmin,mmax,k,nk,a,na,powa_lin,powa_2h,powa_1h,powa_full,hmod,cosm,verbose,response=.FALSE.)
         CALL calculate_HMx(ip,2,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
 
         base=TRIM(dir)//'power'
@@ -1145,12 +1143,12 @@ PROGRAM HMx_driver
            CALL calculate_Cl(r1,r2,ell,Cl,nl,k,a,pow_ka,nk,na,proj,cosm)
            CALL write_Cl(ell,Cl,nl,outfile)
 
-           IF(imode==42 .OR. imode==43) THEN
+           IF(j==4 .AND. (imode==7 .OR. imode==11 .OR. imode==42 .OR. imode==43)) THEN
               CALL Cl_contribution_ell(r1,r2,k,a,pow_ka,nk,na,proj,cosm)
-              EXIT
+              IF(imode==42 .OR. imode==43) EXIT
            END IF
 
-           IF(imode==7 .OR. imode==37) THEN
+           IF(imode==11 .OR. imode==37) THEN
 
               ! Set xi output files
               IF(j==1) THEN
@@ -1206,12 +1204,6 @@ PROGRAM HMx_driver
            ! Fill out the projection kernels
            CALL fill_projection_kernels(ix,proj,cosm)
            CALL write_projection_kernels(proj,cosm)
-
-!!$           ! Fill array for Cl
-!!$           CALL fill_array(log(lmin),log(lmax),ell,nl)
-!!$           ell=exp(ell)
-!!$           IF(ALLOCATED(Cl)) DEALLOCATE(Cl)
-!!$           ALLOCATE(Cl(nl))
 
            ! Write to screen
            WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
@@ -1342,7 +1334,6 @@ PROGRAM HMx_driver
               !CALL init_halomod(m1,m2,z,hmod,cosm,verbose)
               CALL init_halomod(m1,m2,a(j),hmod,cosm,verbose)
               CALL print_halomod(hmod,cosm,verbose)
-              !CALL calculate_halomod(ip,k,nk,z,powa_lin(:,j),powa_2h(:,j),powa_1h(:,j),powa_full(:,j),hmod,cosm,verbose,response=.FALSE.)
               CALL calculate_HMx_a(ip,2,k,nk,pows_li(:,j),pows_2h(:,:,:,j),pows_1h(:,:,:,j),pows_hm(:,:,:,j),hmod,cosm,verbose,response=.FALSE.)
 
               !Write progress to screen
@@ -1576,71 +1567,71 @@ PROGRAM HMx_driver
 
         IF(i==1) THEN           
            IF(itriad==1) THEN
-              ix(1)=5 ! KiDS (z = 0.1 -> 0.9)
-              ix(2)=3 ! CMB  
+              ix(1)=tracer_KiDS        ! KiDS (z = 0.1 -> 0.9)
+              ix(2)=tracer_CMB_lensing ! CMB lensing
               outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
            ELSE IF(itriad==2 .OR. itriad==3) THEN
-              ix(1)=11 ! KiDS 450 (z = 0.1 -> 0.9)
-              ix(2)=3 ! CMB
+              ix(1)=tracer_KiDS_450    ! KiDS 450 (z = 0.1 -> 0.9)
+              ix(2)=tracer_CMB_lensing ! CMB
               outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-CMB.dat'
            ELSE
               STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
            END IF
         ELSE IF(i==2) THEN
-           ix(1)=3 ! CMB
-           ix(2)=2 ! y
+           ix(1)=tracer_CMB_lensing ! CMB
+           ix(2)=tracer_Compton_y   ! y
            outfile=TRIM(dir)//'/triad_Cl_CMB-y.dat'
         ELSE IF(i==3) THEN
            IF(itriad==1) THEN
-              ix(1)=2 ! y
-              ix(2)=5 ! KiDS (z = 0.1 -> 0.9)
+              ix(1)=tracer_Compton_y ! y
+              ix(2)=tracer_KiDS      ! KiDS (z = 0.1 -> 0.9)
               outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
            ELSE IF(itriad==2 .OR. itriad==3) THEN
-              ix(1)=2 ! y
-              ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+              ix(1)=tracer_Compton_y ! y
+              ix(2)=tracer_KiDS_450  ! KiDS 450 (z = 0.1 -> 0.9)
               outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.9.dat'
            ELSE
               STOP 'HMX_DRIVER: Error, itriad specified incorrectly'
            END IF
         ELSE IF(i==4) THEN
-           ix(1)=12 ! KiDS 450 (z = 0.1 -> 0.5)
-           ix(2)=3 ! CMB
+           ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
+           ix(2)=tracer_CMB_lensing   ! CMB
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-CMB.dat'
         ELSE IF(i==5) THEN
-           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=3 ! CMB
+           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=tracer_CMB_lensing   ! CMB
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-CMB.dat'
         ELSE IF(i==6) THEN
-           ix(1)=2 ! y
-           ix(2)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           ix(1)=tracer_Compton_y     ! y
+           ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
            outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.5.dat'
         ELSE IF(i==7) THEN
-           ix(1)=2 ! y
-           ix(2)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(1)=tracer_Compton_y     ! y
+           ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
            outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.5-0.9.dat'
         ELSE IF(i==8) THEN
-           ix(1)=12 ! KiDS 450 (z = 0.1 -> 0.5)
-           ix(2)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
+           ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-gal_z0.1-0.5.dat'
         ELSE IF(i==9) THEN
-           ix(1)=12 ! KiDS 450 (z =  0.1 -> 0.5)
-           ix(2)=11 ! KiDS 450 (z =  0.1 -> 0.9)
+           ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z =  0.1 -> 0.5)
+           ix(2)=tracer_KiDS_450      ! KiDS 450 (z =  0.1 -> 0.9)
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-gal_z0.1-0.9.dat'
         ELSE IF(i==10) THEN
-           ix(1)=11 ! KiDS 450 (z = 0.1 -> 0.9)
-           ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+           ix(1)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
+           ix(2)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-gal_z0.1-0.9.dat'
         ELSE IF(i==11) THEN
-           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=12 ! KiDS 450 (z = 0.1 -> 0.5)
+           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.1-0.5.dat'
         ELSE IF(i==12) THEN
-           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=11 ! KiDS 450 (z = 0.1 -> 0.9)
+           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=tracer_KiDS_450      ! KiDS 450 (z = 0.1 -> 0.9)
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.1-0.9.dat'
         ELSE IF(i==13) THEN
-           ix(1)=13 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=13 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+           ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
            outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.5-0.9.dat'
         END IF
 
@@ -1720,11 +1711,11 @@ PROGRAM HMx_driver
      ! Set the fields
      nf=5
      ALLOCATE(fields(nf))
-     fields(1)=0
-     fields(2)=1
-     fields(3)=2
-     fields(4)=3
-     fields(5)=6
+     fields(1)=field_matter
+     fields(2)=field_cdm
+     fields(3)=field_gas
+     fields(4)=field_star
+     fields(5)=field_electron_pressure
 
      ! Allocate arrays for the power spectra
      ALLOCATE(powd_li(nk),powd_2h(nk),powd_1h(nk),powd_hm(nk))
@@ -1749,9 +1740,9 @@ PROGRAM HMx_driver
      CALL print_halomod(hmod,cosm,verbose)
 
      ! DMONLY
-     ip=-1
+     field=field_dmonly
      outfile='data/DMONLY.dat'
-     CALL calculate_HMx_a(dmonly,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
+     CALL calculate_HMx_a(field,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
      CALL write_power(k,powd_li,powd_2h,powd_1h,powd_hm,nk,outfile,verbose)
 
      ! Prevents warning
@@ -2005,7 +1996,7 @@ PROGRAM HMx_driver
      ! Allocate arrays for fields
      nf=2
      ALLOCATE(fields(nf))
-     fields(1)=-1
+     fields(1)=field_dmonly
 
      ! Select field type for bias study
      IF(imode==18) CALL set_halo_type(fields(2))
@@ -2087,7 +2078,8 @@ PROGRAM HMx_driver
            CALL print_halomod(hmod,cosm,verbose)
 
            ! Do the halo-model calculation
-           CALL calculate_HMx_a(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
+           field=field_dmonly
+           CALL calculate_HMx_a(field,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
            ! Write out the results
            CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose)
@@ -2230,7 +2222,8 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose)
 
         ! Do the halo-model calculation
-        CALL calculate_HMx_a(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
+        field=field_dmonly
+        CALL calculate_HMx_a(field,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
         ! Write out the results
         outfile=TRIM(dir)//'/power_'//TRIM(outfile)//'.dat'
@@ -2520,7 +2513,7 @@ PROGRAM HMx_driver
 
      ! MCMC: Set number of points
      ! Number of MCMC points
-     n=5000
+     n=100
 
      ! MCMC: Set number of cosmologies (or power spectra combinations)
      ! Allocate array for cosmological models
@@ -2532,7 +2525,7 @@ PROGRAM HMx_driver
         nf=1
      ELSE IF(imode==39) THEN
         ncos=1 ! Set to the number of different cosmologies
-        nf=3   ! Set the number of different fields
+        nf=4   ! Set the number of different fields
      ELSE
         STOP 'HMX_DRIVER: Error, something went wrong'
      END IF
@@ -2547,15 +2540,17 @@ PROGRAM HMx_driver
         zs(2)=0.5
         zs(3)=1.0
         zs(4)=2.0
-        fields(1)=-1 ! DMONLY
+        fields(1)=field_dmonly
      ELSE IF(imode==39) THEN
         ! Hydro simulations
         nz=1
         ALLOCATE(zs(nz))
         zs(1)=0.0 ! Set the redshift
-        fields(1)=1 ! CDM
-        fields(2)=2 ! gas
-        fields(3)=3 ! stars
+        fields(1)=field_matter
+        fields(2)=field_cdm
+        fields(3)=field_gas
+        fields(4)=field_star
+        !fields(5)=field_electron_pressure
         name='AGN_TUNED_nu0'
      ELSE
         STOP 'HMX_DRIVER: Error, something went wrong'
@@ -2960,8 +2955,9 @@ PROGRAM HMx_driver
         ! Assign the halo model
         CALL assign_halomod(ihm,hmod,verbose_tests)
         !CALL print_halomod(hmod)
-        
-        CALL calculate_HMx(dmonly,1,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose_tests,response=.FALSE.)
+
+        field=field_dmonly
+        CALL calculate_HMx(field,1,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose_tests,response=.FALSE.)
         
         ! Loop over k and a
         error_max=0.
@@ -3053,7 +3049,8 @@ PROGRAM HMx_driver
 
            CALL init_halomod(mmin,mmax,a(j),hmod,cosm,verbose=.FALSE.)
            CALL print_halomod(hmod,cosm,verbose=.FALSE.)
-           CALL calculate_HMx_a(dmonly,1,k_sim,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+           field=field_dmonly
+           CALL calculate_HMx_a(field,1,k_sim,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
            ! Write data to disk
            outfile=number_file2(base,i,mid,j,ext)
@@ -3084,8 +3081,8 @@ PROGRAM HMx_driver
      ! Set the fields
      nf=2
      ALLOCATE(fields(2))
-     fields(1)=0
-     fields(2)=6
+     fields(1)=field_matter
+     fields(2)=field_electron_pressure
 
      ! Allocate arrays for power
      ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
@@ -3227,7 +3224,8 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose2)
         
         ! Do the halo-model calculation
-        CALL calculate_HMx_a(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+        field=field_dmonly
+        CALL calculate_HMx_a(field,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
         ! Write out the results
         base='data/power_cored_'
@@ -3250,11 +3248,11 @@ PROGRAM HMx_driver
      ! Set the field combinations
      nf=5
      ALLOCATE(fields(nf))
-     fields(1)=0
-     fields(2)=1
-     fields(3)=2
-     fields(4)=3
-     fields(5)=6
+     fields(1)=field_matter
+     fields(2)=field_cdm
+     fields(3)=field_gas
+     fields(4)=field_star
+     fields(5)=field_electron_pressure
 
      ! Set the redshifts
      na=4
@@ -3451,7 +3449,8 @@ PROGRAM HMx_driver
         CALL print_halomod(hmod,cosm,verbose2)
 
         ! Do the halo-model calculation
-        CALL calculate_HMx_a(dmonly,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose2,response=.FALSE.)
+        field=field_dmonly
+        CALL calculate_HMx_a(field,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose2,response=.FALSE.)
 
         ! Write out data to disk
         CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose)
@@ -3974,7 +3973,7 @@ CONTAINS
     INTEGER, PARAMETER :: nr=512 ! Number of points in radius
 
     LOGICAL, PARAMETER :: real_space=.TRUE.
-    INTEGER, PARAMETER :: itype=6 ! electron pressure
+    INTEGER, PARAMETER :: itype=field_electron_pressure ! electron pressure
     !INTEGER, PARAMETER :: ipnh=1 ! Type of term to consider
 
     IF(hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod,cosm)
@@ -4187,7 +4186,7 @@ CONTAINS
     REAL, INTENT(IN) :: z
     INTEGER, INTENT(IN) :: ip(2)
     CHARACTER(len=64) :: dir
-    CHARACTER(len=32) :: snap, field(2)
+    CHARACTER(len=32) :: snap, field(2), f1, f2
     LOGICAL :: lexist
     INTEGER :: j
     
@@ -4209,15 +4208,15 @@ CONTAINS
 
     ! Set the fields
     DO j=1,2
-       IF(ip(j)==0) THEN
+       IF(ip(j)==field_matter) THEN
           field(j)='all'
-       ELSE IF(ip(j)==1) THEN
+       ELSE IF(ip(j)==field_cdm) THEN
           field(j)='dm'
-       ELSE IF(ip(j)==2) THEN
+       ELSE IF(ip(j)==field_gas) THEN
           field(j)='gas'
-       ELSE IF(ip(j)==3) THEN
+       ELSE IF(ip(j)==field_star) THEN
           field(j)='stars'
-       ELSE IF(ip(j)==6) THEN
+       ELSE IF(ip(j)==field_electron_pressure) THEN
           field(j)='epressure'
        ELSE
           WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Field number', j
@@ -4226,14 +4225,32 @@ CONTAINS
        END IF
     END DO
 
-    ! File name
-    BAHAMAS_power_file_name=TRIM(dir)//'/'//TRIM(model)//'_L400N1024_WMAP9_'//TRIM(snap)//'_'//TRIM(field(1))//'_'//TRIM(field(2))//'_power.dat'
+    DO j=1,2
 
-    INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
-    IF(.NOT. lexist) THEN
-       WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', TRIM(BAHAMAS_power_file_name)
-       STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
-    END IF
+       IF(j==1) THEN
+          f1=field(1)
+          f2=field(2)
+       ELSE IF(j==2) THEN
+          f1=field(2)
+          f2=field(1)
+       ELSE
+          STOP 'BAHAMAS_POWER_FILE_NAME: Error, something fucked up'
+       END IF
+
+       ! File name
+       BAHAMAS_power_file_name=TRIM(dir)//'/'//TRIM(model)//'_L400N1024_WMAP9_'//TRIM(snap)//'_'//TRIM(f1)//'_'//TRIM(f2)//'_power.dat'
+
+       ! Check it exists
+       INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
+       
+       IF(lexist) THEN
+          EXIT
+       ELSE IF(j==2) THEN
+          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', TRIM(BAHAMAS_power_file_name)
+          STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
+       END IF
+
+    END DO
     
   END FUNCTION BAHAMAS_power_file_name
 
@@ -4250,7 +4267,7 @@ CONTAINS
     REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
     CHARACTER(len=256) :: infile, dmonly
     
-    INTEGER, PARAMETER :: field_all_matter(2)=0
+    INTEGER, PARAMETER :: field_all_matter(2)=field_matter
     REAL, PARAMETER :: mmin=1e7
     REAL, PARAMETER :: mmax=1e17
 

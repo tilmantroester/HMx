@@ -60,6 +60,23 @@ MODULE HMx
   PUBLIC :: HMx_Astar
   PUBLIC :: HMx_Twhim
 
+  ! Fields
+  PUBLIC :: field_dmonly
+  PUBLIC :: field_matter
+  PUBLIC :: field_cdm
+  PUBLIC :: field_gas
+  PUBLIC :: field_star
+  PUBLIC :: field_bound_gas
+  PUBLIC :: field_free_gas
+  PUBLIC :: field_electron_pressure
+  PUBLIC :: field_void
+  PUBLIC :: field_compensated_void
+  PUBLIC :: field_central_galaxies
+  PUBLIC :: field_satellite_galaxies
+  PUBLIC :: field_galaxies
+  PUBLIC :: field_HI
+  PUBLIC :: field_cold_gas
+
   ! Halo-model stuff that needs to be recalculated for each new z
   TYPE halomod
      INTEGER :: ip2h, ibias, imf, iconc, iDolag, iAs, ip2h_corr, ikb
@@ -125,7 +142,7 @@ MODULE HMx
   LOGICAL, PARAMETER :: verbose_galaxies=.FALSE. ! Verbosity when doing the galaxies initialisation
   LOGICAL, PARAMETER :: verbose_HI=.TRUE.       ! Verbosity when doing the HI initialisation
 
-  ! Fields
+  ! Field types
   INTEGER, PARAMETER :: field_dmonly=-1
   INTEGER, PARAMETER :: field_matter=0
   INTEGER, PARAMETER :: field_cdm=1
@@ -473,7 +490,7 @@ CONTAINS
 
     ! NFW core radius
     hmod%rcore=0.1
-    
+
     IF(ihm==-1) THEN
        WRITE(*,*) 'ASSIGN_HALOMOD: Choose your halo model'
        DO i=1,nhalomod
@@ -671,166 +688,6 @@ CONTAINS
     END IF
     
   END SUBROUTINE assign_halomod
-
-!!$  SUBROUTINE init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-!!$
-!!$    ! Halo-model initialisation routine
-!!$    ! The computes other tables necessary for the one-halo integral
-!!$    ! TODO: Change z -> a
-!!$    ! TODO: Retire
-!!$    IMPLICIT NONE
-!!$    REAL, INTENT(IN) :: z
-!!$    REAL, INTENT(IN) :: mmin, mmax
-!!$    LOGICAL, INTENT(IN) :: verbose
-!!$    TYPE(halomod), INTENT(INOUT) :: hmod
-!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
-!!$    INTEGER :: i
-!!$    REAL :: Dv, dc, m, nu, R, sig, A0, a    
-!!$
-!!$    ! Set the redshift (this routine needs to be called anew for each z)
-!!$    hmod%z=z
-!!$    hmod%a=scale_factor_z(z)
-!!$    a=hmod%a
-!!$
-!!$    IF(ALLOCATED(hmod%log_m)) CALL deallocate_HMOD(hmod)
-!!$    CALL allocate_HMOD(hmod)
-!!$
-!!$    ! Set flags to false
-!!$    hmod%has_galaxies=.FALSE.
-!!$    hmod%has_HI=.FALSE.
-!!$    hmod%has_mass_conversions=.FALSE.
-!!$    hmod%has_dewiggle=.FALSE.
-!!$
-!!$    ! Find value of sigma_V
-!!$    hmod%sigv=sigmaV(0.,a,cosm)
-!!$    IF(hmod%i2hdamp==3) hmod%sigv100=sigmaV(100.,a,cosm)
-!!$    hmod%sig8z=sigma(8.,a,cosm)
-!!$
-!!$    IF(verbose) THEN
-!!$       WRITE(*,*) 'INIT_HALOMOD: Filling look-up tables'
-!!$       WRITE(*,*) 'INIT_HALOMOD: Number of entries:', hmod%n
-!!$       WRITE(*,*) 'INIT_HALOMOD: Tables being filled at redshift:', REAL(z)
-!!$       WRITE(*,*) 'INIT_HALOMOD: Tables being filled at scale-factor:', REAL(a)
-!!$       WRITE(*,*) 'INIT_HALOMOD: sigma_V [Mpc/h]:', REAL(hmod%sigv)
-!!$       IF(hmod%i2hdamp==3) WRITE(*,*) 'INIT_HALOMOD: sigmaV_100 [Mpc/h]:', REAL(hmod%sigv100)
-!!$       WRITE(*,*) 'INIT_HALOMOD: sigma_8(z):', REAL(hmod%sig8z)
-!!$    END IF
-!!$
-!!$    ! Loop over halo masses and fill arrays
-!!$    DO i=1,hmod%n
-!!$
-!!$       m=exp(progression(log(mmin),log(mmax),i,hmod%n))
-!!$       R=radius_m(m,cosm)
-!!$       sig=sigma(R,a,cosm)
-!!$       nu=nu_R(R,hmod,cosm)
-!!$
-!!$       hmod%m(i)=m
-!!$       hmod%rr(i)=R
-!!$       hmod%sig(i)=sig
-!!$       hmod%nu(i)=nu
-!!$
-!!$    END DO
-!!$
-!!$    ! log-mass array
-!!$    hmod%log_m=log(hmod%m)
-!!$
-!!$    IF(verbose) WRITE(*,*) 'INIT_HALOMOD: M, R, nu, sigma tables filled'
-!!$
-!!$    ! Get delta_c
-!!$    dc=delta_c(hmod,cosm)
-!!$    hmod%dc=dc
-!!$
-!!$    ! Fill virial radius table using real radius table
-!!$    Dv=Delta_v(hmod,cosm)
-!!$    hmod%Dv=Dv
-!!$    hmod%rv=hmod%rr/(Dv**(1./3.))
-!!$
-!!$    ! Write some useful information to the screen
-!!$    IF(verbose) THEN
-!!$       WRITE(*,*) 'INIT_HALOMOD: virial radius tables filled'
-!!$       WRITE(*,*) 'INIT_HALOMOD: Delta_v:', REAL(Dv)
-!!$       WRITE(*,*) 'INIT_HALOMOD: delta_c:', REAL(dc)
-!!$       WRITE(*,*) 'INIT_HALOMOD: Minimum nu:', REAL(hmod%nu(1))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Maximum nu:', REAL(hmod%nu(hmod%n))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Minimum R_v [Mpc/h]:', REAL(hmod%rv(1))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Maximum R_v [Mpc/h]:', REAL(hmod%rv(hmod%n))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Minimum log10(M) [Msun/h]:', REAL(log10(hmod%m(1)))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Maximum log10(M) [Msun/h]:', REAL(log10(hmod%m(hmod%n)))
-!!$    END IF
-!!$    
-!!$    IF(hmod%imf==4) THEN
-!!$
-!!$       ! Do nothing
-!!$       
-!!$    ELSE
-!!$
-!!$       ! Calculate missing mass things if necessary
-!!$
-!!$       IF(hmod%ip2h_corr==2 .OR. hmod%ip2h_corr==3) THEN
-!!$
-!!$          IF(slow_hmod) hmod%gmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
-!!$          IF(slow_hmod) hmod%gmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,g_nu,hmod,hmod%acc_HMx,3)
-!!$          hmod%gbmin=1.-integrate_hmod(hmod%nu(1),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
-!!$          IF(slow_hmod) hmod%gbmax=integrate_hmod(hmod%nu(hmod%n),hmod%large_nu,gb_nu,hmod,hmod%acc_HMx,3)
-!!$
-!!$          IF(verbose) THEN          
-!!$             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
-!!$             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
-!!$             WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at low end:', REAL(hmod%gbmin)
-!!$             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax)          
-!!$          END IF
-!!$
-!!$          IF(slow_hmod .AND. hmod%gmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu) at low end is less than zero'       
-!!$          IF(slow_hmod .AND. hmod%gmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu) at high end is less than zero'
-!!$          IF(hmod%gbmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at low end is less than zero'
-!!$          IF(slow_hmod .AND. hmod%gbmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at high end is less than zero'       
-!!$
-!!$       END IF
-!!$
-!!$    END IF
-!!$       
-!!$    ! Calculate the total stellar mass fraction
-!!$    IF(slow_hmod .AND. verbose) WRITE(*,*) 'INIT_HALOMOD: Omega_stars:', Omega_stars(hmod,cosm)
-!!$
-!!$    ! Find non-linear radius and scale
-!!$    ! This is defined as nu(M_star)=1 *not* sigma(M_star)=1, so depends on delta_c
-!!$    hmod%rnl=r_nl(hmod)
-!!$    hmod%mnl=mass_r(hmod%rnl,cosm)
-!!$    hmod%knl=1./hmod%rnl
-!!$
-!!$    IF(verbose) THEN
-!!$       WRITE(*,*) 'INIT_HALOMOD: Non-linear mass [log10(M*) [Msun/h]]:', REAL(log10(hmod%mnl))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Non-linear halo virial radius [Mpc/h]:', REAL(virial_radius(hmod%mnl,hmod,cosm))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Non-linear Lagrangian radius [Mpc/h]:', REAL(hmod%rnl)
-!!$       WRITE(*,*) 'INIT_HALOMOD: Non-linear wavenumber [h/Mpc]:', REAL(hmod%knl)
-!!$    END IF
-!!$
-!!$    hmod%neff=effective_index(hmod,cosm)
-!!$
-!!$    IF(verbose) WRITE(*,*) 'INIT_HALOMOD: Collapse n_eff:', REAL(hmod%neff)
-!!$
-!!$    CALL fill_halo_concentration(hmod,cosm)
-!!$
-!!$    IF(verbose) THEN
-!!$       WRITE(*,*) 'INIT_HALOMOD: Halo concentration tables filled'
-!!$       WRITE(*,*) 'INIT_HALOMOD: Minimum concentration:', REAL(hmod%c(hmod%n))
-!!$       WRITE(*,*) 'INIT_HALOMOD: Maximum concentration:', REAL(hmod%c(1))
-!!$    END IF
-!!$
-!!$    IF(slow_hmod) THEN
-!!$       A0=one_halo_amplitude(hmod,cosm)
-!!$       IF(verbose) THEN
-!!$          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [Mpc/h]^3:', REAL(A0)
-!!$          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [log10(M) [Msun/h]]:', REAL(log10(A0*comoving_matter_density(cosm)))
-!!$       END IF
-!!$    END IF
-!!$
-!!$    IF(verbose) THEN
-!!$       WRITE(*,*) 'INIT_HALOMOD: Done'
-!!$       WRITE(*,*)
-!!$    END IF
-!!$
-!!$  END SUBROUTINE init_halomod
   
   SUBROUTINE init_halomod(mmin,mmax,a,hmod,cosm,verbose)
 
@@ -846,9 +703,6 @@ CONTAINS
     REAL :: Dv, dc, m, nu, R, sig, A0, z  
 
     ! Set the redshift (this routine needs to be called anew for each z)
-    !hmod%z=z
-    !hmod%a=scale_factor_z(z)
-    !a=hmod%a
     hmod%a=a
     z=redshift_a(a)
     hmod%z=z
@@ -1326,21 +1180,21 @@ CONTAINS
     INTEGER :: i
     
     halo_type=''
-    IF(i==-1) halo_type='DMONLY'
-    IF(i==0)  halo_type='Matter'
-    IF(i==1)  halo_type='CDM'
-    IF(i==2)  halo_type='Gas'
-    IF(i==3)  halo_type='Star'
-    IF(i==4)  halo_type='Bound gas'
-    IF(i==5)  halo_type='Free gas'
-    IF(i==6)  halo_type='Electron pressure'
-    IF(i==7)  halo_type='Void'
-    IF(i==8)  halo_type='Compensated void'
-    IF(i==9)  halo_type='Central galaxies'
-    IF(i==10) halo_type='Satellite galaxies'
-    IF(i==11) halo_type='Galaxies'
-    IF(i==12) halo_type='HI'
-    IF(i==13) halo_type='Cold gas'
+    IF(i==field_dmonly)             halo_type='DMONLY'
+    IF(i==field_matter)             halo_type='Matter'
+    IF(i==field_cdm)                halo_type='CDM'
+    IF(i==field_gas)                halo_type='Gas'
+    IF(i==field_star)               halo_type='Star'
+    IF(i==field_bound_gas)          halo_type='Bound gas'
+    IF(i==field_free_gas)           halo_type='Free gas'
+    IF(i==field_electron_pressure)  halo_type='Electron pressure'
+    IF(i==field_void)               halo_type='Void'
+    IF(i==field_compensated_void)   halo_type='Compensated void'
+    IF(i==field_central_galaxies)   halo_type='Central galaxies'
+    IF(i==field_satellite_galaxies) halo_type='Satellite galaxies'
+    IF(i==field_galaxies)           halo_type='Galaxies'
+    IF(i==field_HI)                 halo_type='HI'
+    IF(i==field_cold_gas)           halo_type='Cold gas'
     IF(halo_type=='') STOP 'HALO_TYPE: Error, i not specified correctly'
     
   END FUNCTION halo_type
@@ -1444,7 +1298,7 @@ CONTAINS
     TYPE(halomod) :: hmod
     
     INTEGER :: ihm=1 ! Set HMcode, could/should be parameter
-    INTEGER, PARAMETER :: dmonly(1)=-1 ! DMONLY
+    INTEGER, PARAMETER :: dmonly(1)=field_dmonly ! DMONLY
 
     ! Do an HMcode run
     CALL assign_halomod(ihm,hmod,verbose=.FALSE.)
@@ -1474,7 +1328,7 @@ CONTAINS
     INTEGER :: i, ihmcode
     TYPE(halomod) :: hmcode
     
-    INTEGER, PARAMETER :: dmonly(1)=-1 ! DMONLY
+    INTEGER, PARAMETER :: dmonly(1)=field_dmonly ! DMONLY
     
     ! Write to screen
     IF(verbose) THEN
@@ -1640,7 +1494,6 @@ CONTAINS
   SUBROUTINE init_windows(k,fields,nf,wk,nm,hmod,cosm)
 
     ! Fill the window functions for all the different fields
-    ! TODO: Surely I can think of some way to remove the ipnh dependence?
     IMPLICIT NONE
     REAL, INTENT(IN) :: k
     INTEGER, INTENT(IN) :: fields(nf)
@@ -1652,13 +1505,16 @@ CONTAINS
     INTEGER :: i, j
     REAL :: m, rv, c, rs, nu, et
     INTEGER :: i_all, i_cdm, i_gas, i_sta
-    LOGICAL :: quick_matter=.FALSE.
+    LOGICAL :: quick_matter
+
+    ! This should be set to false initially
+    quick_matter=.FALSE.
 
     ! Get the array positions corresponding to all, cdm, gas, stars if they exist
-    i_all=array_position(0,fields,nf)
-    i_cdm=array_position(1,fields,nf)
-    i_gas=array_position(2,fields,nf)
-    i_sta=array_position(3,fields,nf)
+    i_all=array_position(field_matter,fields,nf)
+    i_cdm=array_position(field_cdm,fields,nf)
+    i_gas=array_position(field_gas,fields,nf)
+    i_sta=array_position(field_star,fields,nf)
 
     ! If all, cdm, gas and stars exist then activate the quick-matter mode
     IF((i_all .NE. 0) .AND. (i_cdm .NE. 0) .AND. (i_gas .NE. 0) .AND. (i_sta .NE. 0)) THEN
@@ -3466,49 +3322,49 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    IF(itype==-1) THEN
+    IF(itype==field_dmonly) THEN
        ! Overdensity if all the matter were CDM
        win_type=win_DMONLY(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==0) THEN
+    ELSE IF(itype==field_matter) THEN
        ! Matter overdensity (sum of CDM, gas, stars)
        win_type=win_total(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==1) THEN
+    ELSE IF(itype==field_cdm) THEN
        ! CDM overdensity
        win_type=win_CDM(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==2) THEN
+    ELSE IF(itype==field_gas) THEN
        ! All gas, both bound and free overdensity
        win_type=win_gas(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==3) THEN
+    ELSE IF(itype==field_star) THEN
        ! Stellar overdensity
        win_type=win_star(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==4) THEN
+    ELSE IF(itype==field_bound_gas) THEN
        ! Bound gas overdensity
        win_type=win_boundgas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==5) THEN
+    ELSE IF(itype==field_free_gas) THEN
        ! Free gas overdensity
        win_type=win_freegas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==6) THEN
+    ELSE IF(itype==field_electron_pressure) THEN
        ! Electron pressure
        win_type=win_electron_pressure(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==7) THEN
+    ELSE IF(itype==field_void) THEN
        ! Void
        win_type=win_void(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==8) THEN
+    ELSE IF(itype==field_compensated_void) THEN
        ! Compensated void
        win_type=win_compensated_void(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==9) THEN
+    ELSE IF(itype==field_central_galaxies) THEN
        ! Central galaxies
        win_type=win_centrals(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==10) THEN
+    ELSE IF(itype==field_satellite_galaxies) THEN
        ! Satellite galaxies
        win_type=win_satellites(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==11) THEN
+    ELSE IF(itype==field_galaxies) THEN
        ! All galaxies
        win_type=win_galaxies(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==12) THEN
+    ELSE IF(itype==field_HI) THEN
        ! Neutral hydrogen - HI
        win_type=win_HI(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==13) THEN
+    ELSE IF(itype==field_cold_gas) THEN
        ! Cold gas
        win_type=win_coldgas(real_space,itype,k,m,rv,rs,hmod,cosm)
     ELSE
@@ -5761,19 +5617,19 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    If(itype==-1 .OR. itype==0) THEN
+    If(itype==field_dmonly .OR. itype==field_matter) THEN
        halo_fraction=1.
-    ELSE IF(itype==1) THEN
+    ELSE IF(itype==field_cdm) THEN
        halo_fraction=halo_CDM_fraction(m,hmod,cosm)
-    ELSE IF(itype==2) THEN
+    ELSE IF(itype==field_gas) THEN
        halo_fraction=halo_gas_fraction(m,hmod,cosm)
-    ELSE IF(itype==3) THEN
+    ELSE IF(itype==field_star) THEN
        halo_fraction=halo_star_fraction(m,hmod,cosm)
-    ELSE IF(itype==4) THEN
+    ELSE IF(itype==field_bound_gas) THEN
        halo_fraction=halo_boundgas_fraction(m,hmod,cosm)
-    ELSE IF(itype==5) THEN
+    ELSE IF(itype==field_free_gas) THEN
        halo_fraction=halo_freegas_fraction(m,hmod,cosm)
-    ELSE IF(itype==13) THEN
+    ELSE IF(itype==field_cold_gas) THEN
        halo_fraction=halo_coldgas_fraction(m,hmod,cosm)
     ELSE
        STOP 'HALO_FRACTION: Error, itype not specified correcntly'
@@ -5842,7 +5698,7 @@ CONTAINS
     END IF
 
     IF(hmod%frac_coldgas==1) THEN
-       ! Constant fraction of halo gas
+       ! Cold gas is a constant fraction of halo gas
        halo_boundgas_fraction=(1.-hmod%fcold)*halo_boundgas_fraction
     ELSE
        STOP 'HALO_BOUNDGAS_FRACTION: Error, frac_coldgas not specified correctly'
