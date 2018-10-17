@@ -579,9 +579,6 @@ CONTAINS
        hmod%iDolag=3
     ELSE IF(ihm==8) THEN
        ! Include scatter in halo properties
-       hmod%idc=1
-       hmod%iDv=1
-       hmod%iconc=1
        hmod%iscatter=1
     ELSE IF(ihm==9) THEN
        ! For CCL comparison and benchmark generation
@@ -1413,8 +1410,8 @@ CONTAINS
     REAL, INTENT(OUT) :: pow_hm(nt,nt)    
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: wk(hmod%n,nt), wk2(hmod%n,2)!, wk_squared(hmod%n)
-    INTEGER :: i, j, ih(2)
+    REAL :: wk(hmod%n,nt), wk2(hmod%n,2), wk_squared(hmod%n)
+    INTEGER :: i, j, j1, j2, ih(2)
 
     ! Calls expressions for one- and two-halo terms and then combines to form the full power spectrum
     IF(k==0.) THEN
@@ -1425,34 +1422,24 @@ CONTAINS
 
     ELSE
        
-       ! No scatter in halo properties
-       IF(hmod%iscatter==0) THEN
-
+          ! Get the window functions
           CALL init_windows(k,itype,nt,wk,hmod%n,hmod,cosm)
 
-!!$          ! wk(1)*wk(2) in the case of no scatter
-!!$          !wk2=wk(:,1)*wk(:,2)
-          
-       ELSE IF(hmod%iscatter==1) THEN
-
-          STOP 'CALCULATE_HALOMOD_K: Need to support scatter again'
-
-!!$          ! Scatter in halo properties in one-halo term
-!!$          DO i=1,hmod%n
-!!$             m=hmod%m(i)
-!!$             rv=hmod%rv(i)
-!!$             c=hmod%c(i)
-!!$             wk_squared(i)=integrate_scatter(c,hmod%dlnc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
-!!$          END DO
-          
-       END IF
-
-       ! Loop over fields and get the one-halo term for each pair
-       DO i=1,nt
-          DO j=i,nt
-             pow_1h(i,j)=p_1h(wk(:,i)*wk(:,j),k,hmod,cosm)
+          ! Loop over fields and get the one-halo term for each pair
+          DO j1=1,nt
+             DO j2=j1,nt
+                IF(hmod%iscatter==0) THEN
+                   wk_squared=wk(:,j1)*wk(:,j2)
+                ELSE IF(hmod%iscatter==1) THEN
+                   ih(1)=itype(j1)
+                   ih(2)=itype(j2)
+                   wk_squared=wk_squared_scatter(hmod%n,ih,k,hmod,cosm)
+                ELSE
+                   STOP 'CALCULATE_HMX_A: Error, iscatter specified incorrectly'
+                END IF
+                pow_1h(j1,j2)=p_1h(wk_squared,k,hmod,cosm)            
+             END DO
           END DO
-       END DO
 
        ! If linear theory is used for two-halo term we need to recalculate the window functions for the two-halo term with k=0 fixed
        ! TODO: Include what to do with ip2h=1,3 properly
@@ -1630,6 +1617,27 @@ CONTAINS
     END IF
     
   END SUBROUTINE reinit_windows
+
+  FUNCTION wk_squared_scatter(n,itype,k,hmod,cosm)
+
+    IMPLICIT NONE
+    REAL :: wk_squared_scatter(n)
+    INTEGER, INTENT(IN) :: n
+    INTEGER, INTENT(IN) :: itype(2)
+    REAL, INTENT(IN) :: k
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER :: i
+    REAL :: m, rv, c
+
+    DO i=1,n
+       m=hmod%m(i)
+       rv=hmod%rv(i)
+       c=hmod%c(i)
+       wk_squared_scatter(i)=integrate_scatter(c,hmod%dlnc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
+    END DO
+
+  END FUNCTION wk_squared_scatter
 
   REAL FUNCTION p_2h(ih,wk,n,k,plin,hmod,cosm)
 
@@ -3390,6 +3398,7 @@ CONTAINS
        ! Cold gas
        win_type=win_coldgas(real_space,itype,k,m,rv,rs,hmod,cosm)
     ELSE
+       WRITE(*,*) 'WIN_TYPE: itype:', itype
        STOP 'WIN_TYPE: Error, itype not specified correclty' 
     END IF
 

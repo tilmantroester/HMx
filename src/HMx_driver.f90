@@ -165,6 +165,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '48 - HI bias'
      WRITE(*,*) '49 - HI mass fractions'
      WRITE(*,*) '50 - Mass function changes with Lbox'
+     WRITE(*,*) '51 - Compare power with and without scatter'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -3644,6 +3645,51 @@ PROGRAM HMx_driver
         WRITE(7,*) nu, (masses(j), j=1,ncos)
      END DO
      CLOSE(7)
+
+  ELSE IF(imode==51) THEN
+
+     ! Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     ! Set the number of redshifts and range (linearly spaced) and convert z -> a
+     na=16
+     amin=0.1
+     amax=1.
+     CALL fill_array(amin,amax,a,na)
+
+     ! Set the field
+     field=field_dmonly
+
+     DO i=1,2
+
+        ! Assign halo model
+        IF(i==1) THEN
+           ihm=3
+           base='data/power'
+        ELSE IF(i==2) THEN
+           ihm=8
+           base='data/power_scatter'
+        ELSE
+           STOP 'HMX_DRIVER: Error, something went wrong'
+        END IF
+           
+        CALL assign_halomod(ihm,hmod,verbose)
+
+        CALL calculate_HMx(field,1,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
+        
+        CALL write_power_a_multiple(k,a,pows_li,pows_2h(1,1,:,:),pows_1h(1,1,:,:),pows_hm(1,1,:,:),nk,na,base,verbose)
+
+     END DO
      
   ELSE
         
