@@ -997,7 +997,8 @@ PROGRAM HMx_driver
      IF(imode==37 .OR. imode==47) ip=field_dmonly ! Set DMONLY haloes
 
      ! Assign the cosmological model
-     IF(imode==37 .OR. imode==42 .OR. imode==43) icosmo=4 ! WMAP9
+     IF(imode==37) icosmo=4 ! WMAP9 fits CFHTLenS okay
+     IF(imode==42 .OR. imode==43) icosmo=1 ! Boring
      IF(imode==47) icosmo=26 ! Boring with CAMB linear spectrum
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
@@ -2525,7 +2526,7 @@ PROGRAM HMx_driver
         nf=1
      ELSE IF(imode==39) THEN
         ncos=1 ! Set to the number of different cosmologies
-        nf=4   ! Set the number of different fields
+        nf=5   ! Set the number of different fields
      ELSE
         STOP 'HMX_DRIVER: Error, something went wrong'
      END IF
@@ -2550,7 +2551,7 @@ PROGRAM HMx_driver
         fields(2)=field_cdm
         fields(3)=field_gas
         fields(4)=field_star
-        !fields(5)=field_electron_pressure
+        fields(5)=field_electron_pressure
         name='AGN_TUNED_nu0'
      ELSE
         STOP 'HMX_DRIVER: Error, something went wrong'
@@ -2697,7 +2698,7 @@ PROGRAM HMx_driver
      ELSE IF(imode==39) THEN
 
         ! Hydro fitting
-        np=6
+        np=8
         ALLOCATE(pbest(np),pnew(np),pold(np),prange(np),porig(np),plog(np),pmin(np),pmax(np))
         plog=.TRUE. ! Most parameters are explored in log
 
@@ -2751,35 +2752,80 @@ PROGRAM HMx_driver
         !! gas-gas
 
         ! eps; not one because log(1)=0 and this messes things up in setting the ranges
-        porig(1)=1.1
-        pmin(1)=1e-2
-        pmax(1)=1e2
+        !porig(1)=1.1
+        !pmin(1)=1e-2
+        !pmax(1)=1e2
 
         ! Gamma-1
-        porig(2)=0.17
-        pmin(2)=0.01
-        pmax(2)=2.
-        plog(2)=.FALSE.
+        !porig(2)=0.17
+        !pmin(2)=0.01
+        !pmax(2)=2.
+        !plog(2)=.FALSE.
 
         ! M0
-        porig(3)=1e14
-        pmin(3)=1e10
-        pmax(3)=1e16
+        !porig(3)=1e14
+        !pmin(3)=1e10
+        !pmax(3)=1e16
 
         ! f_cold
-        porig(4)=1e-2
-        pmin(4)=1e-5
-        pmax(4)=0.5
+        !porig(4)=1e-2
+        !pmin(4)=1e-5
+        !pmax(4)=0.5
+
+        ! A_star
+        !porig(5)=0.03
+        !pmin(5)=1e-3
+        !pmax(5)=1e-1
+
+        ! c_star
+        !porig(6)=10.
+        !pmin(6)=1e0
+        !pmax(6)=1e3
+        
+        !!
+
+        !! everything
+
+        ! alpha
+        porig(1)=0.33333
+        pmin(1)=1e-2
+        pmax(1)=1e1
+
+        ! eps; not one because log(1)=0 and this messes things up in setting the ranges
+        porig(2)=1.1
+        pmin(2)=1e-2
+        pmax(2)=1e2
+
+        ! Gamma-1
+        porig(3)=0.17
+        pmin(3)=0.01
+        pmax(3)=2.
+        plog(3)=.FALSE.
+
+        ! M0
+        porig(4)=1e14
+        pmin(4)=1e10
+        pmax(4)=1e16
 
         ! A_star
         porig(5)=0.03
         pmin(5)=1e-3
         pmax(5)=1e-1
 
+        ! T_whim
+        porig(6)=1e6
+        pmin(6)=1e2
+        pmax(6)=1e8
+        
         ! c_star
-        porig(6)=10.
-        pmin(6)=1e0
-        pmax(6)=1e3
+        porig(7)=10.
+        pmin(7)=1e0
+        pmax(7)=1e3
+
+        ! f_cold
+        porig(8)=1e-2
+        pmin(8)=1e-5
+        pmax(8)=0.5
         
         !!
         
@@ -3699,12 +3745,22 @@ CONTAINS
           !hmod(i)%Twhim=10**pexp(1)
 
           ! gas-gas
-          hmod(i)%eps=pexp(1)
-          hmod(i)%Gamma=1.+pexp(2)
-          hmod(i)%M0=pexp(3)
-          hmod(i)%fcold=pexp(4)
+          !hmod(i)%eps=pexp(1)
+          !hmod(i)%Gamma=1.+pexp(2)
+          !hmod(i)%M0=pexp(3)
+          !hmod(i)%fcold=pexp(4)
+          !hmod(i)%Astar=pexp(5)
+          !hmod(i)%cstar=pexp(6)
+
+          ! everything
+          hmod(i)%alpha=pexp(1)
+          hmod(i)%eps=pexp(2)
+          hmod(i)%Gamma=1.+pexp(3)
+          hmod(i)%M0=pexp(4)
           hmod(i)%Astar=pexp(5)
-          hmod(i)%cstar=pexp(6)     
+          hmod(i)%Twhim=pexp(6)
+          hmod(i)%cstar=pexp(7)
+          hmod(i)%fcold=pexp(8)
           
        ELSE
 
@@ -4191,7 +4247,7 @@ CONTAINS
     INTEGER :: j
     
     ! Directory containing everything
-    dir='/Users/Mead/Physics/BAHAMAS/power/M1024'
+    dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
 
     ! Set the redshift
     IF(z==0.0) THEN
@@ -4401,4 +4457,41 @@ CONTAINS
 
   END SUBROUTINE xcorr
 
+  SUBROUTINE set_xcorr_type(ix,ip)
+
+    ! Set the cross-correlation type
+    IMPLICIT NONE
+    INTEGER, INTENT(INOUT) :: ix(2)
+    INTEGER, INTENT(OUT) :: ip(2)
+    INTEGER :: i, j
+
+    ! Loop over two-components of xcorr
+    DO i=1,2
+
+       IF(ix(i)==-1) THEN
+          WRITE(*,fmt='(A30,I3)') 'SET_XCORR_TYPE: Choose field: ', i
+          WRITE(*,*) '========================='
+          DO j=1,n_tracers
+             WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
+          END DO
+          READ(*,*) ix(i)
+          WRITE(*,*) '========================='
+          WRITE(*,*)
+       END IF
+
+       IF(ix(i)==tracer_Compton_y) THEN
+          ! Compton y
+          ip(i)=field_electron_pressure
+       ELSE IF(ix(i)==tracer_gravity_wave) THEN
+          ! Gravitational waves
+          ip(i)=field_matter
+       ELSE
+          ! Gravitational lensing
+          ip(i)=field_matter
+       END IF
+       
+    END DO
+
+  END SUBROUTINE set_xcorr_type
+  
 END PROGRAM HMx_driver

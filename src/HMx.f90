@@ -61,6 +61,7 @@ MODULE HMx
   PUBLIC :: HMx_Twhim
 
   ! Fields
+  PUBLIC :: n_fields
   PUBLIC :: field_dmonly
   PUBLIC :: field_matter
   PUBLIC :: field_cdm
@@ -143,6 +144,7 @@ MODULE HMx
   LOGICAL, PARAMETER :: verbose_HI=.TRUE.       ! Verbosity when doing the HI initialisation
 
   ! Field types
+  INTEGER, PARAMETER :: n_fields=15
   INTEGER, PARAMETER :: field_dmonly=-1
   INTEGER, PARAMETER :: field_matter=0
   INTEGER, PARAMETER :: field_cdm=1
@@ -1602,6 +1604,8 @@ CONTAINS
           END IF
 
           IF(i_pre .NE. 0) THEN
+
+             ! TODO: The units here are a mess
           
              ! Calculate the value of the density profile prefactor [(Msun/h)/(Mpc/h)^3] and change units from cosmological to SI
              rho0=m*halo_freegas_fraction(m,hmod,cosm)!/normalisation(rmin,rmax,rv,rs,p1,p2,irho_density) ! rho0 in [(Msun/h)/(Mpc/h)^3]
@@ -1616,13 +1620,10 @@ CONTAINS
              pc=pc/(eV*(0.01)**(-3)) ! Change units to pressure in [eV/cm^3]
              pc=pc*cosm%mue/cosm%mup ! Convert from total thermal pressure to electron pressure
 
+             ! Apply the correction factor
              wk(i,i_pre)=wk(i,i_pre)+pc
 
           END IF
-
-!!$          IF(i_all .NE. 0) wk(i,i_all)=win_type(.FALSE.,fields(i_all),k*nu**et,m,rv,rs,hmod,cosm)
-!!$          IF(i_gas .NE. 0) wk(i,i_gas)=win_type(.FALSE.,fields(i_gas),k*nu**et,m,rv,rs,hmod,cosm)
-!!$          IF(i_pre .NE. 0) wk(i,i_pre)=win_type(.FALSE.,fields(i_pre),k*nu**et,m,rv,rs,hmod,cosm)
           
        END DO
 
@@ -1652,11 +1653,13 @@ CONTAINS
     IF(hmod%ip2h==1) THEN
 
        ! Simply linear theory
+       ! TODO: This should be multiplied by a W(k->0) thing to work for non-matter fields
        p_2h=plin
 
     ELSE IF(hmod%ip2h==3) THEN
 
        ! Damped BAO linear theory
+       ! TODO: This should be multiplied by a W(k->0) thing to work for non-matter fields
        p_2h=p_dewiggle(k,hmod,cosm)
 
     ELSE IF(hmod%ip2h==4) THEN
@@ -1687,7 +1690,7 @@ CONTAINS
              ! Some variables to make equations cleaner below
              m=hmod%m(i)
              nu=hmod%nu(i)
-             wki=wk(i,:) ! (slow array accessing)x
+             wki=wk(i,:) ! (slow array accessing)
 
              DO j=1,2
 
@@ -1715,7 +1718,6 @@ CONTAINS
           ELSE IF(hmod%ip2h_corr==2) THEN
              ! Add on the value of integral b(nu)*g(nu) assuming W(k)=1
              ! Advised by Yoo et al. (????) and Cacciato et al. (2012)
-             ! THIS WILL NOT WORK FOR FIEDS THAT DO NOT HAVE MASS FUNCTIONS DEFINED
              STOP 'P_2H: This will not work for fields that do not have mass fractions defined'
              DO j=1,2
                 sum1(j)=sum1(j)+hmod%gbmin*halo_fraction(ih(j),m,hmod,cosm)
@@ -2162,7 +2164,8 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     CHARACTER(len=*), INTENT(IN) :: outfile    
     REAL :: r, rv, rs, c
-    INTEGER :: i, j   
+    INTEGER :: i, j, nf
+    INTEGER, ALLOCATABLE :: fields(:)
 
     REAL, PARAMETER :: rmin=1e-3     ! Mininum r/rv
     REAL, PARAMETER :: rmax=1.1e0    ! Maximum r/rv
@@ -2174,12 +2177,21 @@ CONTAINS
     c=find(log(m),hmod%log_m,hmod%c,hmod%n,3,3,2)
     rs=rv/c
 
+    ! Field types
+    nf=5
+    ALLOCATE(fields(nf))
+    fields(1)=field_matter
+    fields(2)=field_cdm
+    fields(3)=field_gas
+    fields(4)=field_star
+    fields(5)=field_electron_pressure
+
     ! Write file
     OPEN(7,file=outfile)
     DO i=1,n
        r=exp(progression(log(rmin),log(rmax),i,n))
        r=r*rv
-       WRITE(7,*) r/rv, (win_type(real_space,j,r,m,rv,rs,hmod,cosm)*rv**3, j=1,6) ! rv**3 here is from r^2 dr in integral
+       WRITE(7,*) r/rv, (win_type(real_space,fields(j),r,m,rv,rs,hmod,cosm)*rv**3, j=1,nf) ! rv**3 here is from r^2 dr in integral
     END DO
     CLOSE(7)
 
@@ -2194,7 +2206,8 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     CHARACTER(len=*), INTENT(IN) :: outfile  
     REAL :: x, rv, c, rs, k, rhobar
-    INTEGER :: i, j
+    INTEGER :: i, j, nf
+    INTEGER, ALLOCATABLE :: fields(:)
 
     REAL, PARAMETER :: xmin=1e-1      ! Minimum r/rv
     REAL, PARAMETER :: xmax=1e2       ! Maximum r/rv
@@ -2206,6 +2219,15 @@ CONTAINS
     c=find(log(m),hmod%log_m,hmod%c,hmod%n,3,3,2)
     rs=rv/c
 
+    ! Field types
+    nf=5
+    ALLOCATE(fields(nf))
+    fields(1)=field_matter
+    fields(2)=field_cdm
+    fields(3)=field_gas
+    fields(4)=field_star
+    fields(5)=field_electron_pressure
+
     !Need mean density
     rhobar=comoving_matter_density(cosm)
 
@@ -2214,7 +2236,7 @@ CONTAINS
     DO i=1,n
        x=exp(progression(log(xmin),log(xmax),i,n))
        k=x/rv
-       WRITE(7,*) x, (win_type(rsp,j,k,m,rv,rs,hmod,cosm)*rhobar/m, j=1,6)
+       WRITE(7,*) x, (win_type(rsp,fields(j),k,m,rv,rs,hmod,cosm)*rhobar/m, j=1,nf)
     END DO
     CLOSE(7)
 
