@@ -44,9 +44,10 @@ do for [m=m1:m2] {
 set title tits(m)
 
 #Make the individual plot
-plot file(m,z) u 1:2 w l dt 1 lw 3 lc rgb 'black' ti 'CDM',\
-     file(m,z) u 1:3 w l dt 1 lw 3 lc rgb 'red' ti 'Gas',\
-     file(m,z) u 1:4 w l dt 1 lw 3 lc rgb 'blue' ti 'Stars',\
+plot file(m,z) u 1:2 w l dt 1 lw 3 lc 1 ti 'Matter',\
+     file(m,z) u 1:3 w l dt 1 lw 3 lc 2 ti 'CDM',\
+     file(m,z) u 1:4 w l dt 1 lw 3 lc 3 ti 'Gas',\
+     file(m,z) u 1:5 w l dt 1 lw 3 lc 4 ti 'Stars'#,\
      file(m,z) u 1:5 w l dt 2 lw 3 lc rgb 'red' ti 'Bound gas',\
      file(m,z) u 1:6 w l dt 3 lw 3 lc rgb 'red' ti 'Free gas'
 

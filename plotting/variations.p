@@ -344,7 +344,8 @@ set label mlab(mass) at graph mlabx,mlaby
 
 plot for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(2)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
      for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(3)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
-     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(4)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti
+     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(4)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
+     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(5)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti
 
 unset label
 
@@ -496,7 +497,9 @@ set format y ''
 set label mlab(mass) at graph mlabx,mlaby
 
 plot for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(2)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
-     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(3)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti
+     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(3)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
+     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(4)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
+     for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(5)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti
 
 unset label
 
@@ -549,8 +552,7 @@ set format y ''
 
 #set label mlab(mass) at graph mlabx,mlaby
 
-plot for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(7)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti#,\
-     #UPP(mass) u 1:(4.*pi*$1*$1*column(7)) w l lw 2 lc -1 dt 2 noti
+plot for [i=1:n] profile(mass,param,i) u 1:(4.*pi*$1*$1*column(6)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti
 
 unset label
 
