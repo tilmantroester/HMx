@@ -84,7 +84,7 @@ MODULE HMx
      INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans, iscatter
      LOGICAL :: voids
      REAL :: z, a, dc, Dv
-     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar, Theat, fcold ! HMx baryon parameters
+     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar, Theat, fcold, alphap, Gammap, cstarp ! HMx baryon parameters
      REAL :: A_alpha, B_alpha, C_alpha, D_alpha, E_alpha
      REAL :: A_eps, B_eps, C_eps, D_eps
      REAL :: A_Gamma, B_Gamma, C_Gamma, D_Gamma, E_gamma
@@ -136,8 +136,9 @@ MODULE HMx
 
   ! HMx
   REAL, PARAMETER :: HMx_alpha_min=1e-2 ! Minimum alpha parameter; needs to be set at not zero
-  REAL, PARAMETER :: HMx_Gamma_max=2.   ! Maximum polytropic index
-  REAL, PARAMETER :: HMx_Astar_min=1e-3 ! Minimum halo star fraction
+  REAL, PARAMETER :: HMx_Gamma_min=1.05 ! Minimum polytropic index
+  REAL, PARAMETER :: HMx_Gamma_max=2.00 ! Maximum polytropic index
+  REAL, PARAMETER :: HMx_Astar_min=1e-4 ! Minimum halo star fraction; needs to be set at not zero
 
   ! Halo types
   LOGICAL, PARAMETER :: verbose_galaxies=.FALSE. ! Verbosity when doing the galaxies initialisation
@@ -434,6 +435,9 @@ CONTAINS
     hmod%sstar=1.2     ! sigma_* for f_* distribution
     hmod%Mstar=5e12    ! M* for most efficient halo mass for star formation
     hmod%fcold=0.0     ! Fraction of cold gas, in addition to bound gas
+    hmod%alphap=0.0    ! Power-law index of alpha with halo mass
+    hmod%Gammap=0.0    ! Power-law index of Gamma with halo mass
+    hmod%cstarp=0.0    ! Power-law index of c* with halo mass
 
     ! $\alpha$ z and Theat variation
     hmod%A_alpha=-0.005
@@ -1058,14 +1062,28 @@ CONTAINS
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HMx parameters'
        WRITE(*,*) '======================================='
-       IF(.NOT. hmod%fixed_HMx) WRITE(*,fmt='(A30,F10.5)') 'log10(T_heat) [K]:', log10(hmod%Theat)
-       WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(hmod)
-       WRITE(*,fmt='(A30,F10.5)') 'epsilon:', HMx_eps(hmod)
-       WRITE(*,fmt='(A30,F10.5)') 'Gamma:', HMx_Gamma(hmod)
-       WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(HMx_M0(hmod))
-       WRITE(*,fmt='(A30,F10.5)') 'A*:', HMx_Astar(hmod)
-       WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(HMx_Twhim(hmod))
-       WRITE(*,fmt='(A30,F10.5)') 'c*:', hmod%cstar
+       IF(hmod%fixed_HMx) THEN
+          WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha
+          WRITE(*,fmt='(A30,F10.5)') 'alpha index:', hmod%alphap
+          WRITE(*,fmt='(A30,F10.5)') 'epsilon:', hmod%eps
+          WRITE(*,fmt='(A30,F10.5)') 'Gammma:', hmod%Gamma
+          WRITE(*,fmt='(A30,F10.5)') 'Gammma index:', hmod%Gammap
+          WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha
+          WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(hmod%M0)
+          WRITE(*,fmt='(A30,F10.5)') 'A*:', hmod%Astar
+          WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(hmod%Twhim)
+          WRITE(*,fmt='(A30,F10.5)') 'c*:', hmod%cstar
+          WRITE(*,fmt='(A30,F10.5)') 'c* index:', hmod%cstarp
+       ELSE
+          WRITE(*,fmt='(A30,F10.5)') 'log10(T_heat) [K]:', log10(hmod%Theat)
+          WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(1e14,hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'epsilon:', HMx_eps(hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'Gamma:', HMx_Gamma(1e14,hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(HMx_M0(hmod))
+          WRITE(*,fmt='(A30,F10.5)') 'A*:', HMx_Astar(hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(HMx_Twhim(hmod))
+          WRITE(*,fmt='(A30,F10.5)') 'c*:', HMx_cstar(1e14,hmod)
+       END IF
        WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
        WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
        WRITE(*,fmt='(A30,F10.5)') 'f_cold:', hmod%fcold
@@ -1084,7 +1102,6 @@ CONTAINS
     END IF
 
   END SUBROUTINE print_halomod
-
   
   SUBROUTINE dewiggle_init(hmod,cosm)
 
@@ -2451,15 +2468,18 @@ CONTAINS
 
   END FUNCTION alpha_transition
 
-  REAL FUNCTION HMx_alpha(hmod)
+  REAL FUNCTION HMx_alpha(m,hmod)
 
+    ! TODO: Should Mp be M* ?
     IMPLICIT NONE
+    REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E
+    REAL, PARAMETER :: Mp=1e14
 
     IF(hmod%fixed_HMx) THEN
 
-       HMx_alpha=hmod%alpha
+       HMx_alpha=hmod%alpha*(m/Mp)**hmod%alphap
 
     ELSE
 
@@ -2507,15 +2527,18 @@ CONTAINS
        
   END FUNCTION HMx_eps
 
-  REAL FUNCTION HMx_Gamma(hmod)
+  REAL FUNCTION HMx_Gamma(m,hmod)
 
+    ! TODO: Should Mp be M* ?
     IMPLICIT NONE
+    REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E
+    REAL, PARAMETER :: Mp=1e14
 
     IF(hmod%fixed_HMx) THEN
 
-       HMx_Gamma=hmod%Gamma
+       HMx_Gamma=hmod%Gamma*(m/Mp)**hmod%Gammap
 
     ELSE
 
@@ -2532,8 +2555,8 @@ CONTAINS
 
     END IF
 
-    IF(HMx_Gamma<=1.) STOP 'HMx_GAMMA: Error, Gamma <= 1'
-    
+    !IF(HMx_Gamma<=1.) STOP 'HMx_GAMMA: Error, Gamma <= 1'
+    IF(HMx_Gamma<HMx_Gamma_min) HMx_Gamma=HMx_Gamma_min
     IF(HMx_Gamma>HMx_Gamma_max) HMx_Gamma=HMx_Gamma_max
        
   END FUNCTION HMx_Gamma
@@ -2643,14 +2666,26 @@ CONTAINS
        
   END FUNCTION HMx_Twhim
 
+  REAL FUNCTION HMx_cstar(m,hmod)
+
+    ! TODO: Should Mp be M* ?
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL, PARAMETER :: Mp=1e14
+
+    HMx_cstar=hmod%cstar*(m/Mp)**hmod%cstarp
+       
+  END FUNCTION HMx_cstar
+
   FUNCTION r_nl(hmod)
 
-    !Calculates R_nl where nu(R_nl)=1.
+    ! Calculates R_nl where nu(R_nl)=1.
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: r_nl  
 
     IF(hmod%nu(1)>1.) THEN
-       !This catches some very strange values
+       ! This catches some very strange values
        r_nl=hmod%rr(1)
     ELSE
        r_nl=exp(find(log(1.),log(hmod%nu),log(hmod%rr),hmod%n,3,3,2))
@@ -3582,7 +3617,7 @@ CONTAINS
           irho_density=21
           irho_electron_pressure=23
        END IF    
-       p1=HMx_Gamma(hmod)
+       p1=HMx_Gamma(m,hmod)
        
     ELSE IF(hmod%halo_boundgas==2) THEN
        
@@ -3628,7 +3663,7 @@ CONTAINS
 
        ! Calculate the value of the temperature prefactor [K]
        a=hmod%a
-       T0=HMx_alpha(hmod)*virial_temperature(m,rv,hmod%a,cosm)
+       T0=HMx_alpha(m,hmod)*virial_temperature(m,rv,hmod%a,cosm)
 
        ! Convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
        win_boundgas=win_boundgas*(rho0/(mp*cosm%mue))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
@@ -3719,7 +3754,7 @@ CONTAINS
              irho_electron_pressure=13 ! KS
              rmin=rv
              rmax=2.*rv
-             p1=HMx_Gamma(hmod)
+             p1=HMx_Gamma(m,hmod)
 
           ELSE IF(hmod%halo_freegas==5) THEN
 
@@ -3741,7 +3776,7 @@ CONTAINS
                 ! Calculate the KS index at the virial radius
                 c=rv/rs
                 beta=(c-(1.+c)*log(1.+c))/((1.+c)*log(1.+c))
-                beta=beta/(HMx_Gamma(hmod)-1.) ! This is the power-law index at the virial radius for the KS gas profile
+                beta=beta/(HMx_Gamma(m,hmod)-1.) ! This is the power-law index at the virial radius for the KS gas profile
                 p1=beta
                 !WRITE(*,*) 'Beta:', beta, log10(m)
                 IF(beta<=-3.) beta=-2.9 ! If beta<-3 then there is only a finite amount of gas allowed in the free component
@@ -3951,14 +3986,14 @@ CONTAINS
     IF(hmod%halo_star==1) THEN
        ! Fedeli (2014)
        irho=7
-       rstar=rv/hmod%cstar
+       rstar=rv/HMx_cstar(m,hmod)
        p1=rstar
        rmax=rv ! Set so that not too much bigger than rstar, otherwise bumps integration goes tits
     ELSE IF(hmod%halo_star==2) THEN
        ! Schneider (2015), following Mohammed (2014)
        irho=9
        !rstar=0.01*rv
-       rstar=rv/hmod%cstar
+       rstar=rv/HMx_cstar(m,hmod)
        p1=rstar
        rmax=10.*rstar ! Set so that not too much bigger than rstar, otherwise bumps integration goes crazy
     ELSE IF(hmod%halo_star==3) THEN
@@ -5775,8 +5810,10 @@ CONTAINS
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: m0, sigma, A, min
+    REAL :: m0, sigma, A
     REAL :: crap
+    
+    !REAL, PARAMETER :: fmin=0.01
 
     crap=cosm%A
 
@@ -5789,8 +5826,8 @@ CONTAINS
        IF(hmod%frac_star==3) THEN
           ! Suggested by Ian, the relation I have is for the central stellar mass
           ! in reality this saturates for high-mass haloes (due to satellite contribution)
-          min=0.01
-          IF(halo_star_fraction<min .AND. m>m0) halo_star_fraction=min
+          IF(halo_star_fraction<A/3. .AND. m>m0) halo_star_fraction=A/3.
+          !IF(halo_star_fraction<fmin .AND. m>m0) halo_star_fraction=fmin
        END IF
     ELSE IF(hmod%frac_star==2) THEN
        ! Constant star fraction
