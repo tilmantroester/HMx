@@ -1,5 +1,7 @@
 reset
 
-np=12
+chain='fitting/mcmc.dat'
 
-plot for [i=1:np] 'data/mcmc.dat' u (column(0)):(column(i+1)) w p noti
+np=120
+
+plot for [i=1:np] chain u (column(0)):(column(i+1)) w p noti

@@ -39,9 +39,11 @@ set log y
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 
-plot for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('best',i,j1,j2,j) u 1:3 w p lc i+j1+j2 dt 1 noti 'BAHAMAS',\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('orig',i,j1,j2,j) u 1:2 w l lc 0       dt j lw 2 noti 'HMx',\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('best',i,j1,j2,j) u 1:2 w l lc i+j1+j2 dt j lw 2 noti 'HMx'
+col(i,ni,j,nj,k,nk,l,nl)=nj*nk*nl*(i-1)+nk*nl*(j-1)+nl*(k-1)+l
+
+plot for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('best',i,j1,j2,j) u 1:3 w p lc col(i,ncos,j,nz,j1,nf,j2,nf) dt 1 lw 2 noti 'BAHAMAS',\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('orig',i,j1,j2,j) u 1:2 w l lc 0                            dt j lw 2 noti 'HMx',\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('best',i,j1,j2,j) u 1:2 w l lc col(i,ncos,j,nz,j1,nf,j2,nf) dt j lw 2 noti 'HMx'
 
 set xlabel 'k / h^{-1} Mpc'
 set format x
@@ -55,7 +57,7 @@ plot 1 w l lt -1 noti,\
      1.05 w l lc -1 dt 2 noti,\
      0.99 w l lc -1 dt 2 noti,\
      1.01 w l lc -1 dt 2 noti,\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('orig',i,j1,j2,j) u 1:($2/$3) w l lc 0       dt j lw 2 noti,\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('best',i,j1,j2,j) u 1:($2/$3) w l lc i+j1+j2 dt j lw 2 noti
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('orig',i,j1,j2,j) u 1:($2/$3) w l lc 0                            dt j lw 2 noti,\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data('best',i,j1,j2,j) u 1:($2/$3) w l lc col(i,ncos,j,nz,j1,nf,j2,nf) dt j lw 2 noti
 
 unset multiplot
