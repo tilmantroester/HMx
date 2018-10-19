@@ -110,7 +110,7 @@ PROGRAM HMx_driver
      WRITE(*,*) ' 2 - Produce all halo components 3D cross and auto spectra'
      WRITE(*,*) ' 3 - Run diagnostics for haloes'
      WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
-     WRITE(*,*) ' 5 - '
+     WRITE(*,*) ' 5 - Lensing diagnostics'
      WRITE(*,*) ' 6 - n(z) check'
      WRITE(*,*) ' 7 - Do general angular cross correlation'
      WRITE(*,*) ' 8 - Angular cross correlation as a function of cosmology'
@@ -224,12 +224,12 @@ PROGRAM HMx_driver
      k=exp(k)
 
      ! Set the number of redshifts and range (linearly spaced) and convert z -> a
-     nz=16
-     zmin=0.
-     zmax=4.
-     CALL fill_array(zmin,zmax,a,nz)
-     a=1./(1.+a)
-     na=nz
+     na=16
+     amin=0.2
+     amax=1.0
+     CALL fill_array(amin,amax,a,na)
+     !a=1./(1.+a)
+     !na=nz
 
      field=field_dmonly
      CALL calculate_HMx(field,1,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
@@ -845,11 +845,21 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==5) THEN
 
-     STOP 'HMX_DRIVER: Error, imode=5 not supported any more'
+     ! Lensing diagnostics
 
-  ELSE IF(imode==6) THEN
+     STOP 'HMx_DRIVER: Error, you need to actually code this up'
 
-     !n(z) normalisation check
+     CALL write_nz(lens,outfile)
+
+     CALL write_lensing_efficiency(lens,cosm,outfile)
+
+     DO i=1,2
+        CALL write_projection_kernel(proj(i),cosm,outfile)
+     END DO
+
+  ElSE IF(imode==6) THEN
+
+     ! n(z) normalisation check
 
      WRITE(*,*) 'HMx_DRIVER: Checking n(z) functions'
      WRITE(*,*)
@@ -989,7 +999,7 @@ PROGRAM HMx_driver
 
         ! Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
-        CALL write_projection_kernels(proj,cosm)
+        !CALL write_projection_kernels(proj,cosm)
 
         ! Set the distance range for the Limber integral
         !r1=100.
@@ -1110,7 +1120,7 @@ PROGRAM HMx_driver
 
            ! Fill out the projection kernels
            CALL fill_projection_kernels(ix,proj,cosm)
-           CALL write_projection_kernels(proj,cosm)
+           !CALL write_projection_kernels(proj,cosm)
 
            ! Write to screen
            WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
@@ -1164,7 +1174,7 @@ PROGRAM HMx_driver
 
         ! Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
-        CALL write_projection_kernels(proj,cosm)
+        !CALL write_projection_kernels(proj,cosm)
 
         ! Allocate arrays for power
         ALLOCATE(pows_li(nk,na), pows_2h(2,2,nk,na), pows_1h(2,2,nk,na), pows_hm(2,2,nk,na))
@@ -1322,7 +1332,7 @@ PROGRAM HMx_driver
 
         ! Fill out the projection kernels
         CALL fill_projection_kernels(ix,proj,cosm)
-        CALL write_projection_kernels(proj,cosm)
+        !CALL write_projection_kernels(proj,cosm)
 
         ! Write to screen
         WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
@@ -2081,7 +2091,7 @@ PROGRAM HMx_driver
      z=0.
 
      ! Directory for output
-     dir='Mead2017'
+     dir='data'
 
      ! Set the halo model
      ihm=12
@@ -2273,7 +2283,7 @@ PROGRAM HMx_driver
         a(i)=scale_factor_z(zs(i))
      END DO
 
-     base='emulator/cosmo'
+     base='data/cosmo'
      mid='_z'
      ext='.dat'
 
@@ -3200,7 +3210,7 @@ CONTAINS
 
     ! Fill out the projection kernels
     CALL fill_projection_kernels(ix,proj,cosm)
-    IF(verbose) CALL write_projection_kernels(proj,cosm)
+    !IF(verbose) CALL write_projection_kernels(proj,cosm)
 
     ! Set the range in comoving distance for the Limber integral
     r1=0.

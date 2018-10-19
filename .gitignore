@@ -21,30 +21,20 @@ plotting/*.p~
 # Emacs backups
 *~
 
-# Backup directories
+# Mead directories
 src/BACKUP/
 BACKUP/
-
-# Mead directories
-CFHTLenS/
-Limber/
 OLD/
-RCSLenS/
 cosmo-OWLS/
-definitions/
 lensing/
 matter/
-pressure/
-profiling/
-projection/
-variations/
 winint/
 BAHAMAS/
-bias/
-Mead2017/
 fitting/
-emulator/
 CCL/
+
+# Tests
+tests/test_gas_gas
 
 # Note that /data, /hydro and /diagnostics are dealt with separately
 # Each directory contains a .gitignore

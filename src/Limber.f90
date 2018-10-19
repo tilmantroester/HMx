@@ -20,8 +20,10 @@ MODULE Limber
   PUBLIC :: Cl_contribution_ell
   PUBLIC :: fill_projection_kernels
   PUBLIC :: read_nz
-  PUBLIC :: write_projection_kernels
+  PUBLIC :: write_projection_kernel
   PUBLIC :: write_xi
+  PUBLIC :: write_nz
+  PUBLIC :: write_lensing_efficiency
   PUBLIC :: calculate_xi
   PUBLIC :: write_Cl
   PUBLIC :: k_ell
@@ -411,20 +413,20 @@ CONTAINS
     
   END FUNCTION maxdist
 
-  SUBROUTINE write_projection_kernels(proj,cosm)
-
-    IMPLICIT NONE
-    TYPE(projection), INTENT(IN) :: proj(2)
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    CHARACTER(len=256) :: output
-
-    output=TRIM('projection/kernel1.dat')
-    CALL write_projection_kernel(proj(1),cosm,output)
-
-    output=TRIM('projection/kernel2.dat')
-    CALL write_projection_kernel(proj(2),cosm,output)
-
-  END SUBROUTINE write_projection_kernels
+!!$  SUBROUTINE write_projection_kernels(proj,cosm)
+!!$
+!!$    IMPLICIT NONE
+!!$    TYPE(projection), INTENT(IN) :: proj(2)
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    CHARACTER(len=256) :: output
+!!$
+!!$    output=TRIM('data/kernel1.dat')
+!!$    CALL write_projection_kernel(proj(1),cosm,output)
+!!$
+!!$    output=TRIM('data/kernel2.dat')
+!!$    CALL write_projection_kernel(proj(2),cosm,output)
+!!$
+!!$  END SUBROUTINE write_projection_kernels
 
   SUBROUTINE write_projection_kernel(proj,cosm,output)
 
@@ -476,8 +478,8 @@ CONTAINS
        CALL read_nz(ix,lens)
        zmin=lens%z_nz(1)
        zmax=lens%z_nz(lens%nnz)
-       output='data/nz.dat'
-       CALL write_nz(lens,output)
+!!$       output='data/nz.dat'
+!!$       CALL write_nz(lens,output)
     END IF
 
     ! Get the distance range for the lensing kernel
@@ -494,9 +496,9 @@ CONTAINS
     ! Fill the q(r) table
     CALL fill_lensing_efficiency(ix,rmin_lensing,rmax,zmax,lens,cosm)
 
-    ! Write the q(r) table to file
-    output='data/lensing_efficiency.dat'
-    CALL write_lensing_efficiency(lens,cosm,output)
+!!$    ! Write the q(r) table to file
+!!$    output='data/lensing_efficiency.dat'
+!!$    CALL write_lensing_efficiency(lens,cosm,output)
 
     ! Assign arrays for the projection function
     nX=nX_lensing

@@ -81,7 +81,7 @@ MODULE HMx
   ! Halo-model stuff that needs to be recalculated for each new z
   TYPE halomod
      INTEGER :: ip2h, ibias, imf, iconc, iDolag, iAs, ip2h_corr, ikb
-     INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans, iscatter
+     INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans
      LOGICAL :: voids
      REAL :: z, a, dc, Dv
      REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar, Theat, fcold, alphap, Gammap, cstarp ! HMx baryon parameters
@@ -313,11 +313,6 @@ CONTAINS
     ! 3 - Yes, as in Dolag et al. (2004) but with a ^1.5 power
     hmod%iDolag=2
 
-    ! Scatter in halo properties at fixed mass
-    ! 0 - No
-    ! 1 - Scatter in halo concentration 
-    hmod%iscatter=0
-
     ! Halo gas fraction
     ! 1 - Fedeli (2014a) bound gas model
     ! 2 - Schneider (2015) bound gas
@@ -485,7 +480,7 @@ CONTAINS
     hmod%hmass=1e13
 
     ! Scatter in ln(c)
-    hmod%dlnc=0.25
+    hmod%dlnc=0.
 
     ! HOD parameters
     hmod%mgal=1e13
@@ -583,7 +578,7 @@ CONTAINS
        hmod%iDolag=3
     ELSE IF(ihm==8) THEN
        ! Include scatter in halo properties
-       hmod%iscatter=1
+       hmod%dlnc=0.25
     ELSE IF(ihm==9) THEN
        ! For CCL comparison and benchmark generation
        hmod%n=2048 ! Increase accuracy for the CCL benchmarks
@@ -602,7 +597,6 @@ CONTAINS
        hmod%i2hdamp=1
        hmod%itrans=1
        hmod%iDolag=1
-       hmod%iscatter=0
     ELSE IF(ihm==10) THEN
        ! For mass conversions comparison with Wayne Hu's code
        hmod%iconc=2
@@ -1030,10 +1024,6 @@ CONTAINS
        IF(hmod%iAs==1) WRITE(*,*) 'HALOMODEL: No rescaling of concentration-mass relation'
        IF(hmod%iAs==2) WRITE(*,*) 'HALOMODEL: Concentration-mass relation rescaled mass independetly (Mead et al. 2015, 2016)'
 
-       ! Scatter in halo properties
-       IF(hmod%iscatter==0) WRITE(*,*) 'HALOMODEL: No scatter in halo properties at fixed mass'
-       IF(hmod%iscatter==1) WRITE(*,*) 'HALOMODEL: Scatter in halo concentration at fixed mass'
-
        ! Two- to one-halo transition region
        IF(hmod%itrans==1) WRITE(*,*) 'HALOMODEL: Standard sum of two- and one-halo terms'
        IF(hmod%itrans==2) WRITE(*,*) 'HALOMODEL: Smoothed transition using alpha'
@@ -1095,7 +1085,7 @@ CONTAINS
        WRITE(*,fmt='(A30,F10.5)') 'log10(M_HI_max) [Msun/h]:', log10(hmod%HImax)
        WRITE(*,*) '======================================='
        IF(hmod%halo_DMONLY==5) WRITE(*,fmt='(A30,F10.5)') 'r_core [Mpc/h]:', hmod%rcore
-       IF(hmod%iscatter==1) WRITE(*,fmt='(A30,F10.5)') 'delta ln(c):', hmod%dlnc
+       IF(hmod%dlnc .NE. 0.) WRITE(*,fmt='(A30,F10.5)') 'delta ln(c):', hmod%dlnc
        IF(hmod%imf==4) WRITE(*,*) 'Halo mass log10(M) [Msun/h]:', log10(hmod%hmass)
        WRITE(*,*)
        
@@ -1445,14 +1435,12 @@ CONTAINS
           ! Loop over fields and get the one-halo term for each pair
           DO j1=1,nt
              DO j2=j1,nt
-                IF(hmod%iscatter==0) THEN
+                IF(hmod%dlnc==0.) THEN
                    wk_squared=wk(:,j1)*wk(:,j2)
-                ELSE IF(hmod%iscatter==1) THEN
+                ELSE
                    ih(1)=itype(j1)
                    ih(2)=itype(j2)
                    wk_squared=wk_squared_scatter(hmod%n,ih,k,hmod,cosm)
-                ELSE
-                   STOP 'CALCULATE_HMX_A: Error, iscatter specified incorrectly'
                 END IF
                 pow_1h(j1,j2)=p_1h(wk_squared,k,hmod,cosm)            
              END DO
