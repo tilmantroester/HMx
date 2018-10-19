@@ -27,7 +27,7 @@ print 'Data file base: base: ', base
 print 'Example data file: ', data(base,'best',1,1,1,1)
 print ''
 
-kmin=0.01
+kmin=0.1
 kmax=10.
 set xrange [kmin:kmax]
 set log x
