@@ -1411,6 +1411,7 @@ CONTAINS
 
     ! Directory containing everything
     dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
+    !dir='/home/amead/BAHAMAS/power/M1536'
 
     ! Set the redshift
     IF(z==0.0) THEN
