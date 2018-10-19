@@ -1,7 +1,9 @@
 unset multiplot
 reset
 
-set term aqua dashed
+if(!exists('print')){print=0}
+if(print==0) {set term aqua dashed}
+if(print==2) {set term qt}
 
 # Initial white space
 print ''
