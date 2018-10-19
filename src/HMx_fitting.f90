@@ -37,6 +37,7 @@ PROGRAM HMx_fitting
   LOGICAL, PARAMETER :: mcmc=.TRUE. ! Accept worse figure of merit with some probability
   LOGICAL, PARAMETER :: check_range=.TRUE.
   REAL, PARAMETER :: dp=1e-8 ! Used for derivatives
+  INTEGER, PARAMETER :: computer=1 ! Which computer are you on?
 
   ! Set the random-number generator
   CALL RNG_set(seed)
@@ -1410,8 +1411,8 @@ CONTAINS
     INTEGER :: j
 
     ! Directory containing everything
-    dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
-    !dir='/home/amead/BAHAMAS/power/M1536'
+    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
+    IF(computer==2) dir='/home/amead/BAHAMAS/power/M1536'
 
     ! Set the redshift
     IF(z==0.0) THEN
