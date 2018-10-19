@@ -14,30 +14,57 @@ PROGRAM HMx_fitting
   TYPE(halomod), ALLOCATABLE :: hmod(:)
   TYPE(cosmology), ALLOCATABLE :: cosm(:)
   REAL :: kmin, kmax
-  CHARACTER(len=256) :: name, base, mode
+  CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
   REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:)
   CHARACTER(len=256), ALLOCATABLE :: p_nme(:)
   LOGICAL, ALLOCATABLE :: p_log(:)
-  REAL :: fom, fom_bst, fom_new, fom_old, fom_ori
+  REAL :: delta, fom, fom_bst, fom_new, fom_old, fom_ori
   LOGICAL :: accept
-  INTEGER :: icosmo, ihm, ibest, np, ip(2)
-  INTEGER :: i, ii, iii, j, l, j1, j2
+  INTEGER :: icosmo, ihm, i_bst, np, ip(2)
+  INTEGER :: i, j, l, j1, j2, n
+  INTEGER :: i_bet, i_wor, i_acc, i_fai
   LOGICAL :: verbose2
+  INTEGER :: out
 
   REAL, PARAMETER :: mmin=1e7        ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17       ! Maximum halo mass for the calculation
 
-  INTEGER, PARAMETER :: n=5001 ! Number of points in MCMC
-  INTEGER, PARAMETER :: m=n+1  ! Re-evaluate range every 'm' points
+  !INTEGER, PARAMETER :: n=1000 ! Number of points in chain
+  INTEGER, PARAMETER :: m=HUGE(m)  ! Re-evaluate range every 'm' points
   INTEGER, PARAMETER :: seed=0 ! Random-number seed
+  LOGICAL, PARAMETER :: random_start=.FALSE. ! Start from a random point within the prior range
+  LOGICAL, PARAMETER :: mcmc=.TRUE. ! Accept worse figure of merit with some probability
+  LOGICAL, PARAMETER :: check_range=.TRUE.
+  REAL, PARAMETER :: dp=1e-8 ! Used for derivatives
 
+  ! Set the random-number generator
+  CALL RNG_set(seed)
+
+  ! Read in starting option
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
      im=-1
   ELSE
      READ(mode,*) im
   END IF
+
+  CALL get_command_argument(2,nchain)
+  IF(nchain=='') THEN
+     STOP 'HMx_FITTING: Error, please specify number in chain'
+  ELSE
+     READ(nchain,*) n
+  END IF
+
+  ! Read in outfile
+  CALL get_command_argument(3,outbase)
+  IF(outbase=='') outbase='fitting/test'
+
+  ! Read in BAHAMAS simulation name
+  CALL get_command_argument(4,name)
+
+  ! Read in BAHAMAS simulation redshift
+  CALL get_command_argument(5,zin)
 
   IF(im==-1) THEN
      WRITE(*,*)
@@ -56,18 +83,26 @@ PROGRAM HMx_fitting
      WRITE(*,*)
   END IF
 
-  ! Set the random-number generator
-  CALL RNG_set(seed)
+  ! SET: number of cosmologies, fields and delta
+  IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
 
-  ! MCMC: Set number of cosmologies (or power spectra combinations)
-  ! Allocate array for cosmological models
-  IF(im==1 .OR. im==3) THEN
-     ncos=10 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0.
-     nf=1
-  ELSE IF(im==2 .OR. im==4) THEN
-     ncos=37 ! Number of FrankenEmu nodes
-     nf=1
+     ! Required change in figure-of-merit
+     delta=1e-4 
+     
+     IF(im==1 .OR. im==3) THEN
+        ncos=10 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0.
+        nf=1
+     ELSE IF(im==2 .OR. im==4) THEN
+        ncos=37 ! Number of FrankenEmu nodes
+        nf=1
+     ELSE
+        STOP 'HMx_FITTING: Error, something went wrong with setting fields'
+     END IF
+     
   ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
+
+     ! Required change in figure-of-merit
+     delta=1e-3
 
      ! Set to the number of different cosmologies
      ncos=1 
@@ -82,16 +117,19 @@ PROGRAM HMx_fitting
      ELSE IF(im==15) THEN
         nf=4
      ELSE
-        STOP 'HMX_FITTING: Error, something went wrong with setting fields'
+        STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
 
   ELSE
-     STOP 'HMX_FITTING: Error, something went wrong with setting fields'
+     STOP 'HMx_FITTING: Error, something went wrong with setting fields'
   END IF
+
+  ! Allocate arrays for cosmology and fields
   ALLOCATE(cosm(ncos),fields(nf))
 
-  ! MCMC: Set redshifts and halo-profiles here     
+  ! SET: redshifts and halo-profiles here     
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
+     
      ! Mira Titan or FrankenEmu
      nz=4
      ALLOCATE(z(nz))
@@ -100,11 +138,21 @@ PROGRAM HMx_fitting
      z(3)=1.0
      z(4)=2.0
      fields(1)=field_dmonly
+     
   ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
+     
      ! Hydro simulations
+     IF(name=='') name='AGN_TUNED_nu0'    
+     kmin=0.1
+     kmax=10.
      nz=1
      ALLOCATE(z(nz))
-     z(1)=0.0 ! Set the redshift
+     IF((zin)=='') THEN
+        z(1)=0.0 ! Set the redshift
+     ELSE
+        READ(zin,*) z(1)
+     END IF
+     
      IF(im==11) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
@@ -124,11 +172,9 @@ PROGRAM HMx_fitting
         fields(3)=field_gas
         fields(4)=field_star
      END IF
-     name='AGN_TUNED_nu0'
-     kmin=0.1
-     kmax=10.
+     
   ELSE
-     STOP 'HMX_FITTING: Error, something went wrong'
+     STOP 'HMx_FITTING: Error, something went wrong'
   END IF
 
   ! Assign the cosmological models
@@ -143,7 +189,7 @@ PROGRAM HMx_fitting
      CALL print_cosmology(cosm(i))
   END DO
 
-  ! MCMC: Set halo model here
+  ! SET: halo model here
   ALLOCATE(hmod(ncos))
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) ihm=15 ! HMcode 2018
   IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) ihm=20 ! Standard halo-model response
@@ -175,7 +221,7 @@ PROGRAM HMx_fitting
                  ip(2)=fields(j2)
                  CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i),kmin,kmax)
               ELSE
-                 STOP 'HMX_FITTING: Error, something went wrong'
+                 STOP 'HMx_FITTING: Error, something went wrong'
               END IF
 
               ! Allocate big arrays for P(k,z,cosm)
@@ -185,6 +231,7 @@ PROGRAM HMx_fitting
               END IF
               k(i,:,j)=k_sim
               pow_bm(i,j1,j2,:,j)=pow_sim
+              
            END DO
         END DO
 
@@ -199,7 +246,7 @@ PROGRAM HMx_fitting
   ! Allocate arrays for halo-model power
   ALLOCATE(pow_hm(ncos,nf,nf,nk,nz))
 
-  ! MCMC: Set varying parameters, number of them, and initial values here
+  ! SET: varying parameters, number of them, and initial values here
 
   ! Set initial parameters
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
@@ -222,7 +269,7 @@ PROGRAM HMx_fitting
      ! matter
      np=10
   ELSE
-     STOP 'HMX_FITTING: Something went wrong with np'
+     STOP 'HMx_FITTING: Something went wrong with np'
   END IF
 
   ALLOCATE(p_bst(np),p_new(np),p_old(np),p_rge(np),p_ori(np),p_log(np),p_min(np),p_max(np),p_nme(np))
@@ -516,8 +563,15 @@ PROGRAM HMx_fitting
 
   ELSE
 
-     STOP 'HMX_FITTING: Something went wrong with setting parameters'
+     STOP 'HMx_FITTING: Something went wrong with setting parameters'
 
+  END IF
+
+  ! Start from a random place within the prior
+  IF(random_start) THEN     
+     DO i=1,np
+        p_ori(i)=random_uniform(p_min(i),p_max(i))
+     END DO
   END IF
 
   ! Take the log of those parameters that are explored in log
@@ -539,14 +593,20 @@ PROGRAM HMx_fitting
   fom_bst=HUGE(fom)
 
   ! Loop over number of runs
-  WRITE(*,*) 'MCMC: Starting MCMC'
-  WRITE(*,*) 'MCMC: Number of points:', n
+  WRITE(*,*) 'HMx_FITTING: Starting fitting'
+  WRITE(*,*) 'HMx_FITTING: Number of points:', n
   WRITE(*,*)
 
-  ii=0
-  iii=0
-  OPEN(10,file='fitting/mcmc.dat')
-  DO l=1,n
+  ! Set counting variables to zero
+  i_bet=0
+  i_wor=0
+  i_acc=0
+  i_fai=0
+
+  ! Do the chain
+  outfile=TRIM(outbase)//'_chain.dat'
+  OPEN(10,file=outfile)
+  DO l=1,n+1
 
      IF(l==1 .OR. mod(l,m)==0) THEN
         IF(l==1) THEN
@@ -554,23 +614,21 @@ PROGRAM HMx_fitting
         ELSE
            verbose2=.TRUE.
         END IF
-        CALL set_mcmc_parameter_ranges(im,fields,nf,p_rge,p_old,p_log,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
+        CALL set_parameter_ranges(im,delta,fields,nf,p_rge,p_old,p_log,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
      END IF
 
      IF(l==1) THEN
         ! Do nothing
-     ELSE IF(l==n) THEN
+     ELSE IF(l==n+1) THEN
         ! Set to best-fitting parameters on last go
         p_new=p_bst           
      ELSE
         ! Randomly jump parameters
-        !IF(jump) CALL set_rges(p_rge,delta,p_old,np,ks_sim,nk,z,nz,pows_sim,hmod,cosm,ncos,verbose=.FALSE.)
         DO i=1,np
            p_new(i)=random_Gaussian(p_old(i),p_rge(i))
            IF(p_new(i)<p_min(i)) p_new(i)=p_min(i)
            IF(p_new(i)>p_max(i)) p_new(i)=p_max(i)
         END DO
-
      END IF
 
      ! Calculate the figure-of-merit
@@ -585,46 +643,53 @@ PROGRAM HMx_fitting
         fom_bst=fom_new
 
         ! Write out the original data
-        base='fitting/orig_cos'
+        base=TRIM(outbase)//'_orig_cos'
         CALL write_fitting_power(base,k,pow_hm,pow_bm,ncos,nf,nk,nz)
 
         accept=.TRUE.
 
-     ELSE IF(l==n) THEN
+        i_bet=i_bet+1
 
+     ELSE IF(l==n+1) THEN
+
+        WRITE(*,*)
+        
         ! Output the best-fitting model
-        base='fitting/best_cos'
+        base=TRIM(outbase)//'_best_cos'
         CALL write_fitting_power(base,k,pow_hm,pow_bm,ncos,nf,nk,nz)
 
         accept=.TRUE.
+        EXIT
 
      ELSE
 
         IF(fom_new < fom_bst) THEN
            ! If fit is the best then always accept...
            p_bst=p_new
-           ibest=l
+           i_bst=l
            fom_bst=fom_new
            accept=.TRUE.
+           i_bet=i_bet+1
         ELSE IF(fom_new <= fom_old) THEN
            ! ...also accept if fom is better than previous...
            accept=.TRUE.
-           !ELSE IF(fom_old/fom_new < random_uniform(0.,1.)) THEN
-        ELSE IF(exp(-(fom_old/fom_new-1.)) < random_uniform(0.,1.)) THEN
+           i_bet=i_bet+1
+        ELSE IF(mcmc .AND. (fom_old/fom_new)**(1./delta) > random_uniform(0.,1.)) THEN
            ! ...otherwise accept poorer fit with some probability...
            accept=.TRUE.
-           iii=iii+1
+           i_wor=i_wor+1
         ELSE
            ! ...otherwise, do not accept.
            accept=.FALSE.
+           i_fai=i_fai+1
         END IF
 
      END IF
 
-     IF(l .NE. n) WRITE(*,fmt='(I10,3F14.7,L3)') l, fom_bst, fom_old, fom_new, accept
+     IF(l .NE. n+1) WRITE(*,fmt='(I10,3F14.7,L3)') l, fom_bst, fom_old, fom_new, accept
 
      IF(accept) THEN
-        ii=ii+1
+        i_acc=i_acc+1
         p_old=p_new
         fom_old=fom_new
         WRITE(10,*) fom_old, (p_old(j), j=1,np)
@@ -632,37 +697,58 @@ PROGRAM HMx_fitting
 
   END DO
   CLOSE(10)
-  WRITE(*,*) 'MCMC: Done'
+  WRITE(*,*) 'HMx_FITTING: Done'
   WRITE(*,*)
 
-  WRITE(*,*) 'MCMC: Best location:', ibest
-  WRITE(*,*) 'MCMC: Total attempts:', n
-  WRITE(*,*) 'MCMC: Accepted steps:', ii
-  WRITE(*,*) 'MCMC: Fraction accepted:', REAL(ii)/REAL(n)
-  WRITE(*,*) 'MCMC: Accepted worse steps:', iii
-  WRITE(*,*) 'MCMC: Fraction worse accepted:', REAL(iii)/REAL(n)
-  WRITE(*,*) 'MCMC: Original figure-of-merit:', fom_ori
-  WRITE(*,*) 'MCMC: Final figure-of-merit:', fom_new
-  WRITE(*,*)
+  ! Write useful information to screen and file
+  DO j=1,2
 
-  WRITE(*,*) 'MCMC: Best-fitting parameters'
-  WRITE(*,*) '========================================================='
-  WRITE(*,*) 'Parameter           Name           Original          Best'
-  WRITE(*,*) '========================================================='
-  DO i=1,np
-     IF(p_log(i)) THEN
-        WRITE(*,fmt='(I10,A15,A5,2F14.7)') i, TRIM(p_nme(i)), 'lin', 10**p_ori(i), 10**p_bst(i)
-        WRITE(*,fmt='(I10,A15,A5,2F14.7)') i, TRIM(p_nme(i)), 'log', p_ori(i), p_bst(i)
-     ELSE
-        WRITE(*,fmt='(I10,A15,A5,2F14.7)') i, TRIM(p_nme(i)), 'lin', p_ori(i), p_bst(i)
+     IF(j==1) THEN
+        out=6
+     ELSE IF(j==2) THEN
+        out=7
+        outfile=TRIM(outbase)//'_params.dat'
+        OPEN(out,file=outfile)
      END IF
-  END DO
-  WRITE(*,*) '=========================================================='
-  WRITE(*,*)
 
-  ! Output the best-fitting model
-  base='fitting/best_cos'
-  CALL write_fitting_power(base,k,pow_hm,pow_bm,ncos,nf,nk,nz)
+     WRITE(out,*) 'HMx_FITTING: Best location:', i_bst
+     WRITE(out,*) 'HMx_FITTING: Total attempts:', n
+     WRITE(out,*) 'HMx_FITTING: Accepted steps:', i_acc
+     WRITE(out,*) 'HMx_FITTING: Fraction accepted steps:', REAL(i_acc)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Better steps:', i_bet
+     WRITE(out,*) 'HMx_FITTING: Fraction better steps:', REAL(i_bet)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Accepted worse steps:', i_wor
+     WRITE(out,*) 'HMx_FITTING: Fraction accepted worse steps:', REAL(i_wor)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Failed steps:', i_fai
+     WRITE(out,*) 'HMx_FITTING: Fraction failed steps:', REAL(i_fai)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Original figure-of-merit:', fom_ori
+     WRITE(out,*) 'HMx_FITTING: Final figure-of-merit:', fom_new
+     WRITE(out,*)
+
+     WRITE(out,*) 'HMx_FITTING: Best-fitting parameters'
+     WRITE(out,*) '====================================================================================='
+     WRITE(out,*) 'Parameter           Name           Original          Best       Minimum       Maximum'
+     WRITE(out,*) '====================================================================================='
+     DO i=1,np
+        IF(p_log(i)) THEN
+           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', 10**p_ori(i), 10**p_bst(i), 10**p_min(i), 10**p_max(i)
+           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'log', p_ori(i), p_bst(i), p_min(i), p_max(i)
+        ELSE
+           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', p_ori(i), p_bst(i), p_min(i), p_max(i)
+        END IF
+     END DO
+     WRITE(out,*) '===================================================================================='
+     WRITE(out,*)
+
+     IF(j==2) THEN
+        CLOSE(out)
+     END IF
+
+  END DO
+
+!!$  ! Output the best-fitting model
+!!$  base='fitting/best_cos'
+!!$  CALL write_fitting_power(base,k,pow_hm,pow_bm,ncos,nf,nk,nz)
 
 CONTAINS
 
@@ -977,7 +1063,7 @@ CONTAINS
     ! Loop over cosmologies
     DO i=1,n
 
-       ! MCMC: Set parameters here
+       ! SET: parameters here
 
        ! Exponentiate those parameters that need it
        DO j=1,np
@@ -1095,10 +1181,11 @@ CONTAINS
 
   END SUBROUTINE fom_multiple
 
-  SUBROUTINE set_mcmc_parameter_ranges(im,fields,nf,sigma,p,p_log,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
+  SUBROUTINE set_parameter_ranges(im,delta,fields,nf,sigma,p,p_log,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: im
+    REAL, INTENT(IN) :: delta
     INTEGER, INTENT(IN) :: fields(nf)
     INTEGER, INTENT(IN) :: nf
     REAL, INTENT(OUT) :: sigma(np)
@@ -1117,22 +1204,6 @@ CONTAINS
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
     REAL :: fom_base, fom, df, p2(np), pow(n,nf,nf,nk,nz)
-    REAL :: delta, dp
-    LOGICAL, PARAMETER :: check=.TRUE.
-
-    ! MCMC: Set step-size stuff here
-
-    IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
-       ! Mira Titan or FrankenEmu
-       delta=1e-4 ! Required change in figure-of-merit
-       dp=1e-10 ! Used for derivative
-    ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
-       ! Hydro
-       delta=3e-3 ! Required change in figure-of-merit
-       dp=1e-10 ! Used for derivative
-    ELSE
-       STOP 'SET_MCMC_PARAMETER_RANGES: Error, im specified incorrectly'
-    END IF
 
     ! Get the figure of merit for the base set of parameters
     CALL fom_multiple(im,fields,nf,fom_base,p,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
@@ -1151,14 +1222,14 @@ CONTAINS
 
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Setting parameter step sizes'
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of parameters:', np
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of cosmologies:', n
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of fields:', nf
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of wavenumbers:', nk
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Number of redshifts:', nz
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Derivatives being calculated with:', dp
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Fixing sigma to give change in fom:', delta
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Setting parameter step sizes'
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Number of parameters:', np
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Number of cosmologies:', n
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Number of fields:', nf
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Number of wavenumbers:', nk
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Number of redshifts:', nz
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Derivatives being calculated with:', dp
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Fixing sigma to give change in fom:', delta
        WRITE(*,*) '========================================================'
        WRITE(*,*) 'Parameter              Value         Sigma         Ratio'
        WRITE(*,*) '========================================================'
@@ -1179,19 +1250,19 @@ CONTAINS
 
        ! Check that perturbing the parameter actually changes the figure of merit
        IF(df==0.) THEN
-          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Parameter:', i
-          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: sigma:', sigma(i)
+          WRITE(*,*) 'SET_PARAMETER_RANGES: Parameter:', i
+          WRITE(*,*) 'SET_PARAMETER_RANGES: sigma:', sigma(i)
           IF(p_log(i)) THEN
-             WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Original value:', 10**p(i)
-             WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Perturbed value:', 10**p2(i)
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Original value:', 10**p(i)
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed value:', 10**p2(i)
           ELSE
-             WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Original value:', p(i)
-             WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Perturbed value:', p2(i)
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Original value:', p(i)
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed value:', p2(i)
           END IF
-          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Original figure-of-merit:', fom_base
-          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Perturbed figure-of-merit:', fom
-          WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Change in figure-of-merit:', df
-          STOP 'SET_MCMC_PARAMETER_RANGES: Error, changing parameter does not change power spectra'
+          WRITE(*,*) 'SET_PARAMETER_RANGES: Original figure-of-merit:', fom_base
+          WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed figure-of-merit:', fom
+          WRITE(*,*) 'SET_PARAMETER_RANGES: Change in figure-of-merit:', df
+          STOP 'SET_PARAMETER_RANGES: Error, changing parameter does not change power spectra'
        END IF
 
        ! Set sigma so that it gives a change of 'delta' in fom
@@ -1204,7 +1275,7 @@ CONTAINS
        END IF
 
        ! Do an extra check if necessary
-       IF(check) THEN
+       IF(check_range) THEN
           p2(i)=p(i)+sigma(i)
           CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
           WRITE(*,*) i, fom_base, fom, fom-fom_base
@@ -1215,11 +1286,11 @@ CONTAINS
     ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) '========================================================'
-       WRITE(*,*) 'SET_MCMC_PARAMETER_RANGES: Done'
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Done'
        WRITE(*,*)
     END IF
 
-  END SUBROUTINE set_mcmc_parameter_ranges
+  END SUBROUTINE set_parameter_ranges
 
   SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
 

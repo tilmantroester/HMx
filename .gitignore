@@ -19,7 +19,7 @@ plotting/*.p~
 *.pdf
 
 # Emacs backups
-src/*.f90~
+*~
 
 # Backup directories
 src/BACKUP/
