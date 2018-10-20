@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Fitting mode
-mode=15
+mode=11
 
 # Number in chain
 n=10
@@ -15,7 +15,7 @@ sims+=('AGN_8p0_nu0')
 zs+=('0.0')
 zs+=('0.5')
 zs+=('1.0')
-zs+=('2.0')
+#zs+=('2.0')
 
 # executable
 bin=./bin/HMx_fitting

@@ -392,12 +392,13 @@ PROGRAM HMx_fitting
      ! Need to have this depend on z to keep the parameter having an effect at the higher z
      ! when 10^14 haloes are rare
      q_nme(4)='M0'
-     q_ori(4)=1e14/(10.**z(1))
+     !q_ori(4)=1e13/(10.**z(1))
+     q_ori(4)=10**13.4/(10.**z(1))
      q_min(4)=1e10
      q_max(4)=1e16
 
      q_nme(5)='A_*'
-     q_ori(5)=0.03
+     q_ori(5)=0.05
      q_min(5)=1e-3
      q_max(5)=1e-1
 
@@ -430,19 +431,21 @@ PROGRAM HMx_fitting
      q_log(10)=.FALSE.
 
      q_nme(11)='alpha index'
-     q_ori(11)=0.01
+     q_ori(11)=0.1
      q_min(11)=-1.
      q_max(11)=1.
      q_log(11)=.FALSE.
 
      q_nme(12)='Gamma index'
-     q_ori(12)=-0.001
+     !q_ori(12)=-0.001
+     q_ori(12)=0.03
      q_min(12)=-0.2
      q_max(12)=0.2
      q_log(12)=.FALSE.
 
      q_nme(13)='c_* index'
-     q_ori(13)=0.01
+     !q_ori(13)=0.1
+     q_ori(13)=-0.1
      q_min(13)=-1.
      q_max(13)=1.
      q_log(13)=.FALSE.
@@ -570,6 +573,7 @@ PROGRAM HMx_fitting
            outfile=TRIM(outbase)//'_chain.dat'
            OPEN(10,file=outfile)
         END IF
+        !STOP
      END IF
 
      IF(l==1) THEN
@@ -1158,7 +1162,7 @@ CONTAINS
     REAL :: fom_base, fom_diff, fom, df, p2(np), pow(n,nf,nf,nk,nz), dp
     
     REAL, PARAMETER :: eps=2.0 ! Tolerated error in fom difference when setting range
-    REAL, PARAMETER :: deriv=0.01 ! How much smaller is the derivative than delta
+    REAL, PARAMETER :: deriv=0.001 ! How much smaller is the derivative than delta
 
     ! Get the figure of merit for the base set of parameters
     CALL fom_multiple(im,fields,nf,fom_base,p,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
@@ -1254,7 +1258,7 @@ CONTAINS
        WRITE(*,fmt='(I14,A15,3F14.7)') i, TRIM(p_nme(i)), fom_base, fom, fom_diff/delta
 
        IF(ABS(fom_diff) > delta*eps .OR. ABS(fom_diff) < delta/eps) THEN
-          STOP 'SET_PARAMETER_RANGES: Error, calculated change in parameter causes too large a change'
+          STOP 'SET_PARAMETER_RANGES: Error, change in parameter causes too small or too large a FOM change'
        END IF
 
     END DO
