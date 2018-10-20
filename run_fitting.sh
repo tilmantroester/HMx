@@ -4,7 +4,7 @@
 mode=15
 
 # Number in chain
-n=50000
+n=10
 
 # Simulations
 sims+=('AGN_TUNED_nu0')
@@ -13,9 +13,9 @@ sims+=('AGN_8p0_nu0')
 
 # Redshifts
 zs+=('0.0')
-#zs+=('0.5')
-#zs+=('1.0')
-#zs+=('2.0')
+zs+=('0.5')
+zs+=('1.0')
+zs+=('2.0')
 
 # executable
 bin=./bin/HMx_fitting

@@ -5,6 +5,7 @@ PROGRAM HMx_fitting
   USE cosmic_emu_stuff
   USE string_operations
   USE random_numbers
+  USE special_functions
 
   IMPLICIT NONE
   INTEGER :: im
@@ -16,9 +17,10 @@ PROGRAM HMx_fitting
   REAL :: kmin, kmax
   CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
-  REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:)
-  CHARACTER(len=256), ALLOCATABLE :: p_nme(:)
-  LOGICAL, ALLOCATABLE :: p_log(:)
+  REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:), p_int(:)
+  REAL, ALLOCATABLE :: q_min(:), q_max(:), q_ori(:)
+  CHARACTER(len=256), ALLOCATABLE :: p_nme(:), q_nme(:)
+  LOGICAL, ALLOCATABLE :: p_log(:), q_log(:)
   REAL :: delta, fom, fom_bst, fom_new, fom_old, fom_ori
   LOGICAL :: accept
   INTEGER :: icosmo, ihm, i_bst, np, ip(2)
@@ -27,46 +29,41 @@ PROGRAM HMx_fitting
   LOGICAL :: verbose2
   INTEGER :: out
 
+  ! Hydro fitting parameters
+  INTEGER, PARAMETER :: param_n=13
+  INTEGER, PARAMETER :: param_alpha=1
+  INTEGER, PARAMETER :: param_eps=2
+  INTEGER, PARAMETER :: param_gamma=3
+  INTEGER, PARAMETER :: param_M0=4
+  INTEGER, PARAMETER :: param_Astar=5
+  INTEGER, PARAMETER :: param_Twhim=6
+  INTEGER, PARAMETER :: param_cstar=7
+  INTEGER, PARAMETER :: param_fcold=8
+  INTEGER, PARAMETER :: param_mstar=9
+  INTEGER, PARAMETER :: param_sstar=10
+  INTEGER, PARAMETER :: param_alphap=11
+  INTEGER, PARAMETER :: param_Gammap=12
+  INTEGER, PARAMETER :: param_cstarp=13
+
   REAL, PARAMETER :: mmin=1e7        ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17       ! Maximum halo mass for the calculation
 
-  !INTEGER, PARAMETER :: n=1000 ! Number of points in chain
   INTEGER, PARAMETER :: m=HUGE(m)  ! Re-evaluate range every 'm' points
   INTEGER, PARAMETER :: seed=0 ! Random-number seed
   LOGICAL, PARAMETER :: random_start=.FALSE. ! Start from a random point within the prior range
   LOGICAL, PARAMETER :: mcmc=.TRUE. ! Accept worse figure of merit with some probability
-  LOGICAL, PARAMETER :: check_range=.TRUE.
-  REAL, PARAMETER :: dp=1e-8 ! Used for derivatives
   INTEGER, PARAMETER :: computer=1 ! Which computer are you on?
-
-  ! Set the random-number generator
-  CALL RNG_set(seed)
 
   ! Read in starting option
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
+     !STOP 'HMx_FITTING: Error, please specify mode'
      im=-1
   ELSE
      READ(mode,*) im
   END IF
 
-  CALL get_command_argument(2,nchain)
-  IF(nchain=='') THEN
-     STOP 'HMx_FITTING: Error, please specify number in chain'
-  ELSE
-     READ(nchain,*) n
-  END IF
-
-  ! Read in outfile
-  CALL get_command_argument(3,outbase)
-  IF(outbase=='') outbase='fitting/test'
-
-  ! Read in BAHAMAS simulation name
-  CALL get_command_argument(4,name)
-
-  ! Read in BAHAMAS simulation redshift
-  CALL get_command_argument(5,zin)
-
+  ! Decide what to do
   IF(im==-1) THEN
      WRITE(*,*)
      WRITE(*,*) 'HMx_FITTING: Choose what to do'
@@ -83,6 +80,29 @@ PROGRAM HMx_fitting
      READ(*,*) im
      WRITE(*,*)
   END IF
+
+  ! Read in chain length
+  CALL get_command_argument(2,nchain)
+  IF(nchain=='') THEN
+     WRITE(*,*) 'HMx_FITTING: Specify points in fitting chain'
+     READ(*,*) n
+     WRITE(*,*)
+  ELSE
+     READ(nchain,*) n
+  END IF
+
+  ! Read in outfile
+  CALL get_command_argument(3,outbase)
+  IF(outbase=='') outbase='fitting/test'
+
+  ! Read in BAHAMAS simulation name
+  CALL get_command_argument(4,name)
+
+  ! Read in BAHAMAS simulation redshift
+  CALL get_command_argument(5,zin)
+  
+  ! Set the random-number generator
+  CALL RNG_set(seed)
 
   ! SET: number of cosmologies, fields and delta
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
@@ -103,7 +123,7 @@ PROGRAM HMx_fitting
   ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
 
      ! Required change in figure-of-merit
-     delta=1e-3
+     delta=3e-3
 
      ! Set to the number of different cosmologies
      ncos=1 
@@ -121,6 +141,9 @@ PROGRAM HMx_fitting
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
 
+     ! Required change in figure-of-merit
+     !delta=triangle_number(nf)*1e-3
+     
   ELSE
      STOP 'HMx_FITTING: Error, something went wrong with setting fields'
   END IF
@@ -253,21 +276,18 @@ PROGRAM HMx_fitting
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
      ! Mira Titan or FrankenEmu fitting for HMcode
      np=12
-     p_log=.FALSE. ! None of these parameters are explored in log
   ELSE IF(im==11) THEN
      ! everything
-     np=8
+     np=13
   ELSE IF(im==12) THEN
      ! gas
      np=6
   ELSE IF(im==13) THEN
      ! stars
      np=5
-  ELSE IF(im==14) THEN
-     ! gas and stars
-     np=6
-  ELSE IF(im==15) THEN
-     ! matter
+  ELSE IF(im==14 .OR. im==15) THEN
+     ! 14 - gas and stars
+     ! 15 - matter
      np=10
   ELSE
      STOP 'HMx_FITTING: Something went wrong with np'
@@ -278,6 +298,7 @@ PROGRAM HMx_fitting
 
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
 
+     ! None of these parameters are explored in log
      p_log=.FALSE.
 
      p_nme(1)='Dv0'
@@ -342,225 +363,156 @@ PROGRAM HMx_fitting
      p_min(12)=-5.
      p_max(12)=5.
 
-  ELSE IF(im==11) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
 
-     ! everything
-     p_log=.TRUE.
+     ! The general parameters are set here
 
-     p_nme(1)='alpha'
-     p_ori(1)=0.33333
-     p_min(1)=1e-2
-     p_max(1)=1e1
+     ALLOCATE(q_ori(param_n),q_log(param_n),q_min(param_n),q_max(param_n),q_nme(param_n))
+     ALLOCATE(p_int(np))
 
-     !not one because log(1)=0 and this messes things up in setting the ranges
-     p_nme(2)='epsilon'
-     p_ori(2)=1.1
-     p_min(2)=1e-2
-     p_max(2)=1e2
+     q_log=.TRUE.
 
-     p_nme(3)='Gamma-1'
-     p_ori(3)=0.17
-     p_min(3)=0.01
-     p_max(3)=2.
-     p_log(3)=.FALSE.
-
-     p_nme(4)='M0'
-     p_ori(4)=1e14
-     p_min(4)=1e10
-     p_max(4)=1e16
-
-     p_nme(5)='A_*'
-     p_ori(5)=0.03
-     p_min(5)=1e-3
-     p_max(5)=1e-1
-
-     p_nme(6)='T_whim'
-     p_ori(6)=1e6
-     p_min(6)=1e2
-     p_max(6)=1e8
-
-     p_nme(7)='c_*'
-     p_ori(7)=10.
-     p_min(7)=1e0
-     p_max(7)=1e3
-
-     p_nme(8)='f_cold'
-     p_ori(8)=1e-2
-     p_min(8)=1e-5
-     p_max(8)=0.5
-
-
-  ELSE IF(im==12) THEN
-
-     ! gas
-     p_log=.TRUE.
+     q_nme(1)='alpha'
+     q_ori(1)=0.33333
+     q_min(1)=1e-2
+     q_max(1)=1e1
 
      !not one because log(1)=0 and this messes things up in setting the ranges
-     p_nme(1)='epsilon'
-     p_ori(1)=1.1
-     p_min(1)=1e-2
-     p_max(1)=1e2
+     q_nme(2)='epsilon'
+     q_ori(2)=1.1
+     q_min(2)=1e-2
+     q_max(2)=1e2
 
-     p_nme(2)='Gamma - 1'
-     p_ori(2)=0.17
-     p_min(2)=0.01
-     p_max(2)=2.
-     p_log(2)=.FALSE.
+     q_nme(3)='Gamma-1'
+     q_ori(3)=0.17
+     q_min(3)=0.01
+     q_max(3)=2.
+     q_log(3)=.FALSE.
 
-     p_nme(3)='M_0'
-     p_ori(3)=1e14
-     p_min(3)=1e10
-     p_max(3)=1e16
+     ! Need to have this depend on z to keep the parameter having an effect at the higher z
+     ! when 10^14 haloes are rare
+     q_nme(4)='M0'
+     q_ori(4)=1e14/(10.**z(1))
+     q_min(4)=1e10
+     q_max(4)=1e16
 
-     p_nme(4)='A_*'
-     p_ori(4)=0.03
-     p_min(4)=1e-3
-     p_max(4)=1e-1
+     q_nme(5)='A_*'
+     q_ori(5)=0.03
+     q_min(5)=1e-3
+     q_max(5)=1e-1
 
-     p_nme(5)='f_cold'
-     p_ori(5)=1e-3
-     p_min(5)=1e-5
-     p_max(5)=0.5
+     ! For some reason when 1e6 is set a range is calculated that gives too large a change in figure-of-merit
+     q_nme(6)='T_whim'
+     q_ori(6)=1e7
+     q_min(6)=1e2
+     q_max(6)=1e8
 
-     p_nme(6)='Gamma index'
-     p_ori(6)=-0.001
-     p_min(6)=-0.2
-     p_max(6)=0.2
-     p_log(6)=.FALSE.
+     q_nme(7)='c_*'
+     q_ori(7)=10.
+     q_min(7)=1e0
+     q_max(7)=1e3
 
-  ELSE IF(im==13) THEN
+     ! Needed to boost original here so that it has an effect
+     q_nme(8)='f_cold'
+     q_ori(8)=1e-1
+     q_min(8)=1e-5
+     q_max(8)=0.5
 
-     ! stars
-     p_log=.TRUE.
+     q_nme(9)='M_*'
+     q_ori(9)=5e12
+     q_min(9)=1e9
+     q_max(9)=1e15
 
-     ! Astar
-     p_nme(1)='A_*'
-     p_ori(1)=0.03 
-     p_min(1)=0.001
-     p_max(1)=0.1
+     q_nme(10)='sigma_*'
+     q_ori(10)=1.2
+     q_min(10)=0.1
+     q_max(10)=10.
+     q_log(10)=.FALSE.
 
-     ! cstar
-     p_nme(2)='c_*'
-     p_ori(2)=10.  
-     p_min(2)=1.
-     p_max(2)=1000.
+     q_nme(11)='alpha index'
+     q_ori(11)=0.01
+     q_min(11)=-1.
+     q_max(11)=1.
+     q_log(11)=.FALSE.
 
-     ! cstarp
-     p_nme(3)='c_* index'
-     p_ori(3)=0.01
-     p_min(3)=-1.
-     p_max(3)=1.
-     p_log(3)=.FALSE.
+     q_nme(12)='Gamma index'
+     q_ori(12)=-0.001
+     q_min(12)=-0.2
+     q_max(12)=0.2
+     q_log(12)=.FALSE.
 
-     ! M_star
-     p_nme(4)='M_*'
-     p_ori(4)=5e12
-     p_min(4)=1e9
-     p_max(4)=1e15
+     q_nme(13)='c_* index'
+     q_ori(13)=0.01
+     q_min(13)=-1.
+     q_max(13)=1.
+     q_log(13)=.FALSE.
 
-     ! sigma_star
-     p_nme(5)='sigma_*'
-     p_ori(5)=1.2
-     p_min(5)=0.1
-     p_max(5)=10.
-     p_log(5)=.FALSE.
+     IF(im==11) THEN
 
-  ELSE IF(im==14) THEN
+        ! everything
+        p_int(1)=param_alpha
+        p_int(2)=param_eps
+        p_int(3)=param_Gamma
+        p_int(4)=param_M0
+        p_int(5)=param_Astar
+        p_int(6)=param_Twhim
+        p_int(7)=param_cstar
+        p_int(8)=param_fcold
+        p_int(9)=param_Mstar
+        p_int(10)=param_sstar
+        p_int(11)=param_alphap
+        p_int(12)=param_Gammap
+        p_int(13)=param_cstarp
 
-     ! gas and stars
-     p_log=.TRUE.
+     ELSE IF(im==12) THEN
 
-     ! not one because log(1)=0 and this messes things up in setting the ranges
-     p_nme(1)='epsilon'
-     p_ori(1)=1.1
-     p_min(1)=1e-2
-     p_max(1)=1e2
+        ! gas
+        p_int(1)=param_eps
+        p_int(2)=param_Gamma
+        p_int(3)=param_M0
+        p_int(4)=param_Astar
+        p_int(5)=param_fcold
+        p_int(6)=param_Gammap
 
-     p_nme(2)='Gamma - 1'
-     p_ori(2)=0.17
-     p_min(2)=0.01
-     p_max(2)=2.
-     p_log(2)=.FALSE.
+     ELSE IF(im==13) THEN
 
-     p_nme(3)='M_0'
-     p_ori(3)=1e14
-     p_min(3)=1e10
-     p_max(3)=1e16
+        ! stars
+        p_int(1)=param_Astar
+        p_int(2)=param_cstar
+        p_int(3)=param_cstarp
+        p_int(4)=param_Mstar
+        p_int(5)=param_sstar       
 
-     p_nme(4)='A_*'
-     p_ori(4)=0.03
-     p_min(4)=1e-3
-     p_max(4)=1e-1
+     ELSE IF(im==14 .OR. im==15) THEN
 
-     p_nme(5)='c_*'
-     p_ori(5)=10.
-     p_min(5)=1e0
-     p_max(5)=1e3
+        ! 14 - gas and stars
+        ! 15 - matter
+        p_int(1)=param_eps
+        p_int(2)=param_Gamma
+        p_int(3)=param_M0
+        p_int(4)=param_Astar
+        p_int(5)=param_cstar
+        p_int(6)=param_fcold
+        p_int(7)=param_Gammap
+        p_int(8)=param_cstarp
+        p_int(9)=param_Mstar
+        p_int(10)=param_sstar
 
-     p_nme(6)='f_cold'
-     p_ori(6)=1e-2
-     p_min(6)=1e-5
-     p_max(6)=0.5
+     ELSE
 
-  ELSE IF(im==15) THEN
+        STOP 'HMx_FITTING: Something went wrong with setting parameters'
+        
+     END IF
 
-     ! matter
-     p_log=.TRUE.
-
-     ! not one because log(1)=0 and this messes things up in setting the ranges
-     p_nme(1)='epsilon'
-     p_ori(1)=1.1
-     p_min(1)=1e-2
-     p_max(1)=1e2
-
-     p_nme(2)='Gamma - 1'
-     p_ori(2)=0.17
-     p_min(2)=0.01
-     p_max(2)=2.
-     p_log(2)=.FALSE.
-
-     p_nme(3)='M_0'
-     p_ori(3)=1e14
-     p_min(3)=1e10
-     p_max(3)=1e16
-
-     p_nme(4)='A_*'
-     p_ori(4)=0.03
-     p_min(4)=1e-3
-     p_max(4)=1e-1
-
-     p_nme(5)='c_*'
-     p_ori(5)=10.
-     p_min(5)=1e0
-     p_max(5)=1e3
-
-     p_nme(6)='f_cold'
-     p_ori(6)=1e-2
-     p_min(6)=1e-5
-     p_max(6)=0.5
-
-     p_nme(7)='Gamma index'
-     p_ori(7)=-0.001
-     p_min(7)=-0.2
-     p_max(7)=0.2
-     p_log(7)=.FALSE.
-
-     p_nme(8)='c_* index'
-     p_ori(8)=0.01
-     p_min(8)=-1.
-     p_max(8)=1.
-     p_log(8)=.FALSE.
-
-     p_nme(9)='M_*'
-     p_ori(9)=5e12
-     p_min(9)=1e9
-     p_max(9)=1e15
-
-     p_nme(10)='sigma_*'
-     p_ori(10)=1.2
-     p_min(10)=0.1
-     p_max(10)=10.
-     p_log(10)=.FALSE.
+     ! Actually fill the proper parameter array
+     DO i=1,np
+        j=p_int(i)
+        p_nme(i)=q_nme(j)
+        p_ori(i)=q_ori(j)
+        p_min(i)=q_min(j)
+        p_max(i)=q_max(j)
+        p_log(i)=q_log(j)
+     END DO
 
   ELSE
 
@@ -605,8 +557,6 @@ PROGRAM HMx_fitting
   i_fai=0
 
   ! Do the chain
-  outfile=TRIM(outbase)//'_chain.dat'
-  OPEN(10,file=outfile)
   DO l=1,n+1
 
      IF(l==1 .OR. mod(l,m)==0) THEN
@@ -615,7 +565,12 @@ PROGRAM HMx_fitting
         ELSE
            verbose2=.TRUE.
         END IF
-        CALL set_parameter_ranges(im,delta,fields,nf,p_rge,p_old,p_log,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
+        CALL set_parameter_ranges(im,delta,fields,nf,p_rge,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
+        IF(l==1) THEN
+           outfile=TRIM(outbase)//'_chain.dat'
+           OPEN(10,file=outfile)
+        END IF
+        STOP
      END IF
 
      IF(l==1) THEN
@@ -1104,6 +1059,11 @@ CONTAINS
           hmod(i)%Twhim=pexp(6)
           hmod(i)%cstar=pexp(7)
           hmod(i)%fcold=pexp(8)
+          hmod(i)%Mstar=pexp(9)
+          hmod(i)%sstar=pexp(10)
+          hmod(i)%alphap=pexp(11)
+          hmod(i)%Gammap=pexp(12)
+          hmod(i)%cstarp=pexp(13)
 
        ELSE IF(im==12) THEN
 
@@ -1124,19 +1084,10 @@ CONTAINS
           hmod(i)%Mstar=pexp(4)
           hmod(i)%sstar=pexp(5)
 
-       ELSE IF(im==14) THEN
+       ELSE IF(im==14 .OR. im==15) THEN
 
-          ! gas and stars
-          hmod(i)%eps=pexp(1)
-          hmod(i)%Gamma=1.+pexp(2)
-          hmod(i)%M0=pexp(3)
-          hmod(i)%Astar=pexp(4)
-          hmod(i)%cstar=pexp(5)
-          hmod(i)%fcold=pexp(6)
-
-       ELSE IF(im==15) THEN
-
-          ! matter
+          ! 14 - gas and stars
+          ! 15 - matter
           hmod(i)%eps=pexp(1)
           hmod(i)%Gamma=1.+pexp(2)
           hmod(i)%M0=pexp(3)
@@ -1182,7 +1133,7 @@ CONTAINS
 
   END SUBROUTINE fom_multiple
 
-  SUBROUTINE set_parameter_ranges(im,delta,fields,nf,sigma,p,p_log,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
+  SUBROUTINE set_parameter_ranges(im,delta,fields,nf,sigma,p,p_log,p_nme,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: im
@@ -1192,6 +1143,7 @@ CONTAINS
     REAL, INTENT(OUT) :: sigma(np)
     REAL, INTENT(IN) :: p(np)
     LOGICAL, INTENT(IN) :: p_log(np)
+    CHARACTER(len=*), INTENT(IN) :: p_nme(np)
     INTEGER, INTENT(IN) :: np
     REAL, INTENT(IN) :: k(nk,nz,n)
     INTEGER, INTENT(IN) :: nk
@@ -1204,22 +1156,24 @@ CONTAINS
     INTEGER, INTENT(IN) :: n
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
-    REAL :: fom_base, fom, df, p2(np), pow(n,nf,nf,nk,nz)
+    REAL :: fom_base, fom_diff, fom, df, p2(np), pow(n,nf,nf,nk,nz), dp
+    
+    REAL, PARAMETER :: eps=2.0 ! Tolerated error in fom difference when setting range
+    REAL, PARAMETER :: deriv=0.01 ! How much smaller is the derivative than delta
 
     ! Get the figure of merit for the base set of parameters
     CALL fom_multiple(im,fields,nf,fom_base,p,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
 
-!!$    ! Calculate the change in parameter
-!!$    DO i=1,np
-!!$       IF(p_log(i)) THEN
-!!$          sigma(i)=p(i)+dp
-!!$       ELSE
-!!$          sigma(i)=p(i)*dp
-!!$       END IF
-!!$    END DO
+    dp=deriv*delta
 
-    ! TODO: Is this the correct thing to do in log?
-    sigma=p*dp
+    ! Initial parameter perturbation
+    DO i=1,np
+       IF(p(i) .NE. 0.) THEN
+          sigma(i)=p(i)*dp
+       ELSE
+          sigma(i)=dp
+       END IF
+    END DO
 
     ! Write to screen
     IF(verbose) THEN
@@ -1231,9 +1185,9 @@ CONTAINS
        WRITE(*,*) 'SET_PARAMETER_RANGES: Number of redshifts:', nz
        WRITE(*,*) 'SET_PARAMETER_RANGES: Derivatives being calculated with:', dp
        WRITE(*,*) 'SET_PARAMETER_RANGES: Fixing sigma to give change in fom:', delta
-       WRITE(*,*) '========================================================'
-       WRITE(*,*) 'Parameter              Value         Sigma         Ratio'
-       WRITE(*,*) '========================================================'
+       WRITE(*,*) '====================================================================================='
+       WRITE(*,*) 'Parameter           Name         Base value     New Value         Sigma         Ratio'
+       WRITE(*,*) '====================================================================================='
     END IF
 
     ! Loop over parameters
@@ -1268,26 +1222,48 @@ CONTAINS
 
        ! Set sigma so that it gives a change of 'delta' in fom
        sigma(i)=ABS(sigma(i)/df)*delta
+       p2(i)=p(i)+sigma(i)
 
        ! Write parameters to screen
        IF(verbose) THEN
-          IF(p_log(i)) WRITE(*,fmt='(I10,A5,3F14.7)') i, 'lin', 10**p(i), sigma(i), sigma(i)/ABS(p(i))
-          WRITE(*,fmt='(I10,A5,3F14.7)') i, 'log', p(i), sigma(i), sigma(i)/ABS(p(i))
-       END IF
+          IF(p_log(i)) WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', 10**p(i), 10**p2(i), sigma(i), sigma(i)/ABS(p(i))
+          WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'log', p(i), p2(i), sigma(i), sigma(i)/ABS(p(i))
+       END IF       
 
-       ! Do an extra check if necessary
-       IF(check_range) THEN
-          p2(i)=p(i)+sigma(i)
-          CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
-          WRITE(*,*) i, fom_base, fom, fom-fom_base
+    END DO
+
+    ! Write to screen
+    IF(verbose) THEN
+       WRITE(*,*) '====================================================================================='
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Done initial setting'
+       WRITE(*,*)
+    END IF
+
+    ! Write to screen
+    IF(verbose) THEN
+       WRITE(*,*) '======================================================================'
+       WRITE(*,*) '    Parameter           Name      fom_base           fom         ratio'
+       WRITE(*,*) '======================================================================'
+    END IF
+
+    DO i=1,np
+
+       p2=p
+       p2(i)=p(i)+sigma(i)
+       CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
+       fom_diff=fom-fom_base
+       WRITE(*,fmt='(I14,A15,3F14.7)') i, TRIM(p_nme(i)), fom_base, fom, fom_diff/delta
+
+       IF(ABS(fom_diff) > delta*eps .OR. ABS(fom_diff) < delta/eps) THEN
+          STOP 'SET_PARAMETER_RANGES: Error, calculated change in parameter causes too large a change'
        END IF
 
     END DO
 
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) '========================================================'
-       WRITE(*,*) 'SET_PARAMETER_RANGES: Done'
+       WRITE(*,*) '======================================================================'
+       WRITE(*,*) 'Done check'
        WRITE(*,*)
     END IF
 
@@ -1401,7 +1377,6 @@ CONTAINS
   CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
 
     IMPLICIT NONE
-    !CHARACTER(len=*), INTENT(OUT) :: name
     CHARACTER(len=*), INTENT(IN) :: model
     REAL, INTENT(IN) :: z
     INTEGER, INTENT(IN) :: ip(2)
