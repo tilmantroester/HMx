@@ -570,7 +570,6 @@ PROGRAM HMx_fitting
            outfile=TRIM(outbase)//'_chain.dat'
            OPEN(10,file=outfile)
         END IF
-        STOP
      END IF
 
      IF(l==1) THEN
