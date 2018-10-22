@@ -105,6 +105,7 @@ MODULE HMx
      INTEGER :: halo_DMONLY, halo_CDM, halo_boundgas, halo_coldgas, halo_freegas, halo_star, halo_HI
      INTEGER :: halo_void, halo_compensated_void, electron_pressure
      INTEGER :: frac_boundgas, frac_star, frac_HI, frac_coldgas
+     LOGICAL :: one_parameter_baryons
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
      LOGICAL :: fixed_HMx, response
      REAL :: acc_HMx, large_nu
@@ -417,6 +418,7 @@ CONTAINS
     hmod%As=3.13
     hmod%alp0=3.24
     hmod%alp1=1.85
+    hmod%one_parameter_baryons=.FALSE.
 
     ! HMx parameters
     hmod%fixed_HMx=.TRUE.
@@ -2273,7 +2275,6 @@ CONTAINS
        delta_c=dc_NakamuraSuto(a,cosm)
     ELSE IF(hmod%idc==3) THEN
        !From Mead et al. (2015, 2016)
-       !delta_c=1.59+0.0314*log(sigma(8.,a,cosm))
        delta_c=hmod%dc0+hmod%dc1*log(sigma(8.,a,cosm))
        delta_c=delta_c*(dc_NakamuraSuto(a,cosm)/dc0)
     ELSE IF(hmod%idc==4) THEN
@@ -2307,7 +2308,6 @@ CONTAINS
        Delta_v=Dv_BryanNorman(a,cosm)    
     ELSE IF(hmod%iDv==3) THEN
        ! From Mead et al. (2015, 2016)
-       ! Delta_v=418.*Omega_m(a,cosm)**(-0.352)
        Delta_v=hmod%Dv0*Omega_m(a,cosm)**hmod%Dv1
     ELSE IF(hmod%iDv==4) THEN
        ! From Mead (2017) fitting function
@@ -2326,19 +2326,22 @@ CONTAINS
 
   REAL FUNCTION eta(hmod,cosm)
 
-    !Calculates the eta that comes into the bastardised one-halo term
+    ! Calculates the eta that comes into the bastardised one-halo term
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: a
+    REAL :: eta0
 
     IF(hmod%ieta==1) THEN
        eta=0.
     ELSE IF(hmod%ieta==2) THEN
-       !From Mead et al. (2015; arXiv 1505.07833, 2016)
-       !eta=0.603-0.3*(sigma(8.,a,cosm))
-       a=hmod%a
-       eta=hmod%eta0-hmod%eta1*(sigma(8.,a,cosm))
+       ! From Mead et al. (2015; arXiv 1505.07833, 2016)
+       IF(hmod%one_parameter_baryons) THEN
+          eta0=0.98-hmod%As*0.12
+       ELSE
+          eta0=hmod%eta0
+       END IF
+       eta=eta0-hmod%eta1*(sigma(8.,hmod%a,cosm))
     ELSE
        STOP 'Error, ihm defined incorrectly'
     END IF
@@ -2347,21 +2350,21 @@ CONTAINS
 
   FUNCTION kstar(hmod,cosm)
 
-    !Calculates the one-halo damping wave number
+    ! Calculates the one-halo damping wave number
     IMPLICIT NONE
     REAL :: kstar
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: crap
 
-    !To prevent compile-time warnings
+    ! To prevent compile-time warnings
     crap=cosm%A
 
     IF(hmod%ikstar==1) THEN
-       !Set to zero for the standard Poisson one-halo term
+       ! Set to zero for the standard Poisson one-halo term
        kstar=0.
     ELSE IF(hmod%ikstar==2) THEN
-       !One-halo cut-off wavenumber from Mead et al. (2015, 2016)
+       ! One-halo cut-off wavenumber from Mead et al. (2015, 2016)
        kstar=hmod%ks/hmod%sigv
     ELSE
        STOP 'KSTAR: Error, ihm defined incorrectly'
@@ -2371,21 +2374,20 @@ CONTAINS
 
   REAL FUNCTION As(hmod,cosm)
 
-    !Halo concentration pre-factor
+    ! Halo concentration pre-factor
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
 
-    !To prevent compile-time warnings
+    ! To prevent compile-time warnings
     crap=cosm%A
     
     IF(hmod%iAs==1) THEN
-       !Set to 4 for the standard Bullock value
+       ! Set to 4 for the standard Bullock value
        As=4.
     ELSE IF(hmod%iAs==2) THEN
-       !This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833, 2016)
-       !As=3.13
+       ! This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833, 2016)
        As=hmod%As
     ELSE
        STOP 'AS: Error, iconc defined incorrectly'
@@ -2398,31 +2400,29 @@ CONTAINS
 
   REAL FUNCTION fdamp(hmod,cosm)
 
-    !Calculates the linear-theory damping factor
+    ! Calculates the linear-theory damping factor
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: crap
 
-    !To prevent compile-time warnings
+    ! To prevent compile-time warnings
     crap=cosm%A
 
     IF(hmod%i2hdamp==1) THEN
-       !Set to 0 for the standard linear theory two halo term
+       ! Set to 0 for the standard linear theory two halo term
        fdamp=0.
     ELSE IF(hmod%i2hdamp==2) THEN
-       !Mead et al. (2015)
-       !fdamp=0.188*hmod%sig8z**4.29
+       ! Mead et al. (2015)
        fdamp=hmod%f0*hmod%sig8z**hmod%f1
     ELSE IF(hmod%i2hdamp==3) THEN
-       !Mead et al. (2016)
-       !fdamp=0.0095*hmod%sigv100**1.37
+       ! Mead et al. (2016)
        fdamp=hmod%f0*hmod%sigv100**hmod%f1
     ELSE
        STOP 'FDAMP: Error, i2hdamp defined incorrectly'
     END IF
 
-    !Catches extreme values of fdamp that occur for ridiculous cosmologies
+    ! Catches extreme values of fdamp that occur for ridiculous cosmologies
     IF(fdamp<fdamp_min) fdamp=0.
     IF(fdamp>fdamp_max) fdamp=fdamp_max
 
@@ -4527,7 +4527,6 @@ CONTAINS
              Gamma=p1+0.01*(c-6.5)
              !WRITE(*,*) 'Gamma:', Gamma
              eta0=0.00676*(c-6.5)**2+0.206*(c-6.5)+2.48
-             !eta0=2.48
              !WRITE(*,*) 'eta0:', eta0
              f1=(3./eta0)*(Gamma-1.)/Gamma
              !WRITE(*,*) 'f1:', f1
