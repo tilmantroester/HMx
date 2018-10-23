@@ -2016,7 +2016,7 @@ CONTAINS
     REAL, PARAMETER :: m2=1e16
 
     WRITE(*,*) 'HALO_DIAGNOSTICS: Outputting diagnostics'
-
+ 
     outfile=TRIM(dir)//'/mass_fractions.dat'
     WRITE(*,*) 'HALO_DIAGNOSTICS: ', TRIM(outfile)
     CALL write_mass_fractions(hmod,cosm,outfile)
