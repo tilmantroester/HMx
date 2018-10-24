@@ -130,7 +130,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '22 - Time W(k) integration methods'
      WRITE(*,*) '23 - Produce DE response results from Mead (2017)'
      WRITE(*,*) '24 - TESTS: Projection'
-     WRITE(*,*) '25 - '
+     WRITE(*,*) '25 - Halo-void model'
      WRITE(*,*) '26 - TESTS: DMONLY spectra; HMcode'
      WRITE(*,*) '27 - Comparison with Mira Titan nodes'
      WRITE(*,*) '28 - Comparison with FrankenEmu nodes'
@@ -165,7 +165,6 @@ PROGRAM HMx_driver
   IF(imode==0) THEN
 
      ! Calculate halo model at one z
-     ! TODO: Change to calculate_HMx_a
 
      ! Set number of k points and k range (log spaced)
      nk=128
@@ -182,7 +181,7 @@ PROGRAM HMx_driver
      ! Sets the redshift
      z=0.
 
-     !Initiliasation for the halomodel calcualtion
+     ! Initiliasation for the halomodel calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
      CALL print_halomod(hmod,cosm,verbose)
@@ -214,6 +213,7 @@ PROGRAM HMx_driver
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
+     ! Assign the halo model
      CALL assign_halomod(ihm,hmod,verbose)
      
      ! Set number of k points and k range (log spaced)
@@ -228,8 +228,6 @@ PROGRAM HMx_driver
      amin=0.2
      amax=1.0
      CALL fill_array(amin,amax,a,na)
-     !a=1./(1.+a)
-     !na=nz
 
      field=field_dmonly
      CALL calculate_HMx(field,1,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
@@ -2261,7 +2259,43 @@ PROGRAM HMx_driver
 
   ELSE IF(imode==25) THEN
 
-     STOP 'HMx_DRIVER: Error, imode=25 no longer supported'
+     ! Halo-void model
+
+     ! Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     ! Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Sets the redshift
+     z=0.
+
+     ! Initiliasation for the halomodel calcualtion
+     ihm=16
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
+
+     ! Allocate arrays
+     ALLOCATE(powd_li(nk),powd_2h(nk),powd_1h(nk),powd_hm(nk))
+
+     ! Do the halo-model calculation
+     field=field_dmonly
+     CALL calculate_HMx_a(field,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
+
+     ! Write the one-void term if necessary
+     OPEN(7,file='data/power_halovoid.dat')
+     DO i=1,nk     
+        WRITE(7,*) k(i), powd_li(i), powd_2h(i), powd_1h(i), powd_hm(i), p_1void(k(i),hmod)
+     END DO
+     CLOSE(7)
 
   ELSE IF(imode==26) THEN
 

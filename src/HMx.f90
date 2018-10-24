@@ -1942,8 +1942,9 @@ CONTAINS
     REAL :: integrand(hmod%n)
     INTEGER :: i, n
 
-    REAL, PARAMETER :: dv=-3.
+    REAL, PARAMETER :: dv=-1.
     REAL, PARAMETER :: fvoid=1.1
+    REAL, PARAMETER :: rvoid_simple=10.
     LOGICAL, PARAMETER :: compensate=.TRUE.
     LOGICAL, PARAMETER :: simple=.FALSE.
 
@@ -1956,8 +1957,8 @@ CONTAINS
     DO i=1,n
 
        !Get the void radius and compensation radius
-       IF(simple) THEn
-          rvoid=10.
+       IF(simple) THEN
+          rvoid=rvoid_simple
        ELSE         
           rvoid=hmod%rr(i)
           nu=hmod%nu(i)        
