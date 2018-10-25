@@ -128,12 +128,12 @@ MODULE HMx
   REAL, PARAMETER :: zinf_Dolag=100.                 ! An approximate infinite z; I changed this from 10 -> 100 to make it more infinite, I used zinf=10 for Mead (2017)!
 
   ! HMcode
-  REAL, PARAMETER :: mmin_hmcode=1e7          ! Minimum mass to consider for one-halo integration
-  REAL, PARAMETER :: mmax_hmcode=1e17         ! Maximum mass to consider for one-halo integration
-  REAL, PARAMETER :: fdamp_min=1e-3           ! Minimum value for f_damp parameter
-  REAL, PARAMETER :: fdamp_max=0.99           ! Maximum value for f_damp parameter
-  REAL, PARAMETER :: alpha_transition_min=0.5 ! Minimum value for alpha transition parameter
-  REAL, PARAMETER :: alpha_transition_max=2.0 ! Maximum value for alpha transition parameter
+  REAL, PARAMETER :: mmin_HMcode=1e7          ! Minimum mass to consider for one-halo integration
+  REAL, PARAMETER :: mmax_HMcode=1e17         ! Maximum mass to consider for one-halo integration
+  REAL, PARAMETER :: fdamp_HMcode_min=1e-3           ! Minimum value for f_damp parameter
+  REAL, PARAMETER :: fdamp_HMcode_max=0.99           ! Maximum value for f_damp parameter
+  REAL, PARAMETER :: alpha_HMcode_min=0.5 ! Minimum value for alpha transition parameter
+  REAL, PARAMETER :: alpha_HMcode_max=2.0 ! Maximum value for alpha transition parameter
 
   ! HMx
   REAL, PARAMETER :: HMx_alpha_min=1e-2 ! Minimum alpha parameter; needs to be set at not zero
@@ -174,8 +174,8 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=27 ! Total number of pre-defined halo-model types (TODO: this is stupid)
-    CHARACTER(len=256):: names(1:nhalomod)    
+    INTEGER, PARAMETER :: nhalomod=28 ! Total number of pre-defined halo-model types (TODO: this is stupid)
+    CHARACTER(len=256):: names(nhalomod)    
     names(1)='Accurate HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
     names(3)='Standard halo-model (Seljak 2000)'
@@ -203,6 +203,7 @@ CONTAINS
     names(25)='Villaescusa-Navarro HI halo model'
     names(26)='Delta-function mass function'
     names(27)='Press & Schecter mass function'
+    names(28)='One-parameter baryon test'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -503,7 +504,7 @@ CONTAINS
        WRITE(*,*)
     END IF
        
-    IF(ihm==1 .OR. ihm==7 .OR. ihm==15) THEN
+    IF(ihm==1 .OR. ihm==7 .OR. ihm==15 .OR. ihm==28) THEN
        !  1 - Accurate HMcode  (Mead et al. 2016)
        !  7 - Accurate HMcode  (Mead et al. 2015)
        ! 15 - Accurate HMcode  (Mead et al. 2018)
@@ -544,6 +545,10 @@ CONTAINS
           hmod%As=3.020
           hmod%alp0=3.072
           hmod%alp1=1.848
+       ELSE IF(ihm==28) THEN
+          ! One-parameter baryon model
+          hmod%one_parameter_baryons=.TRUE.
+          hmod%As=3.13!*4.
        END IF       
     ELSE IF(ihm==2) THEN
        ! Basic halo model with linear two halo term (Delta_v = 200, delta_c = 1.686))
@@ -1046,11 +1051,11 @@ CONTAINS
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HMcode parameters'
        WRITE(*,*) '======================================='
-       WRITE(*,fmt='(A30,F10.5)') 'eta:', eta(hmod,cosm)
-       WRITE(*,fmt='(A30,F10.5)') 'k*:', kstar(hmod,cosm)
-       WRITE(*,fmt='(A30,F10.5)') 'A:', As(hmod,cosm)
-       WRITE(*,fmt='(A30,F10.5)') 'fdamp:', fdamp(hmod,cosm)
-       WRITE(*,fmt='(A30,F10.5)') 'alpha:', alpha_transition(hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'eta:', eta_HMcode(hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'k*:', kstar_HMcode(hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'A:', A_HMcode(hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'fdamp:', fdamp_HMcode(hmod,cosm)
+       WRITE(*,fmt='(A30,F10.5)') 'alpha:', alpha_HMcode(hmod,cosm)
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HMx parameters'
        WRITE(*,*) '======================================='
@@ -1406,9 +1411,7 @@ CONTAINS
   SUBROUTINE calculate_HMx_ka(itype,nt,k,plin,pow_2h,pow_1h,pow_hm,hmod,cosm)
 
     ! Gets the one- and two-halo terms and combines them
-    ! TODO: Re-support scatter
     ! TODO: include scatter in two-halo term
-    ! TODO: Can I avoid calling Window twice for smooth gas etc. ?
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: itype(nt)
     INTEGER, INTENT(IN) :: nt
@@ -1518,7 +1521,7 @@ CONTAINS
     END IF
 
     ! Get eta
-    et=eta(hmod,cosm)
+    et=eta_HMcode(hmod,cosm)
 
     ! Calculate the halo window functions for each field
     DO j=1,nf
@@ -1573,7 +1576,7 @@ CONTAINS
     ELSE
 
        ! Get eta
-       et=eta(hmod,cosm)
+       et=eta_HMcode(hmod,cosm)
        
        ! Loop over mass and apply corrections
 
@@ -1773,7 +1776,7 @@ CONTAINS
     IF(hmod%i2hdamp .NE. 1) THEN
        ! Two-halo damping parameters
        sigv=hmod%sigv
-       frac=fdamp(hmod,cosm)
+       frac=fdamp_HMcode(hmod,cosm)
        IF(frac==0.) THEN
           p_2h=p_2h
        ELSE
@@ -1853,7 +1856,7 @@ CONTAINS
     p_1h=p_1h*(4.*pi)*(k/twopi)**3
 
     ! Damping of the 1-halo term at very large scales
-    ks=kstar(hmod,cosm)       
+    ks=kstar_HMcode(hmod,cosm)       
 
     IF(ks>0.) THEN
 
@@ -1909,7 +1912,7 @@ CONTAINS
        ELSE
 
           ! Do the standard smoothed transition
-          alpha=alpha_transition(hmod,cosm)
+          alpha=alpha_HMcode(hmod,cosm)
           p_hm=(pow_2h**alpha+pow_1h**alpha)**(1./alpha)
           
        END IF
@@ -2325,7 +2328,7 @@ CONTAINS
 
   END FUNCTION Delta_v
 
-  REAL FUNCTION eta(hmod,cosm)
+  REAL FUNCTION eta_HMcode(hmod,cosm)
 
     ! Calculates the eta that comes into the bastardised one-halo term
     IMPLICIT NONE
@@ -2334,7 +2337,7 @@ CONTAINS
     REAL :: eta0
 
     IF(hmod%ieta==1) THEN
-       eta=0.
+       eta_HMcode=0.
     ELSE IF(hmod%ieta==2) THEN
        ! From Mead et al. (2015; arXiv 1505.07833, 2016)
        IF(hmod%one_parameter_baryons) THEN
@@ -2342,18 +2345,17 @@ CONTAINS
        ELSE
           eta0=hmod%eta0
        END IF
-       eta=eta0-hmod%eta1*(sigma(8.,hmod%a,cosm))
+       eta_HMcode=eta0-hmod%eta1*(sigma(8.,hmod%a,cosm))
     ELSE
-       STOP 'Error, ihm defined incorrectly'
+       STOP 'ETA_HMcode: Error, ieta defined incorrectly'
     END IF
 
-  END FUNCTION eta
+  END FUNCTION eta_HMcode
 
-  FUNCTION kstar(hmod,cosm)
+  REAL FUNCTION kstar_HMcode(hmod,cosm)
 
     ! Calculates the one-halo damping wave number
     IMPLICIT NONE
-    REAL :: kstar
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm    
     REAL :: crap
@@ -2363,17 +2365,17 @@ CONTAINS
 
     IF(hmod%ikstar==1) THEN
        ! Set to zero for the standard Poisson one-halo term
-       kstar=0.
+       kstar_HMcode=0.
     ELSE IF(hmod%ikstar==2) THEN
        ! One-halo cut-off wavenumber from Mead et al. (2015, 2016)
-       kstar=hmod%ks/hmod%sigv
+       kstar_HMcode=hmod%ks/hmod%sigv
     ELSE
-       STOP 'KSTAR: Error, ihm defined incorrectly'
+       STOP 'KSTAR_HMcode: Error, ikstar defined incorrectly'
     END IF
 
-  END FUNCTION kstar
+  END FUNCTION kstar_HMcode
 
-  REAL FUNCTION As(hmod,cosm)
+  REAL FUNCTION A_HMcode(hmod,cosm)
 
     ! Halo concentration pre-factor
     IMPLICIT NONE
@@ -2386,20 +2388,20 @@ CONTAINS
     
     IF(hmod%iAs==1) THEN
        ! Set to 4 for the standard Bullock value
-       As=4.
+       A_HMcode=4.
     ELSE IF(hmod%iAs==2) THEN
        ! This is the 'A' halo-concentration parameter in Mead et al. (2015; arXiv 1505.07833, 2016)
-       As=hmod%As
+       A_HMcode=hmod%As
     ELSE
-       STOP 'AS: Error, iconc defined incorrectly'
+       STOP 'A_HMcode: Error, iAs defined incorrectly'
     END IF
 
     ! Now this is divided by 4 so as to be relative to the Bullock base result
-    As=As/4.
+    A_HMcode=A_HMcode/4.
 
-  END FUNCTION As
+  END FUNCTION A_HMcode
 
-  REAL FUNCTION fdamp(hmod,cosm)
+  REAL FUNCTION fdamp_HMcode(hmod,cosm)
 
     ! Calculates the linear-theory damping factor
     IMPLICIT NONE
@@ -2412,28 +2414,27 @@ CONTAINS
 
     IF(hmod%i2hdamp==1) THEN
        ! Set to 0 for the standard linear theory two halo term
-       fdamp=0.
+       fdamp_HMcode=0.
     ELSE IF(hmod%i2hdamp==2) THEN
        ! Mead et al. (2015)
-       fdamp=hmod%f0*hmod%sig8z**hmod%f1
+       fdamp_HMcode=hmod%f0*hmod%sig8z**hmod%f1
     ELSE IF(hmod%i2hdamp==3) THEN
        ! Mead et al. (2016)
-       fdamp=hmod%f0*hmod%sigv100**hmod%f1
+       fdamp_HMcode=hmod%f0*hmod%sigv100**hmod%f1
     ELSE
-       STOP 'FDAMP: Error, i2hdamp defined incorrectly'
+       STOP 'FDAMP_HMcode: Error, i2hdamp defined incorrectly'
     END IF
 
     ! Catches extreme values of fdamp that occur for ridiculous cosmologies
-    IF(fdamp<fdamp_min) fdamp=0.
-    IF(fdamp>fdamp_max) fdamp=fdamp_max
+    IF(fdamp_HMcode<fdamp_HMcode_min) fdamp_HMcode=0.
+    IF(fdamp_HMcode>fdamp_HMcode_max) fdamp_HMcode=fdamp_HMcode_max
 
-  END FUNCTION fdamp
+  END FUNCTION fdamp_HMcode
 
-  FUNCTION alpha_transition(hmod,cosm)
+  REAL FUNCTION alpha_HMcode(hmod,cosm)
 
     ! Calculates the alpha to smooth the two- to one-halo transition
     IMPLICIT NONE
-    REAL :: alpha_transition
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: crap
@@ -2443,19 +2444,19 @@ CONTAINS
     
     IF(hmod%itrans==2) THEN
        ! From Mead et al. (2015, 2016)   
-       alpha_transition=hmod%alp0*hmod%alp1**hmod%neff       
+       alpha_HMcode=hmod%alp0*hmod%alp1**hmod%neff       
     ELSE IF(hmod%itrans==4) THEN
        ! Specially for HMx, exponentiated Mead et al. (2016) result
-       alpha_transition=(hmod%alp0*hmod%alp1**hmod%neff)**2.5
+       alpha_HMcode=(hmod%alp0*hmod%alp1**hmod%neff)**2.5
     ELSE
-       alpha_transition=1.
+       alpha_HMcode=1.
     END IF
 
     ! Catches values of alpha that are crazy
-    IF(alpha_transition<alpha_transition_min) alpha_transition=alpha_transition_min
-    IF(alpha_transition>alpha_transition_max) alpha_transition=alpha_transition_max 
+    IF(alpha_HMcode<alpha_HMcode_min) alpha_HMcode=alpha_HMcode_min
+    IF(alpha_HMcode>alpha_HMcode_max) alpha_HMcode=alpha_HMcode_max 
 
-  END FUNCTION alpha_transition
+  END FUNCTION alpha_HMcode
 
   REAL FUNCTION HMx_alpha(m,hmod)
 
@@ -3166,7 +3167,7 @@ CONTAINS
        END IF
 
        ! Rescale halo concentrations via the 'A' HMcode parameter
-       hmod%c(i)=hmod%c(i)*As(hmod,cosm)   
+       hmod%c(i)=hmod%c(i)*A_HMcode(hmod,cosm)   
 
     END DO
 

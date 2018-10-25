@@ -7,6 +7,7 @@ PROGRAM HMx_driver
   USE cosmic_emu_stuff
   USE calculus_table
   USE string_operations
+  USE special_functions
 
   ! TODO: Many pow(1,1,nk) could be pow(nk)
   ! TODO: Too many different pow(:,:), pow(:,:,:), pow(:,:,:,:), ...
@@ -41,7 +42,7 @@ PROGRAM HMx_driver
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
   REAL :: sig8min, sig8max
   REAL :: mass, m1, m2, nu, nu_min, nu_max, mf
-  REAL :: c, rmin, rmax, rv, rs, p1, p2
+  REAL :: c, rmin, rmax, rv, rs, p1, p2, cmin, cmax, cbar
   REAL :: spam
   CHARACTER(len=1) :: crap
   LOGICAL :: verbose2
@@ -223,11 +224,20 @@ PROGRAM HMx_driver
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
+     ! Set the scale factor and range (linearly spaced)
+     !na=16
+     !amin=0.2
+     !amax=1.0
+     !CALL fill_array(amin,amax,a,na)
+
      ! Set the number of redshifts and range (linearly spaced) and convert z -> a
+     zmin=0.
+     zmax=4.
      na=16
-     amin=0.2
-     amax=1.0
-     CALL fill_array(amin,amax,a,na)
+     CALL fill_array(zmin,zmax,a,na)
+     DO i=1,na
+        a(i)=scale_factor_z(a(i)) ! Note that this is correct because 'a' here is actually 'z'
+     END DO
 
      field=field_dmonly
      CALL calculate_HMx(field,1,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
@@ -3039,6 +3049,18 @@ PROGRAM HMx_driver
         CALL write_power_a_multiple(k,a,pows_li,pows_2h(1,1,:,:),pows_1h(1,1,:,:),pows_hm(1,1,:,:),nk,na,base,verbose)
 
      END DO
+
+     cmin=1.
+     cmax=10.
+     n=256
+     outfile='data/p_conc.dat'
+     cbar=4.
+     OPEN(7,file=outfile)
+     DO i=1,n
+        c=progression(cmin,cmax,i,n)
+        WRITE(7,*) c, lognormal(c,cbar,hmod%dlnc)
+     END DO
+     CLOSE(7)
      
   ELSE
         
