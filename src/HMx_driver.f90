@@ -3108,7 +3108,6 @@ CONTAINS
 
     LOGICAL, PARAMETER :: real_space=.TRUE.
     INTEGER, PARAMETER :: itype=field_electron_pressure ! electron pressure
-    !INTEGER, PARAMETER :: ipnh=1 ! Type of term to consider
 
     IF(hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod,cosm)
 
