@@ -1521,7 +1521,7 @@ CONTAINS
     
   END FUNCTION Tk_WDM
 
-  FUNCTION p_lin(k,a,cosm)
+  RECURSIVE FUNCTION p_lin(k,a,cosm)
 
     ! Linear matter power spectrum
     ! P(k) should have been previously normalised so as to get the amplitude 'A' correct
@@ -1538,7 +1538,10 @@ CONTAINS
     ! Using init_power seems to provide no significant speed improvements to HMx
     ! IF(cosm%has_power .EQV. .FALSE.) CALL init_power(cosm)
 
-    IF(.NOT. cosm%is_normalised) CALL normalise_power(cosm)
+    IF(.NOT. cosm%is_normalised) THEN
+      cosm%is_normalised = .TRUE.
+      CALL normalise_power(cosm)
+    END IF
 
     IF(k<=kmin) THEN
        ! If p_lin happens to be foolishly called for 0 mode
