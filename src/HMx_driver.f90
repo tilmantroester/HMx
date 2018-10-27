@@ -108,7 +108,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '============================='
      WRITE(*,*) ' 0 - Gravity-only power spectrum at z=0'
      WRITE(*,*) ' 1 - 3D Matter power spectrum over multiple z'
-     WRITE(*,*) ' 2 - Produce all halo components 3D cross and auto spectra'
+     WRITE(*,*) ' 2 - Hydrodynamical halo model'
      WRITE(*,*) ' 3 - Run diagnostics for haloes'
      WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
      WRITE(*,*) ' 5 - Lensing diagnostics'
@@ -144,8 +144,8 @@ PROGRAM HMx_driver
      WRITE(*,*) '35 - Power spectra of cored halo profiles'
      WRITE(*,*) '36 - TESTS: hydro spectra'
      WRITE(*,*) '37 - Produce CFHTLenS correlation functions'
-     WRITE(*,*) '38 - Old triad'
-     WRITE(*,*) '39 - New triad'
+     WRITE(*,*) '38 - Project triad (3 combinations)'
+     WRITE(*,*) '39 - Project triad (5 combinations)'
      WRITE(*,*) '40 - '
      WRITE(*,*) '41 - '
      WRITE(*,*) '42 - PAPER: Contributions to k-k C(l) integral'
@@ -248,8 +248,12 @@ PROGRAM HMx_driver
   ELSE IF(imode==2 .OR. imode==15 .OR. imode==16 .OR. imode==32) THEN
 
      ! Make cross power spectra of all different components of haloes as well as pressure
+     !  2 - Generic hydro
+     ! 15 - cosmo-OWLS
+     ! 16 - BAHAMAS
+     ! 32 - PAPER: Baseline hydro
 
-     IF(imode==2 .OR. imode==32) THEN
+     IF(imode==2) THEN
 
         ! Generic hydro
         
@@ -264,17 +268,42 @@ PROGRAM HMx_driver
         z_tab(3)=1.0
         z_tab(4)=2.0
      
+!!$        ! Set number of k points and k range (log spaced)
+!!$        nk=128
+!!$        kmin=1e-3
+!!$        kmax=1e2
+!!$        CALL fill_array(log(kmin),log(kmax),k,nk)
+!!$        k=exp(k)
+
+        ! Get the k values from the simulation measured P(k)
+        infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+        CALL read_k_values(infile,k,nk)
+
+     ELSE IF(imode==32) THEN
+
+        ! Generic hydro
+        
+        ! Only do one 'model' here
+        n=1
+
+        ! Set the redshift
+        nz=4
+        ALLOCATE(z_tab(nz))
+        z_tab(1)=0.0
+        z_tab(2)=0.5
+        z_tab(3)=1.0
+        z_tab(4)=2.0
+
         ! Set number of k points and k range (log spaced)
         nk=128
         kmin=1e-3
         kmax=1e2
         CALL fill_array(log(kmin),log(kmax),k,nk)
-        k=exp(k)
+        k=exp(k)        
         
      ELSE IF(imode==15) THEN
 
         ! cosmo-OWLS
-
         STOP 'HMx_DRIVER: not tested in ages, be very careful'
 
         ! Do from REF, NOCOOL, AGN, AGN 8.5, AGN 8.7
@@ -305,7 +334,7 @@ PROGRAM HMx_driver
         z_tab(4)=2.0
 
         ! Get the k values from the simulation measured P(k)
-        infile='/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+        infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
         CALL read_k_values(infile,k,nk)
         
      END IF
@@ -695,14 +724,14 @@ PROGRAM HMx_driver
               mid=''
               ext='.dat'
            ELSE IF(imode==15) THEN
-              base='cosmo-OWLS/power_'//TRIM(fname)//'_'
+              base='data/power_'//TRIM(fname)//'_'
               mid=''
               ext='.dat'
            ELSE IF(imode==16) THEN
-              IF(j==1) base='BAHAMAS/power_'//TRIM(fname)//'_z0.0_'
-              IF(j==2) base='BAHAMAS/power_'//TRIM(fname)//'_z0.5_'
-              IF(j==3) base='BAHAMAS/power_'//TRIM(fname)//'_z1.0_'
-              IF(j==4) base='BAHAMAS/power_'//TRIM(fname)//'_z2.0_'
+              IF(j==1) base='data/power_'//TRIM(fname)//'_z0.0_'
+              IF(j==2) base='data/power_'//TRIM(fname)//'_z0.5_'
+              IF(j==3) base='data/power_'//TRIM(fname)//'_z1.0_'
+              IF(j==4) base='data/power_'//TRIM(fname)//'_z2.0_'
               mid=''
               ext='.dat'
            END IF
@@ -714,12 +743,12 @@ PROGRAM HMx_driver
               IF(j==3) outfile='data/power_z1.0.dat'
               IF(j==4) outfile='data/power_z2.0.dat'
            ELSE IF(imode==15) THEN
-              outfile='cosmo-OWLS/power_DMONLY_00.dat'
+              outfile='data/power_DMONLY_00.dat'
            ELSE IF(imode==16) THEN
-              IF(j==1) outfile='BAHAMAS/power_DMONLY_z0.0_00.dat'
-              IF(j==2) outfile='BAHAMAS/power_DMONLY_z0.5_00.dat'
-              IF(j==3) outfile='BAHAMAS/power_DMONLY_z1.0_00.dat'
-              IF(j==4) outfile='BAHAMAS/power_DMONLY_z2.0_00.dat'
+              IF(j==1) outfile='data/power_DMONLY_z0.0_00.dat'
+              IF(j==2) outfile='data/power_DMONLY_z0.5_00.dat'
+              IF(j==3) outfile='data/power_DMONLY_z1.0_00.dat'
+              IF(j==4) outfile='data/power_DMONLY_z2.0_00.dat'
            END IF
 
            ! Write some things to the screen
