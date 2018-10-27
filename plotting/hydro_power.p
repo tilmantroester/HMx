@@ -1,10 +1,12 @@
 unset multiplot
 reset
 
+# Terminal options
 if(!exists('print')){print=0}
-if(print==0) {set term aqua dashed size 1000,500}
+if(print==0) {set term aqua dashed dl 1 size 1000,800}
 if(print==1) {set term post enh col dashed dl .5 font ',10'}
 
+# Initial white space
 print ''
 
 # Plot to make
@@ -19,6 +21,8 @@ print 'iplot =  7: Power spectrum with k^1.5 units'
 print 'iplot =  8: PAPER: Combination of iplot=1 and 2'
 print 'iplot =  9: PAPER: Response residual'
 print 'iplot = 10: Combination of iplot=1 and 2'
+print 'iplot = 11: Matter-electronn pressure spectrum variance demonstration'
+print 'iplot = 12: electron pressure-electronn pressure spectrum variance demonstration'
 print 'iplot = '.iplot.''
 print ''
 
@@ -34,12 +38,12 @@ print 'icomp = 3: Generic hydro, no comparison simulation'
 print 'icomp = '.icomp.''
 print ''
 
-if(icomp==1){print 'Twat; icomp=1 does not work'; exit}
-# if(icomp==1){sims='cosmo-OWLS'; Om_m=0.272; Om_b=0.0455}
+if(icomp==1){print 'Twat; icomp=1 does not work any more'; exit}
+#if(icomp==1){sims='cosmo-OWLS'; Om_m=0.272; Om_b=0.0455}
 #if(icomp==2){sims='BAHAMAS'}
 #if(icomp==3){sims=''}
 
-# cosmological parameters (only used for plotting Om_b/Om_m lines)
+# Cosmological parameters (only used for plotting Om_b/Om_m lines)
 Om_m=0.2793
 Om_b=0.0463
 Om_c=Om_m-Om_b
@@ -73,20 +77,21 @@ print ''
 #exit
 #}
 
-if(!exists('mesh')){mesh=1024}
-if(iplot==8){mesh=1024}
-print 'Mesh size: *mesh*: ', mesh
+# Simulation P(k) mesh-size options
+if(!exists('mesh')){mesh=1536}
+if(iplot==8){mesh=1536}
+print 'Mesh size: mesh: ', mesh
 print ''
 
 # Simulation data files
 plot_title_name_z(sim,z)=sprintf('BAHAMAS comarison of %s at z = %1.1f', sim, z)
 plot_title_z(z)=sprintf('BAHAMAS comarison at z = %1.1f', z)
-simpk(sim,mesh,s,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M%d/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,s,type1,type2)
-sim_dmonly='DMONLY_2fluid'
+simpk(sim,mesh,s,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M%d/%s_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,s,type1,type2)
+sim_dmonly='DMONLY_2fluid_nu0'
 
 # File names - BAHAMAS
 if(icomp==2){
-hmpk(sim,z,i,j)=sprintf('BAHAMAS/power_%s_z%1.1f_%i%i.dat',sim,z,i,j)
+hmpk(sim,z,i,j)=sprintf('data/power_%s_z%1.1f_%i%i.dat',sim,z,i,j)
 hmpk_dmonly=hmpk('DMONLY',z,0,0)
 }
 
@@ -115,14 +120,14 @@ M=5
 # BAHAMAS simulation names
 if(icomp==2){hmpk_names="'DMONLY' 'AGN-lo' 'AGN' 'AGN-hi'"}
 if(icomp==3){hmpk_names="''"}
-sims="'DMONLY_2fluid' 'AGN_7p6' 'AGN_TUNED' 'AGN_8p0'"
-sim_names="'DMonly' 'AGN-lo' 'AGN' 'AGN-hi'"
+sims="'DMONLY_2fluid_nu0' 'AGN_7p6_nu0' 'AGN_TUNED_nu0' 'AGN_8p0_nu0' 'AGN_TUNED_nu0_v2' 'AGN_TUNED_nu0_v3' 'AGN_TUNED_nu0_v4'"
+sim_names="'DMonly' 'AGN-lo' 'AGN' 'AGN-hi' 'AGN v2' 'AGN v3' 'AGN v4'"
 
 # Set the comparison model
 if(!exists('nsim')){nsim=3} # Default to AGN
-if(iplot==8){nsim=3} # Default to AGN
+if(iplot==8 || iplot==11){nsim=3} # Default to AGN
 hmpk_name=word(hmpk_names,nsim)
-print 'Variable: *nsim* '.nsim.''
+print 'Simulation model number: nsim: '.nsim.''
 print 'Halo model power file name: '.hmpk_name.''
 sim=word(sims,nsim)
 print 'Simuation power file: '.sim.''
@@ -137,6 +142,7 @@ fld2='gas'
 fld3='stars'
 fld6='epressure'
 
+# Write useful things to screen
 print 'Example simulation file: ', simpk(sim,mesh,snap,fld0,fld0)
 print 'Example halo-model file: ', hmpk(hmpk_name,z,0,0)
 print ''
@@ -163,8 +169,8 @@ col5=7 # Matter-pressure
 col6=6 # Pressure
 
 # k range
-if(icomp==1 || icomp==2){kmin=1e-2; kmax=1e1}
-if(icomp==3){kmin=1e-2; kmax=1e1}
+if(icomp==1 || icomp==2){kmin=1e-2; kmax=2e1}
+if(icomp==3){kmin=1e-2; kmax=2e1}
 klab='k / h Mpc^{-1}'
 set xlabel klab
 set format x
@@ -181,7 +187,7 @@ set ylabel '{/Symbol D}_{uv}^2(k)'
 set mytics 10
 
 # Set the overall plot titles
-set title plot_title_name_z(sim,z)
+set title plot_title_name_z(sim,z) noenh
 
 ## ##
 
@@ -300,7 +306,7 @@ unset multiplot
 
 if(iplot==3){
 
-set title plot_title_z(z)
+set title plot_title_z(z) noenh
 
 if(print==1){
 outfile='paper/suppression.eps'
@@ -519,6 +525,8 @@ unset multiplot
 
 if(iplot==6){
 
+# Pressure spectrum
+
 if(print==1){
 outfile(name,z)=sprintf('%s_z%1.1f_pressure.eps',name,z)
 set output outfile(sim,z)
@@ -532,17 +540,17 @@ set format x ''
 set key top left
 
 plot simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5            w e pt 7 lc col1 noti,\
-     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 lc col5 noti,\
+     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 lc col6 noti,\
      simpk(sim,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 lc col6 noti,\
      hmpk(hmpk_name,z,0,0) u 1:(column(d))      w l lw 3 dt 1 lc col1 ti 'matter-matter',\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d-2))    w l lw 3 dt 2 lc col1 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d-1))    w l lw 3 dt 3 lc col1 noti,\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d))   w l lw 3 dt 1 lc col5 ti 'matter-electron pressure',\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d-2)) w l lw 3 dt 2 lc col5 noti,\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d-1)) w l lw 3 dt 3 lc col5 noti,\
+     hmpk(hmpk_name,z,0,0) u 1:(column(d-2))    w l lw 3 dt 3 lc col1 noti,\
+     hmpk(hmpk_name,z,0,0) u 1:(column(d-1))    w l lw 3 dt 4 lc col1 noti,\
+     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d))   w l lw 3 dt 2 lc col6 ti 'matter-electron pressure',\
+     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d-2)) w l lw 3 dt 3 lc col6 noti,\
+     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d-1)) w l lw 3 dt 4 lc col6 noti,\
      hmpk(hmpk_name,z,6,6) u 1:(f2*column(d))   w l lw 3 dt 1 lc col6 ti 'electron pressure-electron ressure',\
-     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d-2)) w l lw 3 dt 2 lc col6 noti,\
-     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d-1)) w l lw 3 dt 3 lc col6 noti
+     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d-2)) w l lw 3 dt 3 lc col6 noti,\
+     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d-1)) w l lw 3 dt 4 lc col6 noti
 
 unset title
 
@@ -557,10 +565,10 @@ set ylabel 'P(k) / P_{DMONLY}(k)'
 
 plot 1 w l lt -1 noti,\
      '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L)))    w p pt 7 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col5 noti,\
+     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col6 noti,\
      '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f2*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col6 noti,\
      '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M))    w l lw 3 dt 1 lc col1 noti '{/Symbol d}{/Symbol d}',\
-     '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 1 lc col5 noti '{/Symbol d}p',\
+     '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti '{/Symbol d}p',\
      '<paste '.hmpk(hmpk_name,z,6,6).' '.hmpk_dmonly.'' u 1:(f2*column(d)/column(d+M)) w l lw 3 dt 1 lc col6 noti 'pp'
 
 unset multiplot
@@ -809,5 +817,34 @@ unset label
 }
 
 unset multiplot
+
+}
+
+if(iplot==11 || iplot==12){
+
+# Pressure spectrum variance demonstration
+
+if(print==1){
+outfile(name,z)=sprintf('%s_z%1.1f_pressure.eps',name,z)
+set output outfile(sim,z)
+}
+
+if(iplot==11) {pmin=1e-4; pmax=1e-2}
+if(iplot==12) {pmin=1e-8; pmax=1e-5}
+set yrange[pmin:pmax]
+set ylabel '{/Symbol D}^2(k) / (k/h^{-1} Mpc)^{1.5}'
+
+if(iplot==11) {f1=fld0; f2=fld6; i1=0; i2=6; set title 'matter-electron pressure BAHAMAS spectra'}
+if(iplot==12) {f1=fld6; f2=fld6; i1=6; i2=6; set title 'electron pressure-electron pressure BAHAMAS spectra'}
+
+set key top left
+
+plot simpk('AGN_TUNED_nu0_v2',mesh,snap,f1,f2) u 1:(($2-$3)/$1**1.5) w p pt 6 lc rgb 'light-blue' noti,\
+     simpk('AGN_TUNED_nu0_v3',mesh,snap,f1,f2) u 1:(($2-$3)/$1**1.5) w p pt 6 lc rgb 'light-blue' noti,\
+     simpk('AGN_TUNED_nu0_v4',mesh,snap,f1,f2) u 1:(($2-$3)/$1**1.5) w p pt 6 lc rgb 'light-blue' noti,\
+     simpk('AGN_TUNED_nu0',mesh,snap,f1,f2)    u 1:(($2-$3)/$1**1.5):($5/$1**1.5) w e pt 6 lc col6 ti 'AGN 7p8',\
+     simpk('AGN_7p6_nu0',mesh,snap,f1,f2)      u 1:(($2-$3)/$1**1.5) w p pt 6 lc 5 ti 'AGN 7p6',\
+     simpk('AGN_8p0_nu0',mesh,snap,f1,f2)      u 1:(($2-$3)/$1**1.5) w p pt 6 lc 7 ti 'AGN 8p0',\
+     hmpk(hmpk_name,z,i1,i2)                   u 1:($5/$1**1.5)      w l lw 3 dt 1 lc col6 ti 'HMx'
 
 }
