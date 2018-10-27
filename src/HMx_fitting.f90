@@ -77,6 +77,7 @@ PROGRAM HMx_fitting
      WRITE(*,*) '13 - Hydro: stars'
      WRITE(*,*) '14 - Hydro: gas and stars'
      WRITE(*,*) '15 - Hydro: matter'
+     WRITE(*,*) '16 - Hydro: everything but pressure-pressure'
      READ(*,*) im
      WRITE(*,*)
   END IF
@@ -120,7 +121,7 @@ PROGRAM HMx_fitting
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
 
      ! Required change in figure-of-merit
      delta=3e-3
@@ -129,7 +130,7 @@ PROGRAM HMx_fitting
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11) THEN
+     IF(im==11 .OR. im==16) THEN
         nf=5   
      ELSE IF(im==12 .OR. im==13) THEN
         nf=1
@@ -140,9 +141,6 @@ PROGRAM HMx_fitting
      ELSE
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
-
-     ! Required change in figure-of-merit
-     !delta=triangle_number(nf)*1e-3
      
   ELSE
      STOP 'HMx_FITTING: Error, something went wrong with setting fields'
@@ -163,7 +161,7 @@ PROGRAM HMx_fitting
      z(4)=2.0
      fields(1)=field_dmonly
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
      
      ! Hydro simulations
      IF(name=='') name='AGN_TUNED_nu0'    
@@ -177,7 +175,7 @@ PROGRAM HMx_fitting
         READ(zin,*) z(1)
      END IF
      
-     IF(im==11) THEN
+     IF(im==11 .OR. im==16) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -207,7 +205,7 @@ PROGRAM HMx_fitting
      IF(im==4) icosmo=25    ! Random FrankenEmu cosmology
      IF(im==1) icosmo=100+i ! Set set Mira Titan node
      IF(im==2) icosmo=200+i ! Set set FrankenEmu node
-     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) icosmo=4 ! WMAP9
+     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) icosmo=4 ! WMAP9
      CALL assign_cosmology(icosmo,cosm(i),verbose=.TRUE.)
      CALL init_cosmology(cosm(i))
      CALL print_cosmology(cosm(i))
@@ -216,7 +214,7 @@ PROGRAM HMx_fitting
   ! SET: halo model here
   ALLOCATE(hmod(ncos))
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) ihm=15 ! HMcode 2018
-  IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) ihm=20 ! Standard halo-model response
+  IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) ihm=20 ! Standard halo-model response
   DO i=1,ncos
      CALL assign_halomod(ihm,hmod(i),verbose=.FALSE.)
   END DO
@@ -240,7 +238,7 @@ PROGRAM HMx_fitting
                  CALL read_Mira_Titan_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
               ELSE IF(im==2 .OR. im==4) THEN
                  CALL read_FrankenEmu_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
-              ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
+              ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
                  ip(1)=fields(j1)
                  ip(2)=fields(j2)
                  CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i),kmin,kmax)
@@ -262,8 +260,9 @@ PROGRAM HMx_fitting
      END DO
   END DO
 
-  !weight(:,4,:,:)=0.1*weight(:,4,:,:)
-  !weight(:,:,4,:)=0.1*weight(:,:,4,:)
+  IF(im==16) THEN
+     weight(:,5,5,:)=0. ! No weight to pressure-pressure
+  END IF
 
   !!
 
@@ -276,7 +275,7 @@ PROGRAM HMx_fitting
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
      ! Mira Titan or FrankenEmu fitting for HMcode
      np=12
-  ELSE IF(im==11) THEN
+  ELSE IF(im==11 .OR. im==16) THEN
      ! everything
      np=13
   ELSE IF(im==12) THEN
@@ -363,7 +362,7 @@ PROGRAM HMx_fitting
      p_min(12)=-5.
      p_max(12)=5.
 
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
 
      ! The general parameters are set here
 
@@ -450,7 +449,7 @@ PROGRAM HMx_fitting
      q_max(13)=1.
      q_log(13)=.FALSE.
 
-     IF(im==11) THEN
+     IF(im==11 .OR. im==16) THEN
 
         ! everything
         p_int(1)=param_alpha
@@ -1049,7 +1048,7 @@ CONTAINS
           hmod(i)%alp0=pexp(11)
           hmod(i)%alp1=pexp(12)
 
-       ELSE IF(im==11) THEN
+       ELSE IF(im==11 .OR. im==16) THEN
 
           ! Set hydro parameters to those being varied
 

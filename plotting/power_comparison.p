@@ -30,8 +30,7 @@ p1h='data/power_1h.dat'
 p2h='data/power_2h.dat'
 
 print ''
-print 'Comparing power_hm.dat to: ', com
-print 'Set variable *com* as comparison file'
+print 'Comparing power_hm.dat to: com: ', com
 print ''
 
 set key top left
