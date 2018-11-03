@@ -18,9 +18,9 @@ PROGRAM HMx_fitting
   CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
   REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:), p_int(:)
-  REAL, ALLOCATABLE :: q_min(:), q_max(:), q_ori(:)
+  REAL, ALLOCATABLE :: q_min(:), q_max(:), q_ori(:), q_rge(:)
   CHARACTER(len=256), ALLOCATABLE :: p_nme(:), q_nme(:)
-  LOGICAL, ALLOCATABLE :: p_log(:), q_log(:)
+  LOGICAL, ALLOCATABLE :: p_log(:), q_log(:), p_set(:), q_set(:)
   REAL :: delta, fom, fom_bst, fom_new, fom_old, fom_ori
   LOGICAL :: accept
   INTEGER :: icosmo, ihm, i_bst, np, ip(2)
@@ -293,12 +293,14 @@ PROGRAM HMx_fitting
   END IF
 
   ALLOCATE(p_bst(np),p_new(np),p_old(np),p_rge(np),p_ori(np),p_log(np),p_min(np),p_max(np),p_nme(np))
-  p_log=.FALSE.
+  ALLOCATE(p_set(np))
+  !p_log=.FALSE.
 
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
 
      ! None of these parameters are explored in log
      p_log=.FALSE.
+     p_set=.TRUE.
 
      p_nme(1)='Dv0'
      p_ori(1)=418. 
@@ -367,12 +369,14 @@ PROGRAM HMx_fitting
      ! The general parameters are set here
 
      ALLOCATE(q_ori(param_n),q_log(param_n),q_min(param_n),q_max(param_n),q_nme(param_n))
+     ALLOCATE(q_set(param_n),q_rge(param_n))
      ALLOCATE(p_int(np))
 
      q_log=.TRUE.
+     q_set=.TRUE.
 
      q_nme(1)='alpha'
-     q_ori(1)=0.7
+     q_ori(1)=0.7/(1.+z(1))
      q_min(1)=1e-2
      q_max(1)=1e1
 
@@ -391,7 +395,7 @@ PROGRAM HMx_fitting
      ! This must depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
      q_nme(4)='M0'
      q_ori(4)=10**13.4/(10.**z(1))
-     q_min(4)=1e10
+     q_min(4)=1e8
      q_max(4)=1e16
 
      q_nme(5)='A_*'
@@ -418,8 +422,8 @@ PROGRAM HMx_fitting
 
      q_nme(9)='M_*'
      q_ori(9)=1e12
-     q_min(9)=1e9
-     q_max(9)=1e15
+     q_min(9)=1e8
+     q_max(9)=1e16
 
      q_nme(10)='sigma_*'
      q_ori(10)=0.8
@@ -432,18 +436,24 @@ PROGRAM HMx_fitting
      q_min(11)=-1.
      q_max(11)=1.
      q_log(11)=.FALSE.
+     q_set(11)=.FALSE.
+     q_rge(11)=0.01
 
      q_nme(12)='Gamma index'
      q_ori(12)=-0.02
      q_min(12)=-0.2
      q_max(12)=0.2
      q_log(12)=.FALSE.
+     q_set(12)=.FALSE.
+     q_rge(12)=0.001
 
      q_nme(13)='c_* index'
      q_ori(13)=-0.1
      q_min(13)=-1.
      q_max(13)=1.
      q_log(13)=.FALSE.
+     q_set(13)=.FALSE.
+     q_rge(13)=0.01
 
      IF(im==11 .OR. im==16) THEN
 
@@ -502,7 +512,7 @@ PROGRAM HMx_fitting
         
      END IF
 
-     ! Actually fill the proper parameter array
+     ! Actually fill the proper parameter arrays
      DO i=1,np
         j=p_int(i)
         p_nme(i)=q_nme(j)
@@ -510,6 +520,8 @@ PROGRAM HMx_fitting
         p_min(i)=q_min(j)
         p_max(i)=q_max(j)
         p_log(i)=q_log(j)
+        p_rge(i)=q_rge(j)
+        p_set(i)=q_set(j)
      END DO
 
   ELSE
@@ -563,7 +575,7 @@ PROGRAM HMx_fitting
         ELSE
            verbose2=.TRUE.
         END IF
-        CALL set_parameter_ranges(im,delta,fields,nf,p_rge,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
+        CALL set_parameter_ranges(im,delta,fields,nf,p_rge,p_set,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
         IF(l==1) THEN
            outfile=TRIM(outbase)//'_chain.dat'
            OPEN(10,file=outfile)
@@ -1131,14 +1143,15 @@ CONTAINS
 
   END SUBROUTINE fom_multiple
 
-  SUBROUTINE set_parameter_ranges(im,delta,fields,nf,sigma,p,p_log,p_nme,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
+  SUBROUTINE set_parameter_ranges(im,delta,fields,nf,sigma,p_set,p,p_log,p_nme,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
 
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: im
     REAL, INTENT(IN) :: delta
     INTEGER, INTENT(IN) :: fields(nf)
     INTEGER, INTENT(IN) :: nf
-    REAL, INTENT(OUT) :: sigma(np)
+    REAL, INTENT(INOUT) :: sigma(np)
+    LOGICAL, INTENT(IN) :: p_set(np)
     REAL, INTENT(IN) :: p(np)
     LOGICAL, INTENT(IN) :: p_log(np)
     CHARACTER(len=*), INTENT(IN) :: p_nme(np)
@@ -1167,10 +1180,12 @@ CONTAINS
 
     ! Initial parameter perturbation
     DO i=1,np
-       IF(p(i) .NE. 0.) THEN
-          sigma(i)=p(i)*dp
-       ELSE
-          sigma(i)=dp
+       IF(p_set(i)) THEN
+          IF(p(i) .NE. 0.) THEN
+             sigma(i)=p(i)*dp
+          ELSE
+             sigma(i)=dp
+          END IF
        END IF
     END DO
 
@@ -1190,7 +1205,7 @@ CONTAINS
     END IF
 
     ! Loop over parameters
-    DO i=1,np
+    DO i=1,np 
 
        ! Set the range of p to take the derivative over
        p2=p ! Reset all
@@ -1219,15 +1234,19 @@ CONTAINS
           STOP 'SET_PARAMETER_RANGES: Error, changing parameter does not change power spectra'
        END IF
 
-       ! Set sigma so that it gives a change of 'delta' in fom
-       sigma(i)=ABS(sigma(i)/df)*delta
-       p2(i)=p(i)+sigma(i)
+       IF(p_set(i)) THEN
+
+          ! Set sigma so that it gives a change of 'delta' in fom
+          sigma(i)=ABS(sigma(i)/df)*delta
+          p2(i)=p(i)+sigma(i)
+
+       END IF
 
        ! Write parameters to screen
        IF(verbose) THEN
           IF(p_log(i)) WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', 10**p(i), 10**p2(i), sigma(i), sigma(i)/ABS(p(i))
           WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'log', p(i), p2(i), sigma(i), sigma(i)/ABS(p(i))
-       END IF       
+       END IF
 
     END DO
 
@@ -1247,7 +1266,7 @@ CONTAINS
 
     DO i=1,np
 
-       DO !WHILE (ABS(ratio > eps) .OR. (ABS(ratio) < eps))
+       DO
 
           p2=p
           p2(i)=p(i)+sigma(i)
@@ -1255,12 +1274,20 @@ CONTAINS
           fom_diff=fom-fom_base
           WRITE(*,fmt='(I14,A15,3F14.7)') i, TRIM(p_nme(i)), fom_base, fom, fom_diff/delta
 
-          IF(ABS(fom_diff) > delta*eps) THEN
-             sigma(i)=sigma(i)/(fom_diff/delta)
-          ELSE IF(ABS(fom_diff) < delta/eps) THEN
-             sigma(i)=sigma(i)/(fom_diff/delta)
+          IF(p_set(i)) THEN
+          
+             IF(ABS(fom_diff) > delta*eps) THEN
+                sigma(i)=sigma(i)/(fom_diff/delta)
+             ELSE IF(ABS(fom_diff) < delta/eps) THEN
+                sigma(i)=sigma(i)/(fom_diff/delta)
+             ELSE
+                EXIT
+             END IF
+
           ELSE
+
              EXIT
+
           END IF
 
        END DO
