@@ -1906,17 +1906,17 @@ CONTAINS
        p_2h=p_2h*(1.+(k/hmod%knl))**0.5
     END IF
 
-    ! For some extreme cosmologies frac>1. so this must be added to prevent p_2h<0
-    IF(p_2h<0.) THEN
-       WRITE(*,*) 'P_2H: Halo type 1:', ih(1)
-       WRITE(*,*) 'P_2H: Halo type 1:', ih(2)
-       WRITE(*,*) 'P_2H: k [h/Mpc]:', k
-       WRITE(*,*) 'P_2H: z:', hmod%z
-       WRITE(*,*) 'P_2H: Delta^2_{2H}:', p_2h
-       WRITE(*,*) 'P_2H: Caution! P_2h < 0, this was previously fixed by setting P_2h = 0 explicitly'
-       !p_2h=0.
-       STOP
-    END IF
+!!$    ! For some extreme cosmologies frac>1. so this must be added to prevent p_2h<0
+!!$    IF(p_2h<0.) THEN
+!!$       WRITE(*,*) 'P_2H: Halo type 1:', ih(1)
+!!$       WRITE(*,*) 'P_2H: Halo type 1:', ih(2)
+!!$       WRITE(*,*) 'P_2H: k [h/Mpc]:', k
+!!$       WRITE(*,*) 'P_2H: z:', hmod%z
+!!$       WRITE(*,*) 'P_2H: Delta^2_{2H}:', p_2h
+!!$       WRITE(*,*) 'P_2H: Caution! P_2h < 0, this was previously fixed by setting P_2h = 0 explicitly'
+!!$       !p_2h=0.
+!!$       STOP
+!!$    END IF
 
   END FUNCTION p_2h
 
@@ -2020,7 +2020,7 @@ CONTAINS
           ELSE
              WRITE(*,*) 'P_HM: Two-halo term:', pow_2h
              WRITE(*,*) 'P_1h: One-halo term:', pow_1h
-             STOP 'CALCULATE_HALOMOD_K: Error, either pow_2h or pow_1h is less than zero, which is a problem for the smoothed transition'
+             STOP 'P_HM: Error, either pow_2h or pow_1h is negative, which is a problem for smoothed transition'
           END IF
           
        ELSE
@@ -2043,7 +2043,7 @@ CONTAINS
        
     END IF
 
-    ! If we are adding in compensated voids
+    ! If we are adding in power from voids
     IF(hmod%voids) THEN
        p_hm=p_hm+p_1void(k,hmod)
     END IF
@@ -5466,8 +5466,6 @@ CONTAINS
           r2=(i+1)*pi/k
        END IF
 
-       !WRITE(*,*) i, REAL(r1), REAL(r2)
-
        ! Now do the integration along a section
        IF(imeth==2) THEN
           w=winint_normal(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
@@ -5477,73 +5475,21 @@ CONTAINS
           w=winint_hybrid(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
        ELSE
           IF(imeth==5 .OR. (imeth==9 .AND. n>nlim_bumps)) THEN
-             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=0)!*(-1)**i
+             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=0)
           ELSE IF(imeth==6 .OR. (imeth==10 .AND. n>nlim_bumps)) THEN
-             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=1)!*(-1)**i
+             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=1)
           ELSE IF(imeth==7 .OR. (imeth==11 .AND. n>nlim_bumps)) THEN
-             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=2)!*(-1)**i
+             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=2)
           ELSE IF(imeth==8 .OR. (imeth==12 .AND. n>nlim_bumps)) THEN
-             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=3)!*(-1)**i
+             w=winint_approx(r1,r2,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder=3)
           ELSE
              w=winint_store(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
           END IF
        END IF
 
-!!$       IF(imeth==2) THEN
-!!$          w=winint_normal(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)  
-!!$       ELSE IF(k==0. .OR. imeth==4 .OR. ((imeth==7 .OR. imeth==9 .OR. imeth==10) .AND. n<=nlim_bumps)) THEN
-!!$          w=winint_store(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
-!!$       ELSE IF(imeth==5 .OR. imeth==6 .OR. imeth==7 .OR. imeth==8 .OR. imeth==9 .OR. imeth==10) THEN
-!!$          IF(i==0 .OR. i==n) THEN
-!!$             ! First piece done 'normally' because otherwise /0 occurs in cubic
-!!$             ! Last piece will not generally be over one full oscillation
-!!$             w=winint_store(r1,r2,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
-!!$          ELSE
-!!$             IF(imeth==5 .OR. (imeth==9 .AND. n>nlim_bumps)) THEN
-!!$                ! Linear approximation to integral between nodes - see notes
-!!$                ! All results from the analytic integral of a linear polynomial vs. one sine oscillation
-!!$                rn=pi*(2*i+1)/(2.*k)
-!!$                w=(2./k**2)*winint_integrand(rn,rmin,rmax,rv,rs,p1,p2,irho)*((-1.)**i)/rn ! Note there is no sinc here
-!!$             ELSE IF(imeth==6 .OR. (imeth==7 .AND. n>nlim_bumps)) THEN
-!!$                ! Cubic approximation to integral between nodes - see notes
-!!$                ! All results from the analytic integral of a cubic polynomial vs. one sine oscillation
-!!$                x1=r1 ! Beginning
-!!$                x2=r1+1.*(r2-r1)/3. ! Middle
-!!$                x3=r1+2.*(r2-r1)/3. ! Middle
-!!$                x4=r2 ! End
-!!$                y1=winint_integrand(x1,rmin,rmax,rv,rs,p1,p2,irho)/x1 ! Note there is no sinc here
-!!$                y2=winint_integrand(x2,rmin,rmax,rv,rs,p1,p2,irho)/x2 ! Note there is no sinc here
-!!$                y3=winint_integrand(x3,rmin,rmax,rv,rs,p1,p2,irho)/x3 ! Note there is no sinc here
-!!$                y4=winint_integrand(x4,rmin,rmax,rv,rs,p1,p2,irho)/x4 ! Note there is no sinc here
-!!$                CALL fix_cubic(a3,a2,a1,a0,x1,y1,x2,y2,x3,y3,x4,y4)
-!!$                w=-6.*a3*(r2+r1)-4.*a2
-!!$                w=w+(k**2)*(a3*(r2**3+r1**3)+a2*(r2**2+r1**2)+a1*(r2+r1)+2.*a0)
-!!$                w=w*((-1)**i)/k**4
-!!$             ELSE IF(imeth==8 .OR. (imeth==10 .AND. n>nlim_bumps)) THEN
-!!$                ! Quadratic approximation to integral between nodes - see notes
-!!$                x1=r1
-!!$                x2=(r1+r2)/2.
-!!$                x3=r2
-!!$                y1=winint_integrand(x1,rmin,rmax,rv,rs,p1,p2,irho)/x1 ! Note there is no sinc here
-!!$                y2=winint_integrand(x2,rmin,rmax,rv,rs,p1,p2,irho)/x2 ! Note there is no sinc here
-!!$                y3=winint_integrand(x3,rmin,rmax,rv,rs,p1,p2,irho)/x3 ! Note there is no sinc here
-!!$                CALL fix_quadratic(a2,a1,a0,x1,y1,x2,y2,x3,y3)
-!!$                w=(a2*(r2**2+r1**2-4./k**2)+a1*(r2+r1)+2.*a0)
-!!$                w=w*((-1)**i)/k**2
-!!$             ELSE
-!!$                STOP 'WININT_BUMPS: Error, imeth specified incorrectly'
-!!$             END IF
-!!$          END IF
-!!$       ELSE
-!!$          STOP 'WININT_BUMPS: Error, imeth specified incorrectly'
-!!$       END IF
-
-       !WRITE(*,*) i, REAL(r1), REAL(r2), REAL(w)
-
        sum=sum+w
 
-       ! Exit if the contribution to the sum is very tiny
-       ! This seems to be necessary to prevent crashes
+       ! Exit if the contribution to the sum is very tiny, this seems to be necessary to prevent crashes
        IF(ABS(w)<acc*ABS(sum)) EXIT
 
     END DO
@@ -5554,6 +5500,7 @@ CONTAINS
 
   REAL FUNCTION winint_approx(rn,rm,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder)
 
+    ! Approximate forms for the integral over the sine bump times a polynomial
     IMPLICIT NONE
     REAL, INTENT(IN) :: rn, rm
     INTEGER, INTENT(IN) :: i
@@ -5615,6 +5562,8 @@ CONTAINS
 
   REAL FUNCTION winint_hybrid(rn,rm,i,k,rmin,rmax,rv,rs,p1,p2,irho,iorder,acc)
 
+    ! An attempt to do an automatic combination of approximation and proper integration
+    ! It turned out to be very slow
     IMPLICIT NONE
     REAL, INTENT(IN) :: rn, rm
     INTEGER, INTENT(IN) :: i
