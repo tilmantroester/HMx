@@ -55,10 +55,11 @@ print 'Example data file: ', data(base,'best',1,1,1,1)
 print ''
 }
 
-off=1.5
-kmin=0.1/off
-kmax=10.*off
-set xrange [kmin:kmax]
+#off=1.5
+#kmin=0.01/off
+#kmax=10.*off
+#set xrange [kmin:kmax]
+set xrange [*:*]
 set log x
 
 top=0.98
