@@ -2,8 +2,8 @@ unset multiplot
 reset
 
 if(!exists('print')){print=0}
-if(print==0) {set term aqua dashed dl 1}
-if(print==1) {set term post enh col}
+if(print==0) {set term aqua dashed font dl 1}
+if(print==1) {set term post enh col font ',12'}
 if(print==2) {set term qt}
 
 # Initial white space
@@ -13,7 +13,7 @@ print ''
 data(base,type,icosmo,if1,if2,iz)=sprintf('%s_%s_cos%d_%d%d_z%d.dat',base,type,icosmo,if1,if2,iz)
 
 # Field types
-field_names="'matter' 'CDM' 'gas' 'stars' 'electron pressure'"
+field_names="'matter' 'CDM' 'gas' 'stars' 'pressure'"
 
 array cols[5]
 cols[1]=1
@@ -40,17 +40,20 @@ print ''
 
 # Set what to plot
 if(!exists('iplot')){iplot=1}
-print 'iplot = 1 - Power and residual'
-print 'iplot = 2 - Residual only'
-print 'iplot = 3 - Many residuals M15 50,0000'
-print 'iplot = 4 - Many residuals M11 50,0000'
+print 'iplot = 1: Power and residual'
+print 'iplot = 2: Residual only'
+print 'iplot = 3: Many residuals M15 50,0000'
+print 'iplot = 4: Many residuals M11 50,0000'
+print 'iplot = 5: Many residuals M16 100,0000'
 print 'iplot = ', iplot
 print ''
 
 if(!exists('base')){base='fitting/test'}
+if(iplot==1 || iplot==2){
 print 'Data file base: base: ', base
 print 'Example data file: ', data(base,'best',1,1,1,1)
 print ''
+}
 
 off=1.5
 kmin=0.1/off
@@ -132,12 +135,14 @@ plot 1 w l lt -1 noti,\
 
 }
 
-if(iplot==3 || iplot==4){
+if(iplot==3 || iplot==4 || iplot==5){
 
 # iplot = 3: M15 matter fitting
 # iplot = 4: M11 everything fitting
+# iplot = 4: M16 everything fitting (minus epressure-epressure)
 if(iplot==3 && print==1) {set output 'fitting_m15.eps'}
 if(iplot==4 && print==1) {set output 'fitting_m11.eps'}
+if(iplot==5 && print==1) {set output 'fitting_m16.eps'}
 
 # models
 mods="'AGN_7p6' 'AGN_TUNED' 'AGN_8p0'"
@@ -147,8 +152,9 @@ mod_names="'AGN 7p6' 'AGN tuned' 'AGN 8p0'"
 zs="'z0.0' 'z0.5' 'z1.0' 'z2.0'"
 z_names="'z = 0.0' 'z = 0.5' 'z = 1.0' 'z = 2.0'"
 
-if(iplot==3) {nf=4; type='m15'}
-if(iplot==4) {nf=5; type='m11'}
+if(iplot==3) {nf=4; type='m15'; n=50000}
+if(iplot==4) {nf=5; type='m11'; n=50000}
+if(iplot==5) {nf=5; type='m16'; n=100000}
 
 # y axis
 dr=0.28
@@ -189,15 +195,15 @@ if(im==2 || im==3) {set format y ''; set ylabel ''}
 unset key
 if(iz==1 && im==1) {set key top left}
 
-data(mod,z,type,i1,i2)=sprintf('fitting/%s_nu0_%s_n50000_%s_best_cos1_%d%d_z1.dat',mod,z,type,i1,i2)
+data(mod,z,n,type,best,i1,i2)=sprintf('fitting/%s_nu0_%s_n%d_%s_%s_cos1_%d%d_z1.dat',mod,z,n,type,best,i1,i2)
 
 plot 1 w l lt -1 noti,\
      0.95 w l lc -1 dt 2 noti,\
      1.05 w l lc -1 dt 2 noti,\
      for [j=1:nf] NaN w l lw 2 lc cols[j] ti word(field_names,j),\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),type,j1,j2) u 1:($2/$3) w l lc 0        dt j lw 1.5 noti,\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),type,j1,j2) u 1:($2/$3) w l lc cols[j1] dt 1 lw 1.5 noti,\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),type,j1,j2) u 1:($2/$3) w l lc cols[j2] dt 2 lw 1.5 noti
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,'orig',j1,j2) u 1:($2/$3) w l lc rgb 'light-grey' dt 1 lw 1.5 noti,\
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,'best',j1,j2) u 1:($2/$3) w l lc cols[j1] dt 1 lw 1.5 noti,\
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,'best',j1,j2) u 1:($2/$3) w l lc cols[j2] dt 2 lw 1.5 noti
 
 unset label
 

@@ -825,7 +825,8 @@ if(iplot==11 || iplot==12){
 # Pressure spectrum variance demonstration
 
 if(print==1){
-outfile(name,z)=sprintf('%s_z%1.1f_pressure.eps',name,z)
+if(iplot==11) {outfile(name,z)=sprintf('%s_z%1.1f_matter_epressure_variance.eps',name,z)}
+if(iplot==12) {outfile(name,z)=sprintf('%s_z%1.1f_epressure_epressure_variance.eps',name,z)}
 set output outfile(sim,z)
 }
 
