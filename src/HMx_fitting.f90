@@ -112,7 +112,7 @@ PROGRAM HMx_fitting
      delta=1e-4 
      
      IF(im==1 .OR. im==3) THEN
-        ncos=10 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0.
+        ncos=9 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0. (ignore 1 because it is weird)
         nf=1
      ELSE IF(im==2 .OR. im==4) THEN
         ncos=37 ! Number of FrankenEmu nodes
@@ -201,10 +201,10 @@ PROGRAM HMx_fitting
 
   ! Assign the cosmological models
   DO i=1,ncos
+     IF(im==1) icosmo=101+i ! Set set Mira Titan node (note that we are skipping node 1)
+     IF(im==2) icosmo=200+i ! Set set FrankenEmu node
      IF(im==3) icosmo=24    ! Random Mira Titan cosmology
      IF(im==4) icosmo=25    ! Random FrankenEmu cosmology
-     IF(im==1) icosmo=100+i ! Set set Mira Titan node
-     IF(im==2) icosmo=200+i ! Set set FrankenEmu node
      IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) icosmo=4 ! WMAP9
      CALL assign_cosmology(icosmo,cosm(i),verbose=.TRUE.)
      CALL init_cosmology(cosm(i))
@@ -332,13 +332,13 @@ PROGRAM HMx_fitting
      p_min(6)=-5.
      p_max(6)=5.
 
-     p_nme(7)='damping'
+     p_nme(7)='f0'
      !p_ori(7)=0.0095 ! Mead (2016) 
      p_ori(7)=0.188 ! Mead (2015) damping
      p_min(7)=-5.
      p_max(7)=5.
 
-     p_nme(8)='damping'
+     p_nme(8)='fp'
      !p_ori(8)=1.37 ! Mead (2016)
      p_ori(8)=4.29 ! Mead (2015)
      p_min(8)=-10.
