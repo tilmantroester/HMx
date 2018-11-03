@@ -110,7 +110,7 @@ PROGRAM HMx_driver
      WRITE(*,*) ' 1 - 3D Matter power spectrum over multiple z'
      WRITE(*,*) ' 2 - Hydrodynamical halo model'
      WRITE(*,*) ' 3 - Run diagnostics for haloes'
-     WRITE(*,*) ' 4 - Do random cosmologies for bug testing'
+     WRITE(*,*) ' 4 - Do random baryon parameters for bug testing'
      WRITE(*,*) ' 5 - Lensing diagnostics'
      WRITE(*,*) ' 6 - n(z) check'
      WRITE(*,*) ' 7 - Do general angular cross correlation'
@@ -121,8 +121,8 @@ PROGRAM HMx_driver
      WRITE(*,*) '12 - Project triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra for variations in baryon parameters'
-     WRITE(*,*) '15 - 3D spectra for cosmo-OWLS models (k values) NOT SUPPORTED'
-     WRITE(*,*) '16 - 3D spectra for BAHAMAS models (k values)'
+     WRITE(*,*) '15 - 3D spectra for cosmo-OWLS models (Feedback models and k values) NOT SUPPORTED'
+     WRITE(*,*) '16 - 3D spectra for BAHAMAS models (AGN models and k values)'
      WRITE(*,*) '17 - 3D spectra for user choice of fields'
      WRITE(*,*) '18 - 3D bias'
      WRITE(*,*) '19 - Make CCL benchmark data'
@@ -146,7 +146,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '37 - Produce CFHTLenS correlation functions'
      WRITE(*,*) '38 - Project triad (3 combinations)'
      WRITE(*,*) '39 - Project triad (5 combinations)'
-     WRITE(*,*) '40 - '
+     WRITE(*,*) '40 - Halo bias'
      WRITE(*,*) '41 - '
      WRITE(*,*) '42 - PAPER: Contributions to k-k C(l) integral'
      WRITE(*,*) '43 - PAPER: Contributions to k-y C(l) integral'
@@ -1308,11 +1308,8 @@ PROGRAM HMx_driver
            !Loop over redshifts
            DO j=1,na
 
-              !z=redshift_a(a(j))
-
               !Initiliasation for the halomodel calcualtion
               CALL assign_halomod(ihm,hmod,verbose)
-              !CALL init_halomod(m1,m2,z,hmod,cosm,verbose)
               CALL init_halomod(m1,m2,a(j),hmod,cosm,verbose)
               CALL print_halomod(hmod,cosm,verbose)
               CALL calculate_HMx_a(ip,2,k,nk,pows_li(:,j),pows_2h(:,:,:,j),pows_1h(:,:,:,j),pows_hm(:,:,:,j),hmod,cosm,verbose,response=.FALSE.)
@@ -1506,9 +1503,6 @@ PROGRAM HMx_driver
 
      IF(imode==44) ihm=18 ! AGN 7.8
      CALL assign_halomod(ihm,hmod,verbose)
-
-     ! Initialise the lensing part of the calculation
-     !CALL write_distances(cosm)
 
      ! Set the ell range
      lmin=100.
@@ -1942,13 +1936,15 @@ PROGRAM HMx_driver
      base='data/power'
      CALL write_power_a_multiple(k,a,pows_li,pows_2h(ip(1),ip(2),:,:),pows_1h(ip(1),ip(2),:,:),pows_hm(ip(1),ip(2),:,:),nk,na,base,verbose)
 
-  ELSE IF(imode==18 .OR. imode==48) THEN
+  ELSE IF(imode==18 .OR. imode==40 .OR. imode==48) THEN
 
      ! Create 3D bias function
      ! 18 - User choice
+     ! 40 - Halo bias
      ! 48 - HI bias
 
      ! Assign the cosmological model
+     IF(imode==40) icosmo=4  ! BAHAMAS
      IF(imode==48) icosmo=27 ! Illustris TNG 75
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
@@ -1967,18 +1963,28 @@ PROGRAM HMx_driver
      k=exp(k)
 
      ! Set the number of redshifts and range (linearly spaced) and convert z -> a
-     IF(imode==18) THEN
-        nz=16
-        zmin=0.
-        zmax=4.
-     ELSE IF(imode==48) THEN
-        nz=6
-        zmin=0.
-        zmax=5.
+     IF(imode==18 .OR. imode==48) THEN
+        IF(imode==18) THEN
+           nz=16
+           zmin=0.
+           zmax=4.
+        ELSE IF(imode==48) THEN
+           nz=6
+           zmin=0.
+           zmax=5.
+        END IF
+        CALL fill_array(zmin,zmax,a,nz)
+        a=1./(1.+a)
+        na=nz
+     ELSE IF(imode==40) THEN
+        na=4
+        ALLOCATE(a(na))
+        a(1)=0.
+        a(2)=0.5
+        a(3)=1.
+        a(4)=2.0
+        a=1./(1.+a)
      END IF
-     CALL fill_array(zmin,zmax,a,nz)
-     a=1./(1.+a)
-     na=nz
 
      ! Allocate arrays for fields
      nf=2
@@ -1987,6 +1993,7 @@ PROGRAM HMx_driver
 
      ! Select field type for bias study
      IF(imode==18) CALL set_halo_type(fields(2))
+     IF(imode==40) fields(2)=9  ! Central galaxies/haloes
      IF(imode==48) fields(2)=12 ! HI
 
      CALL calculate_HMx(fields,nf,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
@@ -2115,20 +2122,20 @@ PROGRAM HMx_driver
 
      ! Speed tests for W(M,k) integrals
 
-     !k range
+     ! k range
      kmin=1e-2
      kmax=1e3
      nk=512
      CALL fill_array(log(kmin),log(kmax),k,nk)
      k=exp(k)
 
-     !Halo parameters
-     rv=1.
-     c=4.
+     ! Halo parameters
+     rv=1.    ! Virial radius
+     c=4.     ! Concentration
      rs=rv/c
-     p1=1.5
+     p1=1.2   ! Gamma
      p2=0.
-     irho=11
+     irho=11  ! KS density profile
      rmin=0.
      rmax=rv
 
@@ -2431,7 +2438,7 @@ PROGRAM HMx_driver
      IF(ifail) THEN
         STOP 'HMx_DRIVER: Error, tests failed'
      ELSE
-        WRITE(*,*) 'HMx_DRIVER: Tests should take around 0.55 seconds to run'
+        WRITE(*,*) 'HMx_DRIVER: Tests should take around 0.45 seconds to run'
         WRITE(*,*) 'HMx_DRIVER: Tests passed'
         WRITE(*,*)
      END IF
@@ -2830,7 +2837,7 @@ PROGRAM HMx_driver
      IF(ifail) THEN
         WRITE(*,*) 'HMx_DRIVER: Hydro tests failed'
      ELSE
-        WRITE(*,*) 'HMx_DRIVER: Hydro tests should take around 3.00 seconds to run'
+        WRITE(*,*) 'HMx_DRIVER: Hydro tests should take around 2.00 seconds to run'
         WRITE(*,*) 'HMx_DRIVER: Hydro tests passed'        
      END IF
      WRITE(*,*)
@@ -3322,6 +3329,27 @@ CONTAINS
 
     REAL, PARAMETER :: Twhim_min=10**(5.)
     REAL, PARAMETER :: Twhim_max=10**(7.)
+
+    REAL, PARAMETER :: cstar_min=1.
+    REAL, PARAMETER :: cstar_max=1000.
+
+    REAL, PARAMETER :: fcold_min=1e-5
+    REAL, PARAMETER :: fcold_max=0.5
+
+    REAL, PARAMETER :: mstar_min=1e9
+    REAL, PARAMETER :: mstar_max=1e15
+
+    REAL, PARAMETER :: sstar_min=0.1
+    REAL, PARAMETER :: sstar_max=10.
+
+    REAL, PARAMETER :: alphap_min=-1.
+    REAL, PARAMETER :: alphap_max=1.
+
+    REAL, PARAMETER :: Gammap_min=-0.2
+    REAL, PARAMETER :: Gammap_max=0.2
+
+    REAL, PARAMETER :: cstarp_min=-1.
+    REAL, PARAMETER :: cstarp_max=1.
     
     hmod%alpha=random_uniform(alpha_min,alpha_max)
 
@@ -3337,6 +3365,24 @@ CONTAINS
 
     hmod%Twhim=random_uniform(log(Twhim_min),log(Twhim_max))
     hmod%Twhim=exp(hmod%Twhim)
+
+    hmod%cstar=random_uniform(log(cstar_min),log(cstar_max))
+    hmod%cstar=exp(hmod%cstar)
+
+    hmod%fcold=random_uniform(log(fcold_min),log(fcold_max))
+    hmod%fcold=exp(hmod%fcold)
+
+    hmod%mstar=random_uniform(log(mstar_min),log(mstar_max))
+    hmod%mstar=exp(hmod%mstar)
+
+    hmod%sstar=random_uniform(log(sstar_min),log(sstar_max))
+    hmod%sstar=exp(hmod%sstar)
+
+    hmod%alphap=random_uniform(alphap_min,alphap_max)
+
+    hmod%Gammap=random_uniform(Gammap_min,Gammap_max)
+
+    hmod%cstarp=random_uniform(cstarp_min,cstarp_max)
     
   END SUBROUTINE random_baryon_parameters
 
