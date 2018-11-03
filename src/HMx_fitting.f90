@@ -372,26 +372,24 @@ PROGRAM HMx_fitting
      q_log=.TRUE.
 
      q_nme(1)='alpha'
-     q_ori(1)=0.33333
+     q_ori(1)=0.7
      q_min(1)=1e-2
      q_max(1)=1e1
 
-     !not one because log(1)=0 and this messes things up in setting the ranges
+     ! Can not be one because log(1)=0 and this messes things up in setting the ranges
      q_nme(2)='epsilon'
      q_ori(2)=1.1
      q_min(2)=1e-2
      q_max(2)=1e2
 
      q_nme(3)='Gamma-1'
-     q_ori(3)=0.17
+     q_ori(3)=0.24
      q_min(3)=0.01
      q_max(3)=2.
      q_log(3)=.FALSE.
 
-     ! Need to have this depend on z to keep the parameter having an effect at the higher z
-     ! when 10^14 haloes are rare
+     ! This must depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
      q_nme(4)='M0'
-     !q_ori(4)=1e13/(10.**z(1))
      q_ori(4)=10**13.4/(10.**z(1))
      q_min(4)=1e10
      q_max(4)=1e16
@@ -403,7 +401,7 @@ PROGRAM HMx_fitting
 
      ! For some reason when 1e6 is set a range is calculated that gives too large a change in figure-of-merit
      q_nme(6)='T_whim'
-     q_ori(6)=1e7
+     q_ori(6)=10**6.5
      q_min(6)=1e2
      q_max(6)=1e8
 
@@ -414,36 +412,34 @@ PROGRAM HMx_fitting
 
      ! Needed to boost original here so that it has an effect
      q_nme(8)='f_cold'
-     q_ori(8)=1e-1
+     q_ori(8)=0.02
      q_min(8)=1e-5
      q_max(8)=0.5
 
      q_nme(9)='M_*'
-     q_ori(9)=5e12
+     q_ori(9)=1e12
      q_min(9)=1e9
      q_max(9)=1e15
 
      q_nme(10)='sigma_*'
-     q_ori(10)=1.2
+     q_ori(10)=0.8
      q_min(10)=0.1
      q_max(10)=10.
      q_log(10)=.FALSE.
 
      q_nme(11)='alpha index'
-     q_ori(11)=0.1
+     q_ori(11)=-0.5
      q_min(11)=-1.
      q_max(11)=1.
      q_log(11)=.FALSE.
 
      q_nme(12)='Gamma index'
-     !q_ori(12)=-0.001
-     q_ori(12)=0.03
+     q_ori(12)=-0.02
      q_min(12)=-0.2
      q_max(12)=0.2
      q_log(12)=.FALSE.
 
      q_nme(13)='c_* index'
-     !q_ori(13)=0.1
      q_ori(13)=-0.1
      q_min(13)=-1.
      q_max(13)=1.
@@ -1160,8 +1156,9 @@ CONTAINS
     INTEGER :: i
     REAL :: fom_base, fom_diff, fom, df, p2(np), pow(n,nf,nf,nk,nz), dp
     
-    REAL, PARAMETER :: eps=2.0 ! Tolerated error in fom difference when setting range
-    REAL, PARAMETER :: deriv=0.001 ! How much smaller is the derivative than delta
+    REAL, PARAMETER :: eps=2.0    ! Tolerated error in fom difference when setting range
+    REAL, PARAMETER :: deriv=1e-3 ! How much smaller is the derivative than delta
+    INTEGER, PARAMETER :: nout=25 ! For output debugging
 
     ! Get the figure of merit for the base set of parameters
     CALL fom_multiple(im,fields,nf,fom_base,p,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
@@ -1250,15 +1247,35 @@ CONTAINS
 
     DO i=1,np
 
-       p2=p
-       p2(i)=p(i)+sigma(i)
-       CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
-       fom_diff=fom-fom_base
-       WRITE(*,fmt='(I14,A15,3F14.7)') i, TRIM(p_nme(i)), fom_base, fom, fom_diff/delta
+       DO !WHILE (ABS(ratio > eps) .OR. (ABS(ratio) < eps))
 
-       IF(ABS(fom_diff) > delta*eps .OR. ABS(fom_diff) < delta/eps) THEN
-          STOP 'SET_PARAMETER_RANGES: Error, change in parameter causes too small or too large a FOM change'
-       END IF
+          p2=p
+          p2(i)=p(i)+sigma(i)
+          CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
+          fom_diff=fom-fom_base
+          WRITE(*,fmt='(I14,A15,3F14.7)') i, TRIM(p_nme(i)), fom_base, fom, fom_diff/delta
+
+          IF(ABS(fom_diff) > delta*eps) THEN
+             sigma(i)=sigma(i)/(fom_diff/delta)
+          ELSE IF(ABS(fom_diff) < delta/eps) THEN
+             sigma(i)=sigma(i)/(fom_diff/delta)
+          ELSE
+             EXIT
+          END IF
+
+       END DO
+
+!!$       IF(ABS(fom_diff) > delta*eps .OR. ABS(fom_diff) < delta/eps) THEN
+!!$          OPEN(7,file='fitting/debug.dat')
+!!$          DO j=1,nout
+!!$             p2(i)=p(i)+sigma(i)*(j-1)/(nout-1)
+!!$             CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
+!!$             WRITE(*,*) p2(i), fom
+!!$             WRITE(7,*) p2(i), fom
+!!$          END DO
+!!$          CLOSE(7)
+!!$          STOP 'SET_PARAMETER_RANGES: Error, change in parameter causes too small or too large a FOM change'
+!!$       END IF
 
     END DO
 
