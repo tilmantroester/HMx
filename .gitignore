@@ -10,6 +10,9 @@ debug_build/
 bin/
 *.e
 
+# Scripts
+*.sh
+
 # Library
 lib/
 
