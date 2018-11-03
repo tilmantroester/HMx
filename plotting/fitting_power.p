@@ -2,7 +2,7 @@ unset multiplot
 reset
 
 if(!exists('print')){print=0}
-if(print==0) {set term aqua dashed font dl 1}
+if(print==0) {set term aqua dashed font ',12' dl 1}
 if(print==1) {set term post enh col font ',12'}
 if(print==2) {set term qt}
 
