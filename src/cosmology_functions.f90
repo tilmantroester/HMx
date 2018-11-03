@@ -1524,9 +1524,7 @@ CONTAINS
   RECURSIVE FUNCTION p_lin(k,a,cosm)
 
     ! Linear matter power spectrum
-    ! P(k) should have been previously normalised so as to get the amplitude 'A' correct
-    ! TODO: Causes problems in debug mode because this function is called recursively
-    ! TODO: Recursive call to nonrecursive procedure 'p_lin'
+    ! Must be a recursive function because normalise_power calls this function again
     IMPLICIT NONE
     REAL :: p_lin
     REAL, INTENT (IN) :: k, a
@@ -1536,10 +1534,11 @@ CONTAINS
     REAL, PARAMETER :: kmax=1e8
 
     ! Using init_power seems to provide no significant speed improvements to HMx
-    ! IF(cosm%has_power .EQV. .FALSE.) CALL init_power(cosm)
+    !IF(cosm%has_power .EQV. .FALSE.) CALL init_power(cosm)
 
+    ! This line generates a recursion
     IF(.NOT. cosm%is_normalised) THEN
-      cosm%is_normalised = .TRUE.
+      cosm%is_normalised = .TRUE. ! This line is not necessary
       CALL normalise_power(cosm)
     END IF
 
