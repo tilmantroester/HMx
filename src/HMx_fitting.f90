@@ -165,7 +165,7 @@ PROGRAM HMx_fitting
      
      ! Hydro simulations
      IF(name=='') name='AGN_TUNED_nu0'    
-     kmin=0.1
+     kmin=0.15
      kmax=10.
      nz=1
      ALLOCATE(z(nz))

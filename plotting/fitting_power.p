@@ -155,7 +155,8 @@ z_names="'z = 0.0' 'z = 0.5' 'z = 1.0' 'z = 2.0'"
 
 if(iplot==3) {nf=4; type='m15'; n=50000}
 if(iplot==4) {nf=5; type='m11'; n=50000}
-if(iplot==5) {nf=5; type='m16'; n=100000}
+#if(iplot==5) {nf=5; type='m16'; n=100000}
+if(iplot==5) {nf=5; type='m16'; n=50000}
 
 # y axis
 dr=0.28
