@@ -130,12 +130,18 @@ unset multiplot
 
 if(itest==4){
 
+pmin=1e-14
+pmax=1e3
 set log y
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
+set yrange [pmin:pmax]
 
-plot for [i=1:5] for [j=i:5] bench(z,f[i],f[j]) u 1:5 w l lw 2 lc c[i] dt 1 noti,\
-     for [i=1:5] for [j=i:5] bench(z,f[i],f[j]) u 1:5 w l lw 2 lc c[j] dt 2 noti,\
+if(!exists('z')){z=0.0}
+print 'Redshift: z: ', z
+print ''
+
+plot for [i=1:5] for [j=i:5] bench(z,f[i],f[j]) u 1:5 w l lw 2 lc 0    dt 1 noti,\
      for [i=1:5] for [j=i:5] test(z,f[i],f[j])  u 1:5 w l lw 2 lc c[i] dt 1 noti,\
      for [i=1:5] for [j=i:5] test(z,f[i],f[j])  u 1:5 w l lw 2 lc c[j] dt 2 noti
 
