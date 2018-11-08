@@ -24,7 +24,7 @@ cols[5]=6
 
 klab='k / h^{-1} Mpc'
 plab='{/Symbol D}^2(k)'
-rlab='R_{HM}(k) / R_{sim}(k)'
+rlab='R_{HM}(k) / R_{sim}(k)' 
 
 # Set number of cosmoloies
 if(!exists('ncos')){ncos=1}

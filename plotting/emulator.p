@@ -13,11 +13,11 @@ file(n,z)=sprintf('data/cosmo%d_z%d.dat',n,z)
 # Number of redshifts
 nz=4
 
-if(!exists('n')){n=10}
-print 'Plotting *n* cosmolgies:', n
+if(!exists('ncos')){ncos=10}
+print 'Plotting this number of cosmolgies: ncos:', ncos
 
-kmin=1e-2
-kmax=1e1
+kmin=2e-3
+kmax=9e0
 set log x
 set xlabel ''
 set format x ''
@@ -26,35 +26,53 @@ set xrange [kmin:kmax]
 dy=0.12
 ddy=0.05
 set yrange [1.-dy:1+dy]
-set ylabel
-set ylabel 'P(k) / P_{emu}(k)'
 
-set lmargin 10
-set rmargin 2
+# Graph positions - x
+x1=0.1
+x2=0.98
+dx=(x2-x1)/2.
 
-y2=0.98
+# Graph positions - y
+y2=0.96
 y1=0.1
-dy=(y2-y1)/4
+dy=(y2-y1)/nz
+
+# Label positions
+xlab=0.05
+ylab=0.90
 
 # Final white space
 print ''
 
-set multiplot layout 4,1
+set multiplot layout 4,2
+
+do for [i=1:2]{
+
+if(i==1){c=3; set lmargin at screen x1+0.*dx; set rmargin at screen x1+1.*dx; set format y;    set ylabel 'P(k) / P_{emu}(k)'}
+if(i==2){c=2; set lmargin at screen x1+1.*dx; set rmargin at screen x1+2.*dx; set format y ''; set ylabel ''}
 
 do for [j=1:nz]{
 
-if(j==1){set tmargin at screen y2;      set bmargin at screen y2-dy; set label 'z = 0.0' at graph 0.93,0.9}
-if(j==2){set tmargin at screen y2-dy;   set bmargin at screen y2-2*dy; set label 'z = 0.5' at graph 0.93,0.9}
-if(j==3){set tmargin at screen y1+2*dy; set bmargin at screen y1+dy; set label 'z = 1.0' at graph 0.93,0.9}
-if(j==4){set tmargin at screen y1+dy;   set bmargin at screen y1; set label 'z = 2.0' at graph 0.93,0.9}
+unset title
+if(i==1 && j==1){set title 'HMcode' offset 0,-0.8}
+if(i==2 && j==1){set title 'HALOFIT' offset 0,-0.8}
+
+if(j==1){set tmargin at screen y2-0.*dy; set bmargin at screen y2-1.*dy; set label 'z = 0.0' at graph xlab,ylab}
+if(j==2){set tmargin at screen y2-1.*dy; set bmargin at screen y2-2.*dy; set label 'z = 0.5' at graph xlab,ylab}
+if(j==3){set tmargin at screen y2-2.*dy; set bmargin at screen y2-3.*dy; set label 'z = 1.0' at graph xlab,ylab}
+if(j==4){set tmargin at screen y2-3.*dy; set bmargin at screen y2-4.*dy; set label 'z = 2.0' at graph xlab,ylab}
+
+set xlabel ''; set format x ''
 if(j==4){set xlabel 'k / h Mpc^{-1}'; set format x}
 
 plot 1 w l lt -1 noti,\
      1.+ddy w l lc -1 dt 2 noti,\
      1.-ddy w l lc -1 dt 2 noti,\
-     for [i=0:n] file(i,j) u 1:($2/$3) w l noti
+     for [icos=0:ncos] file(icos,j) u 1:(column(c)/$4) w l noti
 
 unset label
+
+}
 
 }
 
