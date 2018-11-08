@@ -17,7 +17,7 @@ PROGRAM HMx_driver
 
   ! Parameter definitions
   REAL, ALLOCATABLE :: k(:), a(:)
-  REAL, ALLOCATABLE :: k_sim(:), pow_sim(:)
+  REAL, ALLOCATABLE :: k_sim(:), pow_sim(:), pow_ql(:), pow_oh(:), pow_hf(:)
   REAL, ALLOCATABLE :: pow_li(:), pow_2h(:,:,:), pow_1h(:,:,:), pow_hm(:,:,:)
   REAL, ALLOCATABLE :: pow_ka(:,:)
   REAL, ALLOCATABLE :: powd_li(:), powd_2h(:), powd_1h(:), powd_hm(:)
@@ -180,7 +180,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Sets the redshift
-     z=0.
+     z=0.0
 
      ! Initiliasation for the halomodel calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
@@ -848,7 +848,7 @@ PROGRAM HMx_driver
      CALL assign_halomod(ihm,hmod,verbose)
 
      ! Set the redshift
-     z=0.
+     z=0.0
 
      ! Loop forever
      DO
@@ -1012,6 +1012,7 @@ PROGRAM HMx_driver
      END DO
      WRITE(*,*) '======================================================='
      WRITE(*,*)
+     STOP
 
      ! Set the ell range
      lmin=1
@@ -1692,7 +1693,7 @@ PROGRAM HMx_driver
      ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
 
      ! Set the redshift
-     z=0.
+     z=0.0
 
      ! Assigns the cosmological model
      icosmo=4
@@ -2055,12 +2056,12 @@ PROGRAM HMx_driver
 
            ! Sets the redshift and file names
            IF(i==1) THEN
-              z=0.
+              z=0.0
               IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z0.txt'
               IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z0.txt'
               IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z0.txt'
            ELSE IF(i==2) THEN
-              z=1.
+              z=1.0
               IF(j==1) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model1_z1.txt'
               IF(j==2) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model2_z1.txt'
               IF(j==3) outfile='/Users/Mead/Physics/HMx/CCL/HMx_power_model3_z1.txt'
@@ -2094,7 +2095,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Set the halo model
-     z=0.
+     z=0.0
      ihm=4
      CALL assign_halomod(ihm,hmod,verbose)
      CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
@@ -2154,7 +2155,7 @@ PROGRAM HMx_driver
      ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
      ! Set the redshift
-     z=0.
+     z=0.0
 
      ! Directory for output
      dir='data'
@@ -2321,7 +2322,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Sets the redshift
-     z=0.
+     z=0.0
 
      ! Initiliasation for the halomodel calcualtion
      ihm=16
@@ -2494,15 +2495,19 @@ PROGRAM HMx_driver
            field=field_dmonly
            CALL calculate_HMx_a(field,1,k_sim,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
+           ALLOCATE(pow_ql(nk),pow_oh(nk),pow_hf(nk))
+           CALL calculate_halofit_a(k_sim,a(j),pow_li,pow_ql,pow_oh,pow_hf,nk,cosm,verbose=.TRUE.,ihf=4)
+
            ! Write data to disk
            outfile=number_file2(base,i,mid,j,ext)
            OPEN(7,file=outfile)
            DO ii=1,nk
-              WRITE(7,*) k_sim(ii), pow_hm(1,1,ii), pow_sim(ii)
+              WRITE(7,*) k_sim(ii), pow_hf(ii), pow_hm(1,1,ii), pow_sim(ii)
            END DO
            CLOSE(7)
 
            DEALLOCATE(pow_li,pow_2h,pow_1h,pow_hm)
+           DEALLOCATE(pow_ql,pow_oh,pow_hf)
            DEALLOCATE(k_sim,pow_sim)
            
         END DO
@@ -2540,7 +2545,7 @@ PROGRAM HMx_driver
      CALL assign_halomod(ihm,hmod,verbose)
 
      ! Set the redshift
-     z=0.
+     z=0.0
 
      ! Loop over upper limit of mass integral
      DO i=10,16
@@ -2585,7 +2590,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      !Sets the redshift
-     z=0.
+     z=0.0
 
      !Initiliasation for the halomodel calcualtion
      ihm=18
@@ -2640,7 +2645,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Set the redshift
-     z=0.
+     z=0.0
 
      ! Initiliasation for the halomodel calcualtion
      ihm=21
@@ -2863,7 +2868,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Sets the redshift
-     z=0.
+     z=0.0
 
      DO j=1,3
 
@@ -2910,7 +2915,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Sets the redshift
-     z=0.
+     z=0.0
 
      !Initiliasation for the halomodel calcualtion
      ihm=3
@@ -3008,7 +3013,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosms(1))
 
      ! Set the redshift
-     z=0.
+     z=0.0
 
      !Initilisation for the halomodel calcualtion
      ihm=3

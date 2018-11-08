@@ -29,8 +29,7 @@ PROGRAM HMx_fitting
   LOGICAL :: verbose2
   INTEGER :: out
 
-  ! Hydro fitting parameters
-  INTEGER, PARAMETER :: param_n=13
+  ! Hydro fitting parameters  
   INTEGER, PARAMETER :: param_alpha=1
   INTEGER, PARAMETER :: param_eps=2
   INTEGER, PARAMETER :: param_gamma=3
@@ -44,6 +43,8 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: param_alphap=11
   INTEGER, PARAMETER :: param_Gammap=12
   INTEGER, PARAMETER :: param_cstarp=13
+  INTEGER, PARAMETER :: param_fhot=14
+  INTEGER, PARAMETER :: param_n=14
 
   REAL, PARAMETER :: mmin=1e7        ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17       ! Maximum halo mass for the calculation
@@ -277,7 +278,7 @@ PROGRAM HMx_fitting
      np=12
   ELSE IF(im==11 .OR. im==16) THEN
      ! everything
-     np=13
+     np=14
   ELSE IF(im==12) THEN
      ! gas
      np=6
@@ -416,9 +417,11 @@ PROGRAM HMx_fitting
 
      ! Needed to boost original here so that it has an effect
      q_nme(8)='f_cold'
-     q_ori(8)=0.02
+     q_ori(8)=0.03
      q_min(8)=1e-5
      q_max(8)=0.5
+     q_set(8)=.FALSE.
+     q_rge(8)=0.02
 
      q_nme(9)='M_*'
      q_ori(9)=1e12
@@ -455,9 +458,17 @@ PROGRAM HMx_fitting
      q_set(13)=.FALSE.
      q_rge(13)=0.01
 
+     q_nme(14)='f_hot'
+     q_ori(14)=0.1
+     q_min(14)=1e-5
+     q_max(14)=0.5
+     !q_set(14)=.FALSE.
+     !q_rge(14)=0.02
+     
      IF(im==11 .OR. im==16) THEN
 
-        ! everything
+        ! 11 - everything
+        ! 16 - everything minus pressure-pressure
         p_int(1)=param_alpha
         p_int(2)=param_eps
         p_int(3)=param_Gamma
@@ -471,6 +482,7 @@ PROGRAM HMx_fitting
         p_int(11)=param_alphap
         p_int(12)=param_Gammap
         p_int(13)=param_cstarp
+        p_int(14)=param_fhot
 
      ELSE IF(im==12) THEN
 
@@ -1074,6 +1086,7 @@ CONTAINS
           hmod(i)%alphap=pexp(11)
           hmod(i)%Gammap=pexp(12)
           hmod(i)%cstarp=pexp(13)
+          hmod(i)%fhot=pexp(14)
 
        ELSE IF(im==12) THEN
 

@@ -89,7 +89,8 @@ MODULE HMx
      INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans
      LOGICAL :: voids
      REAL :: z, a, dc, Dv
-     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar, Theat, fcold, fhot, alphap, Gammap, cstarp ! HMx baryon parameters
+     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar ! HMx baryon parameters
+     REAL :: Theat, fcold, fhot, alphap, Gammap, cstarp ! HMx baryon parameters
      REAL :: A_alpha, B_alpha, C_alpha, D_alpha, E_alpha
      REAL :: A_eps, B_eps, C_eps, D_eps
      REAL :: A_Gamma, B_Gamma, C_Gamma, D_Gamma, E_gamma
@@ -101,7 +102,7 @@ MODULE HMx
      REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
      REAL, ALLOCATABLE :: k(:), wk(:,:,:)
      INTEGER :: nk
-     REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z
+     REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z, Rh, Mh
      REAL :: gmin, gmax, gbmin, gbmax
      REAL :: n_c, n_s, n_g, rho_HI, dlnc
      REAL :: Dv0, Dv1, dc0, dc1, eta0, eta1, f0, f1, ks, As, alp0, alp1 ! HMcode parameters
@@ -129,7 +130,7 @@ MODULE HMx
   LOGICAL, PARAMETER :: winint_exit=.FALSE. ! Exit when the contributions to the integral become small
     
   ! Halomodel
-  LOGICAL, PARAMETER :: slow_hmod=.FALSE.            ! Choose to do the slower hmod initialisation (unnecessary calculations)  
+!!$  !LOGICAL, PARAMETER :: slow_hmod=.TRUE.            ! Choose to do the slower hmod initialisation (unnecessary calculations)  
   REAL, PARAMETER :: mmin_response=1e7               ! For HMcode if doing a response
   REAL, PARAMETER :: mmax_response=1e17              ! For HMcode if doing a response
   LOGICAL, PARAMETER :: verbose_convert_mass=.FALSE. ! Verbosity when running the mass-definition-conversion routines
@@ -184,15 +185,15 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=30 ! Total number of pre-defined halo-model types (TODO: this is stupid)
+    INTEGER, PARAMETER :: nhalomod=31 ! Total number of pre-defined halo-model types (TODO: this is stupid)
     CHARACTER(len=256):: names(nhalomod)    
-    names(1)='Accurate HMcode (Mead et al. 2016)'
+    names(1)='HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
     names(3)='Standard halo-model (Seljak 2000)'
     names(4)='Standard halo-model but with Mead et al. (2015) transition'
     names(5)='Standard halo-model but with Delta_v=200 and delta_c=1.686 and Bullock c(M)'
     names(6)='Half-accurate HMcode (Mead et al. 2015, 2016)'
-    names(7)='Accurate HMcode (Mead et al. 2015)'
+    names(7)='HMcode (Mead et al. 2015)'
     names(8)='Including scatter in halo properties at fixed mass'
     names(9)='Parameters for CCL tests (high accuracy)'
     names(10)='Comparison of mass conversions with Wayne Hu code'
@@ -200,7 +201,7 @@ CONTAINS
     names(12)='Spherical collapse used for Mead (2017) results'
     names(13)='Experimental log-tanh transition'
     names(14)='Experimental scale-dependent halo bias'
-    names(15)='Accurate HMcode (Mead et al. 2018)'
+    names(15)='HMcode (Mead et al. 2018)'
     names(16)='Halo-void model'
     names(17)='HMx - AGN 7.6'
     names(18)='HMx - AGN 7.8'
@@ -216,6 +217,7 @@ CONTAINS
     names(28)='One-parameter baryon test'
     names(29)='Adding in cold gas'
     names(30)='Adding in hot gas'
+    names(31)='HMcode (2016) with damped BAO'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -527,10 +529,11 @@ CONTAINS
        WRITE(*,*)
     END IF
        
-    IF(ihm==1 .OR. ihm==7 .OR. ihm==15 .OR. ihm==28) THEN
-       !  1 - Accurate HMcode  (Mead et al. 2016)
-       !  7 - Accurate HMcode  (Mead et al. 2015)
-       ! 15 - Accurate HMcode  (Mead et al. 2018)
+    IF(ihm==1 .OR. ihm==7 .OR. ihm==15 .OR. ihm==28 .OR. ihm==31) THEN
+       !  1 - Accurate HMcode (Mead et al. 2016)
+       !  7 - Accurate HMcode (Mead et al. 2015)
+       ! 15 - Accurate HMcode (Mead et al. 2018)
+       ! 31 - Accurate HMcode (Mead et al. 2016 w/ additional BAO damping)
        hmod%ip2h=1
        hmod%i1hdamp=2
        hmod%iconc=1
@@ -584,6 +587,9 @@ CONTAINS
           ! One-parameter baryon model
           hmod%one_parameter_baryons=.TRUE.
           hmod%As=3.13!*4.
+       ELSE IF(ihm==31) THEN
+          ! Damped BAO
+          hmod%ip2h=3
        END IF       
     ELSE IF(ihm==2) THEN
        ! Basic halo model with linear two halo term (Delta_v = 200, delta_c = 1.686))
@@ -746,7 +752,7 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
-    REAL :: Dv, dc, m, nu, R, sig, A0, z  
+    REAL :: Dv, dc, m, nu, R, sig, z, Om_stars
 
     ! Set the redshift (this routine needs to be called anew for each z)
     hmod%a=a
@@ -829,35 +835,54 @@ CONTAINS
 
        IF(hmod%ip2h_corr==2 .OR. hmod%ip2h_corr==3) THEN
 
-          IF(slow_hmod) hmod%gmin=1.-mass_interval(hmod%nu(1),hmod%large_nu,hmod)
-          IF(slow_hmod) hmod%gmax=mass_interval(hmod%nu(hmod%n),hmod%large_nu,hmod)
+!!$          IF(slow_hmod) hmod%gmin=1.-mass_interval(hmod%nu(1),hmod%large_nu,hmod)
+!!$          IF(slow_hmod) hmod%gmax=mass_interval(hmod%nu(hmod%n),hmod%large_nu,hmod)
+!!$          hmod%gbmin=1.-bias_interval(hmod%nu(1),hmod%large_nu,hmod)
+!!$          IF(slow_hmod) hmod%gbmax=bias_interval(hmod%nu(hmod%n),hmod%large_nu,hmod)
+          hmod%gmin=1.-mass_interval(hmod%nu(1),hmod%large_nu,hmod)
+          hmod%gmax=mass_interval(hmod%nu(hmod%n),hmod%large_nu,hmod)
           hmod%gbmin=1.-bias_interval(hmod%nu(1),hmod%large_nu,hmod)
-          IF(slow_hmod) hmod%gbmax=bias_interval(hmod%nu(hmod%n),hmod%large_nu,hmod)
+          hmod%gbmax=bias_interval(hmod%nu(hmod%n),hmod%large_nu,hmod)
 
           IF(verbose) THEN          
-             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
-             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
+!!$             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
+!!$             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
+!!$             WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at low end:', REAL(hmod%gbmin)
+!!$             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax)
+             WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at low end:', REAL(hmod%gmin)
+             WRITE(*,*) 'INIT_HALOMOD: Missing g(nu) at high end:', REAL(hmod%gmax)
              WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at low end:', REAL(hmod%gbmin)
-             IF(slow_hmod) WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax)          
+             WRITE(*,*) 'INIT_HALOMOD: Missing g(nu)b(nu) at high end:', REAL(hmod%gbmax) 
           END IF
 
-          IF(slow_hmod .AND. hmod%gmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu) at low end is less than zero'       
-          IF(slow_hmod .AND. hmod%gmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu) at high end is less than zero'
+!!$          IF(slow_hmod .AND. hmod%gmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu) at low end is less than zero'       
+!!$          IF(slow_hmod .AND. hmod%gmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu) at high end is less than zero'
+!!$          IF(hmod%gbmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at low end is less than zero'
+!!$          IF(slow_hmod .AND. hmod%gbmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at high end is less than zero'
+          IF(hmod%gmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu) at low end is less than zero'       
+          IF(hmod%gmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu) at high end is less than zero'
           IF(hmod%gbmin<0.) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at low end is less than zero'
-          IF(slow_hmod .AND. hmod%gbmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at high end is less than zero'       
+          IF(hmod%gbmax<-1e-4) STOP 'INIT_HALOMOD: Error, missing g(nu)b(nu) at high end is less than zero'   
 
        END IF
 
     END IF
        
     ! Calculate the total stellar mass fraction
-    IF(slow_hmod .AND. verbose) WRITE(*,*) 'INIT_HALOMOD: Omega_stars:', Omega_stars(hmod,cosm)
+    !IF(slow_hmod .AND. verbose) WRITE(*,*) 'INIT_HALOMOD: Omega_stars:', Omega_stars(hmod,cosm)
+    IF(verbose) THEN
+       Om_stars=Omega_stars(hmod,cosm)
+       WRITE(*,*) 'INIT_HALOMOD: Omega_*:', Om_stars
+       WRITE(*,*) 'INIT_HALOMOD: Omega_* / Omega_m:', Om_stars/cosm%Om_m
+    END IF
 
     ! Find non-linear radius and scale
     ! This is defined as nu(M_star)=1 *not* sigma(M_star)=1, so depends on delta_c
+    !IF(slow_hmod) THEN
     hmod%rnl=r_nl(hmod)
     hmod%mnl=mass_r(hmod%rnl,cosm)
     hmod%knl=1./hmod%rnl
+    !END IF
 
     IF(verbose) THEN
        WRITE(*,*) 'INIT_HALOMOD: Non-linear mass [log10(M*) [Msun/h]]:', REAL(log10(hmod%mnl))
@@ -878,13 +903,14 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: Maximum concentration:', REAL(hmod%c(1))
     END IF
 
-    IF(slow_hmod) THEN
-       A0=one_halo_amplitude(hmod,cosm)
-       IF(verbose) THEN
-          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [Mpc/h]^3:', REAL(A0)
-          WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [log10(M) [Msun/h]]:', REAL(log10(A0*comoving_matter_density(cosm)))
-       END IF
+    !IF(slow_hmod) THEN
+    hmod%Rh=one_halo_amplitude(hmod,cosm)
+    hmod%Mh=hmod%Rh*comoving_matter_density(cosm)
+    IF(verbose) THEN
+       WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [Mpc/h]^3:', hmod%Rh
+       WRITE(*,*) 'INIT_HALOMOD: One-halo amplitude [log10(M) [Msun/h]]:', log10(hmod%Mh)
     END IF
+    !END IF
 
     IF(verbose) THEN
        WRITE(*,*) 'INIT_HALOMOD: Done'
@@ -1177,13 +1203,13 @@ CONTAINS
           WRITE(*,fmt='(A30,F10.5)') 'c* index:', hmod%cstarp
        ELSE
           WRITE(*,fmt='(A30,F10.5)') 'log10(T_heat) [K]:', log10(hmod%Theat)
-          WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(1e14,hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(hmod%Mh,hmod)
           WRITE(*,fmt='(A30,F10.5)') 'epsilon:', HMx_eps(hmod)
-          WRITE(*,fmt='(A30,F10.5)') 'Gamma:', HMx_Gamma(1e14,hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'Gamma:', HMx_Gamma(hmod%Mh,hmod)
           WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(HMx_M0(hmod))
           WRITE(*,fmt='(A30,F10.5)') 'A*:', HMx_Astar(hmod)
           WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(HMx_Twhim(hmod))
-          WRITE(*,fmt='(A30,F10.5)') 'c*:', HMx_cstar(1e14,hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'c*:', HMx_cstar(hmod%Mh,hmod)
        END IF
        WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
        WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
@@ -2621,11 +2647,12 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
-    REAL :: z, T, A, B, C, D, E
-    REAL, PARAMETER :: Mp=1e14
+    REAL :: z, T, A, B, C, D, E, Mp
+    !REAL, PARAMETER :: Mp=1e14
 
     IF(hmod%fixed_HMx) THEN
 
+       Mp=hmod%Mh
        HMx_alpha=hmod%alpha*(m/Mp)**hmod%alphap
 
     ELSE
@@ -2680,11 +2707,12 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
-    REAL :: z, T, A, B, C, D, E
-    REAL, PARAMETER :: Mp=1e14
+    REAL :: z, T, A, B, C, D, E, Mp
+    !REAL, PARAMETER :: Mp=1e14
 
     IF(hmod%fixed_HMx) THEN
 
+       Mp=hmod%Mh
        HMx_Gamma=hmod%Gamma*(m/Mp)**hmod%Gammap
 
     ELSE
@@ -2819,8 +2847,10 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
-    REAL, PARAMETER :: Mp=1e14
+    REAL :: Mp
+    !REAL, PARAMETER :: Mp=1e14
 
+    Mp=hmod%Mh
     HMx_cstar=hmod%cstar*(m/Mp)**hmod%cstarp
        
   END FUNCTION HMx_cstar
