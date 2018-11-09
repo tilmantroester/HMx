@@ -17,17 +17,18 @@ fields="'matter' 'CDM' 'gas' 'stars' 'electon pressure'"
 print ''
 
 # Number of points in chain
-n=50000
+if(!exists('n')) {n=50000}
+print 'Number of points in chain: n: ', n
 
 # Fitting mode
-m=16
+if(!exists('m')) {m=16}
+print 'Fitting mode: m: ', m
 
 # Fields
-f1=4
-f2=4
-
-print 'field 1: ', f1
-print 'field 2: ', f2
+if(!exists('f1')) {f1=1}
+if(!exists('f2')) {f2=1}
+print 'field 1: f1:', f1
+print 'field 2: f2:', f2
 print ''
 
 # Location of zlabel on plot

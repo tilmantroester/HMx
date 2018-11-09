@@ -3,7 +3,7 @@ reset
 
 if(!exists('print')){print=0}
 if(print==0) {set term aqua dashed font ',12' dl 1}
-if(print==1) {set term post enh col font ',12'}
+if(print==1) {set term post enh col font ',12'; set output 'fitting_power.eps'}
 if(print==2) {set term qt}
 
 # Initial white space
@@ -23,8 +23,15 @@ cols[4]=4
 cols[5]=6
 
 klab='k / h^{-1} Mpc'
+
 plab='{/Symbol D}^2(k)'
-rlab='R_{HM}(k) / R_{sim}(k)' 
+
+rlab='R_{HM}(k) / R_{sim}(k)'
+rmin=0.8
+rmax=1.2
+
+labx=0.8
+laby=0.9
 
 # Set number of cosmoloies
 if(!exists('ncos')){ncos=1}
@@ -44,7 +51,7 @@ print 'iplot = 1: Power and residual'
 print 'iplot = 2: Residual only'
 print 'iplot = 3: Many residuals M15 50,0000'
 print 'iplot = 4: Many residuals M11 50,0000'
-print 'iplot = 5: Many residuals M16 100,0000'
+print 'iplot = 5: Many residuals M16 50,0000'
 print 'iplot = ', iplot
 print ''
 
@@ -92,8 +99,6 @@ plot for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i
 set xlabel klab
 set format x
 
-rmin=0.8
-rmax=1.2
 unset log y
 set yrange [rmin:rmax]
 set ylabel rlab
@@ -113,26 +118,52 @@ unset multiplot
 
 if(iplot==2){
 
-rmin=0.8
-rmax=1.2
 unset log y
 set yrange [rmin:rmax]
-set ylabel 'P_{HM}(k) / P_{sim}(k)'
+set ylabel rlab
 set format y
 
 set key top left
 
-set title base noenhanced
+print 'base: ', base
+print ''
+
+if(nz != 1 && nz != 4) {print 'nz must equal either 1 or 4'; print ''; exit}
+
+set style rect fc lt -1 fs solid 0.25 noborder
+
+if(nz==4) {set multiplot layout 2,2}
+
+do for [j=1:nz]{
+
+unset key
+if(j==1){set key top left}
+
+if(j==1){kmin=10.; zlab='z = 0.0'}
+if(j==2){kmin=4. ; zlab='z = 0.5'}
+if(j==3){kmin=2. ; zlab='z = 1.0'}
+if(j==4){kmin=1. ; zlab='z = 2.0'}
+
+#set style fill transparent solid 0.5 noborder
+set obj rect from kmin,rmin to 20.,rmax back
+set label zlab at graph labx,laby front
 
 plot 1 w l lt -1 noti,\
      0.95 w l lc -1 dt 2 noti,\
      1.05 w l lc -1 dt 2 noti,\
      0.99 w l lc -1 dt 2 noti,\
      1.01 w l lc -1 dt 2 noti,\
-     for [j=1:nf] NaN w l lw 2 lc cols[j] ti word(field_names,j),\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:($2/$3) w l lc 0        dt j lw 2 noti,\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:($2/$3) w l lc cols[j1] dt 1 lw 2 noti,\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:($2/$3) w l lc cols[j2] dt 2 lw 2 noti
+     for [j1=1:nf] NaN w l lw 2 lc cols[j1] ti word(field_names,j1),\
+     for [i=1:ncos] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:($2/$3) w l lc 0        dt 1 lw 2 noti,\
+     for [i=1:ncos] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:($2/$3) w l lc cols[j1] dt 1 lw 2 noti,\
+     for [i=1:ncos] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:($2/$3) w l lc cols[j2] dt 2 lw 2 noti
+
+unset obj
+unset label
+
+}
+
+if(nz==4) {unset multiplot}
 
 }
 
@@ -155,7 +186,6 @@ z_names="'z = 0.0' 'z = 0.5' 'z = 1.0' 'z = 2.0'"
 
 if(iplot==3) {nf=4; type='m15'; n=50000}
 if(iplot==4) {nf=5; type='m11'; n=50000}
-#if(iplot==5) {nf=5; type='m16'; n=100000}
 if(iplot==5) {nf=5; type='m16'; n=50000}
 
 # y axis
@@ -169,7 +199,7 @@ set format y
 
 set key top left
 
-set multiplot# layout 4,3
+set multiplot
 
 nm=words(mods)
 nz=words(zs)

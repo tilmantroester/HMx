@@ -130,7 +130,7 @@ hmpk_name=word(hmpk_names,nsim)
 print 'Simulation model number: nsim: '.nsim.''
 print 'Halo model power file name: '.hmpk_name.''
 sim=word(sims,nsim)
-print 'Simuation power file: '.sim.''
+print 'Simulation power file: '.sim.''
 print ''
 
 # All different fields for power spectra
