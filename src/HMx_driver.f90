@@ -847,11 +847,13 @@ PROGRAM HMx_driver
      ! Assign the default halo model
      CALL assign_halomod(ihm,hmod,verbose)
 
-     ! Set the redshift
-     z=0.0
+     zmin=0.0
+     zmax=2.0
 
      ! Loop forever
      DO
+
+        z=random_uniform(zmin,zmax)
 
         ! Initiliasation for the halomodel calcualtion        
         CALL random_baryon_parameters(hmod)
@@ -863,16 +865,16 @@ PROGRAM HMx_driver
         ! Do the halo-model calculation for a range of halo types
         DO j1=1,nf
            DO j2=1,nf
-              
+
               DO i=1,nk
                  IF(ISNAN(pow_hm(j1,j2,i))) THEN
                     CALL print_halomod(hmod,cosm,verbose)
                     WRITE(*,*) 'HMx_DRIVER: Halo types:', fields(j1), fields(j2)
                     WRITE(*,*) 'HMx_DRIVER: k [h/Mpc]:', k(i)
                     STOP 'HMX_DRIVER: Error, NaN found in pow_full array'
-                 END IF                 
+                 END IF
               END DO
-              
+
            END DO
         END DO
 

@@ -103,7 +103,7 @@ MODULE HMx
      REAL, ALLOCATABLE :: r500c(:), m500c(:), c500c(:), r200c(:), m200c(:), c200c(:)
      REAL, ALLOCATABLE :: k(:), wk(:,:,:)
      INTEGER :: nk
-     REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z, Rh, Mh
+     REAL :: sigv, sigv100, c3, knl, rnl, mnl, neff, sig8z, Rh, Mh, Mp
      REAL :: gmin, gmax, gbmin, gbmax
      REAL :: n_c, n_s, n_g, rho_HI, dlnc
      REAL :: Dv0, Dv1, dc0, dc1, eta0, eta1, f0, f1, ks, As, alp0, alp1 ! HMcode parameters
@@ -114,7 +114,7 @@ MODULE HMx
      INTEGER :: frac_bound_gas, frac_star, frac_HI, frac_cold_bound_gas, frac_hot_bound_gas
      LOGICAL :: one_parameter_baryons
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
-     LOGICAL :: response
+     LOGICAL :: response, simple_pivot
      REAL :: acc_HMx, large_nu
      CHARACTER(len=256) :: name
      REAL, ALLOCATABLE :: log_k_pdamp(:), log_pdamp(:)
@@ -186,7 +186,7 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=31 ! Total number of pre-defined halo-model types (TODO: this is stupid)
+    INTEGER, PARAMETER :: nhalomod=37 ! Total number of pre-defined halo-model types (TODO: this is stupid)
     CHARACTER(len=256):: names(nhalomod)    
     names(1)='HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
@@ -204,9 +204,9 @@ CONTAINS
     names(14)='Experimental scale-dependent halo bias'
     names(15)='HMcode (Mead et al. 2018)'
     names(16)='Halo-void model'
-    names(17)='HMx - AGN 7.6'
-    names(18)='HMx - AGN 7.8'
-    names(19)='HMx - AGN 8.0'
+    names(17)='Tilman HMx - AGN 7.6'
+    names(18)='Tilman HMx - AGN tuned'
+    names(19)='Tilman HMx - AGN 8.0'
     names(20)='Standard halo-model (Seljak 2000) in response'
     names(21)='Cored profile model'
     names(22)='Delta function-NFW star profile model response'
@@ -219,6 +219,12 @@ CONTAINS
     names(29)='Adding in cold gas'
     names(30)='Adding in hot gas'
     names(31)='HMcode (2016) with damped BAO'
+    names(32)='HMx - AGN 7.6; fixed z; simple pivot'
+    names(33)='HMx - AGN tuned; fixed z; simple pivot'
+    names(34)='HMx - AGN 8.0; fixed z; simple pivot'
+    names(35)='HMx - AGN 7.6; fixed z; clever pivot; f_hot'
+    names(36)='HMx - AGN tuned; fixed z; clever pivot; f_hot'
+    names(37)='HMx - AGN 8.0; fixed z; clever pivot; f_hot'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
     
@@ -451,6 +457,9 @@ CONTAINS
     ! 3 - Mass and redshift dependent parameters
     ! 4 - Tilman model
     hmod%HMx_mode=3
+
+    ! Pivot is 1e14 or M_h
+    hmod%simple_pivot=.FALSE.
 
     ! Fixed parameters
     hmod%alpha=0.33333 ! Non-virial temperature correction
@@ -688,7 +697,7 @@ CONTAINS
        hmod%voids=.TRUE.
     ELSE IF(ihm==17 .OR. ihm==18 .OR. ihm==19) THEN
        ! 17 - HMx AGN 7.6
-       ! 18 - HMx AGN 7.8
+       ! 18 - HMx AGN tuned
        ! 19 - HMx AGN 8.0
        hmod%HMx_mode=4
        hmod%itrans=4
@@ -700,7 +709,7 @@ CONTAINS
           ! AGN 7.6
           hmod%Theat=10**7.6
        ELSE IF(ihm==18) THEN
-          ! AGN 7.8
+          ! AGN tuned
           hmod%Theat=10**7.8
        ELSE IF(ihm==19) THEN
           ! AGN 8.0
@@ -744,6 +753,120 @@ CONTAINS
     ELSE IF(ihm==30) THEN
        ! Adding some hot gas
        hmod%fhot=0.1
+    ELSE IF(ihm==32 .OR. ihm==33 .OR. ihm==34 .OR. ihm==35 .OR. ihm==36 .OR. ihm==37) THEN
+       ! 32 - Response model for AGN 7.6;   z = 0.0; simple pivot
+       ! 33 - Response model for AGN tuned; z = 0.0; simple pivot
+       ! 34 - Response model for AGN 8.0;   z = 0.0; simple pivot
+       ! 35 - Response model for AGN 7.6;   z = 0.0; clever pivot; f_hot
+       ! 36 - Response model for AGN tuned; z = 0.0; clever pivot; f_hot
+       ! 37 - Response model for AGN 8.0;   z = 0.0; clever pivot; f_hot
+       hmod%response=.TRUE.
+       IF(ihm==32) THEN
+          ! AGN 7.6
+          ! Mpiv = 1e14; z = 0.0
+          hmod%simple_pivot=.TRUE.
+          hmod%alpha=0.709
+          hmod%eps=1.12
+          hmod%Gamma=1.236
+          hmod%M0=10.**13.6
+          hmod%Astar=0.045
+          hmod%Twhim=10.**6.07
+          hmod%cstar=11.2
+          hmod%fcold=0.021
+          hmod%Mstar=10.**11.5
+          hmod%sstar=0.85
+          hmod%alphap=-0.479
+          hmod%Gammap=-0.020
+          hmod%cstarp=-0.459
+       ELSE IF(ihm==33) THEN
+          ! AGN tuned
+          ! Mpiv = 1e14; z = 0.0
+          hmod%simple_pivot=.TRUE.
+          hmod%alpha=0.802
+          hmod%eps=1.06
+          hmod%Gamma=1.268
+          hmod%M0=10.**13.9
+          hmod%Astar=0.043
+          hmod%Twhim=10.**6.09
+          hmod%cstar=12.3
+          hmod%fcold=0.019
+          hmod%Mstar=10.**10.6
+          hmod%sstar=1.00
+          hmod%alphap=-0.518
+          hmod%Gammap=-0.033
+          hmod%cstarp=-0.523
+       ELSE IF(ihm==34) THEN
+          ! AGN 8.0
+          ! Mpiv = 1e14; z = 0.0
+          hmod%simple_pivot=.TRUE.
+          hmod%alpha=0.769
+          hmod%eps=0.91
+          hmod%Gamma=1.274
+          hmod%M0=10.**14.3
+          hmod%Astar=0.039
+          hmod%Twhim=10.**6.11
+          hmod%cstar=12.7
+          hmod%fcold=0.012
+          hmod%Mstar=10.**10.
+          hmod%sstar=1.16
+          hmod%alphap=-0.409
+          hmod%Gammap=-0.029
+          hmod%cstarp=-0.510
+       ELSE IF(ihm==35) THEN
+          ! AGN 7.6
+          ! Mpiv = Mh; z = 0.0; f_hot
+          hmod%alpha=1.247
+          hmod%eps=1.087
+          hmod%Gamma=1.253
+          hmod%M0=10.**13.63
+          hmod%Astar=0.042
+          hmod%Twhim=10.**6.08
+          hmod%cstar=10.80
+          hmod%fcold=0.0153
+          hmod%Mstar=10.**12.12
+          hmod%sstar=0.916
+          hmod%alphap=-0.488
+          hmod%Gammap=-0.0164
+          hmod%cstarp=-0.222
+          hmod%fhot=0.0323
+       ELSE IF(ihm==36) THEN
+          ! AGN tuned
+          ! Mpiv = Mh; z = 0.0; f_hot
+          hmod%alpha=1.251
+          hmod%eps=0.866
+          hmod%Gamma=1.257
+          hmod%M0=10.**13.856
+          hmod%Astar=0.0413
+          hmod%Twhim=10.**6.09
+          hmod%cstar=11.77
+          hmod%fcold=0.0066
+          hmod%Mstar=10.**12.12
+          hmod%sstar=0.856
+          hmod%alphap=-0.481
+          hmod%Gammap=-0.019
+          hmod%cstarp=-0.303
+          hmod%fhot=0.0282
+       
+       ELSE IF(ihm==37) THEN
+          ! AGN 8.0
+          ! Mpiv = Mh; z = 0.0; f_hot
+          hmod%alpha=1.024
+          hmod%eps=0.821
+          hmod%Gamma=1.264
+          hmod%M0=10.**14.33
+          hmod%Astar=0.0383
+          hmod%Twhim=10.**6.10
+          hmod%cstar=17.09
+          hmod%fcold=0.00267
+          hmod%Mstar=10.**11.52
+          hmod%sstar=0.99
+          hmod%alphap=-0.342
+          hmod%Gammap=-0.018
+          hmod%cstarp=-0.413
+          hmod%fhot=0.0031
+       ELSE
+          STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
+       END IF   
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -894,11 +1017,9 @@ CONTAINS
 
     ! Find non-linear radius and scale
     ! This is defined as nu(M_star)=1 *not* sigma(M_star)=1, so depends on delta_c
-    !IF(slow_hmod) THEN
     hmod%rnl=r_nl(hmod)
     hmod%mnl=mass_r(hmod%rnl,cosm)
     hmod%knl=1./hmod%rnl
-    !END IF
 
     IF(verbose) THEN
        WRITE(*,*) 'INIT_HALOMOD: Non-linear mass [log10(M*) [Msun/h]]:', REAL(log10(hmod%mnl))
@@ -2680,12 +2801,20 @@ CONTAINS
 
     ELSE IF(hmod%HMx_mode==2) THEN
 
-       Mp=hmod%Mh
+       IF(hmod%simple_pivot) THEN
+          Mp=1e14
+       ELSE
+          Mp=hmod%Mh
+       END IF
        HMx_alpha=hmod%alpha*((m/Mp)**hmod%alphap)
 
     ELSE IF(hmod%HMx_mode==3) THEN
 
-       Mp=hmod%Mh
+       IF(hmod%simple_pivot) THEN
+          Mp=1e14
+       ELSE
+          Mp=hmod%Mh
+       END IF
        z=hmod%z
        HMx_alpha=hmod%alpha*((m/Mp)**hmod%alphap)*((1.+z)**hmod%alphaz)
 
@@ -2756,12 +2885,20 @@ CONTAINS
 
     ELSE IF(hmod%HMx_mode==2) THEN
 
-       Mp=hmod%Mh
+       IF(hmod%simple_pivot) THEN
+          Mp=1e14
+       ELSE
+          Mp=hmod%Mh
+       END IF
        HMx_Gamma=hmod%Gamma*((m/Mp)**hmod%Gammap)
 
     ELSE IF(hmod%HMx_mode==3) THEN
        
-       Mp=hmod%Mh
+       IF(hmod%simple_pivot) THEN
+          Mp=1e14
+       ELSE
+          Mp=hmod%Mh
+       END IF
        z=hmod%z
        HMx_Gamma=hmod%Gamma*((m/Mp)**hmod%Gammap)*((1.+z)**hmod%Gammaz)
 
@@ -2803,7 +2940,7 @@ CONTAINS
     ELSE IF(hmod%HMx_mode==3) THEN
 
        z=hmod%z
-       HMx_M0=hmod%M0*((1.+z)**hmod%M0z)
+       HMx_M0=hmod%M0**((1.+z)**hmod%M0z)
 
     ELSE IF(hmod%HMx_mode==4) THEN
 
@@ -2876,7 +3013,7 @@ CONTAINS
     ELSE IF(hmod%HMx_mode==3) THEN
 
        z=hmod%z
-       HMx_Twhim=hmod%Twhim*((1.+z)**hmod%Twhimz)
+       HMx_Twhim=hmod%Twhim**((1.+z)**hmod%Twhimz)
 
     ELSE IF(hmod%HMx_mode==4) THEN
 
@@ -2906,14 +3043,22 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: Mp
 
-    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==4) THEN
+    IF(hmod%HMx_mode==1) THEN
 
        HMx_cstar=hmod%cstar
 
     ELSE IF(hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
 
-       Mp=hmod%Mh
+       IF(hmod%simple_pivot) THEN
+          Mp=1e14
+       ELSE
+          Mp=hmod%Mh
+       END IF
        HMx_cstar=hmod%cstar*((m/Mp)**hmod%cstarp)
+
+    ELSE IF(hmod%HMx_mode==4) THEN
+
+       HMx_cstar=hmod%cstar
 
     ELSE
 
@@ -2995,9 +3140,6 @@ CONTAINS
     DEALLOCATE(hmod%zc,hmod%m,hmod%c,hmod%rv,hmod%nu,hmod%rr,hmod%sigf,hmod%sig)
     DEALLOCATE(hmod%m500,hmod%r500,hmod%c500,hmod%m500c,hmod%r500c,hmod%c500c)
     DEALLOCATE(hmod%m200,hmod%r200,hmod%c200,hmod%m200c,hmod%r200c,hmod%c200c)
-
-    !Deallocate experimental window tables
-    !DEALLOCATE(hmod%log_win,hmod%log_k)
 
   END SUBROUTINE deallocate_HMOD
 
@@ -5006,11 +5148,11 @@ CONTAINS
     !  3 - Moore (M = (8pi/3)*rv^3*ln(1+c^1.5)/c^3)
     !  4 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
     !  5 - NFW (M = 4pi*rs^3*[ln(1+c)-c/(1+c)])
-    !  6 - Beta model with beta=2/3 (M = 4*pi*rs^3*(rv/rs-atan(rv/rs)))
-    !  7 - Fedeli stellar model (M = 4*pi*rstar^2 * [1-exp(-rmax/rstar)*(1.+rmax/rstar)]
+    !  6 - Beta model with beta=2/3 (M = 4pi*rs^3*(rv/rs-atan(rv/rs)))
+    !  7 - Fedeli stellar model (M = 4pi*rstar^2 * [1-exp(-rmax/rstar)*(1.+rmax/rstar)]
     !  8 - No
-    !  9 - Stellar profile (Schneider (2015)
-    ! 10 - Ejected gas profile (Schneider 2015)
+    !  9 - Stellar profile (Schneider & Teyssier 2015; M = 4(pi^1.5)*rstar; assumed rmax ~ infinity)
+    ! 10 - Ejected gas profile (Schneider & Teyssier 2015; M = 4pi*sqrt(pi/2)*re^3; assumed rmax ~ infinity)
     ! 11 - No
     ! 12 - No
     ! 13 - No
@@ -5018,8 +5160,8 @@ CONTAINS
     ! 15 - No
     ! 16 - Isothermal shell (M = 4pi*(rmax-rmin))
     ! 17 - No
-    ! 18 - Cubic profile
-    ! 19 - Smooth profile
+    ! 18 - Cubic profile (M = 4pi*log(rmax/rmin))
+    ! 19 - Smooth profile (M = 1; prevents problems)
     ! 20 - No
     ! 21 - No
     ! 22 - No
@@ -5028,7 +5170,7 @@ CONTAINS
     ! 25 - No
     ! 26 - No
     ! 27 - No
-    ! 28 - Shell
+    ! 28 - Shell (M = 4pi*rv^3)
 
     IMPLICIT NONE
     REAL :: normalisation
@@ -5124,6 +5266,7 @@ CONTAINS
           normalisation=normalisation*(b*(b-2.*c)*NFW_factor(c)+(log(1.+b)-b/(1.+c))*c**2)
        END IF
     ELSE IF(irho==28) THEN
+       ! Shell
        normalisation=4.*pi*rv**3
     ELSE
        ! Otherwise need to do the integral numerically
@@ -5391,12 +5534,6 @@ CONTAINS
     ! imeth =  2: Bumps with simple integration
     ! imeth =  3: Standard integration
     ! imeth =  4: Bumps with standard integration
-!!$    ! imeth =  5: Linear bumps
-!!$    ! imeth =  6: Cubic bumps
-!!$    ! imeth =  7: Hybrid with standard integration and cubic bumps
-!!$    ! imeth =  8: Quadratic bumps
-!!$    ! imeth =  9: Hybrid with standard integration and linear bumps
-!!$    ! imeth = 10: Hybrid with standard integration and quadratic bumps
     ! imeth =  5: Constant approximation for bumps
     ! imeth =  6: Linear approximation for bumps
     ! imeth =  7: Quadratic approximation for bumps

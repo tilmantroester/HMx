@@ -367,7 +367,7 @@ PROGRAM HMx_fitting
      np=10
   ELSE IF(im==17) THEN
      ! everything with z dependence
-     np=19
+     np=18
   ELSE
      STOP 'HMx_FITTING: Something went wrong with np'
   END IF
@@ -496,11 +496,11 @@ PROGRAM HMx_fitting
 
      ! Needed to boost original here so that it has an effect
      q_nme(8)='f_cold'
-     q_ori(8)=0.03
+     q_ori(8)=0.01
      q_min(8)=1e-5
      q_max(8)=0.5
      q_set(8)=.FALSE.
-     q_rge(8)=0.02
+     q_rge(8)=0.1
 
      q_nme(9)='M_*'
      q_ori(9)=1e12
@@ -603,7 +603,7 @@ PROGRAM HMx_fitting
 
      ELSE IF(im==17) THEN
 
-        ! 17 - redshift dependent everything minus pressure-pressure
+        ! redshift dependent everything minus pressure-pressure
         p_int(1)=param_alpha
         p_int(2)=param_eps
         p_int(3)=param_Gamma
@@ -617,12 +617,12 @@ PROGRAM HMx_fitting
         p_int(11)=param_alphap
         p_int(12)=param_Gammap
         p_int(13)=param_cstarp
-        p_int(14)=param_fhot
-        p_int(15)=param_alphaz
-        p_int(16)=param_Gammaz
-        p_int(17)=param_M0z
-        p_int(18)=param_Astarz
-        p_int(19)=param_Twhimz
+        !p_int(14)=param_fhot
+        p_int(14)=param_alphaz
+        p_int(15)=param_Gammaz
+        p_int(16)=param_M0z
+        p_int(17)=param_Astarz
+        p_int(18)=param_Twhimz
 
      ELSE IF(im==12) THEN
 
@@ -881,16 +881,16 @@ CONTAINS
 !!$
 !!$  END FUNCTION figure_of_merit
 
-   REAL FUNCTION figure_of_merit(a,b)
-
-    ! A figure-of-merit or cost function
-    IMPLICIT NONE
-    REAL, INTENT(IN) :: a, b
-    
-    !figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
-    figure_of_merit=(-1.+a/b)**2
-
-  END FUNCTION figure_of_merit
+!!$   REAL FUNCTION figure_of_merit(a,b)
+!!$
+!!$    ! A figure-of-merit or cost function
+!!$    IMPLICIT NONE
+!!$    REAL, INTENT(IN) :: a, b
+!!$    
+!!$    !figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
+!!$    figure_of_merit=(-1.+a/b)**2
+!!$
+!!$  END FUNCTION figure_of_merit
 
   SUBROUTINE fom_multiple(im,fields,nf,fom,p,p_log,np,k,nk,z,nz,pow_hm,pow_sim,weight,hmod,cosm,n)
 
@@ -991,12 +991,12 @@ CONTAINS
           hmod(i)%alphap=pexp(11)
           hmod(i)%Gammap=pexp(12)
           hmod(i)%cstarp=pexp(13)
-          hmod(i)%fhot=pexp(14)
-          hmod(i)%alphaz=pexp(15)
-          hmod(i)%Gammaz=pexp(16)
-          hmod(i)%M0z=pexp(17)
-          hmod(i)%Astarz=pexp(18)
-          hmod(i)%Twhimz=pexp(19)
+          !hmod(i)%fhot=pexp(14)
+          hmod(i)%alphaz=pexp(14)
+          hmod(i)%Gammaz=pexp(15)
+          hmod(i)%M0z=pexp(16)
+          hmod(i)%Astarz=pexp(17)
+          hmod(i)%Twhimz=pexp(18)
 
        ELSE IF(im==12) THEN
 
@@ -1072,6 +1072,7 @@ CONTAINS
     !weight_sum=SUM(weight)/REAL(n*nz*nk*triangle_number(nf))
     !fom=sqrt(fom/REAL(n*nz*nk*triangle_number(nf)))/weight_sum
 
+    ! Calculate the final figure-of-merit by dividing by the effective number of data points and sqrt
     fom=sqrt(fom/neff)
 
   END SUBROUTINE fom_multiple
