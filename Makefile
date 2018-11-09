@@ -77,7 +77,7 @@ debug: $(BIN_DIR)/HMx_debug
 fitting: $(BIN_DIR)/HMx_fitting
 
 # Fitting debugging
-debug: FFLAGS += $(DEBUG_FLAGS)
+fitting_debug: FFLAGS += $(DEBUG_FLAGS)
 fitting_debug: $(BIN_DIR)/HMx_fitting_debug
 
 # Rule to make object files

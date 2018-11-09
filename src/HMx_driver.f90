@@ -1790,7 +1790,7 @@ PROGRAM HMx_driver
 
            CALL assign_halomod(ihm,hmod,verbose)
 
-           IF(hmod%fixed_HMx) THEN
+           IF(hmod%HMx_mode==1) THEN
               IF(ipa==1)  hmod%alpha=param
               IF(ipa==2)  hmod%eps=param
               IF(ipa==3)  hmod%Gamma=param
@@ -1801,7 +1801,7 @@ PROGRAM HMx_driver
               IF(ipa==8)  hmod%fcold=param
               IF(ipa==9)  hmod%alphap=param
               IF(ipa==10) hmod%Gammap=param
-           ELSE
+           ELSE IF(hmod%HMx_mode==4) THEN
               IF(ipa==1) THEN
                  hmod%A_alpha=0.
                  hmod%B_alpha=0.
@@ -1833,7 +1833,7 @@ PROGRAM HMx_driver
                  hmod%C_Twhim=0.
                  hmod%D_Twhim=log10(param)
               ELSE
-                 STOP 'HMx_DRIVER: Error, unfixed not supported for this parameter'
+                 STOP 'HMx_DRIVER: Parameter variations not supported for this HMx_mode'
               END IF
            END IF
            

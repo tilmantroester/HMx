@@ -91,6 +91,7 @@ MODULE HMx
      REAL :: z, a, dc, Dv
      REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar ! HMx baryon parameters
      REAL :: Theat, fcold, fhot, alphap, Gammap, cstarp ! HMx baryon parameters
+     REAL :: alphaz, Gammaz, M0z, Astarz, Twhimz
      REAL :: A_alpha, B_alpha, C_alpha, D_alpha, E_alpha
      REAL :: A_eps, B_eps, C_eps, D_eps
      REAL :: A_Gamma, B_Gamma, C_Gamma, D_Gamma, E_gamma
@@ -113,11 +114,11 @@ MODULE HMx
      INTEGER :: frac_bound_gas, frac_star, frac_HI, frac_cold_bound_gas, frac_hot_bound_gas
      LOGICAL :: one_parameter_baryons
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle
-     LOGICAL :: fixed_HMx, response
+     LOGICAL :: response
      REAL :: acc_HMx, large_nu
      CHARACTER(len=256) :: name
      REAL, ALLOCATABLE :: log_k_pdamp(:), log_pdamp(:)
-     INTEGER :: n_pdamp
+     INTEGER :: n_pdamp, HMx_mode
   END TYPE halomod
 
   ! Window integration
@@ -445,8 +446,14 @@ CONTAINS
     hmod%one_parameter_baryons=.FALSE.
 
     ! HMx parameters
-    hmod%fixed_HMx=.TRUE.
-    hmod%alpha=0.33333 ! Non-virial temperature thing
+    ! 1 - Fixed parameters
+    ! 2 - Mass dependent parameters
+    ! 3 - Mass and redshift dependent parameters
+    ! 4 - Tilman model
+    hmod%HMx_mode=3
+
+    ! Fixed parameters
+    hmod%alpha=0.33333 ! Non-virial temperature correction
     hmod%eps=1.        ! Concentration modification
     hmod%Gamma=1.17    ! Polytropic gas index
     hmod%M0=1e14       ! Halo mass that has lost half gas
@@ -457,9 +464,18 @@ CONTAINS
     hmod%Mstar=5e12    ! M* for most efficient halo mass for star formation
     hmod%fcold=0.0     ! Fraction of bound gas that is cold
     hmod%fhot=0.0      ! Fraction of bound gas that is hot
+
+    ! Mass indices
     hmod%alphap=0.0    ! Power-law index of alpha with halo mass
     hmod%Gammap=0.0    ! Power-law index of Gamma with halo mass
     hmod%cstarp=0.0    ! Power-law index of c* with halo mass
+
+    ! Redshift indices
+    hmod%alphaz=0.0    ! Power-law index of alpha with halo redshift
+    hmod%Gammaz=0.0    ! Power-law index of Gamma with halo redshift
+    hmod%M0z=0.0       ! Power-law index of M0 with redshift
+    hmod%Astarz=0.0    ! Power-law index of Astar with redshift
+    hmod%Twhimz=0.0    ! Power-law index of Twhim with redshift
 
     ! $\alpha$ z and Theat variation
     hmod%A_alpha=-0.005
@@ -674,7 +690,7 @@ CONTAINS
        ! 17 - HMx AGN 7.6
        ! 18 - HMx AGN 7.8
        ! 19 - HMx AGN 8.0
-       hmod%fixed_HMx=.FALSE.
+       hmod%HMx_mode=4
        hmod%itrans=4
        hmod%ikstar=2
        hmod%i1hdamp=3
@@ -1189,19 +1205,28 @@ CONTAINS
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HMx parameters'
        WRITE(*,*) '======================================='
-       IF(hmod%fixed_HMx) THEN
-          WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha
-          WRITE(*,fmt='(A30,F10.5)') 'alpha index:', hmod%alphap
+       IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
+          WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha          
           WRITE(*,fmt='(A30,F10.5)') 'epsilon:', hmod%eps
-          WRITE(*,fmt='(A30,F10.5)') 'Gammma:', hmod%Gamma
-          WRITE(*,fmt='(A30,F10.5)') 'Gammma index:', hmod%Gammap
-          WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha
-          WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(hmod%M0)
-          WRITE(*,fmt='(A30,F10.5)') 'A*:', hmod%Astar
-          WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(hmod%Twhim)
+          WRITE(*,fmt='(A30,F10.5)') 'Gammma:', hmod%Gamma          
+          WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(hmod%M0)          
+          WRITE(*,fmt='(A30,F10.5)') 'A*:', hmod%Astar          
+          WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(hmod%Twhim)          
           WRITE(*,fmt='(A30,F10.5)') 'c*:', hmod%cstar
-          WRITE(*,fmt='(A30,F10.5)') 'c* index:', hmod%cstarp
-       ELSE
+       END IF
+       IF(hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
+          WRITE(*,fmt='(A30,F10.5)') 'alpha mass index:', hmod%alphap
+          WRITE(*,fmt='(A30,F10.5)') 'Gammma mass index:', hmod%Gammap
+          WRITE(*,fmt='(A30,F10.5)') 'c* mass index:', hmod%cstarp
+       END IF
+       IF(hmod%HMx_mode==3) THEN
+          WRITE(*,fmt='(A30,F10.5)') 'alpha z index:', hmod%alphaz
+          WRITE(*,fmt='(A30,F10.5)') 'Gammma z index:', hmod%Gammaz
+          WRITE(*,fmt='(A30,F10.5)') 'log10(M0) z index:', hmod%M0z
+          WRITE(*,fmt='(A30,F10.5)') 'A* z index:', hmod%Astarz
+          WRITE(*,fmt='(A30,F10.5)') 'T_WHIM z index:', hmod%Twhimz
+       END IF
+       IF(hmod%HMx_mode==4) THEN
           WRITE(*,fmt='(A30,F10.5)') 'log10(T_heat) [K]:', log10(hmod%Theat)
           WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(hmod%Mh,hmod)
           WRITE(*,fmt='(A30,F10.5)') 'epsilon:', HMx_eps(hmod)
@@ -2648,14 +2673,23 @@ CONTAINS
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E, Mp
-    !REAL, PARAMETER :: Mp=1e14
 
-    IF(hmod%fixed_HMx) THEN
+    IF(hmod%HMx_mode==1) THEN
+
+       HMx_alpha=hmod%alpha
+
+    ELSE IF(hmod%HMx_mode==2) THEN
 
        Mp=hmod%Mh
-       HMx_alpha=hmod%alpha*(m/Mp)**hmod%alphap
+       HMx_alpha=hmod%alpha*((m/Mp)**hmod%alphap)
 
-    ELSE
+    ELSE IF(hmod%HMx_mode==3) THEN
+
+       Mp=hmod%Mh
+       z=hmod%z
+       HMx_alpha=hmod%alpha*((m/Mp)**hmod%alphap)*((1.+z)**hmod%alphaz)
+
+    ELSE IF(hmod%HMx_mode==4) THEN
 
        A=hmod%A_alpha
        B=hmod%B_alpha
@@ -2669,6 +2703,10 @@ CONTAINS
        HMx_alpha=(A*(1.+z)**2+B*(1.+z)+C)*T**2+D*T+E
        HMx_alpha=HMx_alpha/(1.+z) ! NEW: (1+z) accounts for previous wrong definition of temperature
 
+    ELSE
+
+       STOP 'HMx_ALPHA: Error, HMx_mode not specified correctly'
+       
     END IF
 
     IF(HMx_alpha<HMx_alpha_min) HMx_alpha=HMx_alpha_min
@@ -2681,11 +2719,11 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D
 
-    IF(hmod%fixed_HMx) THEN
+    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
 
        HMx_eps=hmod%eps
 
-    ELSE
+    ELSE IF(hmod%HMx_mode==4) THEN
 
        A=hmod%A_eps
        B=hmod%B_eps
@@ -2697,25 +2735,37 @@ CONTAINS
        HMx_eps=A*(1.+z)*T+B*(1.+z)+C*T+D
        HMx_eps=10**HMx_eps
 
+    ELSE
+
+       STOP 'HMx_EPS: Error, HMx_mode not specified correctly'
+
     END IF
        
   END FUNCTION HMx_eps
 
   REAL FUNCTION HMx_Gamma(m,hmod)
 
-    ! TODO: Should Mp be M* ?
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E, Mp
-    !REAL, PARAMETER :: Mp=1e14
 
-    IF(hmod%fixed_HMx) THEN
+    IF(hmod%HMx_mode==1) THEN
+
+       HMx_Gamma=hmod%Gamma
+
+    ELSE IF(hmod%HMx_mode==2) THEN
 
        Mp=hmod%Mh
-       HMx_Gamma=hmod%Gamma*(m/Mp)**hmod%Gammap
+       HMx_Gamma=hmod%Gamma*((m/Mp)**hmod%Gammap)
 
-    ELSE
+    ELSE IF(hmod%HMx_mode==3) THEN
+       
+       Mp=hmod%Mh
+       z=hmod%z
+       HMx_Gamma=hmod%Gamma*((m/Mp)**hmod%Gammap)*((1.+z)**hmod%Gammaz)
+
+    ELSE IF(hmod%HMx_mode==4) THEN
 
        A=hmod%A_Gamma
        B=hmod%B_Gamma
@@ -2727,6 +2777,10 @@ CONTAINS
        T=log10(hmod%Theat)
        !HMx_Gamma=A*(1.+z)*T+B*(1.+z)+C*T+D
        HMx_Gamma=(A*(1.+z)**2+B*(1.+z)+C)*T**2+D*T+E
+
+    ELSE
+
+       STOP 'HMx_GAMMA: Error, HMx_mode not specified correctly'
 
     END IF
 
@@ -2742,11 +2796,16 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D, E
 
-    IF(hmod%fixed_HMx) THEN
+    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2) THEN
 
        HMx_M0=hmod%M0
 
-    ELSE
+    ELSE IF(hmod%HMx_mode==3) THEN
+
+       z=hmod%z
+       HMx_M0=hmod%M0*((1.+z)**hmod%M0z)
+
+    ELSE IF(hmod%HMx_mode==4) THEN
 
        A=hmod%A_M0
        B=hmod%B_M0
@@ -2760,6 +2819,10 @@ CONTAINS
        HMx_M0=(A*(1.+z)**2+B*(1.+z)+C)*T**2+D*T+E
        HMx_M0=10**HMx_M0
 
+    ELSE
+
+       STOP 'HMx_M0: Error, HMx_mode not specified correctly'
+       
     END IF
        
   END FUNCTION HMx_M0
@@ -2770,11 +2833,16 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D
 
-    IF(hmod%fixed_HMx) THEN
+    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2) THEN
 
        HMx_Astar=hmod%Astar
 
-    ELSE
+    ELSE IF(hmod%HMx_mode==3) THEN
+
+       z=hmod%z
+       HMx_Astar=hmod%Astar*((1.+z)**hmod%Astarz)
+       
+    ELSE IF(hmod%HMx_mode==4) THEN
 
        A=hmod%A_Astar
        B=hmod%B_Astar
@@ -2784,6 +2852,10 @@ CONTAINS
        z=hmod%z
        T=log10(hmod%Theat)
        HMx_Astar=A*(1.+z)*T+B*(1.+z)+C*T+D
+
+    ELSE
+
+       STOP 'HMx_ASTAR: Error, HMx_mode not specified correctly'
 
     END IF
 
@@ -2796,35 +2868,17 @@ CONTAINS
     IMPLICIT NONE
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D
-    REAL :: zs(4), Ts(4)
-    LOGICAL, PARAMETER :: simple_model=.TRUE.
 
-    IF(hmod%fixed_HMx) THEN
+    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2) THEN
 
-       IF(simple_model) THEN
-       
-          HMx_Twhim=hmod%Twhim
+       HMx_Twhim=hmod%Twhim
 
-       ELSE
+    ELSE IF(hmod%HMx_mode==3) THEN
 
-          ! From my fitting
-          
-          zs(1)=0.0
-          zs(2)=0.5
-          zs(3)=1.0
-          zs(4)=2.0
-          
-          Ts(1)=5.894
-          Ts(2)=5.899
-          Ts(3)=5.791
-          Ts(4)=5.474
-          
-          z=hmod%z
-          HMx_Twhim=10**find(z,zs,Ts,4,3,3,2)
+       z=hmod%z
+       HMx_Twhim=hmod%Twhim*((1.+z)**hmod%Twhimz)
 
-       END IF
-
-    ELSE
+    ELSE IF(hmod%HMx_mode==4) THEN
 
        A=hmod%A_Twhim
        B=hmod%B_Twhim
@@ -2837,21 +2891,35 @@ CONTAINS
        HMx_Twhim=(A*(1.+z)**2+B*(1.+z)+C)*T+D
        HMx_Twhim=10**HMx_Twhim
 
+    ELSE
+
+       STOP 'HMx_TWHIM: Error, HMx_mode not specified correctly'
+
     END IF
        
   END FUNCTION HMx_Twhim
 
   REAL FUNCTION HMx_cstar(m,hmod)
 
-    ! TODO: Should Mp be M* ?
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: Mp
-    !REAL, PARAMETER :: Mp=1e14
 
-    Mp=hmod%Mh
-    HMx_cstar=hmod%cstar*(m/Mp)**hmod%cstarp
+    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==4) THEN
+
+       HMx_cstar=hmod%cstar
+
+    ELSE IF(hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
+
+       Mp=hmod%Mh
+       HMx_cstar=hmod%cstar*((m/Mp)**hmod%cstarp)
+
+    ELSE
+
+       STOP 'HMx_CSTAR: Error, HMx_mode not specified correctly'
+       
+    END IF
        
   END FUNCTION HMx_cstar
 
@@ -5113,7 +5181,7 @@ CONTAINS
     REAL, INTENT(IN) :: p1
     REAL, INTENT(IN) :: p2
     INTEGER, INTENT(IN) :: irho
-    REAL :: re, f1, f2, rstar, kstar, rb    
+    REAL :: re, f1, f2, rstar, kstar, rb
 
     IF(k==0.) THEN
 

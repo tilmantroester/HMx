@@ -10,14 +10,15 @@ PROGRAM HMx_fitting
   IMPLICIT NONE
   INTEGER :: im
   INTEGER :: ncos, nf, nz, nk
-  REAL, ALLOCATABLE :: k(:,:,:), z(:), pow_bm(:,:,:,:,:), pow_hm(:,:,:,:,:), weight(:,:,:,:)
+  REAL, ALLOCATABLE :: k(:,:,:), z(:), pow_bm(:,:,:,:,:), pow_hm(:,:,:,:,:), weight(:,:,:,:,:)
   INTEGER, ALLOCATABLE :: fields(:)
   TYPE(halomod), ALLOCATABLE :: hmod(:)
   TYPE(cosmology), ALLOCATABLE :: cosm(:)
   REAL :: kmin, kmax
   CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
-  REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:), p_int(:)
+  INTEGER, ALLOCATABLE :: p_int(:)
+  REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:)
   REAL, ALLOCATABLE :: q_min(:), q_max(:), q_ori(:), q_rge(:)
   CHARACTER(len=256), ALLOCATABLE :: p_nme(:), q_nme(:)
   LOGICAL, ALLOCATABLE :: p_log(:), q_log(:), p_set(:), q_set(:)
@@ -44,7 +45,12 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: param_Gammap=12
   INTEGER, PARAMETER :: param_cstarp=13
   INTEGER, PARAMETER :: param_fhot=14
-  INTEGER, PARAMETER :: param_n=14
+  INTEGER, PARAMETER :: param_alphaz=15
+  INTEGER, PARAMETER :: param_Gammaz=16
+  INTEGER, PARAMETER :: param_M0z=17
+  INTEGER, PARAMETER :: param_Astarz=18
+  INTEGER, PARAMETER :: param_Twhimz=19
+  INTEGER, PARAMETER :: param_n=19
 
   REAL, PARAMETER :: mmin=1e7        ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=1e17       ! Maximum halo mass for the calculation
@@ -73,12 +79,13 @@ PROGRAM HMx_fitting
      WRITE(*,*) ' 2 - FrankenEmu nodes'
      WRITE(*,*) ' 3 - Random Mira Titan'
      WRITE(*,*) ' 4 - Random FrankenEmu'
-     WRITE(*,*) '11 - Hydro: everything'
-     WRITE(*,*) '12 - Hydro: gas'
-     WRITE(*,*) '13 - Hydro: stars'
-     WRITE(*,*) '14 - Hydro: gas and stars'
-     WRITE(*,*) '15 - Hydro: matter'
-     WRITE(*,*) '16 - Hydro: everything but pressure-pressure'
+     WRITE(*,*) '11 - Hydro: fixed z; everything'
+     WRITE(*,*) '12 - Hydro: fixed z; gas'
+     WRITE(*,*) '13 - Hydro: fixed z; stars'
+     WRITE(*,*) '14 - Hydro: fixed z; gas and stars'
+     WRITE(*,*) '15 - Hydro: fixed z; matter'
+     WRITE(*,*) '16 - Hydro: fixed z; everything but pressure-pressure'
+     WRITE(*,*) '17 - Hydro: all z; everything but pressure-pressure'     
      READ(*,*) im
      WRITE(*,*)
   END IF
@@ -100,7 +107,7 @@ PROGRAM HMx_fitting
   ! Read in BAHAMAS simulation name
   CALL get_command_argument(4,name)
 
-  ! Read in BAHAMAS simulation redshift
+  ! Read in BAHAMAS simulation redshift if doing fixed z
   CALL get_command_argument(5,zin)
   
   ! Set the random-number generator
@@ -122,7 +129,7 @@ PROGRAM HMx_fitting
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
 
      ! Required change in figure-of-merit
      delta=3e-3
@@ -131,7 +138,7 @@ PROGRAM HMx_fitting
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11 .OR. im==16) THEN
+     IF(im==11 .OR. im==16 .OR. im==17) THEN
         nf=5   
      ELSE IF(im==12 .OR. im==13) THEN
         nf=1
@@ -162,21 +169,43 @@ PROGRAM HMx_fitting
      z(4)=2.0
      fields(1)=field_dmonly
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
      
      ! Hydro simulations
-     IF(name=='') name='AGN_TUNED_nu0'    
-     kmin=0.15
-     kmax=10.
-     nz=1
-     ALLOCATE(z(nz))
-     IF((zin)=='') THEN
-        z(1)=0.0 ! Set the redshift
+     IF(name=='') name='AGN_TUNED_nu0'
+     
+     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+        !kmin=0.15
+        !kmax=10.
+        nz=1
+     ELSE IF(im==17) THEN
+        !kmin=0.15
+        !kmax=10.
+        nz=4
      ELSE
-        READ(zin,*) z(1)
+        STOP 'HMx_FITTING: Error, im not specified correctly'
      END IF
      
-     IF(im==11 .OR. im==16) THEN
+     ALLOCATE(z(nz))
+
+     ! Set the redshifts
+     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN        
+        IF((zin)=='') THEN
+           z(1)=0.0 
+        ELSE
+           READ(zin,*) z(1)
+        END IF        
+     ELSE IF(im==17) THEN
+        z(1)=0.0
+        z(2)=0.5
+        z(3)=1.0
+        z(4)=2.0
+     ELSE
+        STOP 'HMx_FITTING: Error, im not specified correctly'
+     END IF
+
+     ! Set the fields
+     IF(im==11 .OR. im==16 .OR. im==17) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -202,20 +231,37 @@ PROGRAM HMx_fitting
 
   ! Assign the cosmological models
   DO i=1,ncos
-     IF(im==1) icosmo=101+i ! Set set Mira Titan node (note that we are skipping node 1)
-     IF(im==2) icosmo=200+i ! Set set FrankenEmu node
-     IF(im==3) icosmo=24    ! Random Mira Titan cosmology
-     IF(im==4) icosmo=25    ! Random FrankenEmu cosmology
-     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) icosmo=4 ! WMAP9
+     
+     IF(im==1) THEN
+        icosmo=101+i ! Set set Mira Titan node (note that we are skipping node 1)
+     ELSE IF(im==2) THEN
+        icosmo=200+i ! Set set FrankenEmu node
+     ELSE IF(im==3) THEN
+        icosmo=24    ! Random Mira Titan cosmology
+     ELSE IF(im==4) THEN
+        icosmo=25    ! Random FrankenEmu cosmology
+     ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+        icosmo=4 ! WMAP9
+     ELSE
+        STOP 'HMx_FITTING: Error, im not specified correctly'
+     END IF
+     
      CALL assign_cosmology(icosmo,cosm(i),verbose=.TRUE.)
      CALL init_cosmology(cosm(i))
      CALL print_cosmology(cosm(i))
+     
   END DO
 
   ! SET: halo model here
   ALLOCATE(hmod(ncos))
-  IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) ihm=15 ! HMcode 2018
-  IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) ihm=20 ! Standard halo-model response
+  IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
+     ihm=15 ! HMcode 2018
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+     ihm=20 ! Standard halo-model response
+  ELSE
+     STOP 'HMx_FITTING: Error, im not specified correctly'
+  END IF
+     
   DO i=1,ncos
      CALL assign_halomod(ihm,hmod(i),verbose=.FALSE.)
   END DO
@@ -239,19 +285,21 @@ PROGRAM HMx_fitting
                  CALL read_Mira_Titan_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
               ELSE IF(im==2 .OR. im==4) THEN
                  CALL read_FrankenEmu_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
-              ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+              ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
                  ip(1)=fields(j1)
                  ip(2)=fields(j2)
-                 CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i),kmin,kmax)
+                 CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i))!,kmin,kmax)
               ELSE
                  STOP 'HMx_FITTING: Error, something went wrong'
               END IF
 
               ! Allocate big arrays for P(k,z,cosm)
-              IF(i==1 .AND. j==1 .AND. j1==1 .AND. j2==1) THEN
-                 ALLOCATE(k(ncos,nk,nz),pow_bm(ncos,nf,nf,nk,nz),weight(ncos,nf,nf,nz))
-                 weight=1.
-              END IF
+!!$              IF(i==1 .AND. j==1 .AND. j1==1 .AND. j2==1) THEN
+!!$                 ALLOCATE(k(ncos,nk,nz),pow_bm(ncos,nf,nf,nk,nz),weight(ncos,nf,nf,nk,nz))
+!!$                 weight=1.
+!!$              END IF
+              IF(.NOT. ALLOCATED(k))      ALLOCATE(k(ncos,nk,nz))
+              IF(.NOT. ALLOCATED(pow_bm)) ALLOCATE(pow_bm(ncos,nf,nf,nk,nz))
               k(i,:,j)=k_sim
               pow_bm(i,j1,j2,:,j)=pow_sim
               
@@ -261,8 +309,36 @@ PROGRAM HMx_fitting
      END DO
   END DO
 
-  IF(im==16) THEN
-     weight(:,5,5,:)=0. ! No weight to pressure-pressure
+  ALLOCATE(weight(ncos,nf,nf,nk,nz))
+  weight=1.
+
+  IF(im==16 .OR. im==17) THEN
+     weight(:,5,5,:,:)=0. ! No weight to pressure-pressure
+  END IF
+
+  ! k range
+  IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+     kmin=0.15
+     kmax=10.
+     DO i=1,nk
+        IF(k(1,i,1)<kmin .OR. k(1,i,1)>kmax) THEN
+           weight(:,:,:,i,:)=0.
+        END IF
+     END DO
+  END IF
+
+  ! k range
+  IF(im==17) THEN    
+     DO j=1,nz
+        kmin=0.15
+        IF(j==1) kmax=10. ! z = 0.0
+        IF(j==2) kmax=4.  ! z = 0.5
+        IF(j==3) kmax=2.  ! z = 1.0
+        IF(j==4) kmax=1.  ! z = 2.0
+        DO i=1,nk
+           IF(k(1,i,j)<kmin .OR. k(1,i,j)>kmax) weight(:,:,:,i,j)=0.
+        END DO
+     END DO
   END IF
 
   !!
@@ -289,6 +365,9 @@ PROGRAM HMx_fitting
      ! 14 - gas and stars
      ! 15 - matter
      np=10
+  ELSE IF(im==17) THEN
+     ! everything with z dependence
+     np=19
   ELSE
      STOP 'HMx_FITTING: Something went wrong with np'
   END IF
@@ -365,7 +444,7 @@ PROGRAM HMx_fitting
      p_min(12)=-5.
      p_max(12)=5.
 
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
 
      ! The general parameters are set here
 
@@ -377,7 +456,7 @@ PROGRAM HMx_fitting
      q_set=.TRUE.
 
      q_nme(1)='alpha'
-     q_ori(1)=0.7/(1.+z(1))
+     q_ori(1)=1.25*(1.+z(1))
      q_min(1)=1e-2
      q_max(1)=1e1
 
@@ -395,7 +474,7 @@ PROGRAM HMx_fitting
 
      ! This must depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
      q_nme(4)='M0'
-     q_ori(4)=10**13.4/(10.**z(1))
+     q_ori(4)=10**13.4/(10.**z(1)) ! Okay with z dependence as long as z(1)=0
      q_min(4)=1e8
      q_max(4)=1e16
 
@@ -434,7 +513,7 @@ PROGRAM HMx_fitting
      q_max(10)=10.
      q_log(10)=.FALSE.
 
-     q_nme(11)='alpha index'
+     q_nme(11)='alpha M index'
      q_ori(11)=-0.5
      q_min(11)=-1.
      q_max(11)=1.
@@ -442,7 +521,7 @@ PROGRAM HMx_fitting
      q_set(11)=.FALSE.
      q_rge(11)=0.01
 
-     q_nme(12)='Gamma index'
+     q_nme(12)='Gamma M index'
      q_ori(12)=-0.02
      q_min(12)=-0.2
      q_max(12)=0.2
@@ -450,7 +529,7 @@ PROGRAM HMx_fitting
      q_set(12)=.FALSE.
      q_rge(12)=0.001
 
-     q_nme(13)='c_* index'
+     q_nme(13)='c_* M index'
      q_ori(13)=-0.1
      q_min(13)=-1.
      q_max(13)=1.
@@ -462,8 +541,46 @@ PROGRAM HMx_fitting
      q_ori(14)=0.1
      q_min(14)=1e-5
      q_max(14)=0.5
-     !q_set(14)=.FALSE.
-     !q_rge(14)=0.02
+
+     q_nme(15)='alpha z index'
+     q_ori(15)=-1.0
+     q_min(15)=-3.
+     q_max(15)=3.
+     q_log(15)=.FALSE.
+     q_set(15)=.FALSE.
+     q_rge(15)=0.01
+
+     q_nme(16)='Gamma z index'
+     q_ori(16)=0.1
+     q_min(16)=-1.
+     q_max(16)=1.
+     q_log(16)=.FALSE.
+     q_set(16)=.FALSE.
+     q_rge(16)=0.01
+
+     q_nme(17)='M0 z index'
+     q_ori(17)=-0.1
+     q_min(17)=-1.
+     q_max(17)=1.
+     q_log(17)=.FALSE.
+     q_set(17)=.FALSE.
+     q_rge(17)=0.01
+
+     q_nme(18)='Astar z index'
+     q_ori(18)=-0.2
+     q_min(18)=-1.
+     q_max(18)=1.
+     q_log(18)=.FALSE.
+     q_set(18)=.FALSE.
+     q_rge(18)=0.01
+
+     q_nme(19)='Twhim z index'
+     q_ori(19)=-0.1
+     q_min(19)=-1.
+     q_max(19)=1.
+     q_log(19)=.FALSE.
+     q_set(19)=.FALSE.
+     q_rge(19)=0.01
      
      IF(im==11 .OR. im==16) THEN
 
@@ -483,6 +600,29 @@ PROGRAM HMx_fitting
         p_int(12)=param_Gammap
         p_int(13)=param_cstarp
         p_int(14)=param_fhot
+
+     ELSE IF(im==17) THEN
+
+        ! 17 - redshift dependent everything minus pressure-pressure
+        p_int(1)=param_alpha
+        p_int(2)=param_eps
+        p_int(3)=param_Gamma
+        p_int(4)=param_M0
+        p_int(5)=param_Astar
+        p_int(6)=param_Twhim
+        p_int(7)=param_cstar
+        p_int(8)=param_fcold
+        p_int(9)=param_Mstar
+        p_int(10)=param_sstar
+        p_int(11)=param_alphap
+        p_int(12)=param_Gammap
+        p_int(13)=param_cstarp
+        p_int(14)=param_fhot
+        p_int(15)=param_alphaz
+        p_int(16)=param_Gammaz
+        p_int(17)=param_M0z
+        p_int(18)=param_Astarz
+        p_int(19)=param_Twhimz
 
      ELSE IF(im==12) THEN
 
@@ -687,6 +827,8 @@ PROGRAM HMx_fitting
         out=7
         outfile=TRIM(outbase)//'_params.dat'
         OPEN(out,file=outfile)
+     ELSE
+        STOP 'HMx_FITTING: Error, output fucked up badly'
      END IF
 
      WRITE(out,*) 'HMx_FITTING: Best location:', i_bst
@@ -715,7 +857,7 @@ PROGRAM HMx_fitting
            WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', p_ori(i), p_bst(i), p_min(i), p_max(i)
         END IF
      END DO
-     WRITE(out,*) '===================================================================================='
+     WRITE(out,*) '====================================================================================='
      WRITE(out,*)
 
      IF(j==2) THEN
@@ -724,285 +866,29 @@ PROGRAM HMx_fitting
 
   END DO
 
-!!$  ! Output the best-fitting model
-!!$  base='fitting/best_cos'
-!!$  CALL write_fitting_power(base,k,pow_hm,pow_bm,ncos,nf,nk,nz)
-
 CONTAINS
 
-!!$     ! Assign the cosmological model
-!!$     icosmo=4
-!!$     CALL assign_cosmology(icosmo,cosm,verbose)
-!!$     CALL init_cosmology(cosm)
-!!$     CALL print_cosmology(cosm)
+!!$  REAL FUNCTION figure_of_merit(a,b,n)
 !!$
-!!$     ! Assign the base halo model
-!!$     CALL assign_halomod(ihm,hmod,verbose)
+!!$    ! A figure-of-merit or cost function
+!!$    IMPLICIT NONE
+!!$    REAL, INTENT(IN) :: a(n), b(n)
+!!$    INTEGER, INTENT(IN) :: n
 !!$
-!!$     ! Choose fitting to do
-!!$     ! 1 - Star autospectrum
-!!$     ! 2 - Gas autospectrum
-!!$     ifit=1
+!!$    !figure_of_merit=(SUM(a/b)-REAL(n))**2
+!!$    figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
+!!$    !figure_of_merit=SUM(log(a/b)**2)/REAL(n)
 !!$
-!!$     ! Default number of refinements
-!!$     nref=3
-!!$
-!!$     np=3
-!!$     ALLOCATE(pmin(np),pmax(np),pbest(np),pnow(np),prange(np),plog(np))
-!!$     ALLOCATE(nrange(np),iii(np),ipbest(np))
-!!$
-!!$     !Set the redshift
-!!$     z=0.0
-!!$
-!!$     ! Set the model
-!!$     model='AGN_TUNED_nu0'
-!!$     !model='AGN_7p6_nu0'
-!!$     !model='AGN_8p0_nu0'
-!!$
-!!$     ! Default number of parameters
-!!$     nrange=11
-!!$    
-!!$     IF(ifit==1) THEN
-!!$
-!!$        ! Star power spectra
-!!$        
-!!$        ! Halo type
-!!$        ip=3
-!!$
-!!$        ! Astar (height of f*(M) distribution)
-!!$        pmin(1)=1e-3
-!!$        pmax(1)=1e-1
-!!$        plog(1)=.TRUE.
-!!$
-!!$        ! Mstar (location of max of f*(M) distribution)
-!!$        pmin(2)=1e11
-!!$        pmax(2)=1e13
-!!$        plog(2)=.TRUE.
-!!$
-!!$        ! sigma (width of f*(M) distribution)
-!!$        pmin(3)=1.2
-!!$        pmax(3)=2.0
-!!$        plog(3)=.TRUE.
-!!$        nrange(3)=1
-!!$
-!!$     ELSE IF(ifit==2) THEN
-!!$
-!!$        ! Gas power spectra
-!!$
-!!$        ! Halo type
-!!$        ip=2
-!!$
-!!$        ! Gamma
-!!$        pmin(1)=1.05
-!!$        pmax(1)=1.55
-!!$        plog(1)=.FALSE.
-!!$
-!!$        ! M0
-!!$        pmin(2)=1e13
-!!$        pmax(2)=1e15
-!!$        plog(2)=.TRUE.
-!!$
-!!$        ! epsilon
-!!$        pmin(3)=1e-1
-!!$        pmax(3)=1e1
-!!$        plog(3)=.TRUE.
-!!$        nrange(3)=1
-!!$
-!!$     ELSE
-!!$
-!!$        STOP 'FITTING: Error, ifit specified incorrectly'
-!!$        
-!!$     END IF
-!!$
-!!$     ! Read in the data
-!!$     infile=BAHAMAS_power_file_name(model,z,ip)
-!!$     CALL read_simulation_power_spectrum(k,pow_sim,nk,infile,cut_nyquist=.TRUE.,subtract_shot=.TRUE.,verbose=.TRUE.)
-!!$     
-!!$     ! Fix the paramter range
-!!$     DO j=1,np
-!!$        IF(plog(j)) THEN
-!!$           prange(j)=log(pmax(j)/pmin(j))
-!!$        ELSE
-!!$           prange(j)=pmax(j)-pmin(j)
-!!$        END IF
-!!$     END DO
-!!$
-!!$     ALLOCATE(pow_lin(nk),pow_2h(nk),pow_1h(nk),pow_full(nk))
-!!$
-!!$     ! Loop over refinements
-!!$     i=0
-!!$     refine=.FALSE.
-!!$     DO
-!!$
-!!$        ! Always set this to be a HUGE number at the beginning of any refinement level
-!!$        fom_bst=HUGE(fom)
-!!$
-!!$        ! Update the range to be centred on the best fit
-!!$        ! Maybe also decrease the parameter space
-!!$        IF(refine) THEN
-!!$           DO j=1,np
-!!$              IF(nrange(j)>1) THEN
-!!$                 IF(plog(j)) THEN
-!!$                    pmin(j)=exp(log(pbest(j))-prange(j)/(2.**(i+1)))
-!!$                    pmax(j)=exp(log(pbest(j))+prange(j)/(2.**(i+1)))
-!!$                 ELSE
-!!$                    pmin(j)=pbest(j)-prange(j)/(2.**(i+1))
-!!$                    pmax(j)=pbest(j)+prange(j)/(2.**(i+1))
-!!$                 END IF
-!!$              END IF
-!!$           END DO
-!!$        END IF
-!!$
-!!$        ! Write data to screen
-!!$        WRITE(*,*) 'FITTING: Refinement', i
-!!$        WRITE(*,*) '======================================================================'
-!!$        WRITE(*,*) ' Refinement   Parameter              minimum                   maximum'
-!!$        WRITE(*,*) '======================================================================'
-!!$        DO j=1,np
-!!$           IF(nrange(j)>1) THEN
-!!$              IF(plog(j)) THEN
-!!$                 WRITE(*,*) i, j, log10(pmin(j)), log10(pmax(j))
-!!$              ELSE
-!!$                 WRITE(*,*) i, j, pmin(j), pmax(j)
-!!$              END IF
-!!$           END IF
-!!$        END DO
-!!$        WRITE(*,*) '======================================================================'     
-!!$        WRITE(*,*)
-!!$
-!!$        ! Loop over parameters
-!!$        DO i1=1,nrange(1)
-!!$           DO i2=1,nrange(2)
-!!$              DO i3=1,nrange(3)
-!!$
-!!$                 ! Update the parameters
-!!$                 iii(1)=i1
-!!$                 iii(2)=i2
-!!$                 iii(3)=i3
-!!$                 DO j=1,np
-!!$                    IF(plog(j)) THEN
-!!$                       pnow(j)=progression_log(pmin(j),pmax(j),iii(j),nrange(j))
-!!$                    ELSE
-!!$                       pnow(j)=progression(pmin(j),pmax(j),iii(j),nrange(j))
-!!$                    END IF
-!!$                 END DO
-!!$
-!!$                 ! Update fitted parameters
-!!$                 IF(ifit==1) THEN
-!!$                    hmod%Astar=pnow(1)
-!!$                    hmod%Mstar=pnow(2)
-!!$                    hmod%sstar=pnow(3)
-!!$                 ELSE IF(ifit==2) THEN
-!!$                    hmod%gamma=pnow(1)
-!!$                    hmod%M0=pnow(2)
-!!$                    hmod%eps=pnow(3)
-!!$                 ELSE
-!!$                    STOP 'FITTING: Error, ifit specified incorrectly'
-!!$                 END IF
-!!$
-!!$                  ! Initiliasation for the halomodel calcualtion
-!!$                 CALL init_halomod(mmin,mmax,z,hmod,cosm,.FALSE.)
-!!$
-!!$                 ! Do the halo-model calculation
-!!$                 CALL calculate_halomod(ip,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
-!!$
-!!$                 ! Calculate the figure-of-merit and update best fit
-!!$                 fom=figure_of_merit(pow_full,pow_sim,nk)
-!!$                 IF(fom<fom_bst) THEN
-!!$                    ipbest=iii
-!!$                    pbest=pnow
-!!$                    fom_bst=fom
-!!$                 END IF
-!!$
-!!$              END DO
-!!$           END DO
-!!$        END DO
-!!$
-!!$        ! Write best-fit to screen
-!!$        WRITE(*,*) 'FITTING: Best fit'
-!!$        WRITE(*,*) '============================================'
-!!$        WRITE(*,*) '  Parameter    location                value'
-!!$        WRITE(*,*) '============================================'
-!!$        DO j=1,np
-!!$           IF(nrange(j)>1) THEN
-!!$              IF(plog(j)) THEN
-!!$                 WRITE(*,*) j, ipbest(j), log10(pbest(j)), pbest(j)
-!!$              ELSE
-!!$                 WRITE(*,*) j, ipbest(j), pbest(j)
-!!$              END IF
-!!$           END IF
-!!$        END DO
-!!$        WRITE(*,*) '============================================'
-!!$        WRITE(*,*)
-!!$
-!!$        ! Check that the best fit is not on the edge of the range
-!!$        refine=.TRUE.
-!!$        DO j=1,np
-!!$           IF(nrange(j)>1) THEN
-!!$              IF(ipbest(j)==1 .OR. ipbest(j)==nrange(j)) THEN
-!!$                 WRITE(*,*) 'FITTING: Parameter on edge of range'
-!!$                 WRITE(*,*) 'FITTING: Parameter:', j
-!!$                 IF(plog(j)) THEN
-!!$                    WRITE(*,*) 'FITTING: Value:', log10(pbest(j)), pbest(j)
-!!$                 ELSE
-!!$                    WRITE(*,*) 'FITTING: Value:', pbest(j)
-!!$                 END IF
-!!$                 WRITE(*,*) 'FITTING: Number of points:', nrange(j)
-!!$                 WRITE(*,*) 'FITTING: Best fit location:', ipbest(j)
-!!$                 WRITE(*,*)
-!!$                 refine=.FALSE.
-!!$              END IF
-!!$           END IF
-!!$        END DO
-!!$
-!!$        ! Update refinement level or exit
-!!$        IF(refine .AND. i==nref) THEN
-!!$           EXIT
-!!$        ELSE IF(refine) THEN
-!!$           i=i+1
-!!$        END IF
-!!$        refine=.TRUE.
-!!$
-!!$     END DO
-!!$
-!!$     ! Initiliasation for the halomodel calcualtion
-!!$     CALL assign_halomod(ihm,hmod,verbose)
-!!$
-!!$     ! Set to the best fit
-!!$     IF(ifit==1) THEN
-!!$        hmod%Astar=pbest(1)
-!!$        hmod%Mstar=pbest(2)
-!!$        hmod%sstar=pbest(3)
-!!$     ELSE IF(ifit==2) THEN
-!!$        hmod%Gamma=pbest(1)
-!!$        hmod%M0=pbest(2)
-!!$        hmod%eps=pbest(3)
-!!$     ELSE
-!!$        STOP 'FITTING: Error, ifit specified incorrectly'
-!!$     END IF
-!!$        
-!!$     CALL init_halomod(mmin,mmax,z,hmod,cosm,verbose)
-!!$     CALL print_halomod(hmod,cosm,verbose)
-!!$     CALL calculate_halomod(ip,k,nk,z,pow_lin,pow_2h,pow_1h,pow_full,hmod,cosm,verbose,response=.FALSE.)
-!!$     
-!!$     ! Write out the results
-!!$     outfile='fitting/power.dat'
-!!$     OPEN(7,file=outfile)
-!!$     DO i=1,nk
-!!$        WRITE(7,*) k(i), pow_full(i), pow_sim(i)
-!!$     END DO
-!!$     CLOSE(7)
+!!$  END FUNCTION figure_of_merit
 
-  REAL FUNCTION figure_of_merit(a,b,n)
+   REAL FUNCTION figure_of_merit(a,b)
 
     ! A figure-of-merit or cost function
     IMPLICIT NONE
-    REAL, INTENT(IN) :: a(n), b(n)
-    INTEGER, INTENT(IN) :: n
-
-    !figure_of_merit=(SUM(a/b)-REAL(n))**2
-    figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
-    !figure_of_merit=SUM(log(a/b)**2)/REAL(n)
+    REAL, INTENT(IN) :: a, b
+    
+    !figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
+    figure_of_merit=(-1.+a/b)**2
 
   END FUNCTION figure_of_merit
 
@@ -1024,16 +910,17 @@ CONTAINS
     INTEGER, INTENT(IN) :: nz ! Number of z values
     REAL, INTENT(OUT) :: pow_hm(n,nf,nf,nk,nz) ! Output array for power as a function of k, z, cosmology
     REAL, INTENT(IN) :: pow_sim(n,nf,nf,nk,nz) ! Comparison power as a function of k, z, cosmology
-    REAL, INTENT(IN) :: weight(n,nf,nf,nz) ! Weight array
+    REAL, INTENT(IN) :: weight(n,nf,nf,nk,nz) ! Weight array
     TYPE(halomod), INTENT(INOUT) :: hmod(n) ! Array of halo models for each comparison
     TYPE(cosmology), INTENT(INOUT) :: cosm(n) ! Array of cosmological models for each comparison
     INTEGER, INTENT(IN) :: n ! Number of cosmological models being compared
-    INTEGER :: i, j
+    INTEGER :: i, j, ik
     REAL :: pow_li(n,nk,nz), pow_2h(n,nf,nf,nk,nz), pow_1h(n,nf,nf,nk,nz)
-    REAL :: pexp(np), weight_sum
+    REAL :: pexp(np), neff
 
     ! Set this counting output variable to zero
     fom=0.
+    neff=0.
 
     ! Set this to zero too, for the banter
     pow_hm=0.
@@ -1088,6 +975,29 @@ CONTAINS
           hmod(i)%cstarp=pexp(13)
           hmod(i)%fhot=pexp(14)
 
+       ELSE IF(im==17) THEN
+
+          ! everything
+          hmod(i)%alpha=pexp(1)
+          hmod(i)%eps=pexp(2)
+          hmod(i)%Gamma=1.+pexp(3)
+          hmod(i)%M0=pexp(4)
+          hmod(i)%Astar=pexp(5)
+          hmod(i)%Twhim=pexp(6)
+          hmod(i)%cstar=pexp(7)
+          hmod(i)%fcold=pexp(8)
+          hmod(i)%Mstar=pexp(9)
+          hmod(i)%sstar=pexp(10)
+          hmod(i)%alphap=pexp(11)
+          hmod(i)%Gammap=pexp(12)
+          hmod(i)%cstarp=pexp(13)
+          hmod(i)%fhot=pexp(14)
+          hmod(i)%alphaz=pexp(15)
+          hmod(i)%Gammaz=pexp(16)
+          hmod(i)%M0z=pexp(17)
+          hmod(i)%Astarz=pexp(18)
+          hmod(i)%Twhimz=pexp(19)
+
        ELSE IF(im==12) THEN
 
           ! gas
@@ -1141,7 +1051,12 @@ CONTAINS
           ! Calculate figure of merit and add to total
           DO j1=1,nf
              DO j2=j1,nf
-                fom=fom+(figure_of_merit(pow_hm(i,j1,j2,:,j),pow_sim(i,j1,j2,:,j),nk)*weight(i,j1,j2,j))**2
+                !fom=fom+(figure_of_merit(pow_hm(i,j1,j2,:,j),pow_sim(i,j1,j2,:,j),nk)*weight(i,j1,j2,j))**2
+                DO ik=1,nk
+                   !fom=fom+figure_of_merit(pow_hm(i,j1,j2,ik,j),pow_sim(i,j1,j2,ik,j))*weight(i,j1,j2,j)
+                   fom=fom+weight(i,j1,j2,ik,j)*(pow_hm(i,j1,j2,ik,j)/pow_sim(i,j1,j2,ik,j)-1.)**2
+                   neff=neff+weight(i,j1,j2,ik,j)
+                END DO
              END DO
           END DO
 
@@ -1151,8 +1066,13 @@ CONTAINS
 
     ! Divide the figure-of-merit by the number of independent field combinations, redshifts and cosmologies
     ! This is then the rms error per log-k, per z, per cosmology per field
-    weight_sum=SUM(weight)/REAL(n*nz*triangle_number(nf))
-    fom=sqrt(fom/REAL(nz*n*triangle_number(nf)))/weight_sum
+    !weight_sum=SUM(weight)/REAL(n*nz*triangle_number(nf))
+    !fom=sqrt(fom/REAL(n*nz*triangle_number(nf)))/weight_sum
+    
+    !weight_sum=SUM(weight)/REAL(n*nz*nk*triangle_number(nf))
+    !fom=sqrt(fom/REAL(n*nz*nk*triangle_number(nf)))/weight_sum
+
+    fom=sqrt(fom/neff)
 
   END SUBROUTINE fom_multiple
 
@@ -1184,7 +1104,7 @@ CONTAINS
     
     REAL, PARAMETER :: eps=2.0    ! Tolerated error in fom difference when setting range
     REAL, PARAMETER :: deriv=1e-3 ! How much smaller is the derivative than delta
-    INTEGER, PARAMETER :: nout=25 ! For output debugging
+    !INTEGER, PARAMETER :: nout=25 ! For output debugging
 
     ! Get the figure of merit for the base set of parameters
     CALL fom_multiple(im,fields,nf,fom_base,p,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
@@ -1212,6 +1132,7 @@ CONTAINS
        WRITE(*,*) 'SET_PARAMETER_RANGES: Number of redshifts:', nz
        WRITE(*,*) 'SET_PARAMETER_RANGES: Derivatives being calculated with:', dp
        WRITE(*,*) 'SET_PARAMETER_RANGES: Fixing sigma to give change in fom:', delta
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Baseline fom:', fom_base
        WRITE(*,*) '====================================================================================='
        WRITE(*,*) 'Parameter           Name         Base value     New Value         Sigma         Ratio'
        WRITE(*,*) '====================================================================================='
