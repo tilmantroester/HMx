@@ -129,16 +129,16 @@ PROGRAM HMx_fitting
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18) THEN
 
      ! Required change in figure-of-merit
-     delta=3e-3
+     delta=1e-3
 
      ! Set to the number of different cosmologies
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11 .OR. im==16 .OR. im==17) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18) THEN
         nf=5   
      ELSE IF(im==12 .OR. im==13) THEN
         nf=1
@@ -169,7 +169,7 @@ PROGRAM HMx_fitting
      z(4)=2.0
      fields(1)=field_dmonly
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18) THEN
      
      ! Hydro simulations
      IF(name=='') name='AGN_TUNED_nu0'
@@ -189,7 +189,7 @@ PROGRAM HMx_fitting
      ALLOCATE(z(nz))
 
      ! Set the redshifts
-     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN        
+     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==18) THEN        
         IF((zin)=='') THEN
            z(1)=0.0 
         ELSE
@@ -205,7 +205,7 @@ PROGRAM HMx_fitting
      END IF
 
      ! Set the fields
-     IF(im==11 .OR. im==16 .OR. im==17) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -240,7 +240,7 @@ PROGRAM HMx_fitting
         icosmo=24    ! Random Mira Titan cosmology
      ELSE IF(im==4) THEN
         icosmo=25    ! Random FrankenEmu cosmology
-     ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+     ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18) THEN
         icosmo=4 ! WMAP9
      ELSE
         STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -256,7 +256,7 @@ PROGRAM HMx_fitting
   ALLOCATE(hmod(ncos))
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
      ihm=15 ! HMcode 2018
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18) THEN
      ihm=20 ! Standard halo-model response
   ELSE
      STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -285,7 +285,7 @@ PROGRAM HMx_fitting
                  CALL read_Mira_Titan_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
               ELSE IF(im==2 .OR. im==4) THEN
                  CALL read_FrankenEmu_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
-              ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+              ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18) THEN
                  ip(1)=fields(j1)
                  ip(2)=fields(j2)
                  CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i))!,kmin,kmax)
@@ -312,12 +312,12 @@ PROGRAM HMx_fitting
   ALLOCATE(weight(ncos,nf,nf,nk,nz))
   weight=1.
 
-  IF(im==16 .OR. im==17) THEN
+  IF(im==16 .OR. im==17 .OR. im==18) THEN
      weight(:,5,5,:,:)=0. ! No weight to pressure-pressure
   END IF
 
-  ! k range
-  IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+  ! k range for fixed z
+  IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==18) THEN
      kmin=0.15
      kmax=10.
      DO i=1,nk
@@ -327,7 +327,7 @@ PROGRAM HMx_fitting
      END DO
   END IF
 
-  ! k range
+  ! k range for multi-z
   IF(im==17) THEN    
      DO j=1,nz
         kmin=0.15
@@ -354,7 +354,7 @@ PROGRAM HMx_fitting
      np=12
   ELSE IF(im==11 .OR. im==16) THEN
      ! everything
-     np=14
+     np=13
   ELSE IF(im==12) THEN
      ! gas
      np=6
@@ -368,6 +368,9 @@ PROGRAM HMx_fitting
   ELSE IF(im==17) THEN
      ! everything with z dependence
      np=18
+  ELSE IF(im==18) THEN
+     ! everything with fhot
+     np=14
   ELSE
      STOP 'HMx_FITTING: Something went wrong with np'
   END IF
@@ -444,7 +447,7 @@ PROGRAM HMx_fitting
      p_min(12)=-5.
      p_max(12)=5.
 
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17) THEN
+  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18) THEN
 
      ! The general parameters are set here
 
@@ -456,7 +459,7 @@ PROGRAM HMx_fitting
      q_set=.TRUE.
 
      q_nme(1)='alpha'
-     q_ori(1)=1.25*(1.+z(1))
+     q_ori(1)=1.60*(1.+z(1))
      q_min(1)=1e-2
      q_max(1)=1e1
 
@@ -474,36 +477,37 @@ PROGRAM HMx_fitting
 
      ! This must depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
      q_nme(4)='M0'
-     q_ori(4)=10**13.4/(10.**z(1)) ! Okay with z dependence as long as z(1)=0
+     q_ori(4)=10**13.77/(10.**z(1)) ! Okay with z dependence as long as z(1)=0
      q_min(4)=1e8
      q_max(4)=1e16
 
      q_nme(5)='A_*'
-     q_ori(5)=0.05
+     q_ori(5)=0.042
      q_min(5)=1e-3
      q_max(5)=1e-1
 
      ! For some reason when 1e6 is set a range is calculated that gives too large a change in figure-of-merit
      q_nme(6)='T_whim'
-     q_ori(6)=10**6.5
+     q_ori(6)=10**6.11
      q_min(6)=1e2
      q_max(6)=1e8
 
      q_nme(7)='c_*'
-     q_ori(7)=10.
+     q_ori(7)=7.
      q_min(7)=1e0
      q_max(7)=1e3
 
      ! Needed to boost original here so that it has an effect
      q_nme(8)='f_cold'
-     q_ori(8)=0.01
+     !q_ori(8)=0.01
+     q_ori(8)=0.00126
      q_min(8)=1e-5
      q_max(8)=0.5
      q_set(8)=.FALSE.
      q_rge(8)=0.1
 
      q_nme(9)='M_*'
-     q_ori(9)=1e12
+     q_ori(9)=10**12.4
      q_min(9)=1e8
      q_max(9)=1e16
 
@@ -518,74 +522,75 @@ PROGRAM HMx_fitting
      q_min(11)=-1.
      q_max(11)=1.
      q_log(11)=.FALSE.
-     q_set(11)=.FALSE.
-     q_rge(11)=0.01
+     !q_set(11)=.FALSE.
+     !q_rge(11)=0.01
 
      q_nme(12)='Gamma M index'
      q_ori(12)=-0.02
-     q_min(12)=-0.2
+     q_min(12)=-0.006
      q_max(12)=0.2
      q_log(12)=.FALSE.
-     q_set(12)=.FALSE.
-     q_rge(12)=0.001
+     !q_set(12)=.FALSE.
+     !q_rge(12)=0.001
 
      q_nme(13)='c_* M index'
-     q_ori(13)=-0.1
+     q_ori(13)=-0.2
      q_min(13)=-1.
      q_max(13)=1.
      q_log(13)=.FALSE.
-     q_set(13)=.FALSE.
-     q_rge(13)=0.01
+     !q_set(13)=.FALSE.
+     !q_rge(13)=0.01
 
      q_nme(14)='f_hot'
-     q_ori(14)=0.1
+     q_ori(14)=0.01
      q_min(14)=1e-5
      q_max(14)=0.5
 
      q_nme(15)='alpha z index'
-     q_ori(15)=-1.0
+     q_ori(15)=0.43
      q_min(15)=-3.
      q_max(15)=3.
      q_log(15)=.FALSE.
-     q_set(15)=.FALSE.
-     q_rge(15)=0.01
+     !q_set(15)=.FALSE.
+     !q_rge(15)=0.01
 
      q_nme(16)='Gamma z index'
-     q_ori(16)=0.1
+     q_ori(16)=0.3
      q_min(16)=-1.
      q_max(16)=1.
      q_log(16)=.FALSE.
-     q_set(16)=.FALSE.
-     q_rge(16)=0.01
+     !q_set(16)=.FALSE.
+     !q_rge(16)=0.01
 
      q_nme(17)='M0 z index'
-     q_ori(17)=-0.1
+     q_ori(17)=-0.08
      q_min(17)=-1.
      q_max(17)=1.
      q_log(17)=.FALSE.
-     q_set(17)=.FALSE.
-     q_rge(17)=0.01
+     !q_set(17)=.FALSE.
+     !q_rge(17)=0.01
 
      q_nme(18)='Astar z index'
-     q_ori(18)=-0.2
+     q_ori(18)=-0.45
      q_min(18)=-1.
      q_max(18)=1.
      q_log(18)=.FALSE.
-     q_set(18)=.FALSE.
-     q_rge(18)=0.01
+     !q_set(18)=.FALSE.
+     !q_rge(18)=0.01
 
      q_nme(19)='Twhim z index'
-     q_ori(19)=-0.1
+     q_ori(19)=-0.11
      q_min(19)=-1.
      q_max(19)=1.
      q_log(19)=.FALSE.
-     q_set(19)=.FALSE.
-     q_rge(19)=0.01
+     !q_set(19)=.FALSE.
+     !q_rge(19)=0.01
      
-     IF(im==11 .OR. im==16) THEN
+     IF(im==11 .OR. im==16 .OR. im==18) THEN
 
         ! 11 - everything
         ! 16 - everything minus pressure-pressure
+        ! 18 - everything minus pressure-pressure but with hot gas
         p_int(1)=param_alpha
         p_int(2)=param_eps
         p_int(3)=param_Gamma
@@ -599,7 +604,7 @@ PROGRAM HMx_fitting
         p_int(11)=param_alphap
         p_int(12)=param_Gammap
         p_int(13)=param_cstarp
-        p_int(14)=param_fhot
+        IF(im==18) p_int(14)=param_fhot
 
      ELSE IF(im==17) THEN
 
@@ -955,7 +960,7 @@ CONTAINS
           hmod(i)%alp0=pexp(11)
           hmod(i)%alp1=pexp(12)
 
-       ELSE IF(im==11 .OR. im==16) THEN
+       ELSE IF(im==11) THEN
 
           ! Set hydro parameters to those being varied
 
@@ -974,29 +979,6 @@ CONTAINS
           hmod(i)%Gammap=pexp(12)
           hmod(i)%cstarp=pexp(13)
           hmod(i)%fhot=pexp(14)
-
-       ELSE IF(im==17) THEN
-
-          ! everything
-          hmod(i)%alpha=pexp(1)
-          hmod(i)%eps=pexp(2)
-          hmod(i)%Gamma=1.+pexp(3)
-          hmod(i)%M0=pexp(4)
-          hmod(i)%Astar=pexp(5)
-          hmod(i)%Twhim=pexp(6)
-          hmod(i)%cstar=pexp(7)
-          hmod(i)%fcold=pexp(8)
-          hmod(i)%Mstar=pexp(9)
-          hmod(i)%sstar=pexp(10)
-          hmod(i)%alphap=pexp(11)
-          hmod(i)%Gammap=pexp(12)
-          hmod(i)%cstarp=pexp(13)
-          !hmod(i)%fhot=pexp(14)
-          hmod(i)%alphaz=pexp(14)
-          hmod(i)%Gammaz=pexp(15)
-          hmod(i)%M0z=pexp(16)
-          hmod(i)%Astarz=pexp(17)
-          hmod(i)%Twhimz=pexp(18)
 
        ELSE IF(im==12) THEN
 
@@ -1031,6 +1013,63 @@ CONTAINS
           hmod(i)%cstarp=pexp(8)
           hmod(i)%Mstar=pexp(9)
           hmod(i)%sstar=pexp(10)
+
+       ELSE IF(im==16) THEN
+
+          ! everything
+          hmod(i)%alpha=pexp(1)
+          hmod(i)%eps=pexp(2)
+          hmod(i)%Gamma=1.+pexp(3)
+          hmod(i)%M0=pexp(4)
+          hmod(i)%Astar=pexp(5)
+          hmod(i)%Twhim=pexp(6)
+          hmod(i)%cstar=pexp(7)
+          hmod(i)%fcold=pexp(8)
+          hmod(i)%Mstar=pexp(9)
+          hmod(i)%sstar=pexp(10)
+          hmod(i)%alphap=pexp(11)
+          hmod(i)%Gammap=pexp(12)
+          hmod(i)%cstarp=pexp(13)
+
+       ELSE IF(im==17) THEN
+
+          ! everything; simultaneous z
+          hmod(i)%alpha=pexp(1)
+          hmod(i)%eps=pexp(2)
+          hmod(i)%Gamma=1.+pexp(3)
+          hmod(i)%M0=pexp(4)
+          hmod(i)%Astar=pexp(5)
+          hmod(i)%Twhim=pexp(6)
+          hmod(i)%cstar=pexp(7)
+          hmod(i)%fcold=pexp(8)
+          hmod(i)%Mstar=pexp(9)
+          hmod(i)%sstar=pexp(10)
+          hmod(i)%alphap=pexp(11)
+          hmod(i)%Gammap=pexp(12)
+          hmod(i)%cstarp=pexp(13)
+          hmod(i)%alphaz=pexp(14)
+          hmod(i)%Gammaz=pexp(15)
+          hmod(i)%M0z=pexp(16)
+          hmod(i)%Astarz=pexp(17)
+          hmod(i)%Twhimz=pexp(18)
+
+       ELSE IF(im==18) THEN
+
+          ! everything; separate z; fhot
+          hmod(i)%alpha=pexp(1)
+          hmod(i)%eps=pexp(2)
+          hmod(i)%Gamma=1.+pexp(3)
+          hmod(i)%M0=pexp(4)
+          hmod(i)%Astar=pexp(5)
+          hmod(i)%Twhim=pexp(6)
+          hmod(i)%cstar=pexp(7)
+          hmod(i)%fcold=pexp(8)
+          hmod(i)%Mstar=pexp(9)
+          hmod(i)%sstar=pexp(10)
+          hmod(i)%alphap=pexp(11)
+          hmod(i)%Gammap=pexp(12)
+          hmod(i)%cstarp=pexp(13)
+          hmod(i)%fhot=pexp(14)
 
        ELSE
 

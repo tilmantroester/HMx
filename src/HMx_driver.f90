@@ -818,7 +818,7 @@ PROGRAM HMx_driver
      ! Random baryon parameters
 
      ! Ignore this, only useful for bug tests
-     CALL RNG_set(0)
+     CALL RNG_set(1)
 
      ! Set number of k points and k range (log spaced)
      nk=128
@@ -847,11 +847,12 @@ PROGRAM HMx_driver
      ! Assign the default halo model
      CALL assign_halomod(ihm,hmod,verbose)
 
+     ! Set redshift range
      zmin=0.0
      zmax=2.0
 
      ! Loop forever
-     DO
+     DO ii=1,50
 
         z=random_uniform(zmin,zmax)
 
