@@ -6802,6 +6802,7 @@ CONTAINS
     REAL :: crap
 
     crap=cosm%A
+    WRITE(*,*) 'Hi'
 
     IF(hmod%frac_stars==1 .OR. hmod%frac_stars==3) THEN
        ! Fedeli (2014)
@@ -6825,6 +6826,9 @@ CONTAINS
        STOP 'HALO_STAR_FRACTION: Error, frac_stars specified incorrectly'
     END IF
 
+    WRITE(*,*) A, m0, sigma, halo_star_fraction
+    STOP
+    
   END FUNCTION halo_star_fraction
 
   REAL FUNCTION halo_central_star_fraction(m,hmod,cosm)
@@ -6848,9 +6852,9 @@ CONTAINS
           ! Otherwise there is a power law, eta ~ -0.3, higher mass haloes have more mass in satellites
           r=(M/hmod%mstar)**hmod%eta
        END IF
-       IF(r>1.) THEN
-          STOP 'HALO_CENTRAL_STAR_FRACTION: Error, r cannot be greater than one'
-       END IF
+!!$       IF(r>1.) THEN
+!!$          STOP 'HALO_CENTRAL_STAR_FRACTION: Error, r cannot be greater than one'
+!!$       END IF
        halo_central_star_fraction=r*halo_star_fraction(m,hmod,cosm)
     ELSE
        STOP 'HALO_CENTRAL_STAR_FRACTION: Error, frac_central_stars specified incorrectly'
