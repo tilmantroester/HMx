@@ -40,6 +40,7 @@ PROGRAM HMx_driver
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname, inbase, outbase, inext, outext
   CHARACTER(len=256) :: mode, halomodel, cosmo, benchmark
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
+  INTEGER :: imin, imax
   REAL :: sig8min, sig8max
   REAL :: mass, m1, m2, nu, nu_min, nu_max, mf
   REAL :: c, rmin, rmax, rv, rs, p1, p2, cmin, cmax, cbar
@@ -53,8 +54,8 @@ PROGRAM HMx_driver
 
   ! Halo-model Parameters
   Logical, PARAMETER :: verbose=.TRUE. ! Verbosity
-  REAL, PARAMETER :: mmin=1e7        ! Minimum halo mass for the calculation
-  REAL, PARAMETER :: mmax=1e17       ! Maximum halo mass for the calculation
+  REAL, PARAMETER :: mmin=mmin_HMx     ! Minimum halo mass for the calculation
+  REAL, PARAMETER :: mmax=mmax_HMx     ! Maximum halo mass for the calculation
 
   ! Test parameters
   REAL, PARAMETER :: tolerance=3e-3
@@ -158,6 +159,8 @@ PROGRAM HMx_driver
      WRITE(*,*) '49 - HI mass fractions'
      WRITE(*,*) '50 - Mass function changes with Lbox'
      WRITE(*,*) '51 - Compare power with and without scatter'
+     WRITE(*,*) '52 - Hydrodynamical halo model with BAHAMAS k range'
+     WRITE(*,*) '53 - Breakdown 3D hydro power in halo mass II'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -245,7 +248,7 @@ PROGRAM HMx_driver
      base='data/power'
      CALL write_power_a_multiple(k,a,pows_li,pows_2h(1,1,:,:),pows_1h(1,1,:,:),pows_hm(1,1,:,:),nk,na,base,verbose)
 
-  ELSE IF(imode==2 .OR. imode==15 .OR. imode==16 .OR. imode==32) THEN
+  ELSE IF(imode==2 .OR. imode==15 .OR. imode==16 .OR. imode==32 .OR. imode==52) THEN
 
      ! Make cross power spectra of all different components of haloes as well as pressure
      !  2 - Generic hydro
@@ -253,7 +256,7 @@ PROGRAM HMx_driver
      ! 16 - BAHAMAS
      ! 32 - PAPER: Baseline hydro
 
-     IF(imode==2) THEN
+     IF(imode==2 .OR. imode==52) THEN
 
         ! Generic hydro
         
@@ -268,16 +271,26 @@ PROGRAM HMx_driver
         z_tab(3)=1.0
         z_tab(4)=2.0
      
-!!$        ! Set number of k points and k range (log spaced)
-!!$        nk=128
-!!$        kmin=1e-3
-!!$        kmax=1e2
-!!$        CALL fill_array(log(kmin),log(kmax),k,nk)
-!!$        k=exp(k)
+        ! Set number of k points and k range (log spaced)
+        IF(imode==2) THEN
 
-        ! Get the k values from the simulation measured P(k)
-        infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
-        CALL read_k_values(infile,k,nk)
+           nk=128
+           kmin=1e-3
+           kmax=1e2
+           CALL fill_array(log(kmin),log(kmax),k,nk)
+           k=exp(k)
+
+        ELSE IF(imode==52) THEN
+
+           ! Get the k values from the simulation measured P(k)
+           infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+           CALL read_k_values(infile,k,nk)
+
+        ELSE
+
+           STOP 'HMx_DRIVER: imode specified incorrectly'
+
+        END IF
 
      ELSE IF(imode==32) THEN
 
@@ -359,7 +372,7 @@ PROGRAM HMx_driver
            z=z_tab(j)
 
            !Assigns the cosmological model
-           IF(imode==2)  THEN
+           IF(imode==2 .OR. imode==52)  THEN
               icosmo=4
            ELSE IF(imode==15) THEN
               icosmo=2
@@ -708,14 +721,14 @@ PROGRAM HMx_driver
            CALL print_halomod(hmod,cosm,verbose)
 
            ! Runs the diagnostics
-           IF(imode==2) THEN
+           IF(imode==2 .OR. imode==52) THEN
               dir='data'
               CALL halo_diagnostics(hmod,cosm,dir)
               CALL halo_definitions(hmod,cosm,dir)
               CALL halo_properties(hmod,dir)
            END IF
 
-           IF(imode==2 .OR. imode==32) THEN
+           IF(imode==2 .OR. imode==32 .OR. imode==52) THEN
               ! File base and extension
               IF(j==1) base='data/power_z0.0_'
               IF(j==2) base='data/power_z0.5_'
@@ -737,7 +750,7 @@ PROGRAM HMx_driver
            END IF
 
            ! Dark-matter only
-           IF(imode==2 .OR. imode==32) THEN
+           IF(imode==2 .OR. imode==32 .OR. imode==52) THEN
               IF(j==1) outfile='data/power_z0.0.dat'
               IF(j==2) outfile='data/power_z0.5.dat'
               IF(j==3) outfile='data/power_z1.0.dat'
@@ -1157,7 +1170,7 @@ PROGRAM HMx_driver
               WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
               ! Actually calculate the xi(theta)
-              CALL calculate_xi(theta,xi,nth,ell,Cl,nl,NINT(lmax))
+              CALL calculate_angular_xi(theta,xi,nth,ell,Cl,nl,NINT(lmax))
               CALL write_xi(theta,xi,nth,outfile)
 
            END IF
@@ -2517,7 +2530,7 @@ PROGRAM HMx_driver
 
      END DO
 
-  ELSE IF(imode==31) THEN
+  ELSE IF(imode==31 .OR. imode==53) THEN
 
      ! Power breakdown as a function of mass (paper)
 
@@ -2550,15 +2563,38 @@ PROGRAM HMx_driver
      ! Set the redshift
      z=0.0
 
+     IF(imode==31) THEN
+        imin=10
+        imax=16
+     ELSE IF(imode==53) THEN
+        imin=10
+        imax=16
+     ELSE
+        STOP 'HMx_DRIVER: Error, imode specified incorrectly'
+     END IF
+
      ! Loop over upper limit of mass integral
-     DO i=10,16
+     DO i=imin,imax
 
         ! Set the upper limit for the mass integration
         ! Needs to be 10. to enforce that m2 is real
-        m2=10.**i
+        IF(imode==31) THEN
+           m1=mmin
+           m2=10.**i
+        ELSE IF(imode==53) THEN
+           IF(i==imax) THEN
+              m1=mmin
+              m2=mmax
+           ELSE
+              m1=10.**i
+              m2=10.**(i+1)
+           END IF
+        ELSE
+           STOP 'HMx_DRIVER: Error, imode specified incorrectly'
+        END IF
 
         ! Initiliasation for the halomodel calcualtion
-        CALL init_halomod(mmin,m2,scale_factor_z(z),hmod,cosm,verbose)
+        CALL init_halomod(m1,m2,scale_factor_z(z),hmod,cosm,verbose)
         CALL print_halomod(hmod,cosm,verbose)
 
         ! Do the halo-model calculation
@@ -2570,11 +2606,29 @@ PROGRAM HMx_driver
 
               ! Write out the results
               base='data/power_'
-              mid=''
-              ext='_m'
-              base=number_file2(base,fields(j1),mid,fields(j2),ext)
-              ext='.dat'
-              outfile=number_file(base,i,ext)
+              IF(imode==31) THEN
+                 mid=''
+                 ext='_m'
+                 base=number_file2(base,fields(j1),mid,fields(j2),ext)
+                 ext='.dat'
+                 outfile=number_file(base,i,ext)
+              ELSE IF(imode==53) THEN
+                 IF(i==imax) THEN
+                    mid=''
+                    ext='.dat'
+                    outfile=number_file2(base,fields(j1),mid,fields(j2),ext)
+                 ELSE
+                    mid=''
+                    ext='_m'
+                    base=number_file2(base,fields(j1),mid,fields(j2),ext)
+                    mid='_m'
+                    ext='.dat'
+                    outfile=number_file2(base,i,mid,i+1,ext)
+                 END IF
+              ELSE
+                 STOP 'HMx_DRIVER: Error, imode specified incorrectly'
+              END IF
+              
               CALL write_power(k,pow_li,pow_2h(j1,j2,:),pow_1h(j1,j2,:),pow_hm(j1,j2,:),nk,outfile,verbose)
 
            END DO

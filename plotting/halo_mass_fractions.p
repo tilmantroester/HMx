@@ -6,7 +6,7 @@ if(!exists('print')){print=0}
 if(print==0){set term aqua dashed; sun='sun'}
 if(print==1){set term post enh col fontfile cmsy; set output 'halo_mass_fractions.eps'; sun='{/cmsy10 \014}'}
 
-file='diagnostics/mass_fractions.dat'
+file='data/mass_fractions.dat'
 
 set size square
 

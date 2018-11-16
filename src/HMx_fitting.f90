@@ -15,7 +15,7 @@ PROGRAM HMx_fitting
   TYPE(halomod), ALLOCATABLE :: hmod(:)
   TYPE(cosmology), ALLOCATABLE :: cosm(:)
   REAL :: kmin, kmax
-  CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain
+  CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain, maxtime
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
   INTEGER, ALLOCATABLE :: p_int(:)
   REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:)
@@ -23,10 +23,11 @@ PROGRAM HMx_fitting
   CHARACTER(len=256), ALLOCATABLE :: p_nme(:), q_nme(:)
   LOGICAL, ALLOCATABLE :: p_log(:), q_log(:), p_set(:), q_set(:)
   REAL :: delta, fom, fom_bst, fom_new, fom_old, fom_ori
+  REAL :: t1, t2, tmax
   LOGICAL :: accept
   INTEGER :: icosmo, ihm, i_bst, np, ip(2)
   INTEGER :: i, j, l, j1, j2, n
-  INTEGER :: i_bet, i_wor, i_acc, i_fai
+  INTEGER :: i_bet, i_wor, i_acc, i_fai, i_tot
   LOGICAL :: verbose2
   INTEGER :: out
 
@@ -50,16 +51,18 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: param_M0z=17
   INTEGER, PARAMETER :: param_Astarz=18
   INTEGER, PARAMETER :: param_Twhimz=19
-  INTEGER, PARAMETER :: param_n=19
+  INTEGER, PARAMETER :: param_eta=20
+  INTEGER, PARAMETER :: param_n=20
 
-  REAL, PARAMETER :: mmin=1e7        ! Minimum halo mass for the calculation
-  REAL, PARAMETER :: mmax=1e17       ! Maximum halo mass for the calculation
+  ! Halo model calculation parameters
+  REAL, PARAMETER :: mmin=mmin_HMx ! Minimum halo mass for the calculation
+  REAL, PARAMETER :: mmax=mmax_HMx ! Maximum halo mass for the calculation
 
-  INTEGER, PARAMETER :: m=HUGE(m)  ! Re-evaluate range every 'm' points
-  INTEGER, PARAMETER :: seed=0 ! Random-number seed
+  INTEGER, PARAMETER :: m=HUGE(m)            ! Re-evaluate range every 'm' points
+  INTEGER, PARAMETER :: seed=0               ! Random-number seed
   LOGICAL, PARAMETER :: random_start=.FALSE. ! Start from a random point within the prior range
-  LOGICAL, PARAMETER :: mcmc=.TRUE. ! Accept worse figure of merit with some probability
-  INTEGER, PARAMETER :: computer=1 ! Which computer are you on?
+  LOGICAL, PARAMETER :: mcmc=.TRUE.          ! Accept worse figure of merit with some probability
+  INTEGER, PARAMETER :: computer=1           ! Which computer are you on?
 
   ! Read in starting option
   CALL get_command_argument(1,mode)
@@ -100,15 +103,24 @@ PROGRAM HMx_fitting
      READ(nchain,*) n
   END IF
 
+  ! Read in maximum time
+  CALL get_command_argument(3,maxtime)
+  IF(maxtime=='') THEN
+     tmax=HUGE(tmax)
+     WRITE(*,*)
+  ELSE
+     READ(maxtime,*) tmax
+  END IF
+
   ! Read in outfile
-  CALL get_command_argument(3,outbase)
+  CALL get_command_argument(4,outbase)
   IF(outbase=='') outbase='fitting/test'
 
   ! Read in BAHAMAS simulation name
-  CALL get_command_argument(4,name)
+  CALL get_command_argument(5,name)
 
   ! Read in BAHAMAS simulation redshift if doing fixed z
-  CALL get_command_argument(5,zin)
+  CALL get_command_argument(6,zin)
   
   ! Set the random-number generator
   CALL RNG_set(seed)
@@ -367,7 +379,7 @@ PROGRAM HMx_fitting
      np=10
   ELSE IF(im==17) THEN
      ! everything with z dependence
-     np=18
+     np=20
   ELSE IF(im==18) THEN
      ! everything with fhot
      np=14
@@ -455,8 +467,13 @@ PROGRAM HMx_fitting
      ALLOCATE(q_set(param_n),q_rge(param_n))
      ALLOCATE(p_int(np))
 
-     q_log=.TRUE.
+     q_ori=0.
+     q_log=.TRUE.     
+     q_min=0.
+     q_max=0.
+     q_nme=''
      q_set=.TRUE.
+     q_rge=0.
 
      q_nme(1)='alpha'
      q_ori(1)=1.60*(1.+z(1))
@@ -517,7 +534,7 @@ PROGRAM HMx_fitting
      q_max(10)=10.
      q_log(10)=.FALSE.
 
-     q_nme(11)='alpha M index'
+     q_nme(11)='alpha_M_pow'
      q_ori(11)=-0.5
      q_min(11)=-1.
      q_max(11)=1.
@@ -525,7 +542,7 @@ PROGRAM HMx_fitting
      !q_set(11)=.FALSE.
      !q_rge(11)=0.01
 
-     q_nme(12)='Gamma M index'
+     q_nme(12)='Gamma_M_pow'
      q_ori(12)=-0.02
      q_min(12)=-0.006
      q_max(12)=0.2
@@ -533,7 +550,7 @@ PROGRAM HMx_fitting
      !q_set(12)=.FALSE.
      !q_rge(12)=0.001
 
-     q_nme(13)='c_* M index'
+     q_nme(13)='c_*_M_pow'
      q_ori(13)=-0.2
      q_min(13)=-1.
      q_max(13)=1.
@@ -546,7 +563,7 @@ PROGRAM HMx_fitting
      q_min(14)=1e-5
      q_max(14)=0.5
 
-     q_nme(15)='alpha z index'
+     q_nme(15)='alpha_z_pow'
      q_ori(15)=0.43
      q_min(15)=-3.
      q_max(15)=3.
@@ -554,7 +571,7 @@ PROGRAM HMx_fitting
      !q_set(15)=.FALSE.
      !q_rge(15)=0.01
 
-     q_nme(16)='Gamma z index'
+     q_nme(16)='Gamma_z_pow'
      q_ori(16)=0.3
      q_min(16)=-1.
      q_max(16)=1.
@@ -562,7 +579,7 @@ PROGRAM HMx_fitting
      !q_set(16)=.FALSE.
      !q_rge(16)=0.01
 
-     q_nme(17)='M0 z index'
+     q_nme(17)='M0_z_pow'
      q_ori(17)=-0.08
      q_min(17)=-1.
      q_max(17)=1.
@@ -570,7 +587,7 @@ PROGRAM HMx_fitting
      !q_set(17)=.FALSE.
      !q_rge(17)=0.01
 
-     q_nme(18)='Astar z index'
+     q_nme(18)='Astar_z_pow'
      q_ori(18)=-0.45
      q_min(18)=-1.
      q_max(18)=1.
@@ -578,13 +595,21 @@ PROGRAM HMx_fitting
      !q_set(18)=.FALSE.
      !q_rge(18)=0.01
 
-     q_nme(19)='Twhim z index'
+     q_nme(19)='Twhim_z_pow'
      q_ori(19)=-0.11
      q_min(19)=-1.
      q_max(19)=1.
      q_log(19)=.FALSE.
      !q_set(19)=.FALSE.
      !q_rge(19)=0.01
+
+     q_nme(20)='eta'
+     q_ori(20)=-0.3
+     q_min(20)=-2.0
+     q_max(20)=0.0
+     q_log(20)=.FALSE.
+     q_set(20)=.FALSE.
+     q_rge(20)=0.01
      
      IF(im==11 .OR. im==16 .OR. im==18) THEN
 
@@ -622,12 +647,13 @@ PROGRAM HMx_fitting
         p_int(11)=param_alphap
         p_int(12)=param_Gammap
         p_int(13)=param_cstarp
-        !p_int(14)=param_fhot
-        p_int(14)=param_alphaz
-        p_int(15)=param_Gammaz
-        p_int(16)=param_M0z
-        p_int(17)=param_Astarz
-        p_int(18)=param_Twhimz
+        p_int(14)=param_fhot
+        p_int(15)=param_alphaz
+        p_int(16)=param_Gammaz
+        p_int(17)=param_M0z
+        p_int(18)=param_Astarz
+        p_int(19)=param_Twhimz
+        p_int(20)=param_eta
 
      ELSE IF(im==12) THEN
 
@@ -722,6 +748,11 @@ PROGRAM HMx_fitting
   i_wor=0
   i_acc=0
   i_fai=0
+  i_tot=0
+
+  ! Get the starting time
+  CALL cpu_time(t1)
+  CALL cpu_time(t2)
 
   ! Do the chain
   DO l=1,n+1
@@ -742,7 +773,7 @@ PROGRAM HMx_fitting
 
      IF(l==1) THEN
         ! Do nothing
-     ELSE IF(l==n+1) THEN
+     ELSE IF(l==n+1 .OR. (t2-t1)>60.*tmax) THEN
         ! Set to best-fitting parameters on last go
         p_new=p_bst           
      ELSE
@@ -773,7 +804,7 @@ PROGRAM HMx_fitting
 
         i_bet=i_bet+1
 
-     ELSE IF(l==n+1) THEN
+     ELSE IF(l==n+1 .OR. (t2-t1)>60.*tmax) THEN
 
         WRITE(*,*)
         
@@ -786,6 +817,7 @@ PROGRAM HMx_fitting
 
      ELSE
 
+        i_tot=i_tot+1
         IF(fom_new < fom_bst) THEN
            ! If fit is the best then always accept...
            p_bst=p_new
@@ -815,8 +847,10 @@ PROGRAM HMx_fitting
         i_acc=i_acc+1
         p_old=p_new
         fom_old=fom_new
-        WRITE(10,*) fom_old, (p_old(j), j=1,np)
+        WRITE(10,*) l, fom_old, (p_old(j), j=1,np)
      END IF
+
+     CALL cpu_time(t2)
 
   END DO
   CLOSE(10)
@@ -837,15 +871,15 @@ PROGRAM HMx_fitting
      END IF
 
      WRITE(out,*) 'HMx_FITTING: Best location:', i_bst
-     WRITE(out,*) 'HMx_FITTING: Total attempts:', n
+     WRITE(out,*) 'HMx_FITTING: Total attempts:', i_tot
      WRITE(out,*) 'HMx_FITTING: Accepted steps:', i_acc
-     WRITE(out,*) 'HMx_FITTING: Fraction accepted steps:', REAL(i_acc)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Fraction accepted steps:', REAL(i_acc)/REAL(i_tot)
      WRITE(out,*) 'HMx_FITTING: Better steps:', i_bet
-     WRITE(out,*) 'HMx_FITTING: Fraction better steps:', REAL(i_bet)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Fraction better steps:', REAL(i_bet)/REAL(i_tot)
      WRITE(out,*) 'HMx_FITTING: Accepted worse steps:', i_wor
-     WRITE(out,*) 'HMx_FITTING: Fraction accepted worse steps:', REAL(i_wor)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Fraction accepted worse steps:', REAL(i_wor)/REAL(i_tot)
      WRITE(out,*) 'HMx_FITTING: Failed steps:', i_fai
-     WRITE(out,*) 'HMx_FITTING: Fraction failed steps:', REAL(i_fai)/REAL(n)
+     WRITE(out,*) 'HMx_FITTING: Fraction failed steps:', REAL(i_fai)/REAL(i_tot)
      WRITE(out,*) 'HMx_FITTING: Original figure-of-merit:', fom_ori
      WRITE(out,*) 'HMx_FITTING: Final figure-of-merit:', fom_new
      WRITE(out,*)
@@ -872,30 +906,6 @@ PROGRAM HMx_fitting
   END DO
 
 CONTAINS
-
-!!$  REAL FUNCTION figure_of_merit(a,b,n)
-!!$
-!!$    ! A figure-of-merit or cost function
-!!$    IMPLICIT NONE
-!!$    REAL, INTENT(IN) :: a(n), b(n)
-!!$    INTEGER, INTENT(IN) :: n
-!!$
-!!$    !figure_of_merit=(SUM(a/b)-REAL(n))**2
-!!$    figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
-!!$    !figure_of_merit=SUM(log(a/b)**2)/REAL(n)
-!!$
-!!$  END FUNCTION figure_of_merit
-
-!!$   REAL FUNCTION figure_of_merit(a,b)
-!!$
-!!$    ! A figure-of-merit or cost function
-!!$    IMPLICIT NONE
-!!$    REAL, INTENT(IN) :: a, b
-!!$    
-!!$    !figure_of_merit=sqrt(SUM((a/b-1.)**2)/REAL(n))
-!!$    figure_of_merit=(-1.+a/b)**2
-!!$
-!!$  END FUNCTION figure_of_merit
 
   SUBROUTINE fom_multiple(im,fields,nf,fom,p,p_log,np,k,nk,z,nz,pow_hm,pow_sim,weight,hmod,cosm,n)
 
@@ -1047,11 +1057,13 @@ CONTAINS
           hmod(i)%alphap=pexp(11)
           hmod(i)%Gammap=pexp(12)
           hmod(i)%cstarp=pexp(13)
-          hmod(i)%alphaz=pexp(14)
-          hmod(i)%Gammaz=pexp(15)
-          hmod(i)%M0z=pexp(16)
-          hmod(i)%Astarz=pexp(17)
-          hmod(i)%Twhimz=pexp(18)
+          hmod(i)%fhot=pexp(14)
+          hmod(i)%alphaz=pexp(15)
+          hmod(i)%Gammaz=pexp(16)
+          hmod(i)%M0z=pexp(17)
+          hmod(i)%Astarz=pexp(18)
+          hmod(i)%Twhimz=pexp(19)
+          hmod(i)%eta=pexp(20)
 
        ELSE IF(im==18) THEN
 
@@ -1143,7 +1155,7 @@ CONTAINS
     REAL :: fom_base, fom_diff, fom, df, p2(np), pow(n,nf,nf,nk,nz), dp
     
     REAL, PARAMETER :: eps=2.0    ! Tolerated error in fom difference when setting range
-    REAL, PARAMETER :: deriv=1e-3 ! How much smaller is the derivative than delta
+    REAL, PARAMETER :: deriv=1e-4 ! How much smaller is the derivative than delta
     !INTEGER, PARAMETER :: nout=25 ! For output debugging
 
     ! Get the figure of merit for the base set of parameters
@@ -1179,11 +1191,16 @@ CONTAINS
     END IF
 
     ! Loop over parameters
-    DO i=1,np 
+    DO i=1,np
 
        ! Set the range of p to take the derivative over
        p2=p ! Reset all
        p2(i)=p(i)+sigma(i) ! Perturb parameter i
+
+!!$       IF(i==20) THEN
+!!$          WRITE(*,*) p(i), p2(i), sigma(i)
+!!$          STOP
+!!$       END IF
 
        ! Get the figure of merit for the updated parameter
        CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
@@ -1211,7 +1228,8 @@ CONTAINS
        IF(p_set(i)) THEN
 
           ! Set sigma so that it gives a change of 'delta' in fom
-          sigma(i)=ABS(sigma(i)/df)*delta
+          !sigma(i)=ABS(sigma(i)/df)*delta
+          sigma(i)=sigma(i)*delta/df
           p2(i)=p(i)+sigma(i)
 
        END IF
@@ -1233,9 +1251,9 @@ CONTAINS
 
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) '======================================================================'
-       WRITE(*,*) '    Parameter           Name      fom_base           fom         ratio'
-       WRITE(*,*) '======================================================================'
+       WRITE(*,*) '===================================================================================='
+       WRITE(*,*) '    Parameter           Name      fom_base           fom         sigma         ratio'
+       WRITE(*,*) '===================================================================================='
     END IF
 
     DO i=1,np
@@ -1246,7 +1264,7 @@ CONTAINS
           p2(i)=p(i)+sigma(i)
           CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
           fom_diff=fom-fom_base
-          WRITE(*,fmt='(I14,A15,3F14.7)') i, TRIM(p_nme(i)), fom_base, fom, fom_diff/delta
+          WRITE(*,fmt='(I14,A15,4F14.7)') i, TRIM(p_nme(i)), fom_base, fom, sigma(i), fom_diff/delta
 
           IF(p_set(i)) THEN
           
