@@ -784,7 +784,7 @@ CONTAINS
        hmod%fcold=0.1
     ELSE IF(ihm==30) THEN
        ! Adding some hot gas
-       hmod%fhot=0.1
+       hmod%fhot=0.2
     ELSE IF(ihm==32 .OR. ihm==33 .OR. ihm==34 .OR. ihm==35 .OR. ihm==36 .OR. ihm==37) THEN
        ! 32 - Response model for AGN 7.6;   z = 0.0; simple pivot
        ! 33 - Response model for AGN tuned; z = 0.0; simple pivot
@@ -6733,10 +6733,13 @@ CONTAINS
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: bound, cold, hot
 
-    halo_static_gas_fraction=halo_bound_gas_fraction(m,hmod,cosm)&
-         -halo_cold_gas_fraction(m,hmod,cosm)&
-         -halo_hot_gas_fraction(m,hmod,cosm)
+    bound=halo_bound_gas_fraction(m,hmod,cosm)
+    cold=halo_cold_gas_fraction(m,hmod,cosm)
+    hot=halo_hot_gas_fraction(m,hmod,cosm)
+
+    halo_static_gas_fraction=bound-cold-hot
 
   END FUNCTION halo_static_gas_fraction
 
@@ -6838,12 +6841,15 @@ CONTAINS
        halo_central_star_fraction=halo_star_fraction(m,hmod,cosm)
     ELSE IF(hmod%frac_central_stars==2) THEN
        ! Schnedier et al. (2018)
-       IF(M<hmod%mstar) THEN
+       IF(M<=hmod%mstar) THEN
           ! For M<M* all galaxy mass is in centrals
           r=1.
        ELSE
           ! Otherwise there is a power law, eta ~ -0.3, higher mass haloes have more mass in satellites
           r=(M/hmod%mstar)**hmod%eta
+       END IF
+       IF(r>1.) THEN
+          STOP 'HALO_CENTRAL_STAR_FRACTION: Error, r cannot be greater than one'
        END IF
        halo_central_star_fraction=r*halo_star_fraction(m,hmod,cosm)
     ELSE
