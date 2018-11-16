@@ -6802,7 +6802,6 @@ CONTAINS
     REAL :: crap
 
     crap=cosm%A
-    WRITE(*,*) 'Hi'
 
     IF(hmod%frac_stars==1 .OR. hmod%frac_stars==3) THEN
        ! Fedeli (2014)
@@ -6825,9 +6824,6 @@ CONTAINS
     ELSE
        STOP 'HALO_STAR_FRACTION: Error, frac_stars specified incorrectly'
     END IF
-
-    WRITE(*,*) A, m0, sigma, halo_star_fraction
-    STOP
     
   END FUNCTION halo_star_fraction
 
