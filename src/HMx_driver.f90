@@ -1171,7 +1171,7 @@ PROGRAM HMx_driver
 
               ! Actually calculate the xi(theta)
               CALL calculate_angular_xi(theta,xi,nth,ell,Cl,nl,NINT(lmax))
-              CALL write_xi(theta,xi,nth,outfile)
+              CALL write_angular_xi(theta,xi,nth,outfile)
 
            END IF
 

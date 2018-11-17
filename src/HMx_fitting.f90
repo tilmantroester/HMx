@@ -732,6 +732,7 @@ PROGRAM HMx_fitting
   ! Set the new parameters
   p_old=p_ori
   p_new=p_ori
+  p_bst=p_ori
 
   ! Set the best figures-of-merit to some huge value
   fom_old=HUGE(fom)
@@ -765,7 +766,7 @@ PROGRAM HMx_fitting
         END IF
         CALL set_parameter_ranges(im,delta,fields,nf,p_rge,p_set,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
         IF(l==1) THEN
-           outfile=TRIM(outbase)//'_chain.dat'
+           outfile=trim(outbase)//'_chain.dat'
            OPEN(10,file=outfile)
         END IF
         !STOP
@@ -797,19 +798,20 @@ PROGRAM HMx_fitting
         fom_bst=fom_new
 
         ! Write out the original data
-        base=TRIM(outbase)//'_orig_cos'
+        base=trim(outbase)//'_orig_cos'
         CALL write_fitting_power(base,k,pow_hm,pow_bm,ncos,nf,nk,nz)
 
         accept=.TRUE.
 
         i_bet=i_bet+1
+        i_tot=i_tot+1
 
      ELSE IF(l==n+1 .OR. (t2-t1)>60.*tmax) THEN
 
         WRITE(*,*)
         
         ! Output the best-fitting model
-        base=TRIM(outbase)//'_best_cos'
+        base=trim(outbase)//'_best_cos'
         CALL write_fitting_power(base,k,pow_hm,pow_bm,ncos,nf,nk,nz)
 
         accept=.TRUE.
@@ -864,7 +866,7 @@ PROGRAM HMx_fitting
         out=6
      ELSE IF(j==2) THEN
         out=7
-        outfile=TRIM(outbase)//'_params.dat'
+        outfile=trim(outbase)//'_params.dat'
         OPEN(out,file=outfile)
      ELSE
         STOP 'HMx_FITTING: Error, output fucked up badly'
@@ -890,10 +892,10 @@ PROGRAM HMx_fitting
      WRITE(out,*) '====================================================================================='
      DO i=1,np
         IF(p_log(i)) THEN
-           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', 10**p_ori(i), 10**p_bst(i), 10**p_min(i), 10**p_max(i)
-           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'log', p_ori(i), p_bst(i), p_min(i), p_max(i)
+           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'lin', 10**p_ori(i), 10**p_bst(i), 10**p_min(i), 10**p_max(i)
+           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'log', p_ori(i), p_bst(i), p_min(i), p_max(i)
         ELSE
-           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', p_ori(i), p_bst(i), p_min(i), p_max(i)
+           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'lin', p_ori(i), p_bst(i), p_min(i), p_max(i)
         END IF
      END DO
      WRITE(out,*) '====================================================================================='
@@ -1236,8 +1238,8 @@ CONTAINS
 
        ! Write parameters to screen
        IF(verbose) THEN
-          IF(p_log(i)) WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'lin', 10**p(i), 10**p2(i), sigma(i), sigma(i)/ABS(p(i))
-          WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, TRIM(p_nme(i)), 'log', p(i), p2(i), sigma(i), sigma(i)/ABS(p(i))
+          IF(p_log(i)) WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'lin', 10**p(i), 10**p2(i), sigma(i), sigma(i)/abs(p(i))
+          WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'log', p(i), p2(i), sigma(i), sigma(i)/abs(p(i))
        END IF
 
     END DO
@@ -1264,13 +1266,13 @@ CONTAINS
           p2(i)=p(i)+sigma(i)
           CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
           fom_diff=fom-fom_base
-          WRITE(*,fmt='(I14,A15,4F14.7)') i, TRIM(p_nme(i)), fom_base, fom, sigma(i), fom_diff/delta
+          WRITE(*,fmt='(I14,A15,4F14.7)') i, trim(p_nme(i)), fom_base, fom, sigma(i), fom_diff/delta
 
           IF(p_set(i)) THEN
           
-             IF(ABS(fom_diff) > delta*eps) THEN
+             IF(abs(fom_diff) > delta*eps) THEN
                 sigma(i)=sigma(i)/(fom_diff/delta)
-             ELSE IF(ABS(fom_diff) < delta/eps) THEN
+             ELSE IF(abs(fom_diff) < delta/eps) THEN
                 sigma(i)=sigma(i)/(fom_diff/delta)
              ELSE
                 EXIT
@@ -1328,7 +1330,7 @@ CONTAINS
     ! Check file exists
     INQUIRE(file=infile,exist=lexist)
     IF(.NOT. lexist) THEN
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', TRIM(infile)
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
        STOP 'READ_SIMULATION_POWER_SPECTRUM: File does not exist'
     END IF
 
@@ -1340,7 +1342,7 @@ CONTAINS
     IF(PRESENT(verbose)) THEN
        IF(verbose) THEN
           WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', TRIM(infile)
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
           WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: nk:', nk
        END IF
     END IF
@@ -1472,7 +1474,7 @@ CONTAINS
        END IF
 
        ! File name
-       BAHAMAS_power_file_name=TRIM(dir)//'/'//TRIM(model)//'_L400N1024_WMAP9_'//TRIM(snap)//'_'//TRIM(f1)//'_'//TRIM(f2)//'_power.dat'
+       BAHAMAS_power_file_name=trim(dir)//'/'//trim(model)//'_L400N1024_WMAP9_'//trim(snap)//'_'//trim(f1)//'_'//trim(f2)//'_power.dat'
 
        ! Check it exists
        INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
@@ -1480,7 +1482,7 @@ CONTAINS
        IF(lexist) THEN
           EXIT
        ELSE IF(j==2) THEN
-          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', TRIM(BAHAMAS_power_file_name)
+          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', trim(BAHAMAS_power_file_name)
           STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
        END IF
 
@@ -1552,7 +1554,7 @@ CONTAINS
                 outbit=number_file(base,icos,uscore)
                 outbit=number_file2(outbit,i1,nothing,i2,mid)
                 outfile=number_file(outbit,ia,ext)
-                WRITE(*,*) 'WRITE_FITTING_POWER: Outfile: ', TRIM(outfile)
+                WRITE(*,*) 'WRITE_FITTING_POWER: Outfile: ', trim(outfile)
                 OPEN(7,file=outfile)
                 DO ik=1,nk
                    WRITE(7,*) k(icos,ik,ia), pow_hm(icos,i1,i2,ik,ia), pow_si(icos,i1,i2,ik,ia)
