@@ -283,7 +283,7 @@ PROGRAM HMx_driver
         ELSE IF(imode==52) THEN
 
            ! Get the k values from the simulation measured P(k)
-           infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+           infile='/Users/Mead/Physics/data/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
            CALL read_k_values(infile,k,nk)
 
         ELSE
@@ -347,7 +347,7 @@ PROGRAM HMx_driver
         z_tab(4)=2.0
 
         ! Get the k values from the simulation measured P(k)
-        infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+        infile='/Users/Mead/Physics/data/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
         CALL read_k_values(infile,k,nk)
         
      END IF

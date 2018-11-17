@@ -1424,8 +1424,8 @@ CONTAINS
     INTEGER :: j
 
     ! Directory containing everything
-    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
-    IF(computer==2) dir='/home/amead/BAHAMAS/power/M1536'
+    IF(computer==1) dir='/Users/Mead/Physics/data/BAHAMAS/power/M1536'
+    IF(computer==2) dir='/home/amead/data/BAHAMAS/power/M1536'
 
     ! Set the redshift
     IF(z==0.0) THEN
