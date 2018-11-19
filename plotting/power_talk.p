@@ -2,10 +2,10 @@ reset
 
 if(!exists('print')) {print=0}
 if(print==0) {set term aqua dashed dl 1 font ',16'}
-if(print==1) {set term post enh col sol font ',16'}
+if(print==1) {set term post enh col sol font ',14'}
 
 power(z,f1,f2)=sprintf('data/power_z%1.1f_%d%d.dat',z,f1,f2)
-sim(mod,snap,f1,f2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1536/%s_L400N1024_WMAP9_%s_%s_%s_power.dat',mod,snap,f1,f2)
+sim(mod,snap,f1,f2)=sprintf('/Users/Mead/Physics/data/BAHAMAS/power/M1536/%s_L400N1024_WMAP9_%s_%s_%s_power.dat',mod,snap,f1,f2)
 
 fields="'all' 'dm' 'gas' 'stars' 'epressure'"
 field_names="'all matter' 'dark matter' 'gas' 'stars' 'electron pressure'"
@@ -51,9 +51,12 @@ set yrange [dmin:dmax]
 
 mod='AGN_TUNED_nu0'
 
+labx=0.85 
+laby=0.2
+
 set key top left
 
-set label word(z_names,iz) at screen 0.9,0.2
+set label word(z_names,iz) at screen labx,laby
 
 if(iplot==1){
 
@@ -69,6 +72,7 @@ if(iplot==2){
 if(print==1){set output 'plots/power_talk_2.eps'}
 
 plot power(zs[iz],ifield[1],ifield[1]) u 1:5 w l lc 1 dt 1 lw 3 ti 'Halo model',\
+     power(zs[iz],ifield[1],ifield[1]) u 1:2 w l lc 1 dt 4 lw 3 ti 'Linear theory',\
      power(zs[iz],ifield[1],ifield[1]) u 1:3 w l lc 1 dt 2 lw 3 ti 'Two-halo term',\
      power(zs[iz],ifield[1],ifield[1]) u 1:4 w l lc 1 dt 3 lw 3 ti 'One-halo term',\
      sim(mod,word(snaps,iz),word(fields,1),word(fields,1)) u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation'

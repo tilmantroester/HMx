@@ -186,7 +186,7 @@ CONTAINS
           ELSE IF(i>=200 .AND. i<=237) THEN
              ! Do nothing
           ELSE IF(names(i) .NE. '') THEN
-             WRITE(*,*) i, '- ', TRIM(names(i))
+             WRITE(*,*) i, '- ', trim(names(i))
           END IF
        END DO
        WRITE(*,*) ' 100 -> 136 - Mira Titan M000 -> M036'
@@ -433,7 +433,7 @@ CONTAINS
     END IF
 
     IF(cosm%verbose) THEN
-       WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology: ', TRIM(cosm%name)
+       WRITE(*,*) 'ASSIGN_COSMOLOGY: Cosmology: ', trim(cosm%name)
        WRITE(*,*) 'ASSIGN_COSMOLOGY: Done'
        WRITE(*,*)
     END IF
@@ -500,8 +500,8 @@ CONTAINS
        WRITE(*,*) 'INIT_COSMOLOGY: Omega:', cosm%Om
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_k:', cosm%Om_k
        WRITE(*,*) 'INIT_COSMOLOGY: k [Mpc/h]^-2:', cosm%k
-       IF(ABS(cosm%k)>small) THEN
-          WRITE(*,*) 'INIT_COSMOLOGY: k_rad [Mpc/h]:', 1./sqrt(ABS(cosm%k))
+       IF(abs(cosm%k)>small) THEN
+          WRITE(*,*) 'INIT_COSMOLOGY: k_rad [Mpc/h]:', 1./sqrt(abs(cosm%k))
        END IF
     END IF
 
@@ -597,7 +597,7 @@ CONTAINS
 
     IF(cosm%verbose) THEN
        WRITE(*,*) '===================================='
-       WRITE(*,*) 'COSMOLOGY: ', TRIM(cosm%name)
+       WRITE(*,*) 'COSMOLOGY: ', trim(cosm%name)
        WRITE(*,*) '===================================='
        WRITE(*,*) 'COSMOLOGY: Standard parameters'
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_m:', cosm%Om_m
@@ -623,8 +623,8 @@ CONTAINS
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%Om_k
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v'':', cosm%Om_v_mod
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k [Mpc/h]^-2:', cosm%k
-       IF(ABS(cosm%k)>small) THEN
-          WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k_rad [Mpc/h]:', 1./sqrt(ABS(cosm%k))
+       IF(abs(cosm%k)>small) THEN
+          WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k_rad [Mpc/h]:', 1./sqrt(abs(cosm%k))
        END IF
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_p:', cosm%mup
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'mu_e:', cosm%mue
@@ -705,7 +705,7 @@ CONTAINS
           xi8=xi8+xi_bit
 
           IF(i>min_humps) THEN
-             IF(ABS(xi_bit/real(xi8))<acc_cosm) THEN
+             IF(abs(xi_bit/real(xi8))<acc_cosm) THEN
                 EXIT
              END IF
           END IF
@@ -810,7 +810,7 @@ CONTAINS
        !sigi=sqrt(sigma2_integral1(8.,1.,cosm,2.*acc_cosm))
        sigi=sigma_integral(R,a,cosm)
 
-       IF(cosm%verbose) WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)
+       IF(cosm%verbose) WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', real(sigi)
 
        ! Reset the normalisation to give the correct sigma8
        cosm%A=cosm%sig8/sigi
@@ -822,9 +822,9 @@ CONTAINS
 
        ! Write to screen
        IF(cosm%verbose) THEN
-          WRITE(*,*) 'NORMALISE_POWER: Normalisation factor:', REAL(cosm%A)
-          WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', REAL(cosm%sig8)
-          WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', REAL(sigf)
+          WRITE(*,*) 'NORMALISE_POWER: Normalisation factor:', real(cosm%A)
+          WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', real(cosm%sig8)
+          WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', real(sigf)
           WRITE(*,*) 'NORMALISE_POWER: Done'
           WRITE(*,*)
        END IF
@@ -844,8 +844,8 @@ CONTAINS
 
        IF(cosm%verbose) THEN
           WRITE(*,*) 'NORMALISE_POWER: Normalising power to get correct sigma_8'
-          WRITE(*,*) 'NORMALISE_POWER: Initial As:', REAL(cosm%A)
-          WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', REAL(sigi)          
+          WRITE(*,*) 'NORMALISE_POWER: Initial As:', real(cosm%A)
+          WRITE(*,*) 'NORMALISE_POWER: Initial sigma_8:', real(sigi)          
        END IF
 
        ! Normalisation
@@ -864,9 +864,9 @@ CONTAINS
 
        ! Write to screen
        IF(cosm%verbose) THEN
-          !WRITE(*,*) 'NORMALISE_POWER: New As:', REAL(cosm%A)  
-          WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', REAL(cosm%sig8)
-          WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', REAL(sigf)
+          !WRITE(*,*) 'NORMALISE_POWER: New As:', real(cosm%A)  
+          WRITE(*,*) 'NORMALISE_POWER: Target sigma_8:', real(cosm%sig8)
+          WRITE(*,*) 'NORMALISE_POWER: Final sigma_8 (calculated):', real(sigf)
           WRITE(*,*) 'NORMALISE_POWER: Done'
           WRITE(*,*)
        END IF
@@ -1126,7 +1126,7 @@ CONTAINS
        f2=a**cosm%ns+cosm%a1n
        f3=a**cosm%ns-cosm%a2n
        f4=a**cosm%ns+cosm%a2n
-       w_de=-1.+REAL(f1/f2-f3/f4)
+       w_de=-1.+real(f1/f2-f3/f4)
     ELSE IF(cosm%iw==7) THEN
        ! IDE III
        IF(a<cosm%a1) THEN
@@ -1199,7 +1199,7 @@ CONTAINS
        f2=1.+cosm%a1n
        f3=1.+cosm%a2n
        f4=a**cosm%ns+cosm%a2n
-       X_de=REAL(f1*f3/(f2*f4))**(-6./cosm%ns)
+       X_de=real(f1*f3/(f2*f4))**(-6./cosm%ns)
     ELSE IF(cosm%iw==7) THEN
        ! IDE III
        IF(a<cosm%a1) THEN
@@ -1399,10 +1399,10 @@ CONTAINS
     amax=scale_factor_z(zmin)
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_DISTANCE: Redshift range for r(z) tables'
-       WRITE(*,*) 'INIT_DISTANCE: minimum z:', REAL(zmin)
-       WRITE(*,*) 'INIT_DISTANCE: maximum z:', REAL(zmax)
-       WRITE(*,*) 'INIT_DISTANCE: minimum a:', REAL(amin)
-       WRITE(*,*) 'INIT_DISTANCE: maximum a:', REAL(amax)
+       WRITE(*,*) 'INIT_DISTANCE: minimum z:', real(zmin)
+       WRITE(*,*) 'INIT_DISTANCE: maximum z:', real(zmax)
+       WRITE(*,*) 'INIT_DISTANCE: minimum a:', real(amin)
+       WRITE(*,*) 'INIT_DISTANCE: maximum a:', real(amax)
     END IF
     cosm%n_r=nr
     CALL fill_array(amin,amax,cosm%a_r,cosm%n_r)
@@ -1414,14 +1414,14 @@ CONTAINS
        cosm%r(i)=integrate_cosm(cosm%a_r(i),1.,distance_integrand,cosm,acc_cosm,3)
     END DO
     IF(cosm%verbose) THEN
-       WRITE(*,*) 'INIT_DISTANCE: minimum r [Mpc/h]:', REAL(cosm%r(cosm%n_r))
-       WRITE(*,*) 'INIT_DISTANCE: maximum r [Mpc/h]:', REAL(cosm%r(1))
+       WRITE(*,*) 'INIT_DISTANCE: minimum r [Mpc/h]:', real(cosm%r(cosm%n_r))
+       WRITE(*,*) 'INIT_DISTANCE: maximum r [Mpc/h]:', real(cosm%r(1))
     END IF
 
     ! Find the horizon distance in your cosmology
     cosm%horizon=integrate_cosm(0.,1.,distance_integrand,cosm,acc_cosm,3)
     IF(cosm%verbose) THEN
-       WRITE(*,*) 'INIT_DISTANCE: Horizon distance [Mpc/h]:', REAL(cosm%horizon)
+       WRITE(*,*) 'INIT_DISTANCE: Horizon distance [Mpc/h]:', real(cosm%horizon)
        WRITE(*,*) 'INIT_DISTANCE: Done'
        WRITE(*,*)
     END IF
@@ -1520,7 +1520,7 @@ CONTAINS
     tk=1./(1.+(6.4*q+(3.0*q)**1.5+(1.7*q)**2)**1.13)**(1./1.13)
     tk8=1./(1.+(6.4*q8+(3.0*q8)**1.5+(1.7*q8)**2)**1.13)**(1./1.13)
 
-    tk_defw=tk/REAL(tk8)
+    tk_defw=tk/real(tk8)
 
   END FUNCTION Tk_DEFW
 
@@ -1742,8 +1742,8 @@ CONTAINS
     ! Write to screen
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_SIGMA: Filling sigma(R) interpolation table'
-       WRITE(*,*) 'INIT_SIGMA: R minimum [Mpc/h]:', REAL(rmin_sigma)
-       WRITE(*,*) 'INIT_SIGMA: R maximum [Mpc/h]:', REAL(rmax_sigma)
+       WRITE(*,*) 'INIT_SIGMA: R minimum [Mpc/h]:', real(rmin_sigma)
+       WRITE(*,*) 'INIT_SIGMA: R maximum [Mpc/h]:', real(rmax_sigma)
        WRITE(*,*) 'INIT_SIGMA: number of points:', nsig
     END IF
 
@@ -2133,7 +2133,7 @@ CONTAINS
 
     !Normalise so that g(z=0)=1
     cosm%gnorm=find(1.,a_tab,d_tab,na,3,3,2)
-    IF(cosm%verbose) WRITE(*,*) 'INIT_GROWTH: unnormalised growth at z=0:', REAL(cosm%gnorm)
+    IF(cosm%verbose) WRITE(*,*) 'INIT_GROWTH: unnormalised growth at z=0:', real(cosm%gnorm)
     d_tab=d_tab/cosm%gnorm   
 
     !Allocate arrays
@@ -2661,9 +2661,9 @@ CONTAINS
     IF(ALLOCATED(v)) DEALLOCATE(v)
     IF(ALLOCATED(t)) DEALLOCATE(t)
     ALLOCATE(x(n),v(n),t(n))
-    x=REAL(x8)
-    v=REAL(v8)
-    t=REAL(t8)
+    x=real(x8)
+    v=real(v8)
+    t=real(t8)
 
     !WRITE(*,*) 'ODE: Integration complete in steps:', n
 
@@ -2751,8 +2751,8 @@ CONTAINS
 
              IF(ifail==0) THEN
 
-                IF(xh(k)>acc .AND. x8(kn)>acc .AND. (ABS(xh(k)/x8(kn))-1.)>acc) ifail=1
-                IF(vh(k)>acc .AND. v8(kn)>acc .AND. (ABS(vh(k)/v8(kn))-1.)>acc) ifail=1
+                IF(xh(k)>acc .AND. x8(kn)>acc .AND. (abs(xh(k)/x8(kn))-1.)>acc) ifail=1
+                IF(vh(k)>acc .AND. v8(kn)>acc .AND. (abs(vh(k)/v8(kn))-1.)>acc) ifail=1
 
                 IF(ifail==1) THEN
                    DEALLOCATE(xh,th,vh)
@@ -2769,9 +2769,9 @@ CONTAINS
           IF(ALLOCATED(v)) DEALLOCATE(v)
           IF(ALLOCATED(t)) DEALLOCATE(t)
           ALLOCATE(x(n),v(n),t(n))
-          x=REAL(x8)
-          v=REAL(v8)
-          t=REAL(t8)
+          x=real(x8)
+          v=real(v8)
+          t=real(t8)
           EXIT
        END IF
 
@@ -2817,11 +2817,11 @@ CONTAINS
 
     END INTERFACE
 
-    x=REAL(x1)
-    v=REAL(v1)
-    t=REAL(t1)
+    x=real(x1)
+    v=real(v1)
+    t=real(t1)
 
-    dt=REAL(t2-t1)
+    dt=real(t2-t1)
 
     IF(imeth==1) THEN
 
@@ -2913,7 +2913,7 @@ CONTAINS
           n=1+2**(j-1)
 
           ! Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
+          dx=(b-a)/real(n-1)
 
           IF(j==1) THEN
 
@@ -2927,7 +2927,7 @@ CONTAINS
 
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
-                x=a+(b-a)*REAL(i-1)/REAL(n-1)
+                x=a+(b-a)*real(i-1)/real(n-1)
                 fx=f(x,cosm)
                 sum_2n=sum_2n+fx
              END DO
@@ -2946,9 +2946,9 @@ CONTAINS
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (abs(-1.d0+sum_new/sum_old)<acc)) THEN
              ! jmin avoids spurious early convergence
-             !integrate=REAL(sum_new)
+             !integrate=real(sum_new)
              !WRITE(*,*) 'INTEGRATE: Nint:', n
              EXIT
           ELSE IF(j==jmax) THEN
@@ -2962,7 +2962,7 @@ CONTAINS
 
        END DO
 
-       integrate1_cosm=REAL(sum_new)
+       integrate1_cosm=real(sum_new)
 
     END IF
 
@@ -3017,7 +3017,7 @@ CONTAINS
           n=1+2**(j-1)
 
           ! Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
+          dx=(b-a)/real(n-1)
 
           IF(j==1) THEN
 
@@ -3031,7 +3031,7 @@ CONTAINS
 
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
-                x=a+(b-a)*REAL(i-1)/REAL(n-1)
+                x=a+(b-a)*real(i-1)/real(n-1)
                 fx=f(x,y,cosm)
                 sum_2n=sum_2n+fx
              END DO
@@ -3050,9 +3050,9 @@ CONTAINS
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (abs(-1.d0+sum_new/sum_old)<acc)) THEN
              ! jmin avoids spurious early convergence
-             !integrate=REAL(sum_new)
+             !integrate=real(sum_new)
              !WRITE(*,*) 'INTEGRATE: Nint:', n
              EXIT
           ELSE IF(j==jmax) THEN
@@ -3066,7 +3066,7 @@ CONTAINS
 
        END DO
 
-       integrate2_cosm=REAL(sum_new)
+       integrate2_cosm=real(sum_new)
 
     END IF
 
@@ -3123,7 +3123,7 @@ CONTAINS
           n=1+2**(j-1)
 
           ! Calculate the dx interval for this value of 'n'
-          dx=(b-a)/REAL(n-1)
+          dx=(b-a)/real(n-1)
 
           IF(j==1) THEN
 
@@ -3137,7 +3137,7 @@ CONTAINS
 
              ! Loop over only new even points to add these to the integral
              DO i=2,n,2
-                x=a+(b-a)*REAL(i-1)/REAL(n-1)
+                x=a+(b-a)*real(i-1)/real(n-1)
                 fx=f(x,y,z,cosm)
                 sum_2n=sum_2n+fx
              END DO
@@ -3156,9 +3156,9 @@ CONTAINS
 
           END IF
 
-          IF((j>=jmin) .AND. (ABS(-1.d0+sum_new/sum_old)<acc)) THEN
+          IF((j>=jmin) .AND. (abs(-1.d0+sum_new/sum_old)<acc)) THEN
              ! jmin avoids spurious early convergence
-             !integrate=REAL(sum_new)
+             !integrate=real(sum_new)
              !WRITE(*,*) 'INTEGRATE: Nint:', n
              EXIT
           ELSE IF(j==jmax) THEN
@@ -3172,7 +3172,7 @@ CONTAINS
 
        END DO
 
-       integrate3_cosm=REAL(sum_new)
+       integrate3_cosm=real(sum_new)
 
     END IF
 
@@ -3188,8 +3188,8 @@ CONTAINS
     REAL, ALLOCATABLE :: k(:), Pk(:)
     INTEGER :: i, n
     
-    CHARACTER(len=256), PARAMETER :: camb=TRIM('/Users/Mead/Physics/CAMB/camb')
-    CHARACTER(len=256), PARAMETER :: matterpower=TRIM('/Users/Mead/Physics/CAMB_files/tmp/temp_matterpower.dat')
+    CHARACTER(len=256), PARAMETER :: camb=trim('/Users/Mead/Physics/CAMB/camb')
+    CHARACTER(len=256), PARAMETER :: matterpower=trim('/Users/Mead/Physics/CAMB_files/tmp/temp_matterpower.dat')
 
     ! Needs to be changed to accomodate neutrino masses and degeneracy structure
     ! Talk to Alex Hall about this
@@ -4308,7 +4308,7 @@ CONTAINS
        bb=10**(-0.5642+0.5864*rn+0.5716*rn**2-1.5474*rncur+0.2279*Om_vz*(1.+wz)) ! Takahashi equation (A7)
        cc=10**(0.3698+2.0404*rn+0.8161*rn**2+0.5869*rncur) ! Takahashi equation (A8)
        gam=0.1971-0.0843*rn+0.8460*rncur ! Takahashi equation (A9)
-       alpha=ABS(6.0835+1.3373*rn-0.1959*rn**2-5.5274*rncur) ! Takahashi equation (A10; note the ABS
+       alpha=abs(6.0835+1.3373*rn-0.1959*rn**2-5.5274*rncur) ! Takahashi equation (A10; note the ABS
        beta=2.0379-0.7354*rn+0.3157*rn**2+1.2490*rn**3+0.3980*rn**4-0.1682*rncur ! Takahashi equation (A11)
        mu=0. ! Takahashi equation (A12)
        nu=10**(5.2105+3.6902*rn) ! Takahashi equation (A13)
@@ -4318,7 +4318,7 @@ CONTAINS
        bb=10**(-0.5642+0.5864*rn+0.5716*rn**2-1.5474*rncur+0.2279*Om_vz*(1.+wz))
        cc=10**(0.3698+2.0404*rn+0.8161*rn**2+0.5869*rncur)
        gam=0.1971-0.0843*rn+0.8460*rncur
-       alpha=ABS(6.0835+1.3373*rn-0.1959*rn**2-5.5274*rncur) ! Note ABS
+       alpha=abs(6.0835+1.3373*rn-0.1959*rn**2-5.5274*rncur) ! Note ABS
        beta=2.0379-0.7354*rn+0.3157*rn**2+1.2490*rn**3+0.3980*rn**4-0.1682*rncur+fnu*(1.081+0.395*rn**2) ! CAMB; halofit_ppf.f90
        mu=0.
        nu=10**(5.2105+3.6902*rn)
