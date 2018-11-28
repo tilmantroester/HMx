@@ -1,8 +1,10 @@
+# TODO: Move to hydro_power.p
+
 reset
 
 # Terminal options
 if(!exists('print')){print=0}
-if(print==0){set term aqua dashed}
+if(print==0){set term aqua dashed dl 1}
 if(print==1){set term post enh col font ',12' size 7,7; set output 'paper/power_components.eps'}
 
 # Initial white space
@@ -27,10 +29,13 @@ set format y '10^{%T}'
 set ylabel '{/Symbol D}^2_{uv}(k)'
 
 # Pressure field multiplications
-f1=sqrt(10)
+f1=0.01
 f2=f1**2
 print 'Pressure field multiplied by: ', f1
 print 'Pressure auto-spectrum multiplied by: ', f2
+
+labx=0.85
+laby=0.15
 
 # Set the redshift
 if(!exists('z')){z=0.}
@@ -42,7 +47,7 @@ print ''
 # Key position
 set key top left
 
-set label sprintf('z = %1.1f', z) at screen 0.9,0.15
+set label sprintf('z = %1.1f', z) at screen labx,laby
 
 # Plot
 plot NaN w l lw 3 lc -1 dt 2 ti 'Two-halo term',\
@@ -58,8 +63,13 @@ plot NaN w l lw 3 lc -1 dt 2 ti 'Two-halo term',\
      power(z,3,3) u 1:3       w l lc 4 dt 2 lw 3 noti,\
      power(z,3,3) u 1:4       w l lc 4 dt 3 lw 3 noti,\
      power(z,3,3) u 1:5       w l lc 4 dt 1 lw 3 ti 'Stars',\
-     power(z,6,6) u 1:(f2*$3) w l lc 6 dt 2 lw 3 noti,\
-     power(z,6,6) u 1:(f2*$4) w l lc 6 dt 3 lw 3 noti,\
-     power(z,6,6) u 1:(f2*$5) w l lc 6 dt 1 lw 3 ti 'Electron pressure'
+     power(z,1,6) u 1:(f1*$3) w l lc 6 dt 2 lw 3 noti,\
+     power(z,1,6) u 1:(f1*$4) w l lc 6 dt 3 lw 3 noti,\
+     power(z,1,6) u 1:(f1*$5) w l lc 6 dt 1 lw 3 ti 'Electron pressure',\
+     power(z,1,6) u 1:(f1*$5) w l lc 1 dt 2 lw 3 noti
+
+     #power(z,6,6) u 1:(f2*$3) w l lc 6 dt 2 lw 3 noti,\
+     #power(z,6,6) u 1:(f2*$4) w l lc 6 dt 3 lw 3 noti,\
+     #power(z,6,6) u 1:(f2*$5) w l lc 6 dt 1 lw 3 ti 'Electron pressure'
 
 unset label

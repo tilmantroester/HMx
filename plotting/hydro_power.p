@@ -23,6 +23,13 @@ print 'iplot =  9: PAPER: Response residual'
 print 'iplot = 10: Combination of iplot=1 and 2'
 print 'iplot = 11: Matter-electronn pressure spectrum variance demonstration'
 print 'iplot = 12: electron pressure-electronn pressure spectrum variance demonstration'
+print 'iplot = 13: Halo model compared to simulation'
+print 'iplot = 14: Halo model comparison: matter-matter'
+print 'iplot = 15: Halo model comparison: CDM-CDM'
+print 'iplot = 16: Halo model comparison: gas-gas'
+print 'iplot = 17: Halo model comparison: stars-stars'
+print 'iplot = 18: Halo model comparison: electron pressure-electron pressure'
+print 'iplot = 19: Halo model comparison: matter-electron pressure'
 print 'iplot = '.iplot.''
 print ''
 
@@ -86,7 +93,7 @@ print ''
 # Simulation data files
 plot_title_name_z(sim,z)=sprintf('BAHAMAS comarison of %s at z = %1.1f', sim, z)
 plot_title_z(z)=sprintf('BAHAMAS comarison at z = %1.1f', z)
-simpk(sim,mesh,s,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M%d/%s_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,s,type1,type2)
+simpk(sim,mesh,snap,type1,type2)=sprintf('/Users/Mead/Physics/data/BAHAMAS/power/M%d/%s_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,snap,type1,type2)
 sim_dmonly='DMONLY_2fluid_nu0'
 
 # File names - BAHAMAS
@@ -134,13 +141,35 @@ print 'Simulation power file: '.sim.''
 print ''
 
 # All different fields for power spectra
-fields="'all' 'dm' 'gas' 'stars' '' '' 'epressure'"
-field_names="'matter' 'CDM' 'gas' 'stars' '' '' 'electron pressure'"
-fld0='all'
-fld1='dm'
-fld2='gas'
-fld3='stars'
-fld6='epressure'
+fields="'all' 'dm' 'gas' 'stars' '' '' 'epressure'" # TODO: Delete
+field_names="'matter' 'CDM' 'gas' 'stars' '' '' 'electron pressure'" # TODO: Delete
+
+# All different fields for power spectra
+fields_sensible="'all' 'dm' 'gas' 'stars' 'epressure'"
+field_names_sensible="'matter' 'CDM' 'gas' 'stars' 'electron pressure'"
+
+# TODO: Delete
+fld0='all' # TODO: Delete
+fld1='dm' # TODO: Delete
+fld2='gas' # TODO: Delete
+fld3='stars' # TODO: Delete
+fld6='epressure' # TODO: Delete
+
+# Field integers
+array ifields[5]
+ifields[1]=0
+ifields[2]=1
+ifields[3]=2
+ifields[4]=3
+ifields[5]=6
+
+# Colors
+array cols_sensible[5]
+cols_sensible[1]=1
+cols_sensible[2]=2
+cols_sensible[3]=3
+cols_sensible[4]=4
+cols_sensible[5]=6
 
 # Write useful things to screen
 print 'Example simulation file: ', simpk(sim,mesh,snap,fld0,fld0)
@@ -767,7 +796,7 @@ unset title
 
 set key top left
 
-combi(isim,iz,f1,f2)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],f1,f2).' '.hmpk('DMONLY',zs[iz],0,0).' '.data(word(sims,isim),mesh,word(snaps,iz),word(fields,f1+1),word(fields,f2+1)).' '.data('DMONLY_2fluid',mesh,word(snaps,iz),fld0,fld0).'',isim,iz,f1,f2)
+combi(isim,iz,f1,f2)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],f1,f2).' '.hmpk_dmonly(zs[iz],0,0).' '.simpk(word(sims,isim),mesh,word(snaps,iz),word(fields,f1+1),word(fields,f2+1)).' '.simpk(sim_dmonly,mesh,word(snaps,iz),fld0,fld0).'',isim,iz,f1,f2)
 
 isim=3
 iz=2
@@ -847,5 +876,87 @@ plot simpk('AGN_TUNED_nu0_v2',mesh,snap,f1,f2) u 1:(($2-$3)/$1**1.5) w p pt 6 lc
      simpk('AGN_7p6_nu0',mesh,snap,f1,f2)      u 1:(($2-$3)/$1**1.5) w p pt 6 lc 5 ti 'AGN 7p6',\
      simpk('AGN_8p0_nu0',mesh,snap,f1,f2)      u 1:(($2-$3)/$1**1.5) w p pt 6 lc 7 ti 'AGN 8p0',\
      hmpk(hmpk_name,z,i1,i2)                   u 1:($5/$1**1.5)      w l lw 3 dt 1 lc col6 ti 'HMx'
+
+}
+
+if(iplot==13 || iplot==14 || iplot==15 || iplot==16 || iplot==17 || iplot==18 || iplot==19){
+
+unset title
+
+kmin=3e-3
+kmax=1e2
+set log x
+set xlabel 'k / h Mpc^{-1}'
+set xrange [kmin:kmax]
+
+dmin=1e-6
+dmax=1e3
+set log y
+set ylabel '{/Symbol D}_{uv}^2(k)'
+set format y '10^{%T}'
+set yrange [dmin:dmax]
+
+mod='AGN_TUNED_nu0'
+
+labx=0.85
+laby=0.2
+
+set key top left
+
+#set label word(z_names,iz) at screen labx,laby
+
+if(iplot==13){
+
+if(print==1){set output 'plots/power_example.eps'}
+
+plot hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti 'Halo model',\
+     simpk(mod,mesh,snap,fld0,fld0) u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation'
+
+}
+
+if(iplot==14 || iplot==15 || iplot==16 || iplot==17 || iplot==18){
+
+if(print==1){
+if(iplot==15){set output 'plots/power_example_matter-matter.eps'}
+if(iplot==15){set output 'plots/power_example_cdm-cdm.eps'}
+if(iplot==16){set output 'plots/power_example_gas-gas.eps'}
+if(iplot==17){set output 'plots/power_example_stars-stars.eps'}
+if(iplot==18){set output 'plots/power_example_epressure-epressure.eps'}
+}
+
+if(iplot==14){c1=1; c2=1; col=1; f=1.} # Matter - Matter
+if(iplot==15){c1=2; c2=2; col=2; f=1.} # CDM - CDM
+if(iplot==16){c1=3; c2=3; col=3; f=1.} # Gas - Gas
+if(iplot==17){c1=4; c2=4; col=4; f=1.} # Stars - Stars
+if(iplot==18){c1=5; c2=5; col=6; f=f2} # Electron pressure - Electron pressure
+
+
+plot hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti ''.word(field_names_sensible,1).'',\
+     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$5) w l lc col dt 1 lw 3 ti ''.word(field_names_sensible,c1).'',\
+     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$3) w l lc col dt 2 lw 3 noti,\
+     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$4) w l lc col dt 3 lw 3 noti,\
+     simpk(mod,mesh,snap,word(fields_sensible,1),word(fields_sensible,1)) u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation',\
+     simpk(mod,mesh,snap,word(fields_sensible,c1),word(fields_sensible,c2)) u 1:(f*($2-$3)):(f*$5) w e lc -1 pt 7 ps .5 noti
+
+}
+
+if(iplot==19){
+
+if(print==1){
+set output 'plots/power_example_matter-epressure.eps'
+show output
+}
+
+c1=1; c2=5; col=6; f=f1 # Matter - Electron pressure
+
+plot hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$3) w l lc col dt 2 lw 3 noti,\
+     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$4) w l lc col dt 3 lw 3 noti,\
+     hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti ''.word(field_names_sensible,1).'',\
+     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$5) w l lc col dt 1 lw 3 ti ''.word(field_names_sensible,c2).'',\
+     hmpk(mod,z,ifields[1],ifields[c2])  u 1:(f*$5) w l lc 1   dt 2 lw 3 noti,\
+     simpk(mod,mesh,snap,word(fields_sensible,1),word(fields_sensible,1)) u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation',\
+     simpk(mod,mesh,snap,word(fields_sensible,c1),word(fields_sensible,c2)) u 1:(f*($2-$3)):(f*$5) w e lc -1 pt 7 ps .5 noti
+
+}
 
 }

@@ -148,7 +148,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '38 - Project triad (3 combinations)'
      WRITE(*,*) '39 - Project triad (5 combinations)'
      WRITE(*,*) '40 - Halo bias'
-     WRITE(*,*) '41 - '
+     WRITE(*,*) '41 - 3D power as a function of cosmological parameters'
      WRITE(*,*) '42 - PAPER: Contributions to k-k C(l) integral'
      WRITE(*,*) '43 - PAPER: Contributions to k-y C(l) integral'
      WRITE(*,*) '44 - PAPER: Project triad'
@@ -1736,10 +1736,10 @@ PROGRAM HMx_driver
      ilog=.FALSE.
 
      ! Number of parameters
-     npa=10
+     npa=11
 
      ! Loop over parameters     
-     DO ipa=10,npa
+     DO ipa=1,npa
         
         ! Set maximum and minimum parameter values and linear or log range
         IF(ipa==1) THEN
@@ -1792,6 +1792,10 @@ PROGRAM HMx_driver
            param_min=-0.01
            param_max=0.01
            ilog=.FALSE.
+        ELSE IF(ipa==11) THEN
+           param_min=-0.5
+           param_max=0.
+           ilog=.FALSE.
         END IF
 
         ! Loop over parameter values
@@ -1806,7 +1810,7 @@ PROGRAM HMx_driver
 
            CALL assign_halomod(ihm,hmod,verbose)
 
-           IF(hmod%HMx_mode==1) THEN
+           IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
               IF(ipa==1)  hmod%alpha=param
               IF(ipa==2)  hmod%eps=param
               IF(ipa==3)  hmod%Gamma=param
@@ -1817,6 +1821,7 @@ PROGRAM HMx_driver
               IF(ipa==8)  hmod%fcold=param
               IF(ipa==9)  hmod%alphap=param
               IF(ipa==10) hmod%Gammap=param
+              IF(ipa==11) hmod%eta=param
            ELSE IF(hmod%HMx_mode==4) THEN
               IF(ipa==1) THEN
                  hmod%A_alpha=0.
@@ -1996,11 +2001,11 @@ PROGRAM HMx_driver
      ELSE IF(imode==40) THEN
         na=4
         ALLOCATE(a(na))
-        a(1)=0.
-        a(2)=0.5
-        a(3)=1.
-        a(4)=2.0
-        a=1./(1.+a)
+        a(1)=0.  ! This is actually z
+        a(2)=0.5 ! This is actually z
+        a(3)=1.  ! This is actually z
+        a(4)=2.0 ! This is actually z
+        a=1./(1.+a) ! Now convert z to a
      END IF
 
      ! Allocate arrays for fields
@@ -2170,54 +2175,143 @@ PROGRAM HMx_driver
      k=exp(k)
      ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
-     ! Set the redshift
-     z=0.0
-
      ! Directory for output
      dir='data'
 
      ! Set the halo model
      ihm=12
 
+     ! Number of different cosmologies
+     ncos=25
+
      ! Loop over cosmologies
-     DO i=1,9
+     DO i=1,ncos
 
         IF(i==1) THEN
-           ! LCDM
+           ! LCDM; z=0
            icosmo=1
-           outfile='LCDM'
+           outfile='LCDM_z0'
+           z=0.0
         ELSE IF(i==2) THEN
-           ! OCDM
+           ! OCDM; z=0
            icosmo=5
-           outfile='OCDM'
+           outfile='OCDM_z0'
+           z=0.0
         ELSE IF(i==3) THEN
-           ! EdS
+           ! EdS; z=0
            icosmo=15
-           outfile='SCDM'
+           outfile='SCDM_z0'
+           z=0.0
         ELSE IF(i==4) THEN
-           ! w = -0.7
+           ! w = -0.7; z=0
            icosmo=16
-           outfile='w-0.7'
+           outfile='w-0.7_z0'
+           z=0.0
         ELSE IF(i==5) THEN
-           ! w = -1.3
+           ! w = -1.3; z=0
            icosmo=17
-           outfile='w-1.3'
+           outfile='w-1.3_z0'
+           z=0.0
         ELSE IF(i==6) THEN
-           ! wa = 0.5
+           ! wa = 0.5; z=0
            icosmo=18
-           outfile='wa0.5'
+           outfile='wa0.5_z0'
+           z=0.0
         ELSE IF(i==7) THEN
-           ! wa = -0.5
+           ! wa = -0.5; z=0
            icosmo=19
-           outfile='wa-0.5'
+           outfile='wa-0.5_z0'
+           z=0.0
         ELSE IF(i==8) THEN
-           ! w = -0.7; wa = -1.5
+           ! w = -0.7; wa = -1.5; z=0
            icosmo=20
-           outfile='w0-0.7wa-1.5'
+           outfile='w0-0.7wa-1.5_z0'
+           z=0.0
         ELSE IF(i==9) THEN
-           ! w = -1.3; wa = 0.5
+           ! w = -1.3; wa = 0.5; z=0
            icosmo=21
-           outfile='w0-1.3wa0.5'
+           outfile='w0-1.3wa0.5_z0'
+           z=0.0
+        ELSE IF(i==10) THEN
+           ! OCDM; z=1
+           icosmo=5
+           outfile='OCDM_z1'
+           z=1.0
+        ELSE IF(i==11) THEN
+           ! w = -0.7; z=1
+           icosmo=16
+           outfile='w-0.7_z1'
+           z=1.0
+        ELSE IF(i==12) THEN
+           ! w = -1.3; z=1
+           icosmo=17
+           outfile='w-1.3_z1'
+           z=1.0
+        ELSE IF(i==13) THEN
+           ! wa = 0.5; z=1
+           icosmo=18
+           outfile='wa0.5_z1'
+           z=1.0
+        ELSE IF(i==14) THEN
+           ! wa = -0.5; z=1
+           icosmo=19
+           outfile='wa-0.5_z1'
+           z=1.0
+        ELSE IF(i==15) THEN
+           ! w = -0.7; wa = -1.5; z=1
+           icosmo=20
+           outfile='w0-0.7wa-1.5_z1'
+           z=1.0
+        ELSE IF(i==16) THEN
+           ! w = -1.3; wa = 0.5; z=1
+           icosmo=21
+           outfile='w0-1.3wa0.5_z1'
+           z=1.0
+        ELSE IF(i==17) THEN
+           ! OCDM; z=1; LCDM
+           icosmo=29
+           outfile='LCDM_OCDM_z1'
+           z=1.0
+        ELSE IF(i==18) THEN
+           ! w = -0.7; z=1; LCDM
+           icosmo=30
+           outfile='LCDM_w-0.7_z1'
+           z=1.0
+        ELSE IF(i==19) THEN
+           ! w = -1.3; z=1; LCDM
+           icosmo=31
+           outfile='LCDM_w-1.3_z1'
+           z=1.0
+        ELSE IF(i==20) THEN
+           ! wa = 0.5; z=1; LCDM
+           icosmo=32
+           outfile='LCDM_wa0.5_z1'
+           z=1.0
+        ELSE IF(i==21) THEN
+           ! wa = -0.5; z=1; LCDM
+           icosmo=33
+           outfile='LCDM_wa-0.5_z1'
+           z=1.0
+        ELSE IF(i==22) THEN
+           ! w = -0.7; wa = -1.5; z=1; LCDM
+           icosmo=34
+           outfile='LCDM_w0-0.7wa-1.5_z1'
+           z=1.0
+        ELSE IF(i==23) THEN
+           ! w = -1.3; wa = 0.5; z=1; LCDM
+           icosmo=35
+           outfile='LCDM_w0-1.3wa0.5_z1'
+           z=1.0
+        ELSE IF(i==24) THEN
+           ! EdS; z=1
+           icosmo=15
+           outfile='SCDM_z1'
+           z=1.0
+        ELSE IF(i==25) THEN
+           ! EdS; z=1; LCDM
+           icosmo=36
+           outfile='LCDM_SCDM_z1'
+           z=1.0
         END IF
 
         ! Assigns the cosmological model
@@ -2903,6 +2997,69 @@ PROGRAM HMx_driver
         WRITE(*,*) 'HMx_DRIVER: Hydro tests passed'        
      END IF
      WRITE(*,*)
+
+  ELSE IF(imode==41) THEN
+
+     ! Assess 3D power as a function of cosmology
+
+     ! Assign the cosmology
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+
+     ! Assign the halo model
+     ihm=3
+     CALL assign_halomod(ihm,hmod,verbose=.FALSE.)
+
+     ! Set the redshift
+     z=0.
+
+     ! Set range in sigma_8
+     sig8min=0.7
+     sig8max=0.9
+     ncos=5
+
+     ! Allocate arrays for the fields
+     nf=2
+     ALLOCATE(fields(nf))
+     fields(1)=field_matter
+     fields(2)=field_electron_pressure
+
+     ! Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     ! Allocate arrays for the power
+     ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
+
+     ! Loop over cosmology
+     DO i=1,ncos
+
+        ! Change the sigma_8 value
+        cosm%sig8=progression(sig8min,sig8max,i,ncos)
+        CALL init_cosmology(cosm)
+        CALL print_cosmology(cosm)
+
+        ! Initiliasation for the halomodel calcualtion
+        CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose=.FALSE.)
+        CALL print_halomod(hmod,cosm,verbose=.FALSE.)
+
+        ! Do the halo-model calculation
+        CALL calculate_HMx_a(fields,2,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
+
+        ! Write data
+        dir='data/'
+        base=TRIM(dir)//'cosmology_'
+        ext='_matter-matter_power.dat'
+        outfile=number_file(base,i,ext)
+        CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose=.TRUE.)
+        ext='_matter-epressure_power.dat'
+        outfile=number_file(base,i,ext)
+        CALL write_power(k,pow_li,pow_2h(1,2,:),pow_1h(1,2,:),pow_hm(1,2,:),nk,outfile,verbose=.TRUE.)
+
+     END DO
 
   ELSE IF(imode==45) THEN
 

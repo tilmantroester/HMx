@@ -1,10 +1,12 @@
 unset multiplot
 reset
 
-set term aqua dashed
+if(!exists('print')) {print=0}
+if(print==0) {set term aqua dashed}
+if(print==1) {set term post enh col; set output 'halo_bias.eps'}
 
 power(f1,f2)=sprintf('data/power_%s%s_hm.dat',f1,f2)
-simul(snap,f1,f2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',snap,f1,f2)
+simul(snap,f1,f2)=sprintf('/Users/Mead/Physics/data/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',snap,f1,f2)
 
 print ''
 

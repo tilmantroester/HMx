@@ -29,8 +29,9 @@ if(param==5)  {pname='A_*';               min=0.02;  max=0.04;  ilog=0; coll='go
 if(param==6)  {pname='T_{WHIM} / K';      min=1e5;   max=1e7;   ilog=1; coll='cyan'}
 if(param==7)  {pname='c_*';               min=10.;   max=100.;  ilog=1; coll='purple'}
 if(param==8)  {pname='f_{c}';             min=0.;    max=0.25;  ilog=0; coll='green'}
-if(param==9)  {pname='{/Symbol a}_p';     min=-0.1;  max=0.1;   ilog=0; coll='grey'}
-if(param==10) {pname='{/Symbol G}_p';     min=-0.01; max=0.01;  ilog=0; coll='grey'}
+if(param==9)  {pname='{/Symbol a}_p';     min=-0.1;  max=0.1;   ilog=0; coll='blue'}
+if(param==10) {pname='{/Symbol G}_p';     min=-0.01; max=0.01;  ilog=0; coll='red'}
+if(param==11) {pname='{/Symbol h}';       min=-0.5;  max=0.0;   ilog=0; coll='grey'}
 print 'Comparison for parameter (set with *param*): '.param.''
 
 #Output figure
@@ -55,7 +56,7 @@ print 'Snapshot: ', snap
 if(!exists('sim')){sim=4}
 simulation_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
 simulation_titles="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
-simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
+simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/data/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
 sim_name=word(simulation_names,sim)
 #sim_title(name,z)=''.word(simulation_titles,sim).'; z = '.z.''
 name=word(simulation_titles,sim)

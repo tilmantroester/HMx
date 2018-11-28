@@ -67,6 +67,12 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: computer=1           ! Which computer are you on?
   REAL, PARAMETER :: tmax_default=1e6        ! Default maximum time for run, should not be huge
 
+  REAL, PARAMETER :: kmin_BAHAMAS=0.15
+  REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.
+  REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.
+  REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.
+  REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.
+
   ! Read in starting option
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
@@ -347,19 +353,19 @@ PROGRAM HMx_fitting
 !!$  IF(im==17 .OR. im==19) THEN    
   DO j=1,nz
      
-     kmin=0.15
+     kmin=kmin_BAHAMAS
      !IF(j==1) kmax=10. ! z = 0.0
      !IF(j==2) kmax=4.  ! z = 0.5
      !IF(j==3) kmax=2.  ! z = 1.0
      !IF(j==4) kmax=1.  ! z = 2.0
      IF(z(j)==0.0) THEN
-        kmax=10.
+        kmax=kmax_BAHAMAS_z0p0
      ELSE IF(z(j)==0.5) THEN
-        kmax=4.
+        kmax=kmax_BAHAMAS_z0p5
      ELSE IF(z(j)==1.0) THEN
-        kmax=2.
+        kmax=kmax_BAHAMAS_z1p0
      ELSE IF(z(j)==2.0) THEN
-        kmax=1.
+        kmax=kmax_BAHAMAS_z2p0
      ELSE
         STOP 'HMx_FITTING: Error, something went wrong setting z'
      END IF
@@ -895,7 +901,7 @@ PROGRAM HMx_fitting
      IF(j==1) THEN
         out=6
      ELSE IF(j==2) THEN
-        out=7
+        out=77
         outfile=trim(outbase)//'_params.dat'
         OPEN(out,file=outfile)
      ELSE
@@ -1379,14 +1385,14 @@ CONTAINS
     END IF
 
     ! Read in data from file
-    OPEN(7,file=infile,status='old')
+    OPEN(9,file=infile,status='old')
     DO i=1,n
-       READ(7,*) k(i), Pk(i), shot
+       READ(9,*) k(i), Pk(i), shot
        IF(PRESENT(subtract_shot)) THEN
           IF(subtract_shot) Pk(i)=Pk(i)-shot
        END IF
     END DO
-    CLOSE(7)
+    CLOSE(9)
 
     IF(PRESENT(cut_nyquist)) THEN
        IF(cut_nyquist) THEN

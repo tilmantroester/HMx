@@ -1,21 +1,22 @@
 unset multiplot
 reset
 
-#This gnuplot script plots the output file 'power.dat' that is spat out of HMcode.
-#Simply load up gnuplot (type gnuplot in the terminal) and then type "gnuplot>load 'plot.p'"
-#The plot should then be the non-linear spectrum at 16 redshifts
-
 if(!exists('print')){print=0}
 if(print==0){set term aqua dashed}
 if(print==1){set term post enh col sol; set output 'power_comparison.eps'}
 
 kmin=1e-3
 kmax=1e2
-set log x
-set xrange [kmin:kmax]
 
 pmin=1e-7
 pmax=1e4
+
+rmin=0.5
+rmax=1.5
+
+set log x
+set xrange [kmin:kmax]
+
 set log y
 set yrange [pmin:pmax]
 #set yrange [*:*]
@@ -58,8 +59,7 @@ set format x
 
 unset log y
 set yrange [*:*]
-#set yrange [0.98:1.02]
-#set yrange [0:2]
+set yrange [rmin:rmax]
 set format y
 set ylabel 'P_{new}(k) / P_{old}(k)'
 
