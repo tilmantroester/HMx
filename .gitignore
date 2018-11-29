@@ -25,14 +25,9 @@ plotting/*.p~
 *~
 
 # Mead directories
-src/BACKUP/
-BACKUP/
-OLD/
-cosmo-OWLS/
-lensing/
-matter/
+backup/
+old/
 winint/
-BAHAMAS/
 fitting/
 CCL/
 
