@@ -1,6 +1,4 @@
 PROGRAM HMx_fitting
-
-  ! TODO: Surely k(:,:,:) -> k(:)
   
   USE HMx
   USE cosmology_functions
@@ -12,7 +10,7 @@ PROGRAM HMx_fitting
   IMPLICIT NONE
   INTEGER :: im
   INTEGER :: ncos, nf, nz, nk
-  REAL, ALLOCATABLE :: k(:,:,:), z(:), pow_bm(:,:,:,:,:), pow_hm(:,:,:,:,:), weight(:,:,:,:,:)
+  REAL, ALLOCATABLE :: k(:), z(:), pow_bm(:,:,:,:,:), pow_hm(:,:,:,:,:), weight(:,:,:,:,:)
   INTEGER, ALLOCATABLE :: fields(:)
   TYPE(halomod), ALLOCATABLE :: hmod(:)
   TYPE(cosmology), ALLOCATABLE :: cosm(:)
@@ -67,6 +65,7 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: computer=1           ! Which computer are you on?
   REAL, PARAMETER :: tmax_default=1e6        ! Default maximum time for run, should not be huge
 
+  ! k cuts for the BAHAMAS power spectra
   REAL, PARAMETER :: kmin_BAHAMAS=0.15
   REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.
   REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.
@@ -98,7 +97,7 @@ PROGRAM HMx_fitting
      WRITE(*,*) '15 - Hydro: fixed z; matter'
      WRITE(*,*) '16 - Hydro: fixed z; everything but pressure-pressure'
      WRITE(*,*) '17 - Hydro: all z; everything but pressure-pressure'
-     WRITE(*,*) '18 - NA'
+     WRITE(*,*) '18 - Hydro: all z; only matter-matter and matter-pressure'
      WRITE(*,*) '19 - Hydro: all z; stars'
      READ(*,*) im
      WRITE(*,*)
@@ -151,7 +150,7 @@ PROGRAM HMx_fitting
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==19) THEN
 
      ! Required change in figure-of-merit
      delta=1e-3
@@ -160,7 +159,7 @@ PROGRAM HMx_fitting
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11 .OR. im==16 .OR. im==17) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18) THEN
         nf=5   
      ELSE IF(im==12 .OR. im==13 .OR. im==19) THEN
         nf=1
@@ -191,7 +190,7 @@ PROGRAM HMx_fitting
      z(4)=2.0
      fields(1)=field_dmonly
      
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
      
      ! Hydro simulations
      IF(name=='') name='AGN_TUNED_nu0'
@@ -200,7 +199,7 @@ PROGRAM HMx_fitting
         !kmin=0.15
         !kmax=10.
         nz=1
-     ELSE IF(im==19 .OR. im==17) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19) THEN
         !kmin=0.15
         !kmax=10.
         nz=4
@@ -217,7 +216,7 @@ PROGRAM HMx_fitting
         ELSE
            READ(zin,*) z(1)
         END IF        
-     ELSE IF(im==17 .OR. im==19) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19) THEN
         z(1)=0.0
         z(2)=0.5
         z(3)=1.0
@@ -227,7 +226,7 @@ PROGRAM HMx_fitting
      END IF
 
      ! Set the fields
-     IF(im==11 .OR. im==16 .OR. im==17) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -262,7 +261,7 @@ PROGRAM HMx_fitting
         icosmo=24    ! Random Mira Titan cosmology
      ELSE IF(im==4) THEN
         icosmo=25    ! Random FrankenEmu cosmology
-     ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+     ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
         icosmo=4 ! WMAP9
      ELSE
         STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -278,7 +277,7 @@ PROGRAM HMx_fitting
   ALLOCATE(hmod(ncos))
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
      ihm=15 ! HMcode 2018
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
      ihm=20 ! Standard halo-model response
   ELSE
      STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -307,7 +306,7 @@ PROGRAM HMx_fitting
                  CALL read_Mira_Titan_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
               ELSE IF(im==2 .OR. im==4) THEN
                  CALL read_FrankenEmu_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
-              ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+              ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
                  ip(1)=fields(j1)
                  ip(2)=fields(j2)
                  CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i))!,kmin,kmax)
@@ -316,13 +315,9 @@ PROGRAM HMx_fitting
               END IF
 
               ! Allocate big arrays for P(k,z,cosm)
-!!$              IF(i==1 .AND. j==1 .AND. j1==1 .AND. j2==1) THEN
-!!$                 ALLOCATE(k(ncos,nk,nz),pow_bm(ncos,nf,nf,nk,nz),weight(ncos,nf,nf,nk,nz))
-!!$                 weight=1.
-!!$              END IF
-              IF(.NOT. ALLOCATED(k))      ALLOCATE(k(ncos,nk,nz))
+              IF(.NOT. ALLOCATED(k))      ALLOCATE(k(nk))
               IF(.NOT. ALLOCATED(pow_bm)) ALLOCATE(pow_bm(ncos,nf,nf,nk,nz))
-              k(i,:,j)=k_sim
+              k=k_sim
               pow_bm(i,j1,j2,:,j)=pow_sim
               
            END DO
@@ -331,33 +326,27 @@ PROGRAM HMx_fitting
      END DO
   END DO
 
+  ! Standard to give equal weight to everything
   ALLOCATE(weight(ncos,nf,nf,nk,nz))
   weight=1.
 
-  IF(im==16 .OR. im==17) THEN
-     weight(:,5,5,:,:)=0. ! No weight to pressure-pressure
+  ! Only weight to matter-pressure and matter-matter
+  IF(im==18) THEN
+     weight=0.
+     weight(:,1,1,:,:)=1.
+     weight(:,1,5,:,:)=1.
+     weight(:,5,1,:,:)=1.
   END IF
 
-!!$  ! k range for fixed z
-!!$  IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==18) THEN
-!!$     kmin=0.15
-!!$     kmax=10.
-!!$     DO i=1,nk
-!!$        IF(k(1,i,1)<kmin .OR. k(1,i,1)>kmax) THEN
-!!$           weight(:,:,:,i,:)=0.
-!!$        END IF
-!!$     END DO
-!!$  END IF
+  ! No weight to pressure-pressure
+  IF(im==16 .OR. im==17) THEN
+     weight(:,5,5,:,:)=0. 
+  END IF
 
-  ! k range for multi-z
-!!$  IF(im==17 .OR. im==19) THEN    
+  ! k range for multi-z   
   DO j=1,nz
      
      kmin=kmin_BAHAMAS
-     !IF(j==1) kmax=10. ! z = 0.0
-     !IF(j==2) kmax=4.  ! z = 0.5
-     !IF(j==3) kmax=2.  ! z = 1.0
-     !IF(j==4) kmax=1.  ! z = 2.0
      IF(z(j)==0.0) THEN
         kmax=kmax_BAHAMAS_z0p0
      ELSE IF(z(j)==0.5) THEN
@@ -371,11 +360,10 @@ PROGRAM HMx_fitting
      END IF
      
      DO i=1,nk
-        IF(k(1,i,j)<kmin .OR. k(1,i,j)>kmax) weight(:,:,:,i,j)=0.
+        IF(k(i)<kmin .OR. k(i)>kmax) weight(:,:,:,i,j)=0.
      END DO
      
   END DO
-!!$  END IF
 
   !!
 
@@ -404,7 +392,7 @@ PROGRAM HMx_fitting
      ! 14 - gas and stars
      ! 15 - matter
      np=10
-  ELSE IF(im==17) THEN
+  ELSE IF(im==17 .OR. im==18) THEN
      ! everything with z dependence
      np=20
   ELSE
@@ -483,7 +471,7 @@ PROGRAM HMx_fitting
      p_min(12)=-5.
      p_max(12)=5.
 
-  ELSE IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
 
      ! The general parameters are set here
 
@@ -655,7 +643,7 @@ PROGRAM HMx_fitting
         p_int(14)=param_fhot
         p_int(15)=param_eta
 
-     ELSE IF(im==17) THEN
+     ELSE IF(im==17 .OR. im==18) THEN
 
         ! redshift dependent everything minus pressure-pressure
         p_int(1)=param_alpha
@@ -957,7 +945,7 @@ CONTAINS
     REAL, INTENT(IN) :: p(np) ! Array of varying parameters
     LOGICAL, INTENT(IN) :: p_log(np) ! Array of which parameters are explored in log
     INTEGER, INTENT(IN) :: np ! Number of varying parameters
-    REAL, INTENT(IN) :: k(n,nk,nz) ! Array of k values for comparison data
+    REAL, INTENT(IN) :: k(nk) ! Array of k values for comparison data
     INTEGER, INTENT(IN) :: nk ! Number of k values for comparison data
     REAL, INTENT(IN) :: z(nz) ! Array of z values for comparison data
     INTEGER, INTENT(IN) :: nz ! Number of z values
@@ -1093,7 +1081,7 @@ CONTAINS
           hmod(i)%fhot=pexp(14)
           hmod(i)%eta=pexp(15)
 
-       ELSE IF(im==17) THEN
+       ELSE IF(im==17 .OR. im==18) THEN
 
           ! everything; simultaneous z
           hmod(i)%alpha=pexp(1)
@@ -1131,7 +1119,7 @@ CONTAINS
           CALL print_halomod(hmod(i),cosm(i),verbose=.FALSE.)
 
           ! Calculate the halo-model power spectrum
-          CALL calculate_HMx_a(fields,nf,k(i,:,j),nk,pow_li(i,:,j),pow_2h(i,:,:,:,j),pow_1h(i,:,:,:,j),pow_hm(i,:,:,:,j),hmod(i),cosm(i),verbose=.FALSE.,response=.FALSE.)
+          CALL calculate_HMx_a(fields,nf,k,nk,pow_li(i,:,j),pow_2h(i,:,:,:,j),pow_1h(i,:,:,:,j),pow_hm(i,:,:,:,j),hmod(i),cosm(i),verbose=.FALSE.,response=.FALSE.)
 
           ! Calculate figure of merit and add to total
           DO j1=1,nf
@@ -1175,7 +1163,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: p_log(np)
     CHARACTER(len=*), INTENT(IN) :: p_nme(np)
     INTEGER, INTENT(IN) :: np
-    REAL, INTENT(IN) :: k(nk,nz,n)
+    REAL, INTENT(IN) :: k(nk)
     INTEGER, INTENT(IN) :: nk
     REAL, INTENT(IN) :: z(nz)
     INTEGER, INTENT(IN) :: nz
@@ -1185,9 +1173,9 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm(n)
     INTEGER, INTENT(IN) :: n
     LOGICAL, INTENT(IN) :: verbose
-    INTEGER :: i, j
+    INTEGER :: i!, j
     REAL :: fom_base, fom_diff, fom, df, p2(np), pow(n,nf,nf,nk,nz), dp
-    REAL :: sig, sigs(4)
+    !REAL :: sig, sigs(4)
     
     REAL, PARAMETER :: eps=2.0    ! Tolerated error in fom difference when setting range
     REAL, PARAMETER :: deriv=1e-4 ! How much smaller is the derivative than delta
@@ -1566,7 +1554,7 @@ CONTAINS
     ! Write fitting data to disk
     IMPLICIT NONE
     CHARACTER(len=*), INTENT(IN) :: base
-    REAL, INTENT(IN) :: k(ncos,nk,na)
+    REAL, INTENT(IN) :: k(nk)
     REAL, INTENT(IN) :: pow_hm(ncos,nf,nf,nk,na)
     REAL, INTENT(IN) :: pow_si(ncos,nf,nf,nk,na)
     INTEGER, INTENT(IN) :: ncos
@@ -1594,7 +1582,7 @@ CONTAINS
                 WRITE(*,*) 'WRITE_FITTING_POWER: Outfile: ', trim(outfile)
                 OPEN(7,file=outfile)
                 DO ik=1,nk
-                   WRITE(7,*) k(icos,ik,ia), pow_hm(icos,i1,i2,ik,ia), pow_si(icos,i1,i2,ik,ia)
+                   WRITE(7,*) k(ik), pow_hm(icos,i1,i2,ik,ia), pow_si(icos,i1,i2,ik,ia)
                 END DO
                 CLOSE(7)
                 WRITE(*,*) 'WRITE_FITTING_POWER: Done'
