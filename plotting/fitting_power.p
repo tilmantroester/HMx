@@ -22,6 +22,10 @@ cols[3]=3
 cols[4]=4
 cols[5]=6
 
+if(!exist('c')){c=1}
+print 'Chain: ', c
+print ''
+
 klab='k / h^{-1} Mpc'
 
 plab='{/Symbol D}^2(k)'
@@ -53,6 +57,7 @@ print 'iplot = 3: Many residuals M15 50,0000'
 print 'iplot = 4: Many residuals M11 50,0000'
 print 'iplot = 5: Many residuals M16 50,0000'
 print 'iplot = 6: Many residuals M17 50,0000'
+print 'iplot = 7: Many residuals M19 50,0000'
 print 'iplot = ', iplot
 print ''
 
@@ -168,7 +173,7 @@ if(nz==4) {unset multiplot}
 
 }
 
-if(iplot==3 || iplot==4 || iplot==5 || iplot==6){
+if(iplot==3 || iplot==4 || iplot==5 || iplot==6 || iplot==7){
 
 # iplot = 3: M15 matter fitting
 # iplot = 4: M11 everything fitting
@@ -177,6 +182,7 @@ if(iplot==3 && print==1) {set output 'fitting_m15.eps'}
 if(iplot==4 && print==1) {set output 'fitting_m11.eps'}
 if(iplot==5 && print==1) {set output 'fitting_m16.eps'}
 if(iplot==6 && print==1) {set output 'fitting_m17.eps'}
+if(iplot==7 && print==1) {set output 'fitting_m19.eps'}
 
 # models
 mods="'AGN_7p6_nu0' 'AGN_TUNED_nu0' 'AGN_8p0_nu0'"
@@ -190,6 +196,7 @@ if(iplot==3) {nf=4; type='m15'; n=50000}
 if(iplot==4) {nf=5; type='m11'; n=50000}
 if(iplot==5) {nf=5; type='m16'; n=50000}
 if(iplot==6) {nf=5; type='m17'; n=50000}
+if(iplot==7) {nf=1; type='m19'; n=50000}
 
 # y axis
 dr=0.28
@@ -230,27 +237,27 @@ if(im==2 || im==3) {set format y ''; set ylabel ''}
 unset key
 if(iz==1 && im==1) {set key top left}
 
-if(iplot==3 || iplot==4 || iplot==5) {data(mod,z,n,type,best,i1,i2)=sprintf('fitting/%s_%s_n%d_%s_%s_cos1_%d%d_z1.dat',mod,z,n,type,best,i1,i2)}
-if(iplot==6) {data(mod,n,type,best,i1,i2,iz)=sprintf('fitting/%s_n%d_%s_%s_cos1_%d%d_z%d.dat',mod,n,type,best,i1,i2,iz)}
+if(iplot==3 || iplot==4 || iplot==5) {data(mod,z,n,type,c,best,i1,i2)=sprintf('fitting/%s_%s_n%d_%s_c%d_%s_cos1_%d%d_z1.dat',mod,z,n,type,c,best,i1,i2)}
+if(iplot==6 || iplot==7) {data(mod,n,type,c,best,i1,i2,iz)=sprintf('fitting/%s_n%d_%s_c%d_%s_cos1_%d%d_z%d.dat',mod,n,type,c,best,i1,i2,iz)}
 
 if(iplot==3 || iplot==4 || iplot==5){
 plot 1 w l lt -1 noti,\
      0.95 w l lc -1 dt 2 noti,\
      1.05 w l lc -1 dt 2 noti,\
      for [j=1:nf] NaN w l lw 2 lc cols[j] ti word(field_names,j),\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,'orig',j1,j2) u 1:($2/$3) w l lc rgb 'light-grey' dt 1 lw 1.5 noti,\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,'best',j1,j2) u 1:($2/$3) w l lc cols[j1] dt 1 lw 1.5 noti,\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,'best',j1,j2) u 1:($2/$3) w l lc cols[j2] dt 2 lw 1.5 noti
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,c,'orig',j1,j2) u 1:($2/$3) w l lc rgb 'light-grey' dt 1 lw 1.5 noti,\
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,c,'best',j1,j2) u 1:($2/$3) w l lc cols[j1] dt 1 lw 1.5 noti,\
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),word(zs,iz),n,type,c,'best',j1,j2) u 1:($2/$3) w l lc cols[j2] dt 2 lw 1.5 noti
 }
 
-if(iplot==6){
+if(iplot==6 || iplot==7){
 plot 1 w l lt -1 noti,\
      0.95 w l lc -1 dt 2 noti,\
      1.05 w l lc -1 dt 2 noti,\
      for [j=1:nf] NaN w l lw 2 lc cols[j] ti word(field_names,j),\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),n,type,'orig',j1,j2,iz) u 1:($2/$3) w l lc rgb 'light-grey' dt 1 lw 1.5 noti,\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),n,type,'best',j1,j2,iz) u 1:($2/$3) w l lc cols[j1] dt 1 lw 1.5 noti,\
-     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),n,type,'best',j1,j2,iz) u 1:($2/$3) w l lc cols[j2] dt 2 lw 1.5 noti
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),n,type,c,'orig',j1,j2,iz) u 1:($2/$3) w l lc rgb 'light-grey' dt 1 lw 1.5 noti,\
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),n,type,c,'best',j1,j2,iz) u 1:($2/$3) w l lc cols[j1] dt 1 lw 1.5 noti,\
+     for [j1=1:nf] for [j2=j1:nf] data(word(mods,im),n,type,c,'best',j1,j2,iz) u 1:($2/$3) w l lc cols[j2] dt 2 lw 1.5 noti
 }
 
 unset label

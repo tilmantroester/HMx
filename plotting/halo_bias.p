@@ -11,20 +11,24 @@ simul(snap,f1,f2)=sprintf('/Users/Mead/Physics/data/BAHAMAS/power/M1024/DMONLY_n
 print ''
 
 if(!exists('iplot')){iplot=1}
-print 'iplot = 1: Plot both raw power and ratio'
+print 'iplot = 1: Plot both power and ratio'
 print 'iplot = 2: Plot only ratio '
+print 'iplot = 3: Plot only power'
 print 'iplot = ', iplot
 
 print ''
 
 kmin=1e-2
 kmax=1e1
+klab='k / h Mpc^{-1}'
 
-pmin=1e-4
+pmin=1e-6
 pmax=1e3
+plab='{/Symbol D}^2_{uv}(k)'
 
 rmin=0.
 rmax=10.
+rlab='b_h(k)'
 
 # 1 - z = 0.0
 # 2 - z = 0.5
@@ -45,37 +49,45 @@ set xrange [kmin:kmax]
 set lmargin 10
 set rmargin 2
 
-if(iplot==1){
+if(iplot==1 || iplot==3){
 
-set multiplot layout 2,1
+if(iplot==1) {set multiplot layout 2,1}
 
-set xlabel ''
-set format x ''
+if(iplot==1){set xlabel ''; set format x ''}
+set xlabel klab
 
 set yrange [pmin:pmax]
 set log y
-set ylabel '{/Symbol D}^2_{uv}(k)'
+set ylabel plab
 set format y '10^{%T}'
 
 set key top left
+if(iplot==1) {unset key}
 
-plot for [i=1:nz] power('m','m') u 1:(column(i+1)) w l lw 3 lc -1      noti 'matter-matter',\
-     for [i=1:nz] power('m','f') u 1:(column(i+1)) w l lw 3 lc i  dt 2 noti 'matter-halo',\
-     for [i=1:nz] power('f','f') u 1:(column(i+1)) w l lw 3 lc i  dt 1 noti 'halo-halo',\
-     for [i=1:nz] simul(word(snaps,i),'all','all') u 1:2:5 w e pt 7 lc -1 noti,\
-     for [i=1:nz] simul(word(snaps,i),'all','FOF') u 1:2:5 w e pt 6 lc i  noti,\
-     for [i=1:nz] simul(word(snaps,i),'FOF','FOF') u 1:2:5 w e pt 7 lc i  noti
+plot for [i=1:nz] NaN lc i lw 3 ti word(names,i),\
+     NaN lc -1 lw 3 dt 1 ti 'matter-matter',\
+     NaN lc -1 lw 3 dt 2 ti 'matter-halo',\
+     NaN lc -1 lw 3 dt 3 ti 'halo-halo',\
+     for [i=1:nz] power('m','m') u 1:(column(i+1)/10**(i-1)) w l lw 3 lc i dt 1 noti,\
+     for [i=1:nz] power('m','f') u 1:(column(i+1)/10**(i-1)) w l lw 3 lc i dt 2 noti,\
+     for [i=1:nz] power('f','f') u 1:(column(i+1)/10**(i-1)) w l lw 3 lc i dt 3 noti,\
+     for [i=1:nz] simul(word(snaps,i),'all','all') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 7 lc i noti,\
+     for [i=1:nz] simul(word(snaps,i),'all','FOF') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 6 lc i noti,\
+     for [i=1:nz] simul(word(snaps,i),'FOF','FOF') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 5 lc i noti
 
 }
 
+if(iplot==1 || iplot==2) {
+
 set key top left
 
-set xlabel 'k / h Mpc^{-1}'
+set xlabel klab
 set format x
 
-set ylabel 'b_h(k)'
+set ylabel rlab
 unset log y
 set yrange [rmin:rmax]
+set format y
 
 plot 1 w l lt -1 noti,\
      NaN w l lc -1 dt 2 lw 3 ti 'Cross-correlation bias',\
@@ -86,3 +98,5 @@ plot 1 w l lt -1 noti,\
      for [i=1:nz] '<paste '.simul(word(snaps,i),'FOF','FOF').' '.simul(word(snaps,i),'all','all').'' u 1:(sqrt(column(2)/column(2+L))) w p pt 7 lc i dt 2 noti
 
 if(iplot==1) {unset multiplot}
+
+}

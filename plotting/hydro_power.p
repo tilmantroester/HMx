@@ -11,15 +11,15 @@ print ''
 
 # Plot to make
 if(!exists('iplot')){iplot=10}
-print 'iplot =  1: OLD: Power spectrum plot'
-print 'iplot =  2: OLD: Power spectrum ratio plot'
-print 'iplot =  3: Power spectrum suppression plot'
-print 'iplot =  4: Power spectrum residual plot'
-print 'iplot =  5: Power spectrum components'
-print 'iplot =  6: Power spectrum of electron pressure'
-print 'iplot =  7: Power spectrum with k^1.5 units'
-print 'iplot =  8: PAPER: Combination of iplot=1 and 2'
-print 'iplot =  9: PAPER: Response residual'
+print 'iplot = 1:  Power spectrum plot'
+print 'iplot = 2:  Power spectrum ratio plot'
+print 'iplot = 3:  Power spectrum suppression plot'
+print 'iplot = 4:  Power spectrum residual plot'
+print 'iplot = 5:  Power spectrum components'
+print 'iplot = 6:  Power spectrum of electron pressure'
+print 'iplot = 7:  Power spectrum with k^1.5 units'
+print 'iplot = 8:  PAPER: Combination of iplot=1 and 2'
+print 'iplot = 9:  PAPER: Response residual'
 print 'iplot = 10: Combination of iplot=1 and 2'
 print 'iplot = 11: Matter-electronn pressure spectrum variance demonstration'
 print 'iplot = 12: electron pressure-electronn pressure spectrum variance demonstration'
@@ -129,9 +129,14 @@ if(icomp==2){hmpk_names="'DMONLY' 'AGN-lo' 'AGN' 'AGN-hi'"}
 if(icomp==3){hmpk_names="''"}
 sims="'DMONLY_2fluid_nu0' 'AGN_7p6_nu0' 'AGN_TUNED_nu0' 'AGN_8p0_nu0' 'AGN_TUNED_nu0_v2' 'AGN_TUNED_nu0_v3' 'AGN_TUNED_nu0_v4'"
 sim_names="'DMonly' 'AGN-lo' 'AGN' 'AGN-hi' 'AGN v2' 'AGN v3' 'AGN v4'"
+sim_cols="'black' 'dark-yellow' 'blue' 'dark-plum' 'light-blue' 'light-blue' 'light-blue'"
+
+sims_few="'DMONLY_2fluid_nu0' 'AGN_7p6_nu0' 'AGN_TUNED_nu0' 'AGN_8p0_nu0'"
+sim_few_names="'DMonly' 'AGN-lo' 'AGN' 'AGN-hi'"
+sim_few_cols="'black' 'dark-yellow' 'blue' 'dark-plum'"
 
 # Set the comparison model
-if(!exists('nsim')){nsim=3} # Default to AGN
+if(!exists('nsim')){nsim=3}       # Default to AGN
 if(iplot==8 || iplot==11){nsim=3} # Default to AGN
 hmpk_name=word(hmpk_names,nsim)
 print 'Simulation model number: nsim: '.nsim.''
@@ -141,61 +146,52 @@ print 'Simulation power file: '.sim.''
 print ''
 
 # All different fields for power spectra
-fields="'all' 'dm' 'gas' 'stars' '' '' 'epressure'" # TODO: Delete
-field_names="'matter' 'CDM' 'gas' 'stars' '' '' 'electron pressure'" # TODO: Delete
-
-# All different fields for power spectra
-fields_sensible="'all' 'dm' 'gas' 'stars' 'epressure'"
-field_names_sensible="'matter' 'CDM' 'gas' 'stars' 'electron pressure'"
-
-# TODO: Delete
-fld0='all' # TODO: Delete
-fld1='dm' # TODO: Delete
-fld2='gas' # TODO: Delete
-fld3='stars' # TODO: Delete
-fld6='epressure' # TODO: Delete
+fields="'all' 'dm' 'gas' 'stars' 'epressure'"
+field_names="'matter' 'CDM' 'gas' 'stars' 'electron pressure'"
 
 # Field integers
-array ifields[5]
-ifields[1]=0
-ifields[2]=1
-ifields[3]=2
-ifields[4]=3
-ifields[5]=6
+array ifield[5]
+ifield[1]=0
+ifield[2]=1
+ifield[3]=2
+ifield[4]=3
+ifield[5]=6
 
-# Colors
-array cols_sensible[5]
-cols_sensible[1]=1
-cols_sensible[2]=2
-cols_sensible[3]=3
-cols_sensible[4]=4
-cols_sensible[5]=6
+# Field colours
+array icol[5]
+icol[1]=1
+icol[2]=2
+icol[3]=3
+icol[4]=4
+icol[5]=6
+
+# Few fields
+fields_few="'all' 'epressure'"
+field_few_names="'mater' 'electron pressure'"
+
+# Few field integers
+array ifield_few[2]
+ifield_few[1]=0
+ifield_few[2]=6
+
+# Few field colours
+array icol_few[2]
+icol_few[1]=1
+icol_few[2]=6
+
+# Fractions to multiply pressure spectra by
+array fac[2]
+fac[1]=1.
+fac[2]=1e2
+
+# Write to screen
+print 'Pressure spectra multiplied by: ', fac[2]
+print ''
 
 # Write useful things to screen
-print 'Example simulation file: ', simpk(sim,mesh,snap,fld0,fld0)
-print 'Example halo-model file: ', hmpk(hmpk_name,z,0,0)
+print 'Example simulation file: ', simpk(sim,mesh,snap,word(fields,1),word(fields,1))
+print 'Example halo-model file: ', hmpk(hmpk_name,z,ifield[1],ifield[1])
 print ''
-
-# Factor to adject the (dimensionful) pressure spectrum
-f1=1e2
-f2=f1**2
-print 'Pressure spectra multiplied by: ', f1
-print ''
-
-# Set colours
-array cols[6]
-cols[1]=1
-cols[2]=2
-cols[3]=3
-cols[4]=4
-cols[5]=7
-cols[6]=6
-col1=1 # All matter
-col2=2 # Dark matter
-col3=3 # Gas
-col4=4 # Stars
-col5=7 # Matter-pressure
-col6=6 # Pressure
 
 # k range
 if(icomp==1 || icomp==2){kmin=1e-2; kmax=2e1}
@@ -237,29 +233,17 @@ set key bottom right
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col1 noti,\
-     simpk(sim,mesh,snap,fld1,fld1) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col2 noti,\
-     simpk(sim,mesh,snap,fld2,fld2) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col3 noti,\
-     simpk(sim,mesh,snap,fld3,fld3) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col4 noti,\
-     simpk(sim,mesh,snap,fld0,fld1) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col2 noti,\
-     simpk(sim,mesh,snap,fld0,fld2) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col3 noti,\
-     simpk(sim,mesh,snap,fld0,fld3) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col4 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'all matter',\
-     hmpk(hmpk_name,z,1,1) u 1:(column(d)) w l lw 3 dt 1 lc col2 ti 'CDM',\
-     hmpk(hmpk_name,z,2,2) u 1:(column(d)) w l lw 3 dt 1 lc col3 ti 'gas',\
-     hmpk(hmpk_name,z,3,3) u 1:(column(d)) w l lw 3 dt 1 lc col4 ti 'stars',\
-     hmpk(hmpk_name,z,0,1) u 1:(column(d)) w l lw 3 dt 2 lc col2 noti,\
-     hmpk(hmpk_name,z,0,2) u 1:(column(d)) w l lw 3 dt 2 lc col3 noti,\
-     hmpk(hmpk_name,z,0,3) u 1:(column(d)) w l lw 3 dt 2 lc col4 noti
+     for [i=1:4] simpk(sim,mesh,snap,word(fields,i),word(fields,i)) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc icol[i] noti,\
+     for [i=1:4] simpk(sim,mesh,snap,word(fields,1),word(fields,i)) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc icol[i] noti,\
+     for [i=1:4] hmpk(hmpk_name,z,ifield[i],ifield[i]) u 1:(column(d)) w l lw 3 dt 1 lc icol[i] ti word(field_names,i),\
+     for [i=1:4] hmpk(hmpk_name,z,ifield[1],ifield[i]) u 1:(column(d)) w l lw 3 dt 2 lc icol[i] noti
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e            pt 7 ps .5 lc col1 noti,\
-     simpk(sim,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 ps .5 lc col6 noti,\
-     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 ps .5 lc col6 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d))    w l lw 3 dt 1 lc col1 ti 'all matter',\
-     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d)) w l lw 3 dt 1 lc col6 ti 'electron pressure',\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d)) w l lw 3 dt 2 lc col6 noti
+     for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
+     for [i=1:2] for [j=i:2]   simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 7 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2]   hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i+1:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -286,6 +270,7 @@ set yrange [rmin:rmax]
 set ylabel 'P_{OWL}/P_{DMONLY}'
 set mytics 10
 
+# left - matter repsonse
 plot 1 w l lt -1 noti,\
      NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
@@ -293,37 +278,21 @@ plot 1 w l lt -1 noti,\
      Om_c/Om_m      w l lc -1 dt 2 noti,\
      (Om_b/Om_m)**2 w l lc -1 dt 2 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld1,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col2 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld2,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col3 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld3,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col4 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col2 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col3 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col4 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 ti 'all matter',\
-     '<paste '.hmpk(hmpk_name,z,1,1).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col2 ti 'CDM',\
-     '<paste '.hmpk(hmpk_name,z,2,2).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col3 ti 'gas',\
-     '<paste '.hmpk(hmpk_name,z,3,3).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col4 ti 'stars',\
-     '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col1 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,1).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col2 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,2).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col3 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,3).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col4 noti
+     for [i=1:4] '<paste '.simpk(sim,mesh,snap,word(fields,i),word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc icol[i] noti,\
+     for [i=1:4] '<paste '.simpk(sim,mesh,snap,'all',word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc icol[i] noti,\
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[i],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc icol[i] ti word(field_names,i),\
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[1],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc icol[i] noti
 
 rmin=1e-6
 rmax=2.
 set yrange [rmin:rmax]
 set format y '10^{%T}'
 
+# right - pressure response
 plot 1 w l lt -1 noti,\
-     NaN w l lw 3 dt 1 lc -1 noti 'Autospectra',\
-     NaN w l lw 3 dt 2 lc -1 noti 'Cross with matter',\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((f1*column(c))/(column(c+L)-column(s+L)))        w p pt 6 lc col6 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((f2*column(c))/(column(c+L)-column(s+L)))        w p pt 7 lc col6 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M))    w l lw 3 dt 1 lc col1 ti 'matter',\
-     '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti ,\
-     '<paste '.hmpk(hmpk_name,z,6,6).' '.hmpk_dmonly.'' u 1:(f2*column(d)/column(d+M)) w l lw 3 dt 1 lc col6 ti 'electron pressure'
+     for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2]   '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i+1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -351,8 +320,6 @@ rmax=1.06
 unset log y
 set format y
 set yrange [rmin:rmax]
-
-cols="'black' 'orange' 'orange-red' 'red'"
 
 top=0.98
 bot=0.10
@@ -386,13 +353,13 @@ set label zlab at graph 0.1,0.9
 
 if(icomp==1 || icomp==2){
 plot 1 w l lt -1 noti,\
-     for [i=1:words(sims)] '<paste '.simpk(word(sims,i),mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(cols,i) noti,\
-     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc rgb word(cols,i) ti word(names,i)
+     for [i=1:words(sims_few)]   '<paste '.simpk(word(sims_few,i),mesh,snap,'all','all').' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(sim_few_cols,i) noti,\
+     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc rgb word(sim_few_cols,i) ti word(names,i)
 }
 
 if(icomp==3){
 plot 1 w l lt -1 noti,\
-     for [i=1:words(sims)] '<paste '.simpk(word(sims,i),mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc i noti,\
+     for [i=1:words(sims_few)]    '<paste '.simpk(word(sims,i),mesh,snap,'all','all').' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(sim_few_cols,i) noti,\
      for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc -1 ti word(names,i)
 }
 
@@ -415,7 +382,9 @@ outfile(name,z)=sprintf('%s_z%1.1f_residual.eps',name,z)
 set output outfile(sim,z)
 }
 
-if(icomp==3){print 'iplot=4 does not work with icomp=3 because the k axis do not align'; print ''; exit}
+print 'Note that k ranges must align here!'
+print ''
+#if(icomp==3){print 'iplot=4 does not work with icomp=3 because the k axis do not align'; print ''; exit}
 
 # Delta^2(k) range
 rmin=0.5
@@ -428,15 +397,8 @@ set ylabel 'P_{HM}(k) / P_{OWLS}(k)'
 plot NaN w l lw 2 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 2 dt 2 lc -1 ti 'Cross with matter',\
      1 w l lt -1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.hmpk(hmpk_name,z,0,0).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col1 ti 'all matter',\
-     '<paste '.simpk(sim,mesh,snap,fld1,fld1).' '.hmpk(hmpk_name,z,1,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col2 ti 'CDM',\
-     '<paste '.simpk(sim,mesh,snap,fld2,fld2).' '.hmpk(hmpk_name,z,2,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col3 ti 'gas',\
-     '<paste '.simpk(sim,mesh,snap,fld3,fld3).' '.hmpk(hmpk_name,z,3,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col4 ti 'stars',\
-     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.hmpk(hmpk_name,z,6,6).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc col6 ti 'electron pressure',\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld1).' '.hmpk(hmpk_name,z,0,1).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col2 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld2).' '.hmpk(hmpk_name,z,0,2).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col3 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld3).' '.hmpk(hmpk_name,z,0,3).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col4 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.hmpk(hmpk_name,z,0,6).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc col6 noti
+     for [i=1:5] '<paste '.simpk(sim,mesh,snap,word(fields,i),word(fields,i)).' '.hmpk(hmpk_name,z,ifield[i],ifield[i]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc icol[i] ti word(field_names,i),\
+     for [i=1:5] '<paste '.simpk(sim,mesh,snap,word(fields,1),word(fields,i)).' '.hmpk(hmpk_name,z,ifield[1],ifield[i]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc icol[i] noti
 
 }
 
@@ -568,18 +530,10 @@ set format x ''
 
 set key top left
 
-plot simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5            w e pt 7 lc col1 noti,\
-     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 lc col6 noti,\
-     simpk(sim,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 lc col6 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d))      w l lw 3 dt 1 lc col1 ti 'matter-matter',\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d-2))    w l lw 3 dt 3 lc col1 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d-1))    w l lw 3 dt 4 lc col1 noti,\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d))   w l lw 3 dt 2 lc col6 ti 'matter-electron pressure',\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d-2)) w l lw 3 dt 3 lc col6 noti,\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d-1)) w l lw 3 dt 4 lc col6 noti,\
-     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d))   w l lw 3 dt 1 lc col6 ti 'electron pressure-electron ressure',\
-     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d-2)) w l lw 3 dt 3 lc col6 noti,\
-     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d-1)) w l lw 3 dt 4 lc col6 noti
+plot for [i=1:2] NaN w l lw 3 lc icol_few[i] ti word(field_few_names,i),\
+     for [i=1:2] for [j=i:2] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 7 lc icol_few[i] noti,\
+     for [k=1:3] for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d-k+1)) w l lw 3 dt k lc icol_few[i] noti,\
+     for [i=1:2] for [j=i+1:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset title
 
@@ -593,12 +547,9 @@ set yrange [rmin:rmax]
 set ylabel 'P(k) / P_{DMONLY}(k)'
 
 plot 1 w l lt -1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L)))    w p pt 7 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc col6 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f2*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc col6 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M))    w l lw 3 dt 1 lc col1 noti '{/Symbol d}{/Symbol d}',\
-     '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti '{/Symbol d}p',\
-     '<paste '.hmpk(hmpk_name,z,6,6).' '.hmpk_dmonly.'' u 1:(f2*column(d)/column(d+M)) w l lw 3 dt 1 lc col6 noti 'pp'
+     for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2]   '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i+1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -630,20 +581,10 @@ set key bottom right
 
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     simpk(sim,mesh,snap,fld0,fld0) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col1 noti,\
-     simpk(sim,mesh,snap,fld1,fld1) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col2 noti,\
-     simpk(sim,mesh,snap,fld2,fld2) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col3 noti,\
-     simpk(sim,mesh,snap,fld3,fld3) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc col4 noti,\
-     simpk(sim,mesh,snap,fld0,fld1) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col2 noti,\
-     simpk(sim,mesh,snap,fld0,fld2) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col3 noti,\
-     simpk(sim,mesh,snap,fld0,fld3) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc col4 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col1 ti 'all matter',\
-     hmpk(hmpk_name,z,1,1) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col2 ti 'CDM',\
-     hmpk(hmpk_name,z,2,2) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col3 ti 'gas',\
-     hmpk(hmpk_name,z,3,3) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc col4 ti 'stars',\
-     hmpk(hmpk_name,z,0,1) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 2 lc col2 noti,\
-     hmpk(hmpk_name,z,0,2) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 2 lc col3 noti,\
-     hmpk(hmpk_name,z,0,3) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 2 lc col4 noti
+     for [i=1:4] simpk(sim,mesh,snap,word(fields,i),word(fields,i)) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 7 lc icol[i] noti,\
+     for [i=1:4] simpk(sim,mesh,snap,word(fields,1),word(fields,i)) u 1:((column(c)-column(s))/(column(1)**pow)):($5/(column(1)**pow)) w e pt 6 lc icol[i] noti,\
+     for [i=1:4] hmpk(hmpk_name,z,ifield[i],ifield[i]) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 1 lc icol[i] ti word(fields,i),\
+     for [i=1:4] hmpk(hmpk_name,z,ifield[1],ifield[i]) u 1:((column(d)/column(1)**pow)) w l lw 3 dt 2 lc icol[i] ti word(fields,i)
 
 }
 
@@ -674,35 +615,21 @@ set key bottom right
 
 unset title
 
-# Top left - matter spectra
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col1 noti,\
-     simpk(sim,mesh,snap,fld1,fld1) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col2 noti,\
-     simpk(sim,mesh,snap,fld2,fld2) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col3 noti,\
-     simpk(sim,mesh,snap,fld3,fld3) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc col4 noti,\
-     simpk(sim,mesh,snap,fld0,fld1) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col2 noti,\
-     simpk(sim,mesh,snap,fld0,fld2) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col3 noti,\
-     simpk(sim,mesh,snap,fld0,fld3) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc col4 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d)) w l lw 3 dt 1 lc col1 ti 'all matter',\
-     hmpk(hmpk_name,z,1,1) u 1:(column(d)) w l lw 3 dt 1 lc col2 ti 'CDM',\
-     hmpk(hmpk_name,z,2,2) u 1:(column(d)) w l lw 3 dt 1 lc col3 ti 'gas',\
-     hmpk(hmpk_name,z,3,3) u 1:(column(d)) w l lw 3 dt 1 lc col4 ti 'stars',\
-     hmpk(hmpk_name,z,0,1) u 1:(column(d)) w l lw 3 dt 2 lc col2 noti,\
-     hmpk(hmpk_name,z,0,2) u 1:(column(d)) w l lw 3 dt 2 lc col3 noti,\
-     hmpk(hmpk_name,z,0,3) u 1:(column(d)) w l lw 3 dt 2 lc col4 noti
+     for [i=1:4] simpk(sim,mesh,snap,word(fields,i),word(fields,i)) u 1:(column(c)-column(s)):5 w e pt 7 ps .5 lc icol[i] noti,\
+     for [i=1:4] simpk(sim,mesh,snap,word(fields,1),word(fields,i)) u 1:(column(c)-column(s)):5 w e pt 6 ps .5 lc icol[i] noti,\
+     for [i=1:4] hmpk(hmpk_name,z,ifield[i],ifield[i]) u 1:(column(d)) w l lw 3 dt 1 lc icol[i] ti word(field_names,i),\
+     for [i=1:4] hmpk(hmpk_name,z,ifield[1],ifield[i]) u 1:(column(d)) w l lw 3 dt 2 lc icol[i] noti
 
 unset label
 
-# Top right - pressure spectra
 plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     simpk(sim,mesh,snap,fld0,fld0) u 1:(column(c)-column(s)):5            w e pt 7 ps .5 lc col1 noti,\
-     simpk(sim,mesh,snap,fld6,fld6) u 1:(f2*(column(c)-column(s))):(f2*$5) w e pt 7 ps .5 lc col6 noti,\
-     simpk(sim,mesh,snap,fld0,fld6) u 1:(f1*(column(c)-column(s))):(f1*$5) w e pt 6 ps .5 lc col6 noti,\
-     hmpk(hmpk_name,z,0,0) u 1:(column(d))    w l lw 3 dt 1 lc col1 ti 'all matter',\
-     hmpk(hmpk_name,z,6,6) u 1:(f2*column(d)) w l lw 3 dt 1 lc col6 ti 'electron pressure',\
-     hmpk(hmpk_name,z,0,6) u 1:(f1*column(d)) w l lw 3 dt 2 lc col6 noti
+     for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
+     for [i=1:2] for [j=i:2] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 7 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 2 lc icol_few[j] noti
 
 set xlabel 'k / h Mpc^{-1}'
 set format x
@@ -718,31 +645,16 @@ plot 1 w l lt -1 noti,\
      Om_c/Om_m      w l lc -1 dt 2 noti,\
      (Om_b/Om_m)**2 w l lc -1 dt 2 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld1,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col2 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld2,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col3 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld3,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col4 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld1).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col2 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld2).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col3 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld3).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col4 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col1 noti,\
-     '<paste '.hmpk(hmpk_name,z,1,1).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col2 noti,\
-     '<paste '.hmpk(hmpk_name,z,2,2).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col3 noti,\
-     '<paste '.hmpk(hmpk_name,z,3,3).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc col4 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col1 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,1).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col2 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,2).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col3 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,3).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc col4 noti
+     for [i=1:4] '<paste '.simpk(sim,mesh,snap,word(fields,i),word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,word(fields,1),word(fields,1)).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol[i] noti,\
+     for [i=1:4] '<paste '.simpk(sim,mesh,snap,word(fields,1),word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,word(fields,1),word(fields,1)).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc icol[i] noti,\
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[i],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc icol[i] noti,\
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[1],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc icol[i] noti
 
 # Bottom right - pressure response
 plot 1 w l lt -1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld0).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L)))    w p pt 7 ps .5 lc col1 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld6,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f2*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc col6 noti,\
-     '<paste '.simpk(sim,mesh,snap,fld0,fld6).' '.simpk(sim_dmonly,mesh,snap,fld0,fld0).'' u 1:(f1*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc col6 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M))    w l lw 3 dt 1 lc col1 noti,\
-     '<paste '.hmpk(hmpk_name,z,6,6).' '.hmpk_dmonly.'' u 1:(f2*column(d)/column(d+M)) w l lw 3 dt 1 lc col6 noti,\
-     '<paste '.hmpk(hmpk_name,z,0,6).' '.hmpk_dmonly.'' u 1:(f1*column(d)/column(d+M)) w l lw 3 dt 2 lc col6 noti
+     for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -755,8 +667,8 @@ unset multiplot
 if(iplot==9){
 
 # Set to do BAHAMAS comparison only
-icomp=2
-print 'Note that icomp=2 has been automatically set here'
+#icomp=2
+print 'Note that k ranges mus align here!'
 print ''
 
 # Terminal commands
@@ -796,8 +708,6 @@ unset title
 
 set key top left
 
-combi(isim,iz,f1,f2)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],f1,f2).' '.hmpk_dmonly(zs[iz],0,0).' '.simpk(word(sims,isim),mesh,word(snaps,iz),word(fields,f1+1),word(fields,f2+1)).' '.simpk(sim_dmonly,mesh,word(snaps,iz),fld0,fld0).'',isim,iz,f1,f2)
-
 isim=3
 iz=2
 
@@ -814,6 +724,14 @@ if(isim==3 || isim==4){set format y ''; set ylabel ''}
 
 do for [iz=1:4]{
 
+if(icomp==2){
+combi(isim,iz,i,j)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],ifield[i],ifield[j]).' '.hmpk(word(hmpk_names,1),zs[iz],ifield[1],ifield[1]).' '.simpk(word(sims,isim),mesh,word(snaps,iz),word(fields,i),word(fields,j)).' '.simpk(sim_dmonly,mesh,word(snaps,iz),'all','all').'',isim,iz,i,j)
+}
+
+if(icomp==3){
+combi(isim,iz,i,j)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],ifield[i],ifield[j]).' '.hmdm(zs[iz]).' '.simpk(word(sims,isim),mesh,word(snaps,iz),word(fields,i),word(fields,j)).' '.simpk(sim_dmonly,mesh,word(snaps,iz),'all','all').'',isim,iz,i,j)
+}
+
 if(iz==1){set tmargin at screen top-0*dy; set bmargin at screen top-1*dy}
 if(iz==2){set tmargin at screen top-1*dy; set bmargin at screen top-2*dy}
 if(iz==3){set tmargin at screen top-2*dy; set bmargin at screen top-3*dy}
@@ -829,7 +747,10 @@ if(iz==1 && isim==2){set key; unset label}
 plot 1 w l lt -1 noti,\
      NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     combi(isim,iz,0,0) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[1] ti word(field_names,1+0),\
+     for [i=1:5] combi(isim,iz,i,i) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 2 dt 1 lc icol[i] ti word(field_names,i),\
+     for [i=1:5] combi(isim,iz,1,i) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 2 dt 2 lc icol[i] noti
+
+     #combi(isim,iz,0,0) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[1] ti word(field_names,1+0),\
      combi(isim,iz,1,1) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[2] ti word(field_names,1+1),\
      combi(isim,iz,2,2) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[3] ti word(field_names,1+2),\
      combi(isim,iz,3,3) u 1:((column(d)/column(d+M))/((column(2*M+c)-column(2*M+s))/(column(2*M+c+L)-column(2*M+s+L)))) w l lw 3 dt 1 lc cols[4] ti word(field_names,1+3),\
@@ -864,18 +785,18 @@ if(iplot==12) {pmin=1e-8; pmax=1e-5}
 set yrange[pmin:pmax]
 set ylabel '{/Symbol D}^2(k) / (k/h^{-1} Mpc)^{1.5}'
 
-if(iplot==11) {f1=fld0; f2=fld6; i1=0; i2=6; set title 'matter-electron pressure BAHAMAS spectra'}
-if(iplot==12) {f1=fld6; f2=fld6; i1=6; i2=6; set title 'electron pressure-electron pressure BAHAMAS spectra'}
+if(iplot==11) {f1='all';       f2='epressure'; i1=0; i2=6; set title 'matter-electron pressure BAHAMAS spectra'}
+if(iplot==12) {f1='epressure'; f2='epressure'; i1=6; i2=6; set title 'electron pressure-electron pressure BAHAMAS spectra'}
 
 set key top left
 
 plot simpk('AGN_TUNED_nu0_v2',mesh,snap,f1,f2) u 1:(($2-$3)/$1**1.5) w p pt 6 lc rgb 'light-blue' noti,\
      simpk('AGN_TUNED_nu0_v3',mesh,snap,f1,f2) u 1:(($2-$3)/$1**1.5) w p pt 6 lc rgb 'light-blue' noti,\
      simpk('AGN_TUNED_nu0_v4',mesh,snap,f1,f2) u 1:(($2-$3)/$1**1.5) w p pt 6 lc rgb 'light-blue' noti,\
-     simpk('AGN_TUNED_nu0',mesh,snap,f1,f2)    u 1:(($2-$3)/$1**1.5):($5/$1**1.5) w e pt 6 lc col6 ti 'AGN 7p8',\
+     simpk('AGN_TUNED_nu0',mesh,snap,f1,f2)    u 1:(($2-$3)/$1**1.5):($5/$1**1.5) w e pt 6 lc icol[5] ti 'AGN 7p8',\
      simpk('AGN_7p6_nu0',mesh,snap,f1,f2)      u 1:(($2-$3)/$1**1.5) w p pt 6 lc 5 ti 'AGN 7p6',\
      simpk('AGN_8p0_nu0',mesh,snap,f1,f2)      u 1:(($2-$3)/$1**1.5) w p pt 6 lc 7 ti 'AGN 8p0',\
-     hmpk(hmpk_name,z,i1,i2)                   u 1:($5/$1**1.5)      w l lw 3 dt 1 lc col6 ti 'HMx'
+     hmpk(hmpk_name,z,i1,i2)                   u 1:($5/$1**1.5)      w l lw 3 dt 1 lc icol[5] ti 'HMx'
 
 }
 
@@ -910,7 +831,7 @@ if(iplot==13){
 if(print==1){set output 'plots/power_example.eps'}
 
 plot hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti 'Halo model',\
-     simpk(mod,mesh,snap,fld0,fld0) u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation'
+     simpk(mod,mesh,snap,'all','all') u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation'
 
 }
 
@@ -931,12 +852,12 @@ if(iplot==17){c1=4; c2=4; col=4; f=1.} # Stars - Stars
 if(iplot==18){c1=5; c2=5; col=6; f=f2} # Electron pressure - Electron pressure
 
 
-plot hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti ''.word(field_names_sensible,1).'',\
-     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$5) w l lc col dt 1 lw 3 ti ''.word(field_names_sensible,c1).'',\
-     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$3) w l lc col dt 2 lw 3 noti,\
-     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$4) w l lc col dt 3 lw 3 noti,\
-     simpk(mod,mesh,snap,word(fields_sensible,1),word(fields_sensible,1)) u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation',\
-     simpk(mod,mesh,snap,word(fields_sensible,c1),word(fields_sensible,c2)) u 1:(f*($2-$3)):(f*$5) w e lc -1 pt 7 ps .5 noti
+plot hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti ''.word(field_names,1).'',\
+     hmpk(mod,z,ifield[c1],ifield[c2]) u 1:(f*$5) w l lc col dt 1 lw 3 ti ''.word(field_names,c1).'',\
+     hmpk(mod,z,ifield[c1],ifield[c2]) u 1:(f*$3) w l lc col dt 2 lw 3 noti,\
+     hmpk(mod,z,ifield[c1],ifield[c2]) u 1:(f*$4) w l lc col dt 3 lw 3 noti,\
+     simpk(mod,mesh,snap,word(fields,1),word(fields,1))   u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation',\
+     simpk(mod,mesh,snap,word(fields,c1),word(fields,c2)) u 1:(f*($2-$3)):(f*$5) w e lc -1 pt 7 ps .5 noti
 
 }
 
@@ -947,15 +868,15 @@ set output 'plots/power_example_matter-epressure.eps'
 show output
 }
 
-c1=1; c2=5; col=6; f=f1 # Matter - Electron pressure
+c1=1; c2=5; col=6; f=fac[1] # Matter - Electron pressure
 
-plot hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$3) w l lc col dt 2 lw 3 noti,\
-     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$4) w l lc col dt 3 lw 3 noti,\
-     hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti ''.word(field_names_sensible,1).'',\
-     hmpk(mod,z,ifields[c1],ifields[c2]) u 1:(f*$5) w l lc col dt 1 lw 3 ti ''.word(field_names_sensible,c2).'',\
-     hmpk(mod,z,ifields[1],ifields[c2])  u 1:(f*$5) w l lc 1   dt 2 lw 3 noti,\
-     simpk(mod,mesh,snap,word(fields_sensible,1),word(fields_sensible,1)) u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation',\
-     simpk(mod,mesh,snap,word(fields_sensible,c1),word(fields_sensible,c2)) u 1:(f*($2-$3)):(f*$5) w e lc -1 pt 7 ps .5 noti
+plot hmpk(mod,z,ifield[c1],ifield[c2]) u 1:(f*$3) w l lc col dt 2 lw 3 noti,\
+     hmpk(mod,z,ifield[c1],ifield[c2]) u 1:(f*$4) w l lc col dt 3 lw 3 noti,\
+     hmpk(mod,z,0,0) u 1:5 w l lc 1 dt 1 lw 3 ti ''.word(field_names,1).'',\
+     hmpk(mod,z,ifield[c1],ifield[c2]) u 1:(f*$5) w l lc col dt 1 lw 3 ti ''.word(field_names,c2).'',\
+     hmpk(mod,z,ifield[1], ifield[c2]) u 1:(f*$5) w l lc 1   dt 2 lw 3 noti,\
+     simpk(mod,mesh,snap,word(fields,1),word(fields,1))   u 1:($2-$3):5 w e lc -1 pt 7 ps .5 ti 'Simulation',\
+     simpk(mod,mesh,snap,word(fields,c1),word(fields,c2)) u 1:(f*($2-$3)):(f*$5) w e lc -1 pt 7 ps .5 noti
 
 }
 

@@ -8,7 +8,7 @@ if(print==1) {set term post enh col font ',9'}
 
 # File
 power(dir,mod,z,n,m,c,f1,f2,iz)=sprintf('%s/%s%s_n%d_m%d_c%d_best_cos1_%d%d_z%d.dat',dir,mod,z,n,m,c,f1,f2,iz)
-dmonly(z)=sprintf('data/power%s.dat',z) # This should be an HMcode prediction
+dmonly(z)=sprintf('data/power%s_HMcode_BAHAMAS_M1536_k.dat',z) # This should be an HMcode prediction
 
 # Sets of names of all models
 mods="'AGN_7p6_nu0' 'AGN_TUNED_nu0_v2' 'AGN_TUNED_nu0_v3' 'AGN_TUNED_nu0_v4' 'AGN_TUNED_nu0' 'AGN_8p0_nu0'"
@@ -47,7 +47,7 @@ if(!exists('m')) {m=16}
 print 'Fitting mode: m: ', m
 
 if(m==16) {zsep=1}
-if(m==17) {zsep=0}
+if(m==17 || m==18 || m==19) {zsep=0}
 
 # Chain
 if(!exists('c')) {c=1}
@@ -137,26 +137,31 @@ if(zsep==0){za=''; izz=iz}
 
 # If I need to do cross spectra I could probably do pmax=sqrt(pmax1*pmax2) or similar
 
+# Matter
 if(f1==1 && f2==1 && iz==1) {pmax=25}
 if(f1==1 && f2==1 && iz==2) {pmax=12}
 if(f1==1 && f2==1 && iz==3) {pmax=6}
 if(f1==1 && f2==1 && iz==4) {pmax=2}
 
+# CDM
 if(f1==2 && f2==2 && iz==1) {pmax=20}
 if(f1==2 && f2==2 && iz==2) {pmax=10}
 if(f1==2 && f2==2 && iz==3) {pmax=5}
 if(f1==2 && f2==2 && iz==4) {pmax=1.5}
 
+# Gas
 if(f1==3 && f2==3 && iz==1) {pmax=0.4}
 if(f1==3 && f2==3 && iz==2) {pmax=0.2}
 if(f1==3 && f2==3 && iz==3) {pmax=0.14}
 if(f1==3 && f2==3 && iz==4) {pmax=0.06}
 
+# Stars
 if(f1==4 && f2==4 && iz==1) {pmax=0.03}
 if(f1==4 && f2==4 && iz==2) {pmax=0.014}
 if(f1==4 && f2==4 && iz==3) {pmax=0.007}
 if(f1==4 && f2==4 && iz==4) {pmax=0.0016}
 
+# Electron pressure
 if(f1==1 && f2==5 && iz==1) {pmax=0.006}
 if(f1==1 && f2==5 && iz==2) {pmax=0.0018}
 if(f1==1 && f2==5 && iz==3) {pmax=0.0006}
@@ -173,7 +178,8 @@ set obj rect from kmax_fit,-1 to kmax,35
 if(iplot==1){
 
 # Set yrange (annoying large scatter at high k makes range crap)
-set yrange [0:pmax]
+set yrange [*:*]
+if(m==16 || m==17 || m==18) {set yrange [0:pmax]}
 
 plot for [i=1:words(mods)] NaN w l lw 2 lc rgb word(cols,i) ti word(names,i),\
      for [i=1:words(mods)] power(dir,word(mods,i),za,n,m,c,f1,f2,izz) u 1:($3/$1**1.5) w p pt point_type ps point_size lc rgb word(cols,i) noti,\
@@ -182,6 +188,10 @@ plot for [i=1:words(mods)] NaN w l lw 2 lc rgb word(cols,i) ti word(names,i),\
 }
 
 if(iplot==2){
+
+print 'Note that you must have a DMONLY file for the correct k spacing'
+print 'DMONLY file: ', dmonly(z)
+print ''
 
 plot for [i=1:words(mods_few)] '<paste '.power(dir,word(mods_few,i),za,n,m,c,1,1,izz).' '.dmonly(z).'' u 1:($3/$8) w p ps point_size pt point_type lc rgb word(cols_few,i) noti,\
      for [i=1:words(mods)]     '<paste '.power(dir,word(mods,i),za,n,m,c,1,1,izz).'     '.dmonly(z).'' u 1:($2/$8) w l lw line_width dt line_type  lc rgb word(cols,i) noti
