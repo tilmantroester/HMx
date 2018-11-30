@@ -50,7 +50,8 @@ if(icomp==1){
 sims="'AGN_8.0' 'AGN_8.5' 'AGN_8.7'"
 sim_names="'AGN 8.0' 'AGN 8.5' 'AGN 8.7'"
 
-cols="'gold' 'orange' 'red'"
+#cols="'gold' 'orange' 'red'"
+cols="'dark-yellow' 'blue' 'dark-plum'"
 
 # Types of fields and names
 hms="'CMB' 'y' 'gal_z0.1-0.9'"
@@ -93,7 +94,7 @@ if(icomp==2){
 sims="'LOW' 'TUNED' 'HIGH'"
 sim_names="'AGN-lo' 'AGN' 'AGN-hi'"
 
-cols="'gold' 'orange' 'red'"
+cols="'dark-yellow' 'blue' 'dark-plum'"
 
 hms="'CMB' 'y' 'gal_z0.1-0.9' 'gal_z0.1-0.5' 'gal_z0.5-0.9'"
 fields="'CMBkappa' 'tSZ' 'shear_z0.1-0.9' 'shear_z0.1-0.5' 'shear_z0.5-0.9'"
@@ -116,7 +117,7 @@ print 'Factor: ', f
 print ''
 
 # Distance and function to shift simulation points for clarity
-disp(i,n)=1.+0.03*real(i-1)/real(n-1)
+disp(i,n)=1.+0.05*real(i-1)/real(n-1)
 
 # x axis
 lmin=90.
@@ -159,7 +160,7 @@ if(icomp==3){
 
 sim="TUNED"
 sim_name="AGN"
-col='orange'
+col='blue'
 
 hms="'CMB' 'y' 'gal_z0.1-0.9' 'gal_z0.1-0.5' 'gal_z0.5-0.9'"
 fields="'CMBkappa' 'tSZ' 'shear_z0.1-0.9' 'shear_z0.1-0.5' 'shear_z0.5-0.9'"
