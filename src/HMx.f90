@@ -35,6 +35,7 @@ MODULE HMx
   PUBLIC :: UPP ! TODO: Retire
   PUBLIC :: p_1void ! TODO: Retire
   PUBLIC :: halo_HI_fraction ! TODO: Retire
+  PUBLIC :: T_1h
 
   ! Diagnostics
   PUBLIC :: halo_definitions
@@ -1871,7 +1872,7 @@ CONTAINS
     REAL, INTENT(OUT) :: pow_hm(nt,nt)    
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: wk(hmod%n,nt), wk2(hmod%n,2), wk_squared(hmod%n)
+    REAL :: wk(hmod%n,nt), wk2(hmod%n,2), wk_product(hmod%n)
     INTEGER :: i, j, j1, j2, ih(2)
 
     ! Calls expressions for two- and one-halo terms and then combines to form the full power spectrum
@@ -1890,13 +1891,13 @@ CONTAINS
        DO j1=1,nt
           DO j2=j1,nt
              IF(hmod%dlnc==0.) THEN
-                wk_squared=wk(:,j1)*wk(:,j2)
+                wk_product=wk(:,j1)*wk(:,j2)
              ELSE
                 ih(1)=itype(j1)
                 ih(2)=itype(j2)
-                wk_squared=wk_squared_scatter(hmod%n,ih,k,hmod,cosm)
+                wk_product=wk_product_scatter(hmod%n,ih,k,hmod,cosm)
              END IF
-             pow_1h(j1,j2)=p_1h(wk_squared,k,hmod,cosm)            
+             pow_1h(j1,j2)=p_1h(wk_product,hmod%n,k,hmod,cosm)            
           END DO
        END DO
 
@@ -2079,10 +2080,10 @@ CONTAINS
 
   END SUBROUTINE add_smooth_component_to_windows
 
-  FUNCTION wk_squared_scatter(n,itype,k,hmod,cosm)
+  FUNCTION wk_product_scatter(n,itype,k,hmod,cosm)
 
     IMPLICIT NONE
-    REAL :: wk_squared_scatter(n)
+    REAL :: wk_product_scatter(n)
     INTEGER, INTENT(IN) :: n
     INTEGER, INTENT(IN) :: itype(2)
     REAL, INTENT(IN) :: k
@@ -2095,10 +2096,10 @@ CONTAINS
        m=hmod%m(i)
        rv=hmod%rv(i)
        c=hmod%c(i)
-       wk_squared_scatter(i)=integrate_scatter(c,hmod%dlnc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
+       wk_product_scatter(i)=integrate_scatter(c,hmod%dlnc,itype,k,m,rv,hmod,cosm,hmod%acc_HMx,3)
     END DO
 
-  END FUNCTION wk_squared_scatter
+  END FUNCTION wk_product_scatter
 
   REAL FUNCTION p_2h(ih,wk,n,k,plin,hmod,cosm)
 
@@ -2253,12 +2254,12 @@ CONTAINS
 
   END FUNCTION p_2h
 
-  SUBROUTINE I_2h(ih,res,wk,n,hmod,cosm,ibias)
+  SUBROUTINE I_2h(ih,int,wk,n,hmod,cosm,ibias)
 
     USE logical_operations
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ih
-    REAL, INTENT(OUT) :: res
+    REAL, INTENT(OUT) :: int
     REAL, INTENT(IN) :: wk(n)
     INTEGER, INTENT(IN) :: n
     TYPE(halomod), INTENT(INOUT) :: hmod
@@ -2291,7 +2292,7 @@ CONTAINS
     END DO
 
     ! Evaluate these integrals from the tabulated values
-    res=integrate_table(hmod%nu,integrand,n,1,n,3)
+    int=integrate_table(hmod%nu,integrand,n,1,n,3)
 
     IF(ibias==1) THEN
 
@@ -2303,13 +2304,13 @@ CONTAINS
           ! Add on the value of integral b(nu)*g(nu) assuming W(k)=1
           ! Advised by Yoo et al. (????) and Cacciato et al. (2012)
           STOP 'P_2H: This will not work for fields that do not have mass fractions defined'
-          res=res+hmod%gbmin*halo_fraction(ih,m,hmod,cosm)
+          int=int+hmod%gbmin*halo_fraction(ih,m,hmod,cosm)
        ELSE IF(hmod%ip2h_corr==3) THEN
           ! Put the missing part of the integrand as a delta function at the low-mass limit of the integral
           ! I think this is the best thing to do
           IF(requal(hmod%m(1),mmin_HMx,eps_p2h)) THEN
              m0=hmod%m(1)           
-             res=res+hmod%gbmin*(rhom*wk(1)/m0)
+             int=int+hmod%gbmin*(rhom*wk(1)/m0)
           END IF
        ELSE
           STOP 'P_2h: Error, ip2h_corr not specified correctly'
@@ -2319,19 +2320,19 @@ CONTAINS
     
   END SUBROUTINE I_2h
 
-  REAL FUNCTION p_1h(wk2,k,hmod,cosm)
+  REAL FUNCTION p_1h(wk_product,n,k,hmod,cosm)
 
     ! Calculates the one-halo term
     IMPLICIT NONE
+    REAL, INTENT(IN) :: wk_product(n)
+    INTEGER, INTENT(IN) :: n
     REAL, INTENT(IN) :: k
-    TYPE(halomod), INTENT(INOUT) :: hmod
-    REAL, INTENT(IN) :: wk2(hmod%n) ! This needs to be defined after halomod type, annoyingly
+    TYPE(halomod), INTENT(INOUT) :: hmod    
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: m, g, fac, ks, wk20, m0, rhom
-    REAL, ALLOCATABLE :: integrand(:)
+    REAL :: m, g, fac, ks, wk0_product, m0, rhom, integrand(n)
     INTEGER :: i
 
-    INTEGER, PARAMETER :: iorder=1 ! Use basic trapezium rule because the integrand is messy due to possible rapid oscillations in W(k)
+    INTEGER, PARAMETER :: iorder=1 ! Use basic trapezium rule because the integrand has rapid oscillations in W(k)
 
     ! Matter density
     rhom=comoving_matter_density(cosm)
@@ -2341,27 +2342,22 @@ CONTAINS
        ! In this case the mass function is a delta function...
 
        m0=hmod%hmass
-       wk20=find(log(m0),hmod%log_m,wk2,hmod%n,3,3,2)
-       p_1h=rhom*wk20/m0
+       wk0_product=find(log(m0),hmod%log_m,wk_product,n,3,3,2)
+       p_1h=rhom*wk0_product/m0
 
     ELSE
 
        ! ...otherwise you need to do an integral
 
-       ALLOCATE(integrand(hmod%n))
-       integrand=0.
-
        ! Calculates the value of the integrand at all nu values!
-       DO i=1,hmod%n
+       DO i=1,n
           g=g_nu(hmod%nu(i),hmod)
           m=hmod%m(i)
-          integrand(i)=g*wk2(i)/m
+          integrand(i)=g*wk_product(i)/m
        END DO
 
        ! Carries out the integration   
-       p_1h=rhom*integrate_table(hmod%nu,integrand,hmod%n,iorder,hmod%n,1)
-
-       DEALLOCATE(integrand)
+       p_1h=rhom*integrate_table(hmod%nu,integrand,n,1,n,iorder)
 
     END IF
 
@@ -2566,6 +2562,63 @@ CONTAINS
     IF(impose_limit .AND. B_NL<limit) B_NL=limit
     
   END FUNCTION B_NL
+
+  REAL FUNCTION T_1h(k1,k2,ih,hmod,cosm)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k1, k2
+    INTEGER, INTENT(IN) :: ih(2)
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm   
+    REAL :: wk1(hmod%n,2), wk2(hmod%n,2)
+    REAL :: uk1(hmod%n,2), uk2(hmod%n,2), uk_quad(hmod%n), uk0_quad
+    REAL :: rhom, g, m, m0, integrand(hmod%n)
+    INTEGER :: i
+    INTEGER, PARAMETER :: iorder=1 ! Use basic trapezium rule because the integrand has rapid oscillations in W(k)
+
+    ! Matter density
+    rhom=comoving_matter_density(cosm)
+
+    ! Get the window functions for the two different k values
+    CALL init_windows(k1,ih,2,wk1,hmod%n,hmod,cosm)
+    CALL init_windows(k2,ih,2,wk2,hmod%n,hmod,cosm)
+
+    ! Create normalised wk
+    DO i=1,hmod%n
+       m=hmod%m(i)
+       uk1(i,:)=wk1(i,:)*rhom/m
+       uk2(i,:)=wk2(i,:)*rhom/m
+    END DO
+
+    ! Not sure if this is the correct k and field combinations
+    uk_quad=uk1(:,1)*uk1(:,2)*uk2(:,1)*uk2(:,2)
+    !uk_quad=uk1(:,1)*uk1(:,1)*uk2(:,2)*uk2(:,2) ! Could be this  
+
+    IF(hmod%imf==4) THEN
+
+       ! In this case the mass function is a delta function...
+       m0=hmod%hmass
+       uk0_quad=find(log(m0),hmod%log_m,uk_quad,hmod%n,3,3,2)
+       T_1h=rhom*uk0_quad/m0
+
+    ELSE
+
+       ! ...otherwise you need to do an integral
+
+       ! Calculates the value of the integrand at all nu values!
+       DO i=1,hmod%n
+          g=g_nu(hmod%nu(i),hmod)
+          m=hmod%m(i)
+          integrand(i)=g*uk_quad(i)*rhom/m
+          integrand(i)=integrand(i)
+       END DO
+
+       ! Carries out the integration 
+       T_1h=integrate_table(hmod%nu,integrand,hmod%n,1,hmod%n,iorder)
+
+    END IF
+    
+  END FUNCTION T_1h
 
   SUBROUTINE halo_diagnostics(hmod,cosm,dir)
 
