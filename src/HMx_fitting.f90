@@ -775,7 +775,7 @@ PROGRAM HMx_fitting
 
   ! Loop over number of runs
   WRITE(*,*) 'HMx_FITTING: Starting fitting'
-  WRITE(*,*) 'HMx_FITTING: Number of points:', n
+  WRITE(*,*) 'HMx_FITTING: Number of points in chain:', n
   WRITE(*,*)
 
   ! Set counting variables to zero
