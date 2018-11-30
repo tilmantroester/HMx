@@ -161,6 +161,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '51 - Compare power with and without scatter'
      WRITE(*,*) '52 - Hydrodynamical halo model with BAHAMAS k range'
      WRITE(*,*) '53 - Breakdown 3D hydro power in halo mass II'
+     WRITE(*,*) '54 - Trispectrum test'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -1028,7 +1029,6 @@ PROGRAM HMx_driver
      END DO
      WRITE(*,*) '======================================================='
      WRITE(*,*)
-     STOP
 
      ! Set the ell range
      lmin=1
@@ -1504,9 +1504,9 @@ PROGRAM HMx_driver
   ELSE IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44) THEN
 
      ! Triad stuff
-     ! 12 - Current project triad (13)
-     ! 38 - Old project triad (3)
-     ! 39 - New project triad (7)
+     ! 12 - Current project triad (13 cross correlations)
+     ! 38 - Old project triad (3 cross correlations)
+     ! 39 - New project triad (7 cross correlations)
      ! 44 - Project triad for paper
 
      ! Directory for data output
@@ -1542,7 +1542,7 @@ PROGRAM HMx_driver
         ntriad=3
      ELSE IF(imode==39) THEN
         ntriad=7
-     ELSE IF(imode==12) THEN
+     ELSE IF(imode==12 .OR. imode==44) THEN
         ntriad=13
      ELSE
         STOP 'HMX_DRIVER: Error, imode specified incorrectly'
@@ -1557,7 +1557,7 @@ PROGRAM HMx_driver
               ix(1)=tracer_KiDS        ! KiDS (z = 0.1 -> 0.9)
               ix(2)=tracer_CMB_lensing ! CMB lensing
               outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
-           ELSE IF(imode==39 .OR. imode==12) THEN
+           ELSE IF(imode==39 .OR. imode==12 .OR. imode==44) THEN
               ix(1)=tracer_KiDS_450    ! KiDS 450 (z = 0.1 -> 0.9)
               ix(2)=tracer_CMB_lensing ! CMB
               outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-CMB.dat'
@@ -1573,7 +1573,7 @@ PROGRAM HMx_driver
               ix(1)=tracer_Compton_y ! y
               ix(2)=tracer_KiDS      ! KiDS (z = 0.1 -> 0.9)
               outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
-           ELSE IF(imode==39 .OR. imode==12) THEN
+           ELSE IF(imode==39 .OR. imode==12 .OR. imode==44) THEN
               ix(1)=tracer_Compton_y ! y
               ix(2)=tracer_KiDS_450  ! KiDS 450 (z = 0.1 -> 0.9)
               outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.9.dat'
@@ -3239,7 +3239,7 @@ PROGRAM HMx_driver
            verbose2=.FALSE.
         END IF
         CALL assign_halomod(ihm,hmods(i),verbose2)
-        CALL init_halomod(mmin,mmax,scale_factor_z(z),hmods(i),cosms(i),verbose2)        
+        CALL init_halomod(mmin,mmax,scale_factor_z(z),hmods(i),cosms(i),verbose2)
      END DO
      CALL print_halomod(hmods(1),cosms(1),verbose)
 
@@ -3314,6 +3314,38 @@ PROGRAM HMx_driver
      DO i=1,n
         c=progression(cmin,cmax,i,n)
         WRITE(7,*) c, lognormal(c,cbar,hmod%dlnc)
+     END DO
+     CLOSE(7)
+
+  ELSE IF(imode==54) THEN
+
+     ! Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     ! Set the redshift
+     z=0.
+
+     ! Set the fields
+     ALLOCATE(fields(2))
+     fields=field_dmonly
+
+     ! Assigns the cosmological model
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Assign the halo model
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)     
+
+     OPEN(7,file='data/trispectrum.dat')    
+     DO i=1,nk
+        WRITE(7,*) k(i), T_1h(k(i),k(i),fields,hmod,cosm)
      END DO
      CLOSE(7)
      
