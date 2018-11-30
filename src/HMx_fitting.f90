@@ -15,7 +15,7 @@ PROGRAM HMx_fitting
   TYPE(halomod), ALLOCATABLE :: hmod(:)
   TYPE(cosmology), ALLOCATABLE :: cosm(:)
   REAL :: kmin, kmax
-  CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain, maxtime
+  CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain, maxtime, accuracy
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
   INTEGER, ALLOCATABLE :: p_int(:)
   REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:)
@@ -31,7 +31,7 @@ PROGRAM HMx_fitting
   LOGICAL :: verbose2
   INTEGER :: out
 
-  ! Hydro fitting parameters  
+  ! Fitting parameters  
   INTEGER, PARAMETER :: param_alpha=1
   INTEGER, PARAMETER :: param_eps=2
   INTEGER, PARAMETER :: param_gamma=3
@@ -63,7 +63,8 @@ PROGRAM HMx_fitting
   LOGICAL, PARAMETER :: random_start=.FALSE. ! Start from a random point within the prior range
   LOGICAL, PARAMETER :: mcmc=.TRUE.          ! Accept worse figure of merit with some probability
   INTEGER, PARAMETER :: computer=1           ! Which computer are you on?
-  REAL, PARAMETER :: tmax_default=1e6        ! Default maximum time for run, should not be huge
+  REAL, PARAMETER :: tmax_default=10000.*60  ! Default maximum time for run, should not be huge
+  REAL, PARAMETER :: delta_default=1e-3      ! Default accuracy
 
   ! k cuts for the BAHAMAS power spectra
   REAL, PARAMETER :: kmin_BAHAMAS=0.15
@@ -99,6 +100,7 @@ PROGRAM HMx_fitting
      WRITE(*,*) '17 - Hydro: all z; everything but pressure-pressure'
      WRITE(*,*) '18 - Hydro: all z; only matter-matter and matter-pressure'
      WRITE(*,*) '19 - Hydro: all z; stars'
+     WRITE(*,*) '20 - Hydro: all z; finessed version of 17'
      READ(*,*) im
      WRITE(*,*)
   END IF
@@ -121,24 +123,45 @@ PROGRAM HMx_fitting
      READ(maxtime,*) tmax
   END IF
 
+  ! Accuracy
+  CALL get_command_argument(4,accuracy)
+  IF(accuracy=='') THEN
+     delta=delta_default
+  ELSE
+     READ(accuracy,*) delta
+  END IF
+
   ! Read in outfile
-  CALL get_command_argument(4,outbase)
+  CALL get_command_argument(5,outbase)
   IF(outbase=='') outbase='fitting/test'
 
   ! Read in BAHAMAS simulation name
-  CALL get_command_argument(5,name)
+  CALL get_command_argument(6,name)
 
   ! Read in BAHAMAS simulation redshift if doing fixed z
-  CALL get_command_argument(6,zin)
+  CALL get_command_argument(7,zin)
   
   ! Set the random-number generator
   CALL RNG_set(seed)
 
+  WRITE(*,*) 'HMx_FITTING: Fitting routine'
+  WRITE(*,*) 'HMx_FITTING: Mode:', im
+  WRITE(*,*) 'HMx_FITTING: Number of points in chain:', n
+  WRITE(*,*) 'HMx_FITTING: Maximum run time [mins]:', tmax
+  WRITE(*,*) 'HMx_FITTING: Maximum run time [hours]:', tmax/60.
+  WRITE(*,*) 'HMx_FITTING: Accuracy:', delta
+  WRITE(*,*) 'HMx_FITTING: Output file base: ', TRIM(outbase)
+  WRITE(*,*) 'HMx_FITTING: Random number seed:', seed
+  WRITE(*,*) 'HMx_FITTING: Random start:', random_start
+  WRITE(*,*) 'HMx_FITTING: MCMC mode:', mcmc
+  WRITE(*,*) 'HMx_FITTING: Re-evaluate covariance:', m
+  WRITE(*,*)
+  
   ! SET: number of cosmologies, fields and delta
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
 
      ! Required change in figure-of-merit
-     delta=1e-4 
+     !delta=1e-4 
      
      IF(im==1 .OR. im==3) THEN
         ncos=9 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0. (ignore 1 because it is weird)
@@ -150,16 +173,16 @@ PROGRAM HMx_fitting
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
      END IF
      
-  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN
 
      ! Required change in figure-of-merit
-     delta=1e-3
+     !delta=1e-3
 
      ! Set to the number of different cosmologies
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20) THEN
         nf=5   
      ELSE IF(im==12 .OR. im==13 .OR. im==19) THEN
         nf=1
@@ -190,18 +213,14 @@ PROGRAM HMx_fitting
      z(4)=2.0
      fields(1)=field_dmonly
      
-  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN
      
      ! Hydro simulations
      IF(name=='') name='AGN_TUNED_nu0'
      
      IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
-        !kmin=0.15
-        !kmax=10.
         nz=1
-     ELSE IF(im==17 .OR. im==18 .OR. im==19) THEN
-        !kmin=0.15
-        !kmax=10.
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20) THEN
         nz=4
      ELSE
         STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -216,7 +235,7 @@ PROGRAM HMx_fitting
         ELSE
            READ(zin,*) z(1)
         END IF        
-     ELSE IF(im==17 .OR. im==18 .OR. im==19) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20) THEN
         z(1)=0.0
         z(2)=0.5
         z(3)=1.0
@@ -226,7 +245,7 @@ PROGRAM HMx_fitting
      END IF
 
      ! Set the fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -254,15 +273,15 @@ PROGRAM HMx_fitting
   DO i=1,ncos
      
      IF(im==1) THEN
-        icosmo=101+i ! Set set Mira Titan node (note that we are skipping node 1)
+        icosmo=101+i ! Set Mira Titan node (note that we are skipping node 1)
      ELSE IF(im==2) THEN
         icosmo=200+i ! Set set FrankenEmu node
      ELSE IF(im==3) THEN
         icosmo=24    ! Random Mira Titan cosmology
      ELSE IF(im==4) THEN
         icosmo=25    ! Random FrankenEmu cosmology
-     ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
-        icosmo=4 ! WMAP9
+     ELSE IF(im>=11) THEN
+        icosmo=4     ! WMAP9
      ELSE
         STOP 'HMx_FITTING: Error, im not specified correctly'
      END IF
@@ -277,7 +296,7 @@ PROGRAM HMx_fitting
   ALLOCATE(hmod(ncos))
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
      ihm=15 ! HMcode 2018
-  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN
      ihm=20 ! Standard halo-model response
   ELSE
      STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -287,7 +306,7 @@ PROGRAM HMx_fitting
      CALL assign_halomod(ihm,hmod(i),verbose=.FALSE.)
   END DO
 
-  ! Just print one halo model to screen to see
+  ! Just print one halo model to screen to check
   CALL init_halomod(mmin,mmax,scale_factor_z(z(1)),hmod(1),cosm(1),verbose=.TRUE.)
   CALL print_halomod(hmod(1),cosm(1),verbose=.TRUE.)
 
@@ -306,7 +325,7 @@ PROGRAM HMx_fitting
                  CALL read_Mira_Titan_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
               ELSE IF(im==2 .OR. im==4) THEN
                  CALL read_FrankenEmu_power(k_sim,pow_sim,nk,z(j),cosm(i),rebin=.TRUE.)
-              ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+              ELSE IF(im>=11) THEN
                  ip(1)=fields(j1)
                  ip(2)=fields(j2)
                  CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i))!,kmin,kmax)
@@ -339,31 +358,35 @@ PROGRAM HMx_fitting
   END IF
 
   ! No weight to pressure-pressure
-  IF(im==16 .OR. im==17) THEN
+  IF(im==16 .OR. im==17 .OR. im==20) THEN
      weight(:,5,5,:,:)=0. 
   END IF
 
-  ! k range for multi-z   
-  DO j=1,nz
-     
-     kmin=kmin_BAHAMAS
-     IF(z(j)==0.0) THEN
-        kmax=kmax_BAHAMAS_z0p0
-     ELSE IF(z(j)==0.5) THEN
-        kmax=kmax_BAHAMAS_z0p5
-     ELSE IF(z(j)==1.0) THEN
-        kmax=kmax_BAHAMAS_z1p0
-     ELSE IF(z(j)==2.0) THEN
-        kmax=kmax_BAHAMAS_z2p0
-     ELSE
-        STOP 'HMx_FITTING: Error, something went wrong setting z'
-     END IF
-     
-     DO i=1,nk
-        IF(k(i)<kmin .OR. k(i)>kmax) weight(:,:,:,i,j)=0.
+  ! k range for multi-z
+  IF(im>=11) THEN
+
+     DO j=1,nz
+
+        kmin=kmin_BAHAMAS
+        IF(z(j)==0.0) THEN
+           kmax=kmax_BAHAMAS_z0p0
+        ELSE IF(z(j)==0.5) THEN
+           kmax=kmax_BAHAMAS_z0p5
+        ELSE IF(z(j)==1.0) THEN
+           kmax=kmax_BAHAMAS_z1p0
+        ELSE IF(z(j)==2.0) THEN
+           kmax=kmax_BAHAMAS_z2p0
+        ELSE
+           STOP 'HMx_FITTING: Error, something went wrong setting z'
+        END IF
+
+        DO i=1,nk
+           IF(k(i)<kmin .OR. k(i)>kmax) weight(:,:,:,i,j)=0.
+        END DO
+
      END DO
-     
-  END DO
+
+  END IF
 
   !!
 
@@ -392,7 +415,7 @@ PROGRAM HMx_fitting
      ! 14 - gas and stars
      ! 15 - matter
      np=10
-  ELSE IF(im==17 .OR. im==18) THEN
+  ELSE IF(im==17 .OR. im==18 .OR. im==20) THEN
      ! everything with z dependence
      np=20
   ELSE
@@ -471,7 +494,7 @@ PROGRAM HMx_fitting
      p_min(12)=-5.
      p_max(12)=5.
 
-  ELSE IF(im>=11) THEN! .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==17 .OR. im==19) THEN
+  ELSE IF(im>=11) THEN
 
      ! The general parameters are set here
 
@@ -528,13 +551,12 @@ PROGRAM HMx_fitting
 
      ! Needed to boost original here so that it has an effect
      q_nme(8)='f_cold'
-     !q_ori(8)=0.01
      q_ori(8)=0.00126
      q_min(8)=1e-5
      q_max(8)=0.5
      q_set(8)=.FALSE.
      q_rge(8)=0.1
-
+     
      q_nme(9)='M_*'
      q_ori(9)=10**12.5
      q_min(9)=1e8
@@ -551,69 +573,55 @@ PROGRAM HMx_fitting
      q_min(11)=-1.
      q_max(11)=1.
      q_log(11)=.FALSE.
-     !q_set(11)=.FALSE.
-     !q_rge(11)=0.01
 
      q_nme(12)='Gamma_M_pow'
      q_ori(12)=-0.02
      q_min(12)=-0.006
      q_max(12)=0.2
      q_log(12)=.FALSE.
-     !q_set(12)=.FALSE.
-     !q_rge(12)=0.001
 
      q_nme(13)='c_*_M_pow'
      q_ori(13)=-0.2
      q_min(13)=-1.
      q_max(13)=1.
      q_log(13)=.FALSE.
-     !q_set(13)=.FALSE.
-     !q_rge(13)=0.01
 
      q_nme(14)='f_hot'
      q_ori(14)=0.01
      q_min(14)=1e-5
      q_max(14)=0.5
+     q_set(14)=.FALSE.
+     q_rge(14)=0.1
 
      q_nme(15)='alpha_z_pow'
      q_ori(15)=0.43
      q_min(15)=-3.
      q_max(15)=3.
      q_log(15)=.FALSE.
-     !q_set(15)=.FALSE.
-     !q_rge(15)=0.01
 
      q_nme(16)='Gamma_z_pow'
      q_ori(16)=0.3
      q_min(16)=-1.
      q_max(16)=1.
      q_log(16)=.FALSE.
-     !q_set(16)=.FALSE.
-     !q_rge(16)=0.01
 
      q_nme(17)='M0_z_pow'
      q_ori(17)=-0.08
      q_min(17)=-1.
      q_max(17)=1.
      q_log(17)=.FALSE.
-     !q_set(17)=.FALSE.
-     !q_rge(17)=0.01
 
      q_nme(18)='Astar_z_pow'
      q_ori(18)=-0.45
      q_min(18)=-1.
      q_max(18)=1.
      q_log(18)=.FALSE.
-     !q_set(18)=.FALSE.
-     !q_rge(18)=0.01
 
      q_nme(19)='Twhim_z_pow'
      q_ori(19)=-0.11
      q_min(19)=-1.
      q_max(19)=1.
      q_log(19)=.FALSE.
-     !q_set(19)=.FALSE.
-     !q_rge(19)=0.01
 
      q_nme(20)='eta'
      q_ori(20)=-0.3
@@ -622,6 +630,8 @@ PROGRAM HMx_fitting
      q_log(20)=.FALSE.
      q_set(20)=.FALSE.
      q_rge(20)=0.01
+
+     IF(im==20) CALL finesse_parameters(q_ori,n,im,name)
      
      IF(im==11 .OR. im==16) THEN
 
@@ -643,7 +653,7 @@ PROGRAM HMx_fitting
         p_int(14)=param_fhot
         p_int(15)=param_eta
 
-     ELSE IF(im==17 .OR. im==18) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==20) THEN
 
         ! redshift dependent everything minus pressure-pressure
         p_int(1)=param_alpha
@@ -793,7 +803,7 @@ PROGRAM HMx_fitting
            outfile=trim(outbase)//'_chain.dat'
            OPEN(10,file=outfile)
         END IF
-        !STOP
+
      END IF
 
      IF(l==1) THEN
@@ -827,6 +837,7 @@ PROGRAM HMx_fitting
 
         accept=.TRUE.
 
+        i_bst=1
         i_bet=i_bet+1
         i_tot=i_tot+1
 
@@ -996,26 +1007,6 @@ CONTAINS
           hmod(i)%alp0=pexp(11)
           hmod(i)%alp1=pexp(12)
 
-!!$       ELSE IF(im==11) THEN
-!!$
-!!$          ! Set hydro parameters to those being varied
-!!$
-!!$          ! everything
-!!$          hmod(i)%alpha=pexp(1)
-!!$          hmod(i)%eps=pexp(2)
-!!$          hmod(i)%Gamma=1.+pexp(3)
-!!$          hmod(i)%M0=pexp(4)
-!!$          hmod(i)%Astar=pexp(5)
-!!$          hmod(i)%Twhim=pexp(6)
-!!$          hmod(i)%cstar=pexp(7)
-!!$          hmod(i)%fcold=pexp(8)
-!!$          hmod(i)%Mstar=pexp(9)
-!!$          hmod(i)%sstar=pexp(10)
-!!$          hmod(i)%alphap=pexp(11)
-!!$          hmod(i)%Gammap=pexp(12)
-!!$          hmod(i)%cstarp=pexp(13)
-!!$          hmod(i)%fhot=pexp(14)
-
        ELSE IF(im==12) THEN
 
           ! gas
@@ -1081,7 +1072,7 @@ CONTAINS
           hmod(i)%fhot=pexp(14)
           hmod(i)%eta=pexp(15)
 
-       ELSE IF(im==17 .OR. im==18) THEN
+       ELSE IF(im==17 .OR. im==18 .OR. im==20) THEN
 
           ! everything; simultaneous z
           hmod(i)%alpha=pexp(1)
@@ -1173,7 +1164,7 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm(n)
     INTEGER, INTENT(IN) :: n
     LOGICAL, INTENT(IN) :: verbose
-    INTEGER :: i!, j
+    INTEGER :: i
     REAL :: fom_base, fom_diff, fom, df, p2(np), pow(n,nf,nf,nk,nz), dp
     !REAL :: sig, sigs(4)
     
@@ -1593,5 +1584,84 @@ CONTAINS
     END DO
 
   END SUBROUTINE write_fitting_power
+
+  SUBROUTINE finesse_parameters(p,n,im,name)
+
+    IMPLICIT NONE
+    REAL, INTENT(INOUT) :: p(n)
+    INTEGER, INTENT(IN) :: n
+    INTEGER, INTENT(IN) :: im
+    CHARACTER(len=*), INTENT(IN) ::  name
+
+    IF(im==20) THEN
+       IF(name=='AGN_TUNED_nu0' .OR. name=='AGN_TUNED_nu0_v2' .OR. name=='AGN_TUNED_nu0_v3' .OR. name=='AGN_TUNED_nu0_v4') THEN
+          p(1)=1.54074240    
+          p(2)=1.01597583    
+          p(3)=0.24264216    
+          p(4)=6.51173707E+13
+          p(5)=3.45238000E-02
+          p(6)=1389362.50    
+          p(7)=10.4484358    
+          p(8)=6.32560020E-03
+          p(9)=2.34850982E+12
+          p(10)=1.25916803    
+          p(11)=-0.513900995    
+          p(12)=-5.66239981E-03
+          p(13)=-6.11630008E-02
+          p(14)=1.26100000E-04
+          p(15)=0.340969592    
+          p(16)=0.295596898    
+          p(17)=-8.13719034E-02
+          p(18)=-0.545276821    
+          p(19)=-0.122411400    
+          p(20)=-0.266318709
+       ELSE IF(name=='AGN_7p6_nu0') THEN
+          p(1)=1.52016437    
+          p(2)=1.06684244    
+          p(3)=0.24494147    
+          p(4)=2.84777660E+13
+          p(5)=3.79242003E-02
+          p(6)=987513.562    
+          p(7)=9.78754425    
+          p(8)=1.83899999E-02
+          p(9)=2.68670049E+12
+          p(10)=1.13123488    
+          p(11)=-0.531507611    
+          p(12)=-6.00000005E-03
+          p(13)=-0.113370098    
+          p(14)=1.08200002E-04
+          p(15)=0.346108794    
+          p(16)=0.231210202    
+          p(17)=-9.32227001E-02
+          p(18)=-0.536369383    
+          p(19)=-0.139042795    
+          p(20)=-0.222550094 
+       ELSE IF(name=='AGN_8p0_nu0') THEN
+          p(1)=1.45703220    
+          p(2)=0.872408926    
+          p(3)=0.24960959    
+          p(4)=1.15050950E+14
+          p(5)=3.86818014E-02
+          p(6)=1619561.00    
+          p(7)=19.4119701    
+          p(8)=1.10999999E-05
+          p(9)=2.18769510E+12
+          p(10)=0.803893507    
+          p(11)=-0.528370678    
+          p(12)=-3.31420009E-03
+          p(13)=-0.355121315    
+          p(14)=3.90500005E-04
+          p(15)=0.740169585    
+          p(16)=0.354409009    
+          p(17)=-2.40819994E-02
+          p(18)=-0.425019890    
+          p(19)=-8.60318989E-02
+          p(20)=-0.243649304   
+       ELSE
+          STOP 'FINESSE_PARAMETERS: Error, model name not specified correctly'
+       END IF
+    END IF
+
+  END SUBROUTINE finesse_parameters
 
 END PROGRAM HMx_fitting

@@ -172,8 +172,8 @@ set label zlab at graph labx,laby
 unset key
 if(i==1) {set key top left}
 
-set obj rect from kmin,-1 to kmin_fit,35
-set obj rect from kmax_fit,-1 to kmax,35
+set obj rect from kmin,-1     to kmin_fit,pmax
+set obj rect from kmax_fit,-1 to kmax,pmax
 
 if(iplot==1){
 

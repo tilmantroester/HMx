@@ -140,7 +140,7 @@ if(!exists('nsim')){nsim=3}       # Default to AGN
 if(iplot==8 || iplot==11){nsim=3} # Default to AGN
 hmpk_name=word(hmpk_names,nsim)
 print 'Simulation model number: nsim: '.nsim.''
-print 'Halo model power file name: '.hmpk_name.''
+if(icomp==2) print 'Halo model power file name: '.hmpk_name.''
 sim=word(sims,nsim)
 print 'Simulation power file: '.sim.''
 print ''
@@ -238,9 +238,7 @@ plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
      for [i=1:4] hmpk(hmpk_name,z,ifield[i],ifield[i]) u 1:(column(d)) w l lw 3 dt 1 lc icol[i] ti word(field_names,i),\
      for [i=1:4] hmpk(hmpk_name,z,ifield[1],ifield[i]) u 1:(column(d)) w l lw 3 dt 2 lc icol[i] noti
 
-plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
-     NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
+plot for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
      for [i=1:2] for [j=i:2]   simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 7 ps .5 lc icol_few[i] noti,\
      for [i=1:2] for [j=i:2]   hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 1 lc icol_few[i] noti,\
      for [i=1:2] for [j=i+1:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 2 lc icol_few[j] noti
@@ -624,9 +622,7 @@ plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
 
 unset label
 
-plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
-     NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
-     for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
+plot for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
      for [i=1:2] for [j=i:2] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 7 ps .5 lc icol_few[i] noti,\
      for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 1 lc icol_few[i] noti,\
      for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 2 lc icol_few[j] noti
@@ -708,6 +704,7 @@ unset title
 
 set key top left
 
+# What the fuck is this?
 isim=3
 iz=2
 

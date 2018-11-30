@@ -356,7 +356,7 @@ CONTAINS
 
     ! Halo gas fraction
     ! 1 - Fedeli (2014a) bound gas model
-    ! 2 - Schneider (2015) bound gas
+    ! 2 - Schneider & Teyssier (2015) bound gas
     ! 3 - Universal baryon fraction
     hmod%frac_bound_gas=2
 
@@ -415,7 +415,7 @@ CONTAINS
 
     ! Free gas halo profile
     ! 1 - Isothermal model (out to 2rv)
-    ! 2 - Ejected gas model from Schneider (2015)
+    ! 2 - Ejected gas model from Schneider & Teyssier (2015)
     ! 3 - Isothermal shell that connects electron pressure and density to bound gas at rv
     ! 4 - Komatsu-Seljak continuation
     ! 5 - Power-law continuation
@@ -426,7 +426,7 @@ CONTAINS
 
     ! Cenrtal stars halo profile
     ! 1 - Fedeli (2014) stellar distribution
-    ! 2 - Schneider (2015) stellar distribution
+    ! 2 - Schneider & Teyssier (2015) stellar distribution
     ! 3 - Delta function
     ! 4 - Delta function at low mass and NFW at high mass
     hmod%halo_central_stars=1
@@ -905,64 +905,124 @@ CONTAINS
        hmod%response=.TRUE.
        IF(ihm==38) THEN
           ! AGN 7p6
-          hmod%alpha =   1.70891011    
-          hmod%eps =  0.958850801    
-          hmod%Gamma =   1.25141788    
-          hmod%M0 =   13.3227434    
-          hmod%Astar =   4.37504016E-02
-          hmod%Twhim =   6.02349520    
-          hmod%cstar =   7.53934860    
-          hmod%fcold =   1.96336005E-02
-          hmod%mstar =   12.4054365    
-          hmod%sstar =  0.854750276    
-          hmod%alphap = -0.621505082    
-          hmod%Gammap =  -8.59299954E-03
-          hmod%cstarp = -0.192941204    
-          hmod%alphaz =  0.511387229    
-          hmod%Gammaz =  0.283175588    
-          hmod%M0z =  -8.61267969E-02
-          hmod%Astarz = -0.455676109    
-          hmod%Twhimz = -0.166923404
+!!$          hmod%alpha =   1.70891011    
+!!$          hmod%eps =  0.958850801    
+!!$          hmod%Gamma =   1.25141788    
+!!$          hmod%M0 =   13.3227434    
+!!$          hmod%Astar =   4.37504016E-02
+!!$          hmod%Twhim =   6.02349520    
+!!$          hmod%cstar =   7.53934860    
+!!$          hmod%fcold =   1.96336005E-02
+!!$          hmod%mstar =   12.4054365    
+!!$          hmod%sstar =  0.854750276    
+!!$          hmod%alphap = -0.621505082    
+!!$          hmod%Gammap =  -8.59299954E-03
+!!$          hmod%cstarp = -0.192941204    
+!!$          hmod%alphaz =  0.511387229    
+!!$          hmod%Gammaz =  0.283175588    
+!!$          hmod%M0z =  -8.61267969E-02
+!!$          hmod%Astarz = -0.455676109    
+!!$          hmod%Twhimz = -0.166923404
+          hmod%alpha =   1.52016437    
+          hmod%eps =   1.06684244    
+          hmod%Gamma =   1.24494147    
+          hmod%M0 =   2.84777660E+13
+          hmod%Astar =   3.79242003E-02
+          hmod%Twhim =   987513.562    
+          hmod%cstar =   9.78754425    
+          hmod%fcold =   1.83899999E-02
+          hmod%mstar =   2.68670049E+12
+          hmod%sstar =   1.13123488    
+          hmod%alphap = -0.531507611    
+          hmod%Gammap =  -6.00000005E-03
+          hmod%cstarp = -0.113370098    
+          hmod%fhot =   1.08200002E-04
+          hmod%alphaz =  0.346108794    
+          hmod%Gammaz =  0.231210202    
+          hmod%M0z =  -9.32227001E-02
+          hmod%Astarz = -0.536369383    
+          hmod%Twhimz = -0.139042795    
+          hmod%eta = -0.222550094
        ELSE IF(ihm==39) THEN
           ! AGN tuned
-          hmod%alpha =   1.57793474    
-          hmod%eps =  0.881173790    
-          hmod%Gamma =   1.23456430    
-          hmod%M0 =   13.7677040    
-          hmod%Astar =   4.27635014E-02
-          hmod%Twhim =   6.11093426    
-          hmod%cstar =   7.16452551    
-          hmod%fcold =   1.26479997E-03
-          hmod%mstar =   12.4064665    
-          hmod%sstar =  0.793298125    
-          hmod%alphap = -0.559459090    
-          hmod%Gammap =  -6.91370014E-03
-          hmod%cstarp = -0.165236101    
-          hmod%alphaz =  0.430692285    
-          hmod%Gammaz =  0.285437614    
-          hmod%M0z =  -7.98235014E-02
-          hmod%Astarz = -0.453337014    
-          hmod%Twhimz = -0.114669099
+!!$          hmod%alpha =   1.57793474    
+!!$          hmod%eps =  0.881173790    
+!!$          hmod%Gamma =   1.23456430    
+!!$          hmod%M0 =   13.7677040    
+!!$          hmod%Astar =   4.27635014E-02
+!!$          hmod%Twhim =   6.11093426    
+!!$          hmod%cstar =   7.16452551    
+!!$          hmod%fcold =   1.26479997E-03
+!!$          hmod%mstar =   12.4064665    
+!!$          hmod%sstar =  0.793298125    
+!!$          hmod%alphap = -0.559459090    
+!!$          hmod%Gammap =  -6.91370014E-03
+!!$          hmod%cstarp = -0.165236101    
+!!$          hmod%alphaz =  0.430692285    
+!!$          hmod%Gammaz =  0.285437614    
+!!$          hmod%M0z =  -7.98235014E-02
+!!$          hmod%Astarz = -0.453337014    
+!!$          hmod%Twhimz = -0.114669099
+          hmod%alpha =   1.54074240    
+          hmod%eps =   1.01597583    
+          hmod%Gamma =   1.24264216    
+          hmod%M0 =   6.51173707E+13
+          hmod%Astar =   3.45238000E-02
+          hmod%Twhim =   1389362.50    
+          hmod%cstar =   10.4484358    
+          hmod%fcold =   6.32560020E-03
+          hmod%mstar =   2.34850982E+12
+          hmod%sstar =   1.25916803    
+          hmod%alphap = -0.513900995    
+          hmod%Gammap =  -5.66239981E-03
+          hmod%cstarp =  -6.11630008E-02
+          hmod%fhot =   1.26100000E-04
+          hmod%alphaz =  0.340969592    
+          hmod%Gammaz =  0.295596898    
+          hmod%M0z =  -8.13719034E-02
+          hmod%Astarz = -0.545276821    
+          hmod%Twhimz = -0.122411400    
+          hmod%eta = -0.266318709
        ELSE IF(ihm==40) THEN
           ! AGN 8p0
-          hmod%alpha =   1.48560798    
-          hmod%eps =  0.845291793    
-          hmod%Gamma =   1.23208261    
-          hmod%M0 =   14.2096453    
-          hmod%Astar =   3.85205001E-02
-          hmod%Twhim =   6.21294737    
-          hmod%cstar =   7.76997995    
-          hmod%fcold =   1.18999997E-05
-          hmod%mstar =   12.2670107    
-          hmod%sstar =  0.846171916    
-          hmod%alphap = -0.489454091    
-          hmod%Gammap =   2.88049993E-03
-          hmod%cstarp = -0.164967597    
-          hmod%alphaz =  0.493037194    
-          hmod%Gammaz =  0.380448610    
-          hmod%M0z =  -5.22956997E-02
-          hmod%Astarz = -0.433256686    
-          hmod%Twhimz =  -9.42993015E-02
+!!$          hmod%alpha =   1.48560798    
+!!$          hmod%eps =  0.845291793    
+!!$          hmod%Gamma =   1.23208261    
+!!$          hmod%M0 =   14.2096453    
+!!$          hmod%Astar =   3.85205001E-02
+!!$          hmod%Twhim =   6.21294737    
+!!$          hmod%cstar =   7.76997995    
+!!$          hmod%fcold =   1.18999997E-05
+!!$          hmod%mstar =   12.2670107    
+!!$          hmod%sstar =  0.846171916    
+!!$          hmod%alphap = -0.489454091    
+!!$          hmod%Gammap =   2.88049993E-03
+!!$          hmod%cstarp = -0.164967597    
+!!$          hmod%alphaz =  0.493037194    
+!!$          hmod%Gammaz =  0.380448610    
+!!$          hmod%M0z =  -5.22956997E-02
+!!$          hmod%Astarz = -0.433256686    
+!!$          hmod%Twhimz =  -9.42993015E-02
+          hmod%alpha =   1.45703220    
+          hmod%eps =  0.872408926    
+          hmod%Gamma =   1.24960959    
+          hmod%M0 =   1.15050950E+14
+          hmod%Astar =   3.86818014E-02
+          hmod%Twhim =   1619561.00    
+          hmod%cstar =   19.4119701    
+          hmod%fcold =   1.10999999E-05
+          hmod%mstar =   2.18769510E+12
+          hmod%sstar =  0.803893507    
+          hmod%alphap = -0.528370678    
+          hmod%Gammap =  -3.31420009E-03
+          hmod%cstarp = -0.355121315    
+          hmod%fhot =   3.90500005E-04
+          hmod%alphaz =  0.740169585    
+          hmod%Gammaz =  0.354409009    
+          hmod%M0z =  -2.40819994E-02
+          hmod%Astarz = -0.425019890    
+          hmod%Twhimz =  -8.60318989E-02
+          hmod%eta = -0.243649304
        ELSE
           STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
        END IF
@@ -1276,8 +1336,8 @@ CONTAINS
        IF(hmod%iDolag==4) WRITE(*,*) 'HALOMODEL: Dolag (2004) dark energy halo concentration correction with redshift dependence'
 
        ! Bound gas fraction
-       IF(hmod%frac_bound_gas==1) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Fedeli (2014a)'
-       IF(hmod%frac_bound_gas==2) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Schneider (2015)'
+       IF(hmod%frac_bound_gas==1) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Fedeli (2014)'
+       IF(hmod%frac_bound_gas==2) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Schneider & Teyssier (2015)'
        IF(hmod%frac_bound_gas==3) WRITE(*,*) 'HALOMODEL: Halo bound gas fraction: Universal baryon fraction'
 
        ! Cold gas fraction
@@ -1325,7 +1385,7 @@ CONTAINS
 
        ! Free gas halo profile
        IF(hmod%halo_free_gas==1) WRITE(*,*) 'HALOMODEL: Free gas profile: Isothermal model (out to 2rv)'
-       IF(hmod%halo_free_gas==2) WRITE(*,*) 'HALOMODEL: Free gas profile: Ejected gas model from Schneider (2015)'
+       IF(hmod%halo_free_gas==2) WRITE(*,*) 'HALOMODEL: Free gas profile: Ejected gas model from Schneider & Teyssier (2015)'
        IF(hmod%halo_free_gas==3) WRITE(*,*) 'HALOMODEL: Free gas profile: Isothermal shell that connects electron pressure and density to bound gas at rv'
        IF(hmod%halo_free_gas==4) WRITE(*,*) 'HALOMODEL: Free gas profile: Komatsu-Seljak continuation'
        IF(hmod%halo_free_gas==5) WRITE(*,*) 'HALOMODEL: Free gas profile: Power-law continuation'
@@ -1341,10 +1401,10 @@ CONTAINS
 
        ! Satellite star halo profile
        IF(hmod%halo_satellite_stars==1) WRITE(*,*) 'HALOMODEL: Satellite star profile: NFW'
-       IF(hmod%halo_satellite_stars==2) WRITE(*,*) 'HALOMODEL: Satellite star profile: Schneider (2015)'
+       IF(hmod%halo_satellite_stars==2) WRITE(*,*) 'HALOMODEL: Satellite star profile: Schneider & Teyssier (2015)'
 
        ! HI halo profile
-       IF(hmod%halo_HI==1) WRITE(*,*) 'HALOMODEL: HI profile: NFW profile'
+       IF(hmod%halo_HI==1) WRITE(*,*) 'HALOMODEL: HI profile: NFW'
        IF(hmod%halo_HI==2) WRITE(*,*) 'HALOMODEL: HI profile: Delta function'
        IF(hmod%halo_HI==3) WRITE(*,*) 'HALOMODEL: HI profile: Polynomial with exponential hole (Villaescusa-Navarro et al. 2018)'
        IF(hmod%halo_HI==4) WRITE(*,*) 'HALOMODEL: HI profile: Modified NFW with exponential hole (Villaescusa-Navarro et al. 2018)'
@@ -1414,7 +1474,7 @@ CONTAINS
        IF(hmod%itrans==5) WRITE(*,*) 'HALOMODEL: Tanh transition with k_nl'
 
        ! Response
-       IF(hmod%response) WRITE(*,*) 'HALOMODEL: Treated as response with HMcode multiplication'
+       IF(hmod%response) WRITE(*,*) 'HALOMODEL: Power computed as reaction with HMcode multiplication'
 
        ! Numerical parameters
        WRITE(*,*) '======================================='
@@ -1445,6 +1505,10 @@ CONTAINS
           WRITE(*,fmt='(A30,F10.5)') 'c*:', hmod%cstar
           WRITE(*,fmt='(A30,F10.5)') 'eta:', hmod%eta
        END IF
+       WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
+       WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
+       WRITE(*,fmt='(A30,F10.5)') 'f_cold:', hmod%fcold
+       WRITE(*,fmt='(A30,F10.5)') 'f_hot:', hmod%fhot
        IF(hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
           WRITE(*,fmt='(A30,F10.5)') 'alpha mass index:', hmod%alphap
           WRITE(*,fmt='(A30,F10.5)') 'Gammma mass index:', hmod%Gammap
@@ -1467,10 +1531,6 @@ CONTAINS
           WRITE(*,fmt='(A30,F10.5)') 'log10(T_WHIM) [K]:', log10(HMx_Twhim(hmod))
           WRITE(*,fmt='(A30,F10.5)') 'c*:', HMx_cstar(hmod%Mh,hmod)
        END IF
-       WRITE(*,fmt='(A30,F10.5)') 'sigma*:', hmod%sstar
-       WRITE(*,fmt='(A30,F10.5)') 'log10(M*) [Msun/h]:', log10(hmod%Mstar)
-       WRITE(*,fmt='(A30,F10.5)') 'f_cold:', hmod%fcold
-       WRITE(*,fmt='(A30,F10.5)') 'f_hot:', hmod%fhot
        WRITE(*,*) '======================================='
        WRITE(*,*) 'HALOMODEL: HOD parameters'
        WRITE(*,*) '======================================='
@@ -4509,7 +4569,7 @@ CONTAINS
 
        ELSE IF(hmod%halo_free_gas==2) THEN
 
-          ! Ejected gas model from Schneider (2015)
+          ! Ejected gas model from Schneider & Teyssier (2015)
           irho_density=10
           irho_electron_pressure=irho_density ! Okay because T is constant
           rmin=rv
@@ -4748,7 +4808,7 @@ CONTAINS
           p1=rstar
           rmax=rv ! Set so that not too much bigger than rstar, otherwise bumps integration goes tits
        ELSE IF(hmod%halo_central_stars==2) THEN
-          ! Schneider (2015), following Mohammed (2014)
+          ! Schneider & Teyssier (2015), following Mohammed (2014)
           irho=9
           !rstar=0.01*rv
           rstar=rv/HMx_cstar(m,hmod)
@@ -5273,9 +5333,9 @@ CONTAINS
     !  5 - Analytic NFW
     !  6 - Beta model with beta=2/3
     !  7 - Star profile
-    !  8 - Komatsu & Seljak (2001) according to Schneider (2015)
-    !  9 - Stellar profile from Schneider (2015)
-    ! 10 - Ejected gas profile (Schneider 2015)
+    !  8 - Komatsu & Seljak (2001) according to Schneider & Teyssier (2015)
+    !  9 - Stellar profile from Schneider & Teyssier (2015)
+    ! 10 - Ejected gas profile (Schneider & Teyssier 2015)
     ! 11 - Simplified Komatsu & Seljak (2001) density
     ! 12 - Simplified Komatsu & Seljak (2001) temperature
     ! 13 - Simplified Komatsu & Seljak (2001) pressure
@@ -5367,14 +5427,14 @@ CONTAINS
              rho=A/(y*(1.+y)**2)
           END IF
        ELSE IF(irho==9) THEN
-          ! Stellar profile from Schneider (2015) via Mohammed (2014)
+          ! Stellar profile from Schneider & Teyssier (2015) via Mohammed (2014)
           rstar=p1
           rho=exp(-(r/(2.*rstar))**2)/r**2
           ! Converting to y caused the integration to crash for some reason !?!
           !y=r/rs
           !rho=exp(-(y/2.)**2.)/y**2.
        ELSE IF(irho==10) THEN
-          ! Ejected gas profile from Schneider (2015)
+          ! Ejected gas profile from Schneider & Teyssier (2015)
           re=p1
           rho=exp(-0.5*(r/re)**2)
        ELSE IF(irho==11 .OR. irho==12 .OR. irho==13 .OR. irho==21 .OR. irho==22 .OR. irho==23) THEN
@@ -5487,7 +5547,7 @@ CONTAINS
        STOP 'RHOR2AT0: You should not be here for a delta-function profile'
     ELSE IF(irho==1 .OR. irho==9) THEN
        !1 - Isothermal
-       !9 - Stellar profile from Schneider (2015)
+       !9 - Stellar profile from Schneider & Teyssier (2015)
        rhor2at0=1.
     ELSE IF(irho==18) THEN
        STOP 'RHOR2AT0: Error, profile diverges at the origin'
@@ -5593,7 +5653,7 @@ CONTAINS
           normalisation=4.*(pi**(3./2.))*rstar
        END IF
     ELSE IF(irho==10) THEN
-       ! Ejected gas profile from Schneider (2015)
+       ! Ejected gas profile from Schneider & Teyssier (2015)
        ! Assumed to go on to r -> infinity
        IF(rmin .NE. 0.) THEN
           normalisation=winint(0.,rmin,rmax,rv,rs,p1,p2,irho,imeth_win)
@@ -5652,8 +5712,8 @@ CONTAINS
     !  6 - No
     !  7 - Star profile
     !  8 - No
-    !  9 - Stellar profile from Schneider (2015)
-    ! 10 - Ejected gas profile (Schneider 2015)
+    !  9 - Stellar profile from Schneider & Teyssier (2015)
+    ! 10 - Ejected gas profile (Schneider & Teyssier 2015)
     ! 11 - No
     ! 12 - No
     ! 13 - No
@@ -6786,7 +6846,7 @@ CONTAINS
           halo_bound_gas_fraction=erf(log10(m/m0)/sigma)*cosm%om_b/cosm%om_m
        END IF
     ELSE IF(hmod%frac_bound_gas==2) THEN
-       ! From Schneider (2015)
+       ! From Schneider & Teyssier (2015)
        M0=HMx_M0(hmod)
        beta=0.6
        halo_bound_gas_fraction=(cosm%om_b/cosm%om_m)/(1.+(M0/m)**beta)
