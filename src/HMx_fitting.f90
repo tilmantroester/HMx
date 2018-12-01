@@ -17,12 +17,11 @@ PROGRAM HMx_fitting
   REAL :: kmin, kmax
   CHARACTER(len=256) :: name, base, mode, zin, outbase, outfile, nchain, maxtime, accuracy
   REAL, ALLOCATABLE :: pow_sim(:), k_sim(:)
-  INTEGER, ALLOCATABLE :: p_int(:)
   REAL, ALLOCATABLE :: p_min(:), p_max(:), p_bst(:), p_rge(:), p_new(:), p_old(:), p_ori(:)
-  REAL, ALLOCATABLE :: q_min(:), q_max(:), q_ori(:), q_rge(:)
-  CHARACTER(len=256), ALLOCATABLE :: p_nme(:), q_nme(:)
-  LOGICAL, ALLOCATABLE :: p_log(:), q_log(:), p_set(:), q_set(:)
-  REAL :: delta, fom, fom_bst, fom_new, fom_old, fom_ori
+  REAL, ALLOCATABLE :: p_lim(:), p_lam(:)
+  CHARACTER(len=256), ALLOCATABLE :: p_nme(:)
+  LOGICAL, ALLOCATABLE :: p_log(:), p_set(:), p_cov(:)
+  REAL :: delta, fom_bst, fom_new, fom_old, fom_ori
   REAL :: t1, t2, tmax
   LOGICAL :: accept
   INTEGER :: icosmo, ihm, i_bst, np, ip(2)
@@ -31,7 +30,7 @@ PROGRAM HMx_fitting
   LOGICAL :: verbose2
   INTEGER :: out
 
-  ! Fitting parameters  
+  ! Fitting parameters
   INTEGER, PARAMETER :: param_alpha=1
   INTEGER, PARAMETER :: param_eps=2
   INTEGER, PARAMETER :: param_gamma=3
@@ -52,7 +51,19 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: param_Astarz=18
   INTEGER, PARAMETER :: param_Twhimz=19
   INTEGER, PARAMETER :: param_eta=20
-  INTEGER, PARAMETER :: param_n=20
+  INTEGER, PARAMETER :: param_HMcode_Dv0=21
+  INTEGER, PARAMETER :: param_HMcode_Dvp=22
+  INTEGER, PARAMETER :: param_HMcode_dc0=23
+  INTEGER, PARAMETER :: param_HMcode_dcp=24
+  INTEGER, PARAMETER :: param_HMcode_eta0=25
+  INTEGER, PARAMETER :: param_HMcode_eta1=26
+  INTEGER, PARAMETER :: param_HMcode_f0=27
+  INTEGER, PARAMETER :: param_HMcode_fp=28
+  INTEGER, PARAMETER :: param_HMcode_kstar=29
+  INTEGER, PARAMETER :: param_HMcode_As=30
+  INTEGER, PARAMETER :: param_HMcode_alpha0=31
+  INTEGER, PARAMETER :: param_HMcode_alpha1=32
+  INTEGER, PARAMETER :: param_n=32
 
   ! Halo model calculation parameters
   REAL, PARAMETER :: mmin=mmin_HMx ! Minimum halo mass for the calculation
@@ -100,7 +111,7 @@ PROGRAM HMx_fitting
      WRITE(*,*) '17 - Hydro: all z; everything but pressure-pressure'
      WRITE(*,*) '18 - Hydro: all z; only matter-matter and matter-pressure'
      WRITE(*,*) '19 - Hydro: all z; stars'
-     WRITE(*,*) '20 - Hydro: all z; finessed version of 17'
+     WRITE(*,*) '20 - Hydro: all z; finessed version of 17: DOES NOT WORK'
      READ(*,*) im
      WRITE(*,*)
   END IF
@@ -159,9 +170,6 @@ PROGRAM HMx_fitting
   
   ! SET: number of cosmologies, fields and delta
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
-
-     ! Required change in figure-of-merit
-     !delta=1e-4 
      
      IF(im==1 .OR. im==3) THEN
         ncos=9 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0. (ignore 1 because it is weird)
@@ -174,9 +182,6 @@ PROGRAM HMx_fitting
      END IF
      
   ELSE IF(im>=11) THEN
-
-     ! Required change in figure-of-merit
-     !delta=1e-3
 
      ! Set to the number of different cosmologies
      ncos=1 
@@ -392,354 +397,143 @@ PROGRAM HMx_fitting
 
   ! Allocate arrays for halo-model power
   ALLOCATE(pow_hm(ncos,nf,nf,nk,nz))
+  
+  ! Allocate arrays for the parameters
+  np=param_n
+  ALLOCATE(p_nme(np),p_ori(np),p_min(np),p_max(np),p_log(np))
+  ALLOCATE(p_lim(np),p_lam(np))
+  ALLOCATE(p_bst(np),p_new(np),p_old(np))
+  ALLOCATE(p_rge(np),p_set(np),p_cov(np))
 
-  ! SET: varying parameters, number of them, and initial values here
+  ! Set the initial parameter values, ranges, names, etc.
+  CALL set_parameters(p_nme,p_ori,p_lim,p_lam,p_min,p_max,p_log,np)
 
-  ! Set initial parameters
-  IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
-     ! Mira Titan or FrankenEmu fitting for HMcode
-     np=12
-  ELSE IF(im==11 .OR. im==16) THEN
-     ! everything
-     np=15
-  ELSE IF(im==12) THEN
-     ! gas
-     np=6
-  ELSE IF(im==13) THEN
-     ! stars
-     np=6
-  ELSE IF(im==19) THEN
-     ! stars
-     np=7
-  ELSE IF(im==14 .OR. im==15) THEN
-     ! 14 - gas and stars
-     ! 15 - matter
-     np=10
-  ELSE IF(im==17 .OR. im==18 .OR. im==20) THEN
-     ! everything with z dependence
-     np=20
-  ELSE
-     STOP 'HMx_FITTING: Something went wrong with np'
-  END IF
+  ! Initially all parameters default to not being varied
+  p_set=.FALSE.
 
-  ALLOCATE(p_bst(np),p_new(np),p_old(np),p_rge(np),p_ori(np),p_log(np),p_min(np),p_max(np),p_nme(np))
-  ALLOCATE(p_set(np))
-  !p_log=.FALSE.
+  ! Initially set the range for all parameter to be zero
+  p_rge=0.
+
+  ! Initially assume we calculate the step size for each parameter
+  p_cov=.TRUE.
 
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
 
-     ! None of these parameters are explored in log
-     p_log=.FALSE.
-     p_set=.TRUE.
-
-     p_nme(1)='Dv0'
-     p_ori(1)=418. 
-     p_min(1)=50.
-     p_max(1)=1000.
-
-     p_nme(2)='Dvp'
-     p_ori(2)=-0.352
-     p_min(2)=-5.
-     p_max(2)=5.
-
-     p_nme(3)='dc0'
-     p_ori(3)=1.59
-     p_min(3)=1.
-     p_max(3)=2.
-
-     p_nme(4)='dcp'
-     p_ori(4)=0.0314
-     p_min(4)=-5.
-     p_max(4)=5.
-
-     p_nme(5)='eta0'
-     p_ori(5)=0.603
-     p_min(5)=-5.
-     p_max(5)=5.
-
-     p_nme(6)='eta1'
-     p_ori(6)=0.300
-     p_min(6)=-5.
-     p_max(6)=5.
-
-     p_nme(7)='f0'
-     !p_ori(7)=0.0095 ! Mead (2016) 
-     p_ori(7)=0.188 ! Mead (2015) damping
-     p_min(7)=-5.
-     p_max(7)=5.
-
-     p_nme(8)='fp'
-     !p_ori(8)=1.37 ! Mead (2016)
-     p_ori(8)=4.29 ! Mead (2015)
-     p_min(8)=-10.
-     p_max(8)=10.
-
-     p_nme(9)='kstar'
-     p_ori(9)=0.584
-     p_min(9)=-5.
-     p_max(9)=5.
-
-     p_nme(10)='As'
-     p_ori(10)=3.13
-     p_min(10)=1.
-     p_max(10)=10.
-
-     p_nme(11)='alpha0'
-     p_ori(11)=3.24
-     p_min(11)=-5.
-     p_max(11)=5.
-
-     p_nme(12)='alpha1'
-     p_ori(12)=1.85
-     p_min(12)=-5.
-     p_max(12)=5.
+     ! HMcode
+     p_set(param_HMcode_Dv0)=.TRUE.
+     p_set(param_HMcode_Dvp)=.TRUE.
+     p_set(param_HMcode_dc0)=.TRUE.
+     p_set(param_HMcode_dcp)=.TRUE.
+     p_set(param_HMcode_eta0)=.TRUE.
+     p_set(param_HMcode_eta1)=.TRUE.
+     p_set(param_HMcode_f0)=.TRUE.
+     p_set(param_HMcode_fp)=.TRUE.
+     p_set(param_HMcode_kstar)=.TRUE.
+     p_set(param_HMcode_As)=.TRUE.
+     p_set(param_HMcode_alpha0)=.TRUE.
+     p_set(param_HMcode_alpha1)=.TRUE.
 
   ELSE IF(im>=11) THEN
 
-     ! The general parameters are set here
-
-     ALLOCATE(q_ori(param_n),q_log(param_n),q_min(param_n),q_max(param_n),q_nme(param_n))
-     ALLOCATE(q_set(param_n),q_rge(param_n))
-     ALLOCATE(p_int(np))
-
-     q_ori=0.
-     q_log=.TRUE.     
-     q_min=0.
-     q_max=0.
-     q_nme=''
-     q_set=.TRUE.
-     q_rge=0.
-
-     q_nme(1)='alpha'
-     q_ori(1)=1.60*(1.+z(1))
-     q_min(1)=1e-2
-     q_max(1)=1e1
-
-     ! Can not be one because log(1)=0 and this messes things up in setting the ranges
-     q_nme(2)='epsilon'
-     q_ori(2)=1.1
-     q_min(2)=1e-2
-     q_max(2)=1e2
-
-     q_nme(3)='Gamma-1'
-     q_ori(3)=0.24
-     q_min(3)=0.01
-     q_max(3)=2.
-     q_log(3)=.FALSE.
-
-     ! This must depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
-     q_nme(4)='M0'
-     q_ori(4)=10**13.77/(10.**z(1)) ! Okay with z dependence as long as z(1)=0
-     q_min(4)=1e8
-     q_max(4)=1e16
-
-     q_nme(5)='A_*'
-     q_ori(5)=0.042
-     q_min(5)=1e-3
-     q_max(5)=1e-1
-
-     ! For some reason when 1e6 is set a range is calculated that gives too large a change in figure-of-merit
-     q_nme(6)='T_whim'
-     q_ori(6)=10**6.11
-     q_min(6)=1e2
-     q_max(6)=1e8
-
-     q_nme(7)='c_*'
-     q_ori(7)=7.
-     q_min(7)=1e0
-     q_max(7)=1e3
-
-     ! Needed to boost original here so that it has an effect
-     q_nme(8)='f_cold'
-     q_ori(8)=0.00126
-     q_min(8)=1e-5
-     q_max(8)=0.5
-     q_set(8)=.FALSE.
-     q_rge(8)=0.1
-     
-     q_nme(9)='M_*'
-     q_ori(9)=10**12.5
-     q_min(9)=1e8
-     q_max(9)=1e16
-
-     q_nme(10)='sigma_*'
-     q_ori(10)=0.8
-     q_min(10)=0.1
-     q_max(10)=10.
-     q_log(10)=.FALSE.
-
-     q_nme(11)='alpha_M_pow'
-     q_ori(11)=-0.5
-     q_min(11)=-1.
-     q_max(11)=1.
-     q_log(11)=.FALSE.
-
-     q_nme(12)='Gamma_M_pow'
-     q_ori(12)=-0.02
-     q_min(12)=-0.006
-     q_max(12)=0.2
-     q_log(12)=.FALSE.
-
-     q_nme(13)='c_*_M_pow'
-     q_ori(13)=-0.2
-     q_min(13)=-1.
-     q_max(13)=1.
-     q_log(13)=.FALSE.
-
-     q_nme(14)='f_hot'
-     q_ori(14)=0.01
-     q_min(14)=1e-5
-     q_max(14)=0.5
-     q_set(14)=.FALSE.
-     q_rge(14)=0.1
-
-     q_nme(15)='alpha_z_pow'
-     q_ori(15)=0.43
-     q_min(15)=-3.
-     q_max(15)=3.
-     q_log(15)=.FALSE.
-
-     q_nme(16)='Gamma_z_pow'
-     q_ori(16)=0.3
-     q_min(16)=-1.
-     q_max(16)=1.
-     q_log(16)=.FALSE.
-
-     q_nme(17)='M0_z_pow'
-     q_ori(17)=-0.08
-     q_min(17)=-1.
-     q_max(17)=1.
-     q_log(17)=.FALSE.
-
-     q_nme(18)='Astar_z_pow'
-     q_ori(18)=-0.45
-     q_min(18)=-1.
-     q_max(18)=1.
-     q_log(18)=.FALSE.
-
-     q_nme(19)='Twhim_z_pow'
-     q_ori(19)=-0.11
-     q_min(19)=-1.
-     q_max(19)=1.
-     q_log(19)=.FALSE.
-
-     q_nme(20)='eta'
-     q_ori(20)=-0.3
-     q_min(20)=-2.0
-     q_max(20)=0.0
-     q_log(20)=.FALSE.
-     q_set(20)=.FALSE.
-     q_rge(20)=0.01
-
-     IF(im==20) CALL finesse_parameters(q_ori,n,im,name)
+     IF(im==20) CALL finesse_parameters(p_ori,n,im,name)
      
      IF(im==11 .OR. im==16) THEN
 
         ! 11 - everything
         ! 16 - everything minus pressure-pressure
-        p_int(1)=param_alpha
-        p_int(2)=param_eps
-        p_int(3)=param_Gamma
-        p_int(4)=param_M0
-        p_int(5)=param_Astar
-        p_int(6)=param_Twhim
-        p_int(7)=param_cstar
-        p_int(8)=param_fcold
-        p_int(9)=param_Mstar
-        p_int(10)=param_sstar
-        p_int(11)=param_alphap
-        p_int(12)=param_Gammap
-        p_int(13)=param_cstarp
-        p_int(14)=param_fhot
-        p_int(15)=param_eta
+        p_set(param_alpha)=.TRUE.
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Astar)=.TRUE.
+        p_set(param_Twhim)=.TRUE.
+        p_set(param_cstar)=.TRUE.
+        p_set(param_fcold)=.TRUE.
+        p_set(param_Mstar)=.TRUE.
+        p_set(param_sstar)=.TRUE.
+        p_set(param_alphap)=.TRUE.
+        p_set(param_Gammap)=.TRUE.
+        p_set(param_cstarp)=.TRUE.
+        p_set(param_fhot)=.TRUE.
+        p_set(param_eta)=.TRUE.
 
      ELSE IF(im==17 .OR. im==18 .OR. im==20) THEN
 
         ! redshift dependent everything minus pressure-pressure
-        p_int(1)=param_alpha
-        p_int(2)=param_eps
-        p_int(3)=param_Gamma
-        p_int(4)=param_M0
-        p_int(5)=param_Astar
-        p_int(6)=param_Twhim
-        p_int(7)=param_cstar
-        p_int(8)=param_fcold
-        p_int(9)=param_Mstar
-        p_int(10)=param_sstar
-        p_int(11)=param_alphap
-        p_int(12)=param_Gammap
-        p_int(13)=param_cstarp
-        p_int(14)=param_fhot
-        p_int(15)=param_alphaz
-        p_int(16)=param_Gammaz
-        p_int(17)=param_M0z
-        p_int(18)=param_Astarz
-        p_int(19)=param_Twhimz
-        p_int(20)=param_eta
+        p_set(param_alpha)=.TRUE.
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Astar)=.TRUE.
+        p_set(param_Twhim)=.TRUE.
+        p_set(param_cstar)=.TRUE.
+        p_set(param_fcold)=.FALSE.
+        p_set(param_Mstar)=.TRUE.
+        p_set(param_sstar)=.TRUE.
+        p_set(param_fhot)=.TRUE.
+        IF(im .NE. 18) p_set(param_eta)=.TRUE.
+        
+        p_set(param_alphap)=.TRUE.
+        p_set(param_Gammap)=.TRUE.
+        p_set(param_cstarp)=.TRUE.        
+        
+        p_set(param_alphaz)=.TRUE.
+        p_set(param_Gammaz)=.TRUE.
+        p_set(param_M0z)=.TRUE.
+        p_set(param_Astarz)=.TRUE.
+        p_set(param_Twhimz)=.TRUE.
 
      ELSE IF(im==12) THEN
 
         ! gas
-        p_int(1)=param_eps
-        p_int(2)=param_Gamma
-        p_int(3)=param_M0
-        p_int(4)=param_Astar
-        p_int(5)=param_fcold
-        p_int(6)=param_Gammap
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Astar)=.TRUE.
+        p_set(param_fcold)=.TRUE.
+        p_set(param_Gammap)=.TRUE.
 
      ELSE IF(im==13) THEN
 
         ! stars
-        p_int(1)=param_Astar
-        p_int(2)=param_cstar
-        p_int(3)=param_cstarp
-        p_int(4)=param_Mstar
-        p_int(5)=param_sstar
-        p_int(6)=param_eta
+        p_set(param_Astar)=.TRUE.
+        p_set(param_cstar)=.TRUE.
+        p_set(param_cstarp)=.TRUE.
+        p_set(param_Mstar)=.TRUE.
+        p_set(param_sstar)=.TRUE.
+        p_set(param_eta)=.TRUE.
 
      ELSE IF(im==19) THEN
 
-        ! stars
-        p_int(1)=param_Astar
-        p_int(2)=param_cstar
-        p_int(3)=param_cstarp
-        p_int(4)=param_Mstar
-        p_int(5)=param_sstar
-        p_int(6)=param_eta
-        p_int(7)=param_Astarz
+        ! stars - z
+        p_set(param_Astar)=.TRUE.
+        p_set(param_cstar)=.TRUE.
+        p_set(param_cstarp)=.TRUE.
+        p_set(param_Mstar)=.TRUE.
+        p_set(param_sstar)=.TRUE.
+        p_set(param_eta)=.TRUE.
+        p_set(param_Astarz)=.TRUE.
 
      ELSE IF(im==14 .OR. im==15) THEN
 
         ! 14 - gas and stars
         ! 15 - matter
-        p_int(1)=param_eps
-        p_int(2)=param_Gamma
-        p_int(3)=param_M0
-        p_int(4)=param_Astar
-        p_int(5)=param_cstar
-        p_int(6)=param_fcold
-        p_int(7)=param_Gammap
-        p_int(8)=param_cstarp
-        p_int(9)=param_Mstar
-        p_int(10)=param_sstar
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Astar)=.TRUE.
+        p_set(param_cstar)=.TRUE.
+        p_set(param_fcold)=.TRUE.
+        p_set(param_Mstar)=.TRUE.
+        p_set(param_sstar)=.TRUE.
+        p_set(param_Gammap)=.TRUE.
+        p_set(param_cstarp)=.TRUE.       
 
      ELSE
 
         STOP 'HMx_FITTING: Something went wrong with setting parameters'
         
      END IF
-
-     ! Actually fill the proper parameter arrays
-     DO i=1,np
-        j=p_int(i)
-        p_nme(i)=q_nme(j)
-        p_ori(i)=q_ori(j)
-        p_min(i)=q_min(j)
-        p_max(i)=q_max(j)
-        p_log(i)=q_log(j)
-        p_rge(i)=q_rge(j)
-        p_set(i)=q_set(j)
-     END DO
 
   ELSE
 
@@ -748,9 +542,9 @@ PROGRAM HMx_fitting
   END IF
 
   ! Start from a random place within the prior
-  IF(random_start) THEN     
+  IF(random_start) THEN
      DO i=1,np
-        p_ori(i)=random_uniform(p_min(i),p_max(i))
+        IF(p_set(i)) p_ori(i)=random_uniform(p_lim(i),p_lam(i))
      END DO
   END IF
 
@@ -769,9 +563,9 @@ PROGRAM HMx_fitting
   p_bst=p_ori
 
   ! Set the best figures-of-merit to some huge value
-  fom_old=HUGE(fom)
-  fom_new=HUGE(fom)
-  fom_bst=HUGE(fom)
+  fom_old=HUGE(fom_old)
+  fom_new=HUGE(fom_new)
+  fom_bst=HUGE(fom_bst)
 
   ! Loop over number of runs
   WRITE(*,*) 'HMx_FITTING: Starting fitting'
@@ -798,7 +592,7 @@ PROGRAM HMx_fitting
         ELSE
            verbose2=.TRUE.
         END IF
-        CALL set_parameter_ranges(im,delta,fields,nf,p_rge,p_set,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
+        CALL set_parameter_ranges(delta,fields,nf,p_rge,p_set,p_cov,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
         IF(l==1) THEN
            outfile=trim(outbase)//'_chain.dat'
            OPEN(10,file=outfile)
@@ -814,14 +608,26 @@ PROGRAM HMx_fitting
      ELSE
         ! Randomly jump parameters
         DO i=1,np
-           p_new(i)=random_Gaussian(p_old(i),p_rge(i))
+           IF(p_set(i)) THEN
+              p_new(i)=random_Gaussian(p_old(i),p_rge(i))
+           ELSE
+              p_new(i)=p_old(i)
+           END IF
            IF(p_new(i)<p_min(i)) p_new(i)=p_min(i)
            IF(p_new(i)>p_max(i)) p_new(i)=p_max(i)
         END DO
      END IF
 
      ! Calculate the figure-of-merit
-     CALL fom_multiple(im,fields,nf,fom_new,p_new,p_log,np,k,nk,z,nz,pow_hm,pow_bm,weight,hmod,cosm,ncos)
+     CALL fom_multiple(fields,nf,fom_new,p_new,p_log,np,k,nk,z,nz,pow_hm,pow_bm,weight,hmod,cosm,ncos)
+
+!!$     WRITE(*,*) 'Go:', l
+!!$     WRITE(*,*) 'FOM:', fom_new
+!!$     DO i=1,np
+!!$        IF(p_set(i)) WRITE(*,*) i, TRIM(p_nme(i)), p_new(i)
+!!$     END DO
+!!$     WRITE(*,*)
+!!$     IF(l==2) STOP    
 
      ! Write original power spectra to disk
      IF(l==1) THEN
@@ -879,6 +685,7 @@ PROGRAM HMx_fitting
      END IF
 
      IF(l .NE. n+1) WRITE(*,fmt='(I10,3F14.7,L3)') l, fom_bst, fom_old, fom_new, accept
+     !IF(l .NE. n+1) WRITE(*,fmt='(I10,3F14.7,L3,F10.5)') l, fom_bst, fom_old, fom_new, accept, p_new(param_eta)
 
      IF(accept) THEN
         i_acc=i_acc+1
@@ -922,15 +729,17 @@ PROGRAM HMx_fitting
      WRITE(out,*)
 
      WRITE(out,*) 'HMx_FITTING: Best-fitting parameters'
-     WRITE(out,*) '====================================================================================='
-     WRITE(out,*) 'Parameter           Name           Original          Best       Minimum       Maximum'
-     WRITE(out,*) '====================================================================================='
+     WRITE(out,*) '================================================================================'
+     WRITE(out,*) 'Parameter           Name      Original          Best       Minimum       Maximum'
+     WRITE(out,*) '================================================================================'
      DO i=1,np
-        IF(p_log(i)) THEN
-           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'lin', 10**p_ori(i), 10**p_bst(i), 10**p_min(i), 10**p_max(i)
-           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'log', p_ori(i), p_bst(i), p_min(i), p_max(i)
-        ELSE
-           WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'lin', p_ori(i), p_bst(i), p_min(i), p_max(i)
+        IF(j==2 .OR. (j==1 .AND. p_set(i))) THEN
+           IF(p_log(i)) THEN
+              WRITE(out,fmt='(I10,A15,4F14.7)') i, trim(p_nme(i)), 10**p_ori(i), 10**p_bst(i), 10**p_min(i), 10**p_max(i)
+              !WRITE(out,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'log', p_ori(i), p_bst(i), p_min(i), p_max(i)
+           ELSE
+              WRITE(out,fmt='(I10,A15,4F14.7)') i, trim(p_nme(i)), p_ori(i), p_bst(i), p_min(i), p_max(i)
+           END IF
         END IF
      END DO
      WRITE(out,*) '====================================================================================='
@@ -944,12 +753,11 @@ PROGRAM HMx_fitting
 
 CONTAINS
 
-  SUBROUTINE fom_multiple(im,fields,nf,fom,p,p_log,np,k,nk,z,nz,pow_hm,pow_sim,weight,hmod,cosm,n)
+  SUBROUTINE fom_multiple(fields,nf,fom,p,p_log,np,k,nk,z,nz,pow_hm,pow_sim,weight,hmod,cosm,n)
 
     USE special_functions
 
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: im ! Mode for the driver
     INTEGER, INTENT(IN) :: fields(nf) ! Field types
     INTEGER, INTENT(IN) :: nf ! Number of fields
     REAL, INTENT(OUT) :: fom ! Output figure of merit
@@ -980,7 +788,7 @@ CONTAINS
     ! Loop over cosmologies
     DO i=1,n
 
-       ! SET: parameters here
+       ! SET: add parameters here
 
        ! Exponentiate those parameters that need it
        DO j=1,np
@@ -991,116 +799,41 @@ CONTAINS
           END IF
        END DO
 
-       If(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
+       ! HMcode
+       hmod(i)%Dv0=pexp(param_HMcode_Dv0)
+       hmod(i)%Dv1=pexp(param_HMcode_Dvp)
+       hmod(i)%dc0=pexp(param_HMcode_dc0)
+       hmod(i)%dc1=pexp(param_HMcode_dcp)
+       hmod(i)%eta0=pexp(param_HMcode_eta0)
+       hmod(i)%eta1=pexp(param_HMcode_eta1)
+       hmod(i)%f0=pexp(param_HMcode_f0)
+       hmod(i)%f1=pexp(param_HMcode_fp)
+       hmod(i)%ks=pexp(param_HMcode_kstar)
+       hmod(i)%As=pexp(param_HMcode_As)
+       hmod(i)%alp0=pexp(param_HMcode_alpha0)
+       hmod(i)%alp1=pexp(param_HMcode_alpha1)
 
-          ! Set HMcode parameters to those being varied
-          hmod(i)%Dv0=pexp(1)
-          hmod(i)%Dv1=pexp(2)
-          hmod(i)%dc0=pexp(3)
-          hmod(i)%dc1=pexp(4)
-          hmod(i)%eta0=pexp(5)
-          hmod(i)%eta1=pexp(6)
-          hmod(i)%f0=pexp(7)
-          hmod(i)%f1=pexp(8)
-          hmod(i)%ks=pexp(9)
-          hmod(i)%As=pexp(10)
-          hmod(i)%alp0=pexp(11)
-          hmod(i)%alp1=pexp(12)
-
-       ELSE IF(im==12) THEN
-
-          ! gas
-          hmod(i)%eps=pexp(1)
-          hmod(i)%Gamma=1.+pexp(2)
-          hmod(i)%M0=pexp(3)
-          hmod(i)%Astar=pexp(4)
-          hmod(i)%fcold=pexp(5)
-          hmod(i)%Gammap=pexp(6)
-
-       ELSE IF(im==13) THEN
-
-          ! stars
-          hmod(i)%Astar=pexp(1)
-          hmod(i)%cstar=pexp(2)
-          hmod(i)%cstarp=pexp(3)
-          hmod(i)%Mstar=pexp(4)
-          hmod(i)%sstar=pexp(5)
-          hmod(i)%eta=pexp(6)
-
-       ELSE IF(im==19) THEN
-
-          ! stars
-          hmod(i)%Astar=pexp(1)
-          hmod(i)%cstar=pexp(2)
-          hmod(i)%cstarp=pexp(3)
-          hmod(i)%Mstar=pexp(4)
-          hmod(i)%sstar=pexp(5)
-          hmod(i)%eta=pexp(6)
-          hmod(i)%Astarz=pexp(7)
-
-       ELSE IF(im==14 .OR. im==15) THEN
-
-          ! 14 - gas and stars
-          ! 15 - matter
-          hmod(i)%eps=pexp(1)
-          hmod(i)%Gamma=1.+pexp(2)
-          hmod(i)%M0=pexp(3)
-          hmod(i)%Astar=pexp(4)
-          hmod(i)%cstar=pexp(5)
-          hmod(i)%fcold=pexp(6)
-          hmod(i)%Gammap=pexp(7)
-          hmod(i)%cstarp=pexp(8)
-          hmod(i)%Mstar=pexp(9)
-          hmod(i)%sstar=pexp(10)
-
-       ELSE IF(im==11 .OR. im==16) THEN
-
-          ! everything; separate z
-          hmod(i)%alpha=pexp(1)
-          hmod(i)%eps=pexp(2)
-          hmod(i)%Gamma=1.+pexp(3)
-          hmod(i)%M0=pexp(4)
-          hmod(i)%Astar=pexp(5)
-          hmod(i)%Twhim=pexp(6)
-          hmod(i)%cstar=pexp(7)
-          hmod(i)%fcold=pexp(8)
-          hmod(i)%Mstar=pexp(9)
-          hmod(i)%sstar=pexp(10)
-          hmod(i)%alphap=pexp(11)
-          hmod(i)%Gammap=pexp(12)
-          hmod(i)%cstarp=pexp(13)
-          hmod(i)%fhot=pexp(14)
-          hmod(i)%eta=pexp(15)
-
-       ELSE IF(im==17 .OR. im==18 .OR. im==20) THEN
-
-          ! everything; simultaneous z
-          hmod(i)%alpha=pexp(1)
-          hmod(i)%eps=pexp(2)
-          hmod(i)%Gamma=1.+pexp(3)
-          hmod(i)%M0=pexp(4)
-          hmod(i)%Astar=pexp(5)
-          hmod(i)%Twhim=pexp(6)
-          hmod(i)%cstar=pexp(7)
-          hmod(i)%fcold=pexp(8)
-          hmod(i)%Mstar=pexp(9)
-          hmod(i)%sstar=pexp(10)
-          hmod(i)%alphap=pexp(11)
-          hmod(i)%Gammap=pexp(12)
-          hmod(i)%cstarp=pexp(13)
-          hmod(i)%fhot=pexp(14)
-          hmod(i)%alphaz=pexp(15)
-          hmod(i)%Gammaz=pexp(16)
-          hmod(i)%M0z=pexp(17)
-          hmod(i)%Astarz=pexp(18)
-          hmod(i)%Twhimz=pexp(19)
-          hmod(i)%eta=pexp(20)
-
-       ELSE
-
-          STOP 'FOM_MULTIPLE: Error, im not specified correctly'
-
-       END IF
+       ! Hydro
+       hmod(i)%alpha=pexp(param_alpha)
+       hmod(i)%eps=pexp(param_eps)
+       hmod(i)%Gamma=1.+pexp(param_Gamma)
+       hmod(i)%M0=10.**pexp(param_M0)
+       hmod(i)%Astar=pexp(param_Astar)
+       hmod(i)%Twhim=10.**pexp(param_Twhim)
+       hmod(i)%cstar=pexp(param_cstar)
+       hmod(i)%fcold=pexp(param_fcold)
+       hmod(i)%Mstar=10.**pexp(param_Mstar)
+       hmod(i)%sstar=pexp(param_sstar)
+       hmod(i)%fhot=pexp(param_fhot)
+       hmod(i)%eta=pexp(param_eta)
+       hmod(i)%alphap=pexp(param_alphap)
+       hmod(i)%Gammap=pexp(param_Gammap)
+       hmod(i)%cstarp=pexp(param_cstarp)     
+       hmod(i)%alphaz=pexp(param_alphaz)
+       hmod(i)%Gammaz=pexp(param_Gammaz)
+       hmod(i)%M0z=pexp(param_M0z)
+       hmod(i)%Astarz=pexp(param_Astarz)
+       hmod(i)%Twhimz=pexp(param_Twhimz)
 
        ! Loop over redshifts
        DO j=1,nz
@@ -1115,9 +848,7 @@ CONTAINS
           ! Calculate figure of merit and add to total
           DO j1=1,nf
              DO j2=j1,nf
-                !fom=fom+(figure_of_merit(pow_hm(i,j1,j2,:,j),pow_sim(i,j1,j2,:,j),nk)*weight(i,j1,j2,j))**2
                 DO ik=1,nk
-                   !fom=fom+figure_of_merit(pow_hm(i,j1,j2,ik,j),pow_sim(i,j1,j2,ik,j))*weight(i,j1,j2,j)
                    fom=fom+weight(i,j1,j2,ik,j)*(pow_hm(i,j1,j2,ik,j)/pow_sim(i,j1,j2,ik,j)-1.)**2
                    neff=neff+weight(i,j1,j2,ik,j)
                 END DO
@@ -1128,28 +859,20 @@ CONTAINS
 
     END DO
 
-    ! Divide the figure-of-merit by the number of independent field combinations, redshifts and cosmologies
-    ! This is then the rms error per log-k, per z, per cosmology per field
-    !weight_sum=SUM(weight)/REAL(n*nz*triangle_number(nf))
-    !fom=sqrt(fom/REAL(n*nz*triangle_number(nf)))/weight_sum
-    
-    !weight_sum=SUM(weight)/REAL(n*nz*nk*triangle_number(nf))
-    !fom=sqrt(fom/REAL(n*nz*nk*triangle_number(nf)))/weight_sum
-
     ! Calculate the final figure-of-merit by dividing by the effective number of data points and sqrt
     fom=sqrt(fom/neff)
 
   END SUBROUTINE fom_multiple
 
-  SUBROUTINE set_parameter_ranges(im,delta,fields,nf,sigma,p_set,p,p_log,p_nme,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
+  SUBROUTINE set_parameter_ranges(delta,fields,nf,p_rge,p_set,p_cov,p,p_log,p_nme,np,k,nk,z,nz,pow_sim,weight,hmod,cosm,n,verbose)
 
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: im
     REAL, INTENT(IN) :: delta
     INTEGER, INTENT(IN) :: fields(nf)
     INTEGER, INTENT(IN) :: nf
-    REAL, INTENT(INOUT) :: sigma(np)
+    REAL, INTENT(INOUT) :: p_rge(np)
     LOGICAL, INTENT(IN) :: p_set(np)
+    LOGICAL, INTENT(IN) :: p_cov(np)
     REAL, INTENT(IN) :: p(np)
     LOGICAL, INTENT(IN) :: p_log(np)
     CHARACTER(len=*), INTENT(IN) :: p_nme(np)
@@ -1164,34 +887,44 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm(n)
     INTEGER, INTENT(IN) :: n
     LOGICAL, INTENT(IN) :: verbose
-    INTEGER :: i
+    INTEGER :: i, nv
     REAL :: fom_base, fom_diff, fom, df, p2(np), pow(n,nf,nf,nk,nz), dp
-    !REAL :: sig, sigs(4)
     
     REAL, PARAMETER :: eps=2.0    ! Tolerated error in fom difference when setting range
     REAL, PARAMETER :: deriv=1e-4 ! How much smaller is the derivative than delta
-    !INTEGER, PARAMETER :: nout=25 ! For output debugging
 
     ! Get the figure of merit for the base set of parameters
-    CALL fom_multiple(im,fields,nf,fom_base,p,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
+    CALL fom_multiple(fields,nf,fom_base,p,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
 
+    ! Calculate an initial value for the paramter change
     dp=deriv*delta
+
+    ! Count the number of parameters being varied
+    nv=0
+    DO i=1,np
+       IF(p_set(i)) nv=nv+1
+    END DO
 
     ! Initial parameter perturbation
     DO i=1,np
        IF(p_set(i)) THEN
-          IF(p(i) .NE. 0.) THEN
-             sigma(i)=p(i)*dp
-          ELSE
-             sigma(i)=dp
+          IF(p_cov(i)) THEN
+             IF(p(i) .NE. 0.) THEN
+                p_rge(i)=p(i)*dp
+             ELSE
+                p_rge(i)=dp
+             END IF
           END IF
+       ELSE
+          p_rge(i)=0.
        END IF
     END DO
 
     ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) 'SET_PARAMETER_RANGES: Setting parameter step sizes'
-       WRITE(*,*) 'SET_PARAMETER_RANGES: Number of parameters:', np
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Number of varied parameters:', nv
+       WRITE(*,*) 'SET_PARAMETER_RANGES: Total number of parameters:', np
        WRITE(*,*) 'SET_PARAMETER_RANGES: Number of cosmologies:', n
        WRITE(*,*) 'SET_PARAMETER_RANGES: Number of fields:', nf
        WRITE(*,*) 'SET_PARAMETER_RANGES: Number of wavenumbers:', nk
@@ -1199,61 +932,67 @@ CONTAINS
        WRITE(*,*) 'SET_PARAMETER_RANGES: Derivatives being calculated with:', dp
        WRITE(*,*) 'SET_PARAMETER_RANGES: Fixing sigma to give change in fom:', delta
        WRITE(*,*) 'SET_PARAMETER_RANGES: Baseline fom:', fom_base
-       WRITE(*,*) '====================================================================================='
-       WRITE(*,*) 'Parameter           Name         Base value     New Value         Sigma         Ratio'
-       WRITE(*,*) '====================================================================================='
+       WRITE(*,*) '================================================================================'
+       WRITE(*,*) 'Parameter           Name    Base value     New Value         Sigma        Change'
+       WRITE(*,*) '================================================================================'
     END IF
 
     ! Loop over parameters
     DO i=1,np
 
-       ! Set the range of p to take the derivative over
-       p2=p ! Reset all
-       p2(i)=p(i)+sigma(i) ! Perturb parameter i
-
-       ! Get the figure of merit for the updated parameter
-       CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
-
-       ! Calculate the change in the figure of merit for this parameter
-       df=fom-fom_base
-
-       ! Check that perturbing the parameter actually changes the figure of merit
-       IF(df==0.) THEN
-          WRITE(*,*) 'SET_PARAMETER_RANGES: Parameter:', i
-          WRITE(*,*) 'SET_PARAMETER_RANGES: sigma:', sigma(i)
-          IF(p_log(i)) THEN
-             WRITE(*,*) 'SET_PARAMETER_RANGES: Original value:', 10**p(i)
-             WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed value:', 10**p2(i)
-          ELSE
-             WRITE(*,*) 'SET_PARAMETER_RANGES: Original value:', p(i)
-             WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed value:', p2(i)
-          END IF
-          WRITE(*,*) 'SET_PARAMETER_RANGES: Original figure-of-merit:', fom_base
-          WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed figure-of-merit:', fom
-          WRITE(*,*) 'SET_PARAMETER_RANGES: Change in figure-of-merit:', df
-          STOP 'SET_PARAMETER_RANGES: Error, changing parameter does not change power spectra'
-       END IF
-
        IF(p_set(i)) THEN
 
-          ! Set sigma so that it gives a change of 'delta' in fom
-          !sigma(i)=ABS(sigma(i)/df)*delta
-          sigma(i)=sigma(i)*delta/df
-          p2(i)=p(i)+sigma(i)
+          ! Set the range of p to take the derivative over
+          p2=p ! Reset all
+          p2(i)=p(i)+p_rge(i) ! Perturb parameter i
 
-       END IF
+          ! Get the figure of merit for the updated parameter
+          CALL fom_multiple(fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
 
-       ! Write parameters to screen
-       IF(verbose) THEN
-          IF(p_log(i)) WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'lin', 10**p(i), 10**p2(i), sigma(i), sigma(i)/abs(p(i))
-          WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'log', p(i), p2(i), sigma(i), sigma(i)/abs(p(i))
+          ! Calculate the change in the figure of merit for this parameter
+          df=fom-fom_base
+
+          ! Check that perturbing the parameter actually changes the figure of merit
+          IF(df==0.) THEN
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Parameter:', i
+             WRITE(*,*) 'SET_PARAMETER_RANGES: sigma:', p_rge(i)
+             IF(p_log(i)) THEN
+                WRITE(*,*) 'SET_PARAMETER_RANGES: Original value:', 10**p(i)
+                WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed value:', 10**p2(i)
+             ELSE
+                WRITE(*,*) 'SET_PARAMETER_RANGES: Original value:', p(i)
+                WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed value:', p2(i)
+             END IF
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Original figure-of-merit:', fom_base
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Perturbed figure-of-merit:', fom
+             WRITE(*,*) 'SET_PARAMETER_RANGES: Change in figure-of-merit:', df
+             STOP 'SET_PARAMETER_RANGES: Error, changing parameter does not change power spectra'
+          END IF
+
+          IF(p_cov(i)) THEN
+
+             ! Set sigma so that it gives a change of 'delta' in fom
+             p_rge(i)=p_rge(i)*delta/df
+             p2(i)=p(i)+p_rge(i)
+
+          END IF
+
+          ! Write parameters to screen
+          IF(verbose) THEN
+             IF(p_log(i)) THEN
+                WRITE(*,fmt='(I10,A15,4F14.7)') i, trim(p_nme(i)), 10.**p(i), 10.**p2(i), 10.**p2(i)-10.**p(i), p_rge(i)/p(i)
+             ELSE
+                WRITE(*,fmt='(I10,A15,4F14.7)') i, trim(p_nme(i)), p(i), p2(i), p_rge(i), p_rge(i)/p(i)
+             END IF
+          END IF
+
        END IF
 
     END DO
 
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) '====================================================================================='
+       WRITE(*,*) '================================================================================'
        WRITE(*,*) 'SET_PARAMETER_RANGES: Done initial setting'
        WRITE(*,*)
     END IF
@@ -1261,64 +1000,53 @@ CONTAINS
     ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) 'SET_PARAMETER_RANGES: Baseline figure of merit:', fom_base
-       !WRITE(*,*) '===================================================================================='
-       !WRITE(*,*) '    Parameter           Name      fom_base           fom         sigma         ratio'
-       !WRITE(*,*) '===================================================================================='
-       WRITE(*,*) '====================================================================================='
-       WRITE(*,*) 'Parameter           Name         Base value     New Value           fom         Ratio'
-       WRITE(*,*) '====================================================================================='
+       WRITE(*,*) '================================================================================'
+       WRITE(*,*) 'Parameter           Name    Base value     New Value         Sigma         Ratio'
+       WRITE(*,*) '================================================================================'
     END IF
 
     DO i=1,np
 
-       DO
+       IF(p_set(i)) THEN
 
-          p2=p
-          p2(i)=p(i)+sigma(i)
-          CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
-          fom_diff=fom-fom_base
-          !WRITE(*,fmt='(I14,A15,4F14.7)') i, trim(p_nme(i)), fom_base, fom, sigma(i), fom_diff/delta
-          ! Write parameters to screen
-          IF(verbose) THEN
-             IF(p_log(i)) WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'lin', 10**p(i), 10**p2(i), sigma(i), fom_diff/delta
-             WRITE(*,fmt='(I10,A15,A5,4F14.7)') i, trim(p_nme(i)), 'log', p(i), p2(i), fom, fom_diff/delta
-          END IF
-          
-          IF(p_set(i)) THEN
-          
-             IF(abs(fom_diff) > delta*eps) THEN
-                sigma(i)=sigma(i)/(fom_diff/delta)
-             ELSE IF(abs(fom_diff) < delta/eps) THEN
-                sigma(i)=sigma(i)/(fom_diff/delta)
+          DO
+
+             p2=p
+             p2(i)=p(i)+p_rge(i)
+             CALL fom_multiple(fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
+             fom_diff=fom-fom_base
+             
+             ! Write parameters to screen
+             IF(verbose) THEN
+                IF(p_log(i)) THEN
+                   WRITE(*,fmt='(I10,A15,4F14.7)') i, trim(p_nme(i)), 10**p(i), 10**p2(i), 10**p2(i)-10**p(i), fom_diff/delta
+                ELSE
+                   WRITE(*,fmt='(I10,A15,4F14.7)') i, trim(p_nme(i)), p(i), p2(i), p_rge(i), fom_diff/delta
+                END IF
+             END IF
+
+             ! Make a new guess if the sigma was not correct
+             IF(p_cov(i)) THEN
+                IF(abs(fom_diff) > delta*eps) THEN
+                   p_rge(i)=p_rge(i)/(fom_diff/delta)
+                ELSE IF(abs(fom_diff) < delta/eps) THEN
+                   p_rge(i)=p_rge(i)/(fom_diff/delta)
+                ELSE
+                   EXIT
+                END IF
              ELSE
                 EXIT
              END IF
 
-          ELSE
+          END DO
 
-             EXIT
-
-          END IF
-
-       END DO
-
-!!$       IF(ABS(fom_diff) > delta*eps .OR. ABS(fom_diff) < delta/eps) THEN
-!!$          OPEN(7,file='fitting/debug.dat')
-!!$          DO j=1,nout
-!!$             p2(i)=p(i)+sigma(i)*(j-1)/(nout-1)
-!!$             CALL fom_multiple(im,fields,nf,fom,p2,p_log,np,k,nk,z,nz,pow,pow_sim,weight,hmod,cosm,n)
-!!$             WRITE(*,*) p2(i), fom
-!!$             WRITE(7,*) p2(i), fom
-!!$          END DO
-!!$          CLOSE(7)
-!!$          STOP 'SET_PARAMETER_RANGES: Error, change in parameter causes too small or too large a FOM change'
-!!$       END IF
+       END IF
 
     END DO
 
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) '===================================================================================='
+       WRITE(*,*) '================================================================================'
        WRITE(*,*) 'Done check'
        WRITE(*,*)
     END IF
@@ -1595,73 +1323,350 @@ CONTAINS
 
     IF(im==20) THEN
        IF(name=='AGN_TUNED_nu0' .OR. name=='AGN_TUNED_nu0_v2' .OR. name=='AGN_TUNED_nu0_v3' .OR. name=='AGN_TUNED_nu0_v4') THEN
-          p(1)=1.54074240    
-          p(2)=1.01597583    
-          p(3)=0.24264216    
-          p(4)=6.51173707E+13
-          p(5)=3.45238000E-02
-          p(6)=1389362.50    
-          p(7)=10.4484358    
-          p(8)=6.32560020E-03
-          p(9)=2.34850982E+12
-          p(10)=1.25916803    
-          p(11)=-0.513900995    
-          p(12)=-5.66239981E-03
-          p(13)=-6.11630008E-02
-          p(14)=1.26100000E-04
-          p(15)=0.340969592    
-          p(16)=0.295596898    
-          p(17)=-8.13719034E-02
-          p(18)=-0.545276821    
-          p(19)=-0.122411400    
-          p(20)=-0.266318709
+          p(param_alpha)=1.54074240    
+          p(param_eps)=1.01597583    
+          p(param_Gamma)=0.24264216    
+          p(param_M0)=log10(6.51173707E+13)
+          p(param_Astar)=3.45238000E-02
+          p(param_Twhim)=log10(1389362.50)    
+          p(param_cstar)=10.4484358    
+          p(param_fcold)=6.32560020E-03
+          p(param_Mstar)=log10(2.34850982E+12)
+          p(param_sstar)=1.25916803    
+          p(param_alphap)=-0.513900995    
+          p(param_Gammap)=-5.66239981E-03
+          p(param_cstarp)=-6.11630008E-02
+          p(param_fhot)=1.26100000E-04
+          p(param_alphaz)=0.340969592    
+          p(param_Gammaz)=0.295596898    
+          p(param_M0z)=-8.13719034E-02
+          p(param_Astarz)=-0.545276821    
+          p(param_Twhimz)=-0.122411400    
+          p(param_eta)=-0.266318709
        ELSE IF(name=='AGN_7p6_nu0') THEN
-          p(1)=1.52016437    
-          p(2)=1.06684244    
-          p(3)=0.24494147    
-          p(4)=2.84777660E+13
-          p(5)=3.79242003E-02
-          p(6)=987513.562    
-          p(7)=9.78754425    
-          p(8)=1.83899999E-02
-          p(9)=2.68670049E+12
-          p(10)=1.13123488    
-          p(11)=-0.531507611    
-          p(12)=-6.00000005E-03
-          p(13)=-0.113370098    
-          p(14)=1.08200002E-04
-          p(15)=0.346108794    
-          p(16)=0.231210202    
-          p(17)=-9.32227001E-02
-          p(18)=-0.536369383    
-          p(19)=-0.139042795    
-          p(20)=-0.222550094 
+          p(param_alpha)=1.52016437    
+          p(param_eps)=1.06684244    
+          p(param_Gamma)=0.24494147    
+          p(param_M0)=log10(2.84777660E+13)
+          p(param_Astar)=3.79242003E-02
+          p(param_Twhim)=log10(987513.562)  
+          p(param_cstar)=9.78754425    
+          p(param_fcold)=1.83899999E-02
+          p(param_Mstar)=log10(2.68670049E+12)
+          p(param_sstar)=1.13123488    
+          p(param_alphap)=-0.531507611    
+          p(param_Gammap)=-6.00000005E-03
+          p(param_cstarp)=-0.113370098    
+          p(param_fhot)=1.08200002E-04
+          p(param_alphaz)=0.346108794    
+          p(param_Gammaz)=0.231210202    
+          p(param_M0z)=-9.32227001E-02
+          p(param_Astarz)=-0.536369383    
+          p(param_Twhimz)=-0.139042795    
+          p(param_eta)=-0.222550094 
        ELSE IF(name=='AGN_8p0_nu0') THEN
-          p(1)=1.45703220    
-          p(2)=0.872408926    
-          p(3)=0.24960959    
-          p(4)=1.15050950E+14
-          p(5)=3.86818014E-02
-          p(6)=1619561.00    
-          p(7)=19.4119701    
-          p(8)=1.10999999E-05
-          p(9)=2.18769510E+12
-          p(10)=0.803893507    
-          p(11)=-0.528370678    
-          p(12)=-3.31420009E-03
-          p(13)=-0.355121315    
-          p(14)=3.90500005E-04
-          p(15)=0.740169585    
-          p(16)=0.354409009    
-          p(17)=-2.40819994E-02
-          p(18)=-0.425019890    
-          p(19)=-8.60318989E-02
-          p(20)=-0.243649304   
+          p(param_alpha)=1.45703220    
+          p(param_eps)=0.872408926    
+          p(param_Gamma)=0.24960959    
+          p(param_M0)=log10(1.15050950E+14)
+          p(param_Astar)=3.86818014E-02
+          p(param_Twhim)=log10(1619561.00) 
+          p(param_cstar)=19.4119701    
+          p(param_fcold)=1.10999999E-05
+          p(param_Mstar)=log10(2.18769510E+12)
+          p(param_sstar)=0.803893507    
+          p(param_alphap)=-0.528370678    
+          p(param_Gammap)=-3.31420009E-03
+          p(param_cstarp)=-0.355121315    
+          p(param_fhot)=3.90500005E-04
+          p(param_alphaz)=0.740169585    
+          p(param_Gammaz)=0.354409009    
+          p(param_M0z)=-2.40819994E-02
+          p(param_Astarz)=-0.425019890    
+          p(param_Twhimz)=-8.60318989E-02
+          p(param_eta)=-0.243649304   
        ELSE
           STOP 'FINESSE_PARAMETERS: Error, model name not specified correctly'
        END IF
     END IF
 
   END SUBROUTINE finesse_parameters
+
+  SUBROUTINE set_parameters(p_nme,p_ori,p_lim,p_lam,p_min,p_max,p_log,n)
+
+    IMPLICIT NONE
+    CHARACTER(len=*), INTENT(OUT) :: p_nme(n) ! Name
+    REAL, INTENT(OUT) :: p_ori(n)    ! Starting value
+    REAL, INTENT(OUT) :: p_lim(n)    ! Sensible lower limit
+    REAL, INTENT(OUT) :: p_lam(n)    ! Sensible upper limit
+    REAL, INTENT(OUT) :: p_min(n)    ! Extreme lower limit
+    REAL, INTENT(OUT) :: p_max(n)    ! Extreme upper limit
+    LOGICAL, INTENT(OUT) :: p_log(n) ! Explore in log?
+    INTEGER , INTENT(IN) :: n        ! Total number of fitting parameters
+
+    p_nme(param_alpha)='alpha'
+    p_ori(param_alpha)=1.60!*(1.+z(1))
+    p_lim(param_alpha)=1.40
+    p_lam(param_alpha)=1.80
+    p_min(param_alpha)=1e-2
+    p_max(param_alpha)=1e1
+    p_log(param_alpha)=.TRUE.
+
+    ! Can not be one because log(1)=0 and this messes things up in setting the ranges
+    p_nme(param_eps)='epsilon'
+    p_ori(param_eps)=1.1
+    p_lim(param_eps)=0.9
+    p_lam(param_eps)=1.3
+    p_min(param_eps)=1e-2
+    p_max(param_eps)=1e2
+    p_log(param_eps)=.TRUE.
+
+    p_nme(param_Gamma)='Gamma-1'
+    p_ori(param_Gamma)=0.24
+    p_lim(param_Gamma)=0.2
+    p_lam(param_Gamma)=0.3
+    p_min(param_Gamma)=0.01
+    p_max(param_Gamma)=2.
+    p_log(param_Gamma)=.FALSE.
+
+    ! This must depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
+    p_nme(param_M0)='log_M0'
+    p_ori(param_M0)=log10(10.**13.77)!/(10.**z(1))) ! Okay with z dependence as long as z(1)=0
+    p_lim(param_M0)=log10(10.**13)
+    p_lam(param_M0)=log10(10.**14)
+    p_min(param_M0)=log10(1e8)
+    p_max(param_M0)=log10(1e16)
+    p_log(param_M0)=.FALSE.
+
+    p_nme(param_Astar)='A_*'
+    !p_ori(param_Astar)=0.042
+    p_ori(param_Astar)=0.05
+    p_lim(param_Astar)=0.02
+    p_lam(param_Astar)=0.06
+    p_min(param_Astar)=1e-3
+    p_max(param_Astar)=1e-1
+    p_log(param_Astar)=.TRUE.
+
+    ! For some reason when 1e6 is set a range is calculated that gives too large a change in figure-of-merit
+    p_nme(param_Twhim)='log_T_whim'
+    p_ori(param_Twhim)=log10(10.**6.11)
+    p_lim(param_Twhim)=log10(10.**6)
+    p_lam(param_Twhim)=log10(10.**7)
+    p_min(param_Twhim)=log10(1e2)
+    p_max(param_Twhim)=log10(1e8)
+    p_log(param_Twhim)=.FALSE.
+
+    p_nme(param_cstar)='c_*'
+    p_ori(param_cstar)=7.
+    p_lim(param_cstar)=5.
+    p_lam(param_cstar)=50.
+    p_min(param_cstar)=1e0
+    p_max(param_cstar)=1e3
+    p_log(param_cstar)=.TRUE.
+
+    ! Needed to boost original here so that it has an effect
+    p_nme(param_fcold)='f_cold'
+    p_ori(param_fcold)=0.00126
+    p_lim(param_fcold)=1e-4
+    p_lam(param_fcold)=1e-1
+    p_min(param_fcold)=1e-5
+    p_max(param_fcold)=0.5
+    p_log(param_fcold)=.TRUE.
+
+    p_nme(param_Mstar)='log_M_*'
+    p_ori(param_Mstar)=log10(10.**12.5)
+    p_lim(param_Mstar)=log10(10.**12)
+    p_lam(param_Mstar)=log10(10.**13)
+    p_min(param_Mstar)=log10(1e8)
+    p_max(param_Mstar)=log10(1e16)
+    p_log(param_Mstar)=.FALSE.
+
+    p_nme(param_sstar)='sigma_*'
+    p_ori(param_sstar)=0.8
+    p_lim(param_sstar)=0.5
+    p_lam(param_sstar)=2.
+    p_min(param_sstar)=0.1
+    p_max(param_sstar)=10.
+    p_log(param_sstar)=.FALSE.
+
+    p_nme(param_fhot)='f_hot'
+    p_ori(param_fhot)=0.01
+    p_lim(param_fhot)=1e-3
+    p_lam(param_fhot)=1e-1
+    p_min(param_fhot)=1e-5
+    p_max(param_fhot)=0.5
+    p_log(param_fhot)=.TRUE.
+
+    p_nme(param_eta)='eta'
+    p_ori(param_eta)=-0.2
+    p_lim(param_eta)=-0.6
+    p_lam(param_eta)=-0.1
+    p_min(param_eta)=-2.0
+    p_max(param_eta)=0.0
+    p_log(param_eta)=.FALSE.
+
+    p_nme(param_alphap)='alpha_M_pow'
+    p_ori(param_alphap)=-0.5
+    p_lim(param_alphap)=-0.75
+    p_lam(param_alphap)=-0.25
+    p_min(param_alphap)=-1.
+    p_max(param_alphap)=1.
+    p_log(param_alphap)=.FALSE.
+
+    p_nme(param_Gammap)='Gamma_M_pow'
+    p_ori(param_Gammap)=-0.02
+    p_lim(param_Gammap)=-0.05
+    p_lam(param_Gammap)=0.05
+    p_min(param_Gammap)=-0.2
+    p_max(param_Gammap)=0.2
+    p_log(param_Gammap)=.FALSE.
+
+    p_nme(param_cstarp)='c_*_M_pow'
+    p_ori(param_cstarp)=-0.2
+    p_lim(param_cstarp)=-0.5
+    p_lam(param_cstarp)=-0.1
+    p_min(param_cstarp)=-1.
+    p_max(param_cstarp)=1.
+    p_log(param_cstarp)=.FALSE.
+
+    p_nme(param_alphaz)='alpha_z_pow'
+    p_ori(param_alphaz)=0.43
+    p_lim(param_alphaz)=0.1
+    p_lam(param_alphaz)=1.
+    p_min(param_alphaz)=-3.
+    p_max(param_alphaz)=3.
+    p_log(param_alphaz)=.FALSE.
+
+    p_nme(param_Gammaz)='Gamma_z_pow'
+    p_ori(param_Gammaz)=0.3
+    p_lim(param_Gammaz)=0.
+    p_lam(param_Gammaz)=0.6
+    p_min(param_Gammaz)=-1.
+    p_max(param_Gammaz)=1.
+    p_log(param_Gammaz)=.FALSE.
+
+    p_nme(param_M0z)='M0_z_pow'
+    p_ori(param_M0z)=-0.08
+    p_lim(param_M0z)=-0.2
+    p_lam(param_M0z)=-0.01
+    p_min(param_M0z)=-1.
+    p_max(param_M0z)=1.
+    p_log(param_M0z)=.FALSE.
+
+    p_nme(param_Astarz)='Astar_z_pow'
+    p_ori(param_Astarz)=-0.45
+    p_lim(param_Astarz)=-0.65
+    p_lam(param_Astarz)=-0.15
+    p_min(param_Astarz)=-1.
+    p_max(param_Astarz)=1.
+    p_log(param_Astarz)=.FALSE.
+
+    p_nme(param_Twhimz)='Twhim_z_pow'
+    p_ori(param_Twhimz)=-0.11
+    p_lim(param_Twhimz)=-0.5
+    p_lam(param_Twhimz)=-0.01
+    p_min(param_Twhimz)=-1.
+    p_max(param_Twhimz)=1.
+    p_log(param_Twhimz)=.FALSE.
+
+    p_nme(param_HMcode_Dv0)='Dv0'
+    p_ori(param_HMcode_Dv0)=418.
+    p_lim(param_HMcode_Dv0)=100.
+    p_lam(param_HMcode_Dv0)=600.
+    p_min(param_HMcode_Dv0)=50.
+    p_max(param_HMcode_Dv0)=1000.
+    p_log(param_HMcode_Dv0)=.FALSE.
+
+    p_nme(param_HMcode_Dvp)='Dvp'
+    p_ori(param_HMcode_Dvp)=-0.352    
+    p_lim(param_HMcode_Dvp)=-0.5
+    p_lam(param_HMcode_Dvp)=-0.2
+    p_min(param_HMcode_Dvp)=-5.
+    p_max(param_HMcode_Dvp)=5.
+    p_log(param_HMcode_Dvp)=.FALSE.
+
+    p_nme(param_HMcode_dc0)='dc0'
+    p_ori(param_HMcode_dc0)=1.59
+    p_lim(param_HMcode_dc0)=1.55
+    p_lam(param_HMcode_dc0)=1.65
+    p_min(param_HMcode_dc0)=1.
+    p_max(param_HMcode_dc0)=2.
+    p_log(param_HMcode_dc0)=.FALSE.
+
+    p_nme(param_HMcode_dcp)='dcp'
+    p_ori(param_HMcode_dcp)=0.0314
+    p_lim(param_HMcode_dcp)=0.01
+    p_lam(param_HMcode_dcp)=0.1
+    p_min(param_HMcode_dcp)=-5.
+    p_max(param_HMcode_dcp)=5.
+    p_log(param_HMcode_dcp)=.FALSE.
+
+    p_nme(param_HMcode_eta0)='eta0'
+    p_ori(param_HMcode_eta0)=0.603
+    p_lim(param_HMcode_eta0)=-1.
+    p_lam(param_HMcode_eta0)=1.
+    p_min(param_HMcode_eta0)=-5.
+    p_max(param_HMcode_eta0)=5.
+    p_log(param_HMcode_eta0)=.FALSE.
+
+    p_nme(param_HMcode_eta1)='eta1'
+    p_ori(param_HMcode_eta1)=0.300
+    p_lim(param_HMcode_eta1)=0.1
+    p_lam(param_HMcode_eta1)=0.7
+    p_min(param_HMcode_eta1)=-5.
+    p_max(param_HMcode_eta1)=5.
+    p_log(param_HMcode_eta1)=.FALSE.
+
+    p_nme(param_HMcode_f0)='f0'
+    !p_ori(param_HMcode_f0)=0.0095 ! Mead (2016) 
+    p_ori(param_HMcode_f0)=0.188 ! Mead (2015) damping
+    p_lim(param_HMcode_f0)=-1.
+    p_lam(param_HMcode_f0)=1.
+    p_min(param_HMcode_f0)=-5.
+    p_max(param_HMcode_f0)=5.
+    p_log(param_HMcode_f0)=.FALSE.
+
+    p_nme(param_HMcode_fp)='fp'
+    !p_ori(param_HMcode_fp)=1.37 ! Mead (2016)
+    p_ori(param_HMcode_fp)=4.29 ! Mead (2015)
+    p_lim(param_HMcode_fp)=1.
+    p_lam(param_HMcode_fp)=6.
+    p_min(param_HMcode_fp)=-10.
+    p_max(param_HMcode_fp)=10.
+    p_log(param_HMcode_fp)=.FALSE.
+
+    p_nme(param_HMcode_kstar)='kstar'
+    p_ori(param_HMcode_kstar)=0.584
+    p_lim(param_HMcode_kstar)=-1.
+    p_lam(param_HMcode_kstar)=1.
+    p_min(param_HMcode_kstar)=-5.
+    p_max(param_HMcode_kstar)=5.
+    p_log(param_HMcode_kstar)=.FALSE.
+
+    p_nme(param_HMcode_As)='As'
+    p_ori(param_HMcode_As)=3.13
+    p_lim(param_HMcode_As)=2.
+    p_lam(param_HMcode_As)=6.
+    p_min(param_HMcode_As)=1.
+    p_max(param_HMcode_As)=10.
+    p_log(param_HMcode_As)=.FALSE.
+
+    p_nme(param_HMcode_alpha0)='alpha0'
+    p_ori(param_HMcode_alpha0)=3.24
+    p_lim(param_HMcode_alpha0)=1.
+    p_lam(param_HMcode_alpha0)=4.
+    p_min(param_HMcode_alpha0)=-5.
+    p_max(param_HMcode_alpha0)=5.
+    p_log(param_HMcode_alpha0)=.FALSE.
+
+    p_nme(param_HMcode_alpha1)='alpha1'
+    p_ori(param_HMcode_alpha1)=1.85
+    p_lim(param_HMcode_alpha1)=1.
+    p_lam(param_HMcode_alpha1)=3.
+    p_min(param_HMcode_alpha1)=-5.
+    p_max(param_HMcode_alpha1)=5.
+    p_log(param_HMcode_alpha1)=.FALSE.
+
+  END SUBROUTINE set_parameters
 
 END PROGRAM HMx_fitting

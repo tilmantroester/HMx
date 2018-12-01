@@ -30,6 +30,9 @@ rmin=0.
 rmax=10.
 rlab='b_h(k)'
 
+# Point size
+size=0.5
+
 # 1 - z = 0.0
 # 2 - z = 0.5
 # 3 - z = 1.0
@@ -71,9 +74,9 @@ plot for [i=1:nz] NaN lc i lw 3 ti word(names,i),\
      for [i=1:nz] power('m','m') u 1:(column(i+1)/10**(i-1)) w l lw 3 lc i dt 1 noti,\
      for [i=1:nz] power('m','f') u 1:(column(i+1)/10**(i-1)) w l lw 3 lc i dt 2 noti,\
      for [i=1:nz] power('f','f') u 1:(column(i+1)/10**(i-1)) w l lw 3 lc i dt 3 noti,\
-     for [i=1:nz] simul(word(snaps,i),'all','all') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 7 lc i noti,\
-     for [i=1:nz] simul(word(snaps,i),'all','FOF') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 6 lc i noti,\
-     for [i=1:nz] simul(word(snaps,i),'FOF','FOF') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 5 lc i noti
+     for [i=1:nz] simul(word(snaps,i),'all','all') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 7 ps size lc i noti,\
+     for [i=1:nz] simul(word(snaps,i),'all','FOF') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 6 ps size lc i noti,\
+     for [i=1:nz] simul(word(snaps,i),'FOF','FOF') u 1:($2/10**(i-1)):($5/10**(i-1)) w e pt 5 ps size lc i noti
 
 }
 
@@ -94,8 +97,8 @@ plot 1 w l lt -1 noti,\
      NaN w l lc -1 dt 1 lw 3 ti 'Auto-correlation bias',\
      for [i=1:nz] '<paste '.power('m','f').' '.power('m','m').'' u 1:(column(i+1)/column(1+i+L))       w l lw 3 lc i dt 2 noti,\
      for [i=1:nz] '<paste '.power('f','f').' '.power('m','m').'' u 1:(sqrt(column(i+1)/column(1+i+L))) w l lw 3 lc i dt 1 ti word(names,i),\
-     for [i=1:nz] '<paste '.simul(word(snaps,i),'all','FOF').' '.simul(word(snaps,i),'all','all').'' u 1:(column(2)/column(2+L))       w p pt 6 lc i dt 2 noti,\
-     for [i=1:nz] '<paste '.simul(word(snaps,i),'FOF','FOF').' '.simul(word(snaps,i),'all','all').'' u 1:(sqrt(column(2)/column(2+L))) w p pt 7 lc i dt 2 noti
+     for [i=1:nz] '<paste '.simul(word(snaps,i),'all','FOF').' '.simul(word(snaps,i),'all','all').'' u 1:(column(2)/column(2+L))       w p pt 6 ps size lc i dt 2 noti,\
+     for [i=1:nz] '<paste '.simul(word(snaps,i),'FOF','FOF').' '.simul(word(snaps,i),'all','all').'' u 1:(sqrt(column(2)/column(2+L))) w p pt 7 ps size lc i dt 2 noti
 
 if(iplot==1) {unset multiplot}
 
