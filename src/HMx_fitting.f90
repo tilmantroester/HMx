@@ -112,6 +112,7 @@ PROGRAM HMx_fitting
      WRITE(*,*) '18 - Hydro: all z; only matter-matter and matter-pressure'
      WRITE(*,*) '19 - Hydro: all z; stars'
      WRITE(*,*) '20 - Hydro: all z; finessed version of 17: DOES NOT WORK'
+     WRITE(*,*) '21 - Hydro: all z; no stars or pressure-pressure'
      READ(*,*) im
      WRITE(*,*)
   END IF
@@ -187,7 +188,7 @@ PROGRAM HMx_fitting
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21) THEN
         nf=5   
      ELSE IF(im==12 .OR. im==13 .OR. im==19) THEN
         nf=1
@@ -225,7 +226,7 @@ PROGRAM HMx_fitting
      
      IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
         nz=1
-     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21) THEN
         nz=4
      ELSE
         STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -240,7 +241,7 @@ PROGRAM HMx_fitting
         ELSE
            READ(zin,*) z(1)
         END IF        
-     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21) THEN
         z(1)=0.0
         z(2)=0.5
         z(3)=1.0
@@ -250,7 +251,7 @@ PROGRAM HMx_fitting
      END IF
 
      ! Set the fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -367,6 +368,13 @@ PROGRAM HMx_fitting
      weight(:,5,5,:,:)=0. 
   END IF
 
+  ! No weight to pressure-pressure or to stars
+  IF(im==21) THEN
+     weight(:,4,:,:,:)=0.
+     weight(:,:,4,:,:)=0.
+     weight(:,5,5,:,:)=0.
+  END IF 
+
   ! k range for multi-z
   IF(im>=11) THEN
 
@@ -434,8 +442,6 @@ PROGRAM HMx_fitting
      p_set(param_HMcode_alpha1)=.TRUE.
 
   ELSE IF(im>=11) THEN
-
-     IF(im==20) CALL finesse_parameters(p_ori,n,im,name)
      
      IF(im==11 .OR. im==16) THEN
 
@@ -527,14 +533,36 @@ PROGRAM HMx_fitting
         p_set(param_Mstar)=.TRUE.
         p_set(param_sstar)=.TRUE.
         p_set(param_Gammap)=.TRUE.
-        p_set(param_cstarp)=.TRUE.       
+        p_set(param_cstarp)=.TRUE.
 
+     ELSE IF(im==21) THEN
+
+        ! redshift dependent everything minus pressure-pressure
+        p_set(param_alpha)=.TRUE.
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Twhim)=.TRUE.
+        p_set(param_fhot)=.TRUE.
+        
+        p_set(param_alphap)=.TRUE.
+        p_set(param_Gammap)=.TRUE.       
+        
+        p_set(param_alphaz)=.TRUE.
+        p_set(param_Gammaz)=.TRUE.
+        p_set(param_M0z)=.TRUE.
+        p_set(param_Twhimz)=.TRUE.
+        
      ELSE
 
         STOP 'HMx_FITTING: Something went wrong with setting parameters'
         
      END IF
 
+     IF(im==20) CALL finesse_parameters(p_ori,n,name)
+
+     IF(im==21) CALL fix_star_parameters(p_ori,n,name)
+     
   ELSE
 
      STOP 'HMx_FITTING: Something went wrong with setting parameters'
@@ -1313,84 +1341,120 @@ CONTAINS
 
   END SUBROUTINE write_fitting_power
 
-  SUBROUTINE finesse_parameters(p,n,im,name)
+  SUBROUTINE finesse_parameters(p,n,name)
 
     IMPLICIT NONE
     REAL, INTENT(INOUT) :: p(n)
     INTEGER, INTENT(IN) :: n
-    INTEGER, INTENT(IN) :: im
     CHARACTER(len=*), INTENT(IN) ::  name
 
-    IF(im==20) THEN
-       IF(name=='AGN_TUNED_nu0' .OR. name=='AGN_TUNED_nu0_v2' .OR. name=='AGN_TUNED_nu0_v3' .OR. name=='AGN_TUNED_nu0_v4') THEN
-          p(param_alpha)=1.54074240    
-          p(param_eps)=1.01597583    
-          p(param_Gamma)=0.24264216    
-          p(param_M0)=log10(6.51173707E+13)
-          p(param_Astar)=3.45238000E-02
-          p(param_Twhim)=log10(1389362.50)    
-          p(param_cstar)=10.4484358    
-          p(param_fcold)=6.32560020E-03
-          p(param_Mstar)=log10(2.34850982E+12)
-          p(param_sstar)=1.25916803    
-          p(param_alphap)=-0.513900995    
-          p(param_Gammap)=-5.66239981E-03
-          p(param_cstarp)=-6.11630008E-02
-          p(param_fhot)=1.26100000E-04
-          p(param_alphaz)=0.340969592    
-          p(param_Gammaz)=0.295596898    
-          p(param_M0z)=-8.13719034E-02
-          p(param_Astarz)=-0.545276821    
-          p(param_Twhimz)=-0.122411400    
-          p(param_eta)=-0.266318709
-       ELSE IF(name=='AGN_7p6_nu0') THEN
-          p(param_alpha)=1.52016437    
-          p(param_eps)=1.06684244    
-          p(param_Gamma)=0.24494147    
-          p(param_M0)=log10(2.84777660E+13)
-          p(param_Astar)=3.79242003E-02
-          p(param_Twhim)=log10(987513.562)  
-          p(param_cstar)=9.78754425    
-          p(param_fcold)=1.83899999E-02
-          p(param_Mstar)=log10(2.68670049E+12)
-          p(param_sstar)=1.13123488    
-          p(param_alphap)=-0.531507611    
-          p(param_Gammap)=-6.00000005E-03
-          p(param_cstarp)=-0.113370098    
-          p(param_fhot)=1.08200002E-04
-          p(param_alphaz)=0.346108794    
-          p(param_Gammaz)=0.231210202    
-          p(param_M0z)=-9.32227001E-02
-          p(param_Astarz)=-0.536369383    
-          p(param_Twhimz)=-0.139042795    
-          p(param_eta)=-0.222550094 
-       ELSE IF(name=='AGN_8p0_nu0') THEN
-          p(param_alpha)=1.45703220    
-          p(param_eps)=0.872408926    
-          p(param_Gamma)=0.24960959    
-          p(param_M0)=log10(1.15050950E+14)
-          p(param_Astar)=3.86818014E-02
-          p(param_Twhim)=log10(1619561.00) 
-          p(param_cstar)=19.4119701    
-          p(param_fcold)=1.10999999E-05
-          p(param_Mstar)=log10(2.18769510E+12)
-          p(param_sstar)=0.803893507    
-          p(param_alphap)=-0.528370678    
-          p(param_Gammap)=-3.31420009E-03
-          p(param_cstarp)=-0.355121315    
-          p(param_fhot)=3.90500005E-04
-          p(param_alphaz)=0.740169585    
-          p(param_Gammaz)=0.354409009    
-          p(param_M0z)=-2.40819994E-02
-          p(param_Astarz)=-0.425019890    
-          p(param_Twhimz)=-8.60318989E-02
-          p(param_eta)=-0.243649304   
-       ELSE
-          STOP 'FINESSE_PARAMETERS: Error, model name not specified correctly'
-       END IF
+    IF(name=='AGN_TUNED_nu0' .OR. name=='AGN_TUNED_nu0_v2' .OR. name=='AGN_TUNED_nu0_v3' .OR. name=='AGN_TUNED_nu0_v4') THEN
+       p(param_alpha)=1.54074240    
+       p(param_eps)=1.01597583    
+       p(param_Gamma)=0.24264216    
+       p(param_M0)=log10(6.51173707E+13)
+       p(param_Astar)=3.45238000E-02
+       p(param_Twhim)=log10(1389362.50)    
+       p(param_cstar)=10.4484358    
+       p(param_fcold)=6.32560020E-03
+       p(param_Mstar)=log10(2.34850982E+12)
+       p(param_sstar)=1.25916803    
+       p(param_alphap)=-0.513900995    
+       p(param_Gammap)=-5.66239981E-03
+       p(param_cstarp)=-6.11630008E-02
+       p(param_fhot)=1.26100000E-04
+       p(param_alphaz)=0.340969592    
+       p(param_Gammaz)=0.295596898    
+       p(param_M0z)=-8.13719034E-02
+       p(param_Astarz)=-0.545276821    
+       p(param_Twhimz)=-0.122411400    
+       p(param_eta)=-0.266318709
+    ELSE IF(name=='AGN_7p6_nu0') THEN
+       p(param_alpha)=1.52016437    
+       p(param_eps)=1.06684244    
+       p(param_Gamma)=0.24494147    
+       p(param_M0)=log10(2.84777660E+13)
+       p(param_Astar)=3.79242003E-02
+       p(param_Twhim)=log10(987513.562)  
+       p(param_cstar)=9.78754425    
+       p(param_fcold)=1.83899999E-02
+       p(param_Mstar)=log10(2.68670049E+12)
+       p(param_sstar)=1.13123488    
+       p(param_alphap)=-0.531507611    
+       p(param_Gammap)=-6.00000005E-03
+       p(param_cstarp)=-0.113370098    
+       p(param_fhot)=1.08200002E-04
+       p(param_alphaz)=0.346108794    
+       p(param_Gammaz)=0.231210202    
+       p(param_M0z)=-9.32227001E-02
+       p(param_Astarz)=-0.536369383    
+       p(param_Twhimz)=-0.139042795    
+       p(param_eta)=-0.222550094 
+    ELSE IF(name=='AGN_8p0_nu0') THEN
+       p(param_alpha)=1.45703220    
+       p(param_eps)=0.872408926    
+       p(param_Gamma)=0.24960959    
+       p(param_M0)=log10(1.15050950E+14)
+       p(param_Astar)=3.86818014E-02
+       p(param_Twhim)=log10(1619561.00) 
+       p(param_cstar)=19.4119701    
+       p(param_fcold)=1.10999999E-05
+       p(param_Mstar)=log10(2.18769510E+12)
+       p(param_sstar)=0.803893507    
+       p(param_alphap)=-0.528370678    
+       p(param_Gammap)=-3.31420009E-03
+       p(param_cstarp)=-0.355121315    
+       p(param_fhot)=3.90500005E-04
+       p(param_alphaz)=0.740169585    
+       p(param_Gammaz)=0.354409009    
+       p(param_M0z)=-2.40819994E-02
+       p(param_Astarz)=-0.425019890    
+       p(param_Twhimz)=-8.60318989E-02
+       p(param_eta)=-0.243649304   
+    ELSE
+       STOP 'FINESSE_PARAMETERS: Error, model name not specified correctly'
     END IF
 
   END SUBROUTINE finesse_parameters
+
+  SUBROUTINE fix_star_parameters(p,n,name)
+
+    IMPLICIT NONE
+    REAL, INTENT(INOUT) :: p(n)
+    INTEGER, INTENT(IN) :: n
+    CHARACTER(len=*), INTENT(IN) ::  name
+
+    IF(name=='AGN_TUNED_nu0' .OR. name=='AGN_TUNED_nu0_v2' .OR. name=='AGN_TUNED_nu0_v3' .OR. name=='AGN_TUNED_nu0_v4') THEN
+       p_ori(param_Astar)=0.0486
+       p_ori(param_cstar)=6.78
+       p_ori(param_mstar)=12.38
+       p_ori(param_sstar)=0.711
+       p_ori(param_cstarp)=-0.351
+       p_ori(param_Astarz)=-0.426
+       p_ori(param_eta)=0.000
+    ELSE IF(name=='AGN_7p6_nu0') THEN
+       p_ori(param_Astar)=0.0466
+       p_ori(param_cstar)=7.31
+       p_ori(param_mstar)=12.40
+       p_ori(param_sstar)=0.844
+       p_ori(param_cstarp)=-0.319
+       p_ori(param_Astarz)=-0.468
+       p_ori(param_eta)=0.000
+       p_ori(param_Gammaz)=0.2 ! Otherwise it got stuck
+    ELSE IF(name=='AGN_8p0_nu0') THEN
+       p_ori(param_Astar)=0.0471
+       p_ori(param_cstar)=7.24
+       p_ori(param_mstar)=12.32
+       p_ori(param_sstar)=0.648
+       p_ori(param_cstarp)=-0.396
+       p_ori(param_Astarz)=-0.381
+       p_ori(param_eta)=0.000
+       p_ori(param_Twhimz)=-0.2 ! Otherwise it got stuck
+    ELSE
+       STOP 'FINESSE_PARAMETERS: Error, model name not specified correctly'
+    END IF
+
+  END SUBROUTINE fix_star_parameters
 
   SUBROUTINE set_parameters(p_nme,p_ori,p_lim,p_lam,p_min,p_max,p_log,n)
 

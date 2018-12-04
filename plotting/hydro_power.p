@@ -30,6 +30,16 @@ print 'iplot = 16: Halo model comparison: gas-gas'
 print 'iplot = 17: Halo model comparison: stars-stars'
 print 'iplot = 18: Halo model comparison: electron pressure-electron pressure'
 print 'iplot = 19: Halo model comparison: matter-electron pressure'
+print 'iplot = 20: Halo model as a functon of AGN strength: matter-matter'
+print 'iplot = 21: Halo model as a functon of AGN strength: CDM-CDM'
+print 'iplot = 22: Halo model as a functon of AGN strength: gas-gas'
+print 'iplot = 23: Halo model as a functon of AGN strength: stars-stars'
+print 'iplot = 24: Halo model as a functon of AGN strength: matter-electron pressure'
+print 'iplot = 25: Halo model response as a functon of AGN strength: matter-matter'
+print 'iplot = 26: Halo model response as a functon of AGN strength: CDM-CDM'
+print 'iplot = 27: Halo model response as a functon of AGN strength: gas-gas'
+print 'iplot = 28: Halo model response as a functon of AGN strength: stars-stars'
+print 'iplot = 29: Halo model response as a functon of AGN strength: matter-electron pressure'
 print 'iplot = '.iplot.''
 print ''
 
@@ -125,8 +135,8 @@ M=5
 #}
 
 # BAHAMAS simulation names
-if(icomp==2){hmpk_names="'DMONLY' 'AGN-lo' 'AGN' 'AGN-hi'"}
-if(icomp==3){hmpk_names="''"}
+if(icomp==2){hmpk_names="'DMONLY' 'AGN-lo' 'AGN' 'AGN-hi'"; hmpk_cols="'black' 'dark-yellow' 'blue' 'dark-plum'"}
+if(icomp==3){hmpk_names="''"; hmpk_cols="'black'"}
 sims="'DMONLY_2fluid_nu0' 'AGN_7p6_nu0' 'AGN_TUNED_nu0' 'AGN_8p0_nu0' 'AGN_TUNED_nu0_v2' 'AGN_TUNED_nu0_v3' 'AGN_TUNED_nu0_v4'"
 sim_names="'DMonly' 'AGN-lo' 'AGN' 'AGN-hi' 'AGN v2' 'AGN v3' 'AGN v4'"
 sim_cols="'black' 'dark-yellow' 'blue' 'dark-plum' 'light-blue' 'light-blue' 'light-blue'"
@@ -395,8 +405,11 @@ set ylabel 'P_{HM}(k) / P_{OWLS}(k)'
 plot NaN w l lw 2 dt 1 lc -1 ti 'Autospectra',\
      NaN w l lw 2 dt 2 lc -1 ti 'Cross with matter',\
      1 w l lt -1 noti,\
-     for [i=1:5] '<paste '.simpk(sim,mesh,snap,word(fields,i),word(fields,i)).' '.hmpk(hmpk_name,z,ifield[i],ifield[i]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc icol[i] ti word(field_names,i),\
-     for [i=1:5] '<paste '.simpk(sim,mesh,snap,word(fields,1),word(fields,i)).' '.hmpk(hmpk_name,z,ifield[1],ifield[i]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc icol[i] noti
+     for [i=1:1] '<paste '.simpk(sim,mesh,snap,word(fields,i),word(fields,i)).' '.hmpk(hmpk_name,z,ifield[i],ifield[i]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc icol[i] ti word(field_names,i),\
+     for [i=5:5] '<paste '.simpk(sim,mesh,snap,word(fields,1),word(fields,i)).' '.hmpk(hmpk_name,z,ifield[1],ifield[i]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc icol[i] noti
+
+#'<paste '.simpk(sim,mesh,snap,word(fields,1),word(fields,1)).' '.hmpk(hmpk_name,z,ifield[1],ifield[1]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 1 lc icol[1] ti word(field_names,i),\
+#'<paste '.simpk(sim,mesh,snap,word(fields,1),word(fields,5)).' '.hmpk(hmpk_name,z,ifield[1],ifield[5]).'' u 1:(column(L+d)/(column(c)-column(s))) w l lw 2 dt 2 lc icol[5] noti
 
 }
 
@@ -878,3 +891,113 @@ plot hmpk(mod,z,ifield[c1],ifield[c2]) u 1:(f*$3) w l lc col dt 2 lw 3 noti,\
 }
 
 }
+
+if(iplot==20 || iplot==21 || iplot==22 || iplot==23 || iplot==24 || iplot==25 || iplot==26 || iplot==27 || iplot==28 || iplot==29){
+
+unset title
+
+pow=1.5
+
+icomp=2
+print 'icomp automatically set to 2 here'
+
+if(iplot==20 || iplot==25) {f1=1; f2=1} # matter-matter
+if(iplot==21 || iplot==26) {f1=2; f2=2} # CDM-CDM
+if(iplot==22 || iplot==27) {f1=3; f2=3} # gas-gas
+if(iplot==23 || iplot==28) {f1=4; f2=4} # stars-stars
+if(iplot==24 || iplot==29) {f1=1; f2=5} # matter-electron pressure
+
+if(print==1){
+if(iplot==20 || iplot==25) {set output 'hydro_matter-matter.eps'}
+if(iplot==21 || iplot==26) {set output 'hydro_cdm-cdm.eps'}
+if(iplot==22 || iplot==27) {set output 'hydro_gas-gas.eps'}
+if(iplot==23 || iplot==28) {set output 'hydro_stars-stars.eps'}
+if(iplot==24 || iplot==29) {set output 'hydro_matter-epressure.eps'}
+}
+
+kmin=0.02
+kmax=10.
+set xrange [kmin:kmax]
+
+# Delta^2(k)/k^1.5 range
+unset log y
+set format y
+if(iplot==20 || iplot==21 || iplot==22 || iplot==23 || iplot==25) {set ylabel '{/Symbol D}_{uv}^2(k) / [k / h^{-1} Mpc]^{1.5}'}
+if(iplot==25 || iplot==26 || iplot==27 || iplot==28 || iplot==29) {set ylabel 'P_{uv}(k) / P_{mm-dmony}(k)'}
+set mytics 10
+
+set multiplot layout 2,2
+
+do for [iz=1:4]{
+
+# matter-matter
+if(iplot==20 && iz==1) {pmax=25.}
+if(iplot==20 && iz==2) {pmax=12.}
+if(iplot==20 && iz==3) {pmax=6.}
+if(iplot==20 && iz==4) {pmax=2.}
+
+# CDM-CDM
+if(iplot==21 && iz==1) {pmax=20.}
+if(iplot==21 && iz==2) {pmax=10.}
+if(iplot==21 && iz==3) {pmax=5.}
+if(iplot==21 && iz==4) {pmax=1.5}
+
+# gas-gas
+if(iplot==22 && iz==1) {pmax=0.4}
+if(iplot==22 && iz==2) {pmax=0.2}
+if(iplot==22 && iz==3) {pmax=0.14}
+if(iplot==22 && iz==4) {pmax=0.06}
+
+# stars-stars
+if(iplot==23 && iz==1) {pmax=0.03}
+if(iplot==23 && iz==2) {pmax=0.014}
+if(iplot==23 && iz==3) {pmax=0.007}
+if(iplot==23 && iz==4) {pmax=0.0016}
+
+# matter-epressure
+if(iplot==24 && iz==1) {pmax=0.006}
+if(iplot==24 && iz==2) {pmax=0.0018}
+if(iplot==24 && iz==3) {pmax=0.0006}
+if(iplot==24 && iz==4) {pmax=8e-5}
+
+if(iplot==25){pmin=0.75; pmax=1.02}
+if(iplot==26){pmin=0.65; pmax=0.75}
+if(iplot==27){pmin=0.00; pmax=0.030}
+if(iplot==28){pmin=0.00; pmax=0.002}
+if(iplot==29){pmin=0.00; pmax=3e-4}
+
+if(iz==1) {zlab='z = 0.0'}
+if(iz==2) {zlab='z = 0.5'}
+if(iz==3) {zlab='z = 1.0'}
+if(iz==4) {zlab='z = 2.0'}
+
+if(iplot==20 || iplot==21 || iplot==22 || iplot==23 || iplot==24){
+unset key
+if(iz==1) {set key top left}
+set yrange [0.:pmax]
+plot NaN w p pt 7 ps .5 lc -1 ti 'Simulations',\
+     NaN w l dt 1 lw  2 lc -1 ti 'Halo model',\
+     for [i=2:words(sims)] simpk(word(sims,i),mesh,word(snaps,iz),word(fields,f1),word(fields,f2)) u 1:((column(c)-column(s))/(column(1)**pow)) w p pt 7 ps .5 lc rgb word(sim_cols,i) noti,\
+     for [i=2:words(hmpk_names)] hmpk(word(hmpk_names,i),zs[iz],ifield[f1],ifield[f2]) u 1:((column(d)/column(1)**pow)) w l lw 2 dt 1 lc rgb word(hmpk_cols,i) ti word(hmpk_names,i)
+}
+
+
+if(iplot==25 || iplot==26 || iplot==27 || iplot==28 || iplot==29){
+unset key
+if(iz==1) {set key bottom left}
+set yrange [pmin:pmax]
+set label zlab at graph 0.1,0.9
+plot NaN w p pt 7 ps .5 lc -1 ti 'Simulations',\
+     NaN w l dt 1 lw  2 lc -1 ti 'Halo model',\
+     for [i=2:words(sims)] '<paste '.simpk(word(sims,i),mesh,word(snaps,iz),word(fields,f1),word(fields,f2)).' '.simpk(word(sims,1),mesh,word(snaps,iz),word(fields,1),word(fields,1)).'' u 1:(column(c)-column(s))/(column(c+5)-column(s+5)) w p pt 7 ps .5 lc rgb word(sim_cols,i) noti,\
+     for [i=2:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),zs[iz],ifield[f1],ifield[f2]).' '.hmpk(word(hmpk_names,1),zs[iz],ifield[1],ifield[1]).'' u 1:(column(d)/column(d+5)) w l lw 2 dt 1 lc rgb word(hmpk_cols,i) ti word(hmpk_names,i)
+unset label
+}
+
+}
+
+unset multiplot
+
+}
+
+show output

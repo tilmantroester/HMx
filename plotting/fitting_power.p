@@ -53,11 +53,11 @@ print ''
 if(!exists('iplot')){iplot=1}
 print 'iplot = 1: Power and residual'
 print 'iplot = 2: Residual only'
-print 'iplot = 3: Many residuals M15 50,0000'
-print 'iplot = 4: Many residuals M11 50,0000'
-print 'iplot = 5: Many residuals M16 50,0000'
-print 'iplot = 6: Many residuals M17 50,0000'
-print 'iplot = 7: Many residuals M19 50,0000'
+print 'iplot = 3: Many residuals M15 50,000'
+print 'iplot = 4: Many residuals M11 50,000'
+print 'iplot = 5: Many residuals M16 50,000'
+print 'iplot = 6: Many residuals M17 50,000'
+print 'iplot = 7: Many residuals M19 1,000'
 print 'iplot = ', iplot
 print ''
 
@@ -196,7 +196,7 @@ if(iplot==3) {nf=4; type='m15'; n=50000}
 if(iplot==4) {nf=5; type='m11'; n=50000}
 if(iplot==5) {nf=5; type='m16'; n=50000}
 if(iplot==6) {nf=5; type='m17'; n=50000}
-if(iplot==7) {nf=1; type='m19'; n=50000}
+if(iplot==7) {nf=1; type='m19'; n=1000}
 
 # y axis
 dr=0.28

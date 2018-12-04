@@ -1525,6 +1525,7 @@ CONTAINS
        IF(hmod%HMx_mode==4) THEN
           WRITE(*,fmt='(A30,F10.5)') 'log10(T_heat) [K]:', log10(hmod%Theat)
           WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(hmod%Mh,hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_beta(hmod%Mh,hmod)
           WRITE(*,fmt='(A30,F10.5)') 'epsilon:', HMx_eps(hmod)
           WRITE(*,fmt='(A30,F10.5)') 'Gamma:', HMx_Gamma(hmod%Mh,hmod)
           WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(HMx_M0(hmod))
@@ -3134,6 +3135,16 @@ CONTAINS
 
   END FUNCTION HMx_alpha
 
+  REAL FUNCTION HMx_beta(m,hmod)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m
+    TYPE(halomod), INTENT(INOUT) :: hmod
+
+    HMx_beta=HMx_alpha(m,hmod)
+
+  END FUNCTION HMx_beta
+
   REAL FUNCTION HMx_eps(hmod)
 
     IMPLICIT NONE
@@ -4553,7 +4564,7 @@ CONTAINS
 
           ! Calculate the value of the temperature prefactor [K]
           a=hmod%a
-          T0=HMx_alpha(m,hmod)*virial_temperature(m,rv,hmod%a,cosm)
+          T0=HMx_beta(m,hmod)*virial_temperature(m,rv,hmod%a,cosm)
 
           ! Convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
           win_hot_gas=win_hot_gas*(rho0/(mp*cosm%mue))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
