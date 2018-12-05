@@ -76,6 +76,7 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: computer=1           ! Which computer are you on?
   REAL, PARAMETER :: tmax_default=10000.*60  ! Default maximum time for run, should not be huge
   REAL, PARAMETER :: delta_default=1e-3      ! Default accuracy
+  LOGICAL, PARAMETER :: set_ranges=.TRUE.    ! Set the parameter ranges or not
 
   ! k cuts for the BAHAMAS power spectra
   REAL, PARAMETER :: kmin_BAHAMAS=0.15
@@ -113,6 +114,7 @@ PROGRAM HMx_fitting
      WRITE(*,*) '19 - Hydro: all z; stars'
      WRITE(*,*) '20 - Hydro: all z; finessed version of 17: DOES NOT WORK'
      WRITE(*,*) '21 - Hydro: all z; no stars or pressure-pressure'
+     WRITE(*,*) '22 - Hydro: all z; only matter spectra'
      READ(*,*) im
      WRITE(*,*)
   END IF
@@ -194,7 +196,7 @@ PROGRAM HMx_fitting
         nf=1
      ELSE IF(im==14) THEN
         nf=2
-     ELSE IF(im==15) THEN
+     ELSE IF(im==15 .OR. im==22) THEN
         nf=4
      ELSE
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
@@ -226,7 +228,7 @@ PROGRAM HMx_fitting
      
      IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
         nz=1
-     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21 .OR. im==22) THEN
         nz=4
      ELSE
         STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -241,7 +243,7 @@ PROGRAM HMx_fitting
         ELSE
            READ(zin,*) z(1)
         END IF        
-     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21 .OR. im==22) THEN
         z(1)=0.0
         z(2)=0.5
         z(3)=1.0
@@ -264,7 +266,7 @@ PROGRAM HMx_fitting
      ELSE IF(im==14) THEN
         fields(1)=field_gas
         fields(2)=field_star
-     ELSE IF(im==15) THEN
+     ELSE IF(im==15 .OR. im==22) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -414,13 +416,10 @@ PROGRAM HMx_fitting
   ALLOCATE(p_rge(np),p_set(np),p_cov(np))
 
   ! Set the initial parameter values, ranges, names, etc.
-  CALL set_parameters(p_nme,p_ori,p_lim,p_lam,p_min,p_max,p_log,np)
+  CALL set_parameters(p_nme,p_ori,p_rge,p_lim,p_lam,p_min,p_max,p_log,np)
 
   ! Initially all parameters default to not being varied
   p_set=.FALSE.
-
-  ! Initially set the range for all parameter to be zero
-  p_rge=0.
 
   ! Initially assume we calculate the step size for each parameter
   p_cov=.TRUE.
@@ -552,6 +551,25 @@ PROGRAM HMx_fitting
         p_set(param_Gammaz)=.TRUE.
         p_set(param_M0z)=.TRUE.
         p_set(param_Twhimz)=.TRUE.
+
+     ELSE IF(im==22) THEN
+        
+        ! mattter
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Astar)=.TRUE.
+        p_set(param_cstar)=.TRUE.
+        p_set(param_fcold)=.FALSE.
+        p_set(param_Mstar)=.TRUE.
+        p_set(param_sstar)=.TRUE.
+        p_set(param_Gammap)=.TRUE.
+        p_set(param_cstarp)=.TRUE.
+
+        p_set(param_Gammap)=.TRUE.       
+        
+        p_set(param_Gammaz)=.TRUE.
+        p_set(param_M0z)=.TRUE.
         
      ELSE
 
@@ -620,7 +638,9 @@ PROGRAM HMx_fitting
         ELSE
            verbose2=.TRUE.
         END IF
-        CALL set_parameter_ranges(delta,fields,nf,p_rge,p_set,p_cov,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
+        IF(set_ranges) THEN
+           CALL set_parameter_ranges(delta,fields,nf,p_rge,p_set,p_cov,p_old,p_log,p_nme,np,k,nk,z,nz,pow_bm,weight,hmod,cosm,ncos,verbose2)
+        END IF
         IF(l==1) THEN
            outfile=trim(outbase)//'_chain.dat'
            OPEN(10,file=outfile)
@@ -1456,11 +1476,12 @@ CONTAINS
 
   END SUBROUTINE fix_star_parameters
 
-  SUBROUTINE set_parameters(p_nme,p_ori,p_lim,p_lam,p_min,p_max,p_log,n)
+  SUBROUTINE set_parameters(p_nme,p_ori,p_rge,p_lim,p_lam,p_min,p_max,p_log,n)
 
     IMPLICIT NONE
     CHARACTER(len=*), INTENT(OUT) :: p_nme(n) ! Name
     REAL, INTENT(OUT) :: p_ori(n)    ! Starting value
+    REAL, INTENT(OUT) :: p_rge(n)    ! Range
     REAL, INTENT(OUT) :: p_lim(n)    ! Sensible lower limit
     REAL, INTENT(OUT) :: p_lam(n)    ! Sensible upper limit
     REAL, INTENT(OUT) :: p_min(n)    ! Extreme lower limit
@@ -1470,6 +1491,7 @@ CONTAINS
 
     p_nme(param_alpha)='alpha'
     p_ori(param_alpha)=1.60!*(1.+z(1))
+    p_rge(param_alpha)=0.02
     p_lim(param_alpha)=1.40
     p_lam(param_alpha)=1.80
     p_min(param_alpha)=1e-2
@@ -1479,6 +1501,7 @@ CONTAINS
     ! Can not be one because log(1)=0 and this messes things up in setting the ranges
     p_nme(param_eps)='epsilon'
     p_ori(param_eps)=1.1
+    p_rge(param_eps)=0.1
     p_lim(param_eps)=0.9
     p_lam(param_eps)=1.3
     p_min(param_eps)=1e-2
@@ -1487,6 +1510,7 @@ CONTAINS
 
     p_nme(param_Gamma)='Gamma-1'
     p_ori(param_Gamma)=0.24
+    p_rge(param_Gamma)=0.005
     p_lim(param_Gamma)=0.2
     p_lam(param_Gamma)=0.3
     p_min(param_Gamma)=0.01
@@ -1496,6 +1520,7 @@ CONTAINS
     ! This must depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
     p_nme(param_M0)='log_M0'
     p_ori(param_M0)=log10(10.**13.77)!/(10.**z(1))) ! Okay with z dependence as long as z(1)=0
+    p_rge(param_M0)=0.1
     p_lim(param_M0)=log10(10.**13)
     p_lam(param_M0)=log10(10.**14)
     p_min(param_M0)=log10(1e8)
@@ -1505,6 +1530,7 @@ CONTAINS
     p_nme(param_Astar)='A_*'
     !p_ori(param_Astar)=0.042
     p_ori(param_Astar)=0.05
+    p_rge(param_Astar)=0.1
     p_lim(param_Astar)=0.02
     p_lam(param_Astar)=0.06
     p_min(param_Astar)=1e-3
@@ -1514,6 +1540,7 @@ CONTAINS
     ! For some reason when 1e6 is set a range is calculated that gives too large a change in figure-of-merit
     p_nme(param_Twhim)='log_T_whim'
     p_ori(param_Twhim)=log10(10.**6.11)
+    p_rge(param_Twhim)=log10(10.**0.1)
     p_lim(param_Twhim)=log10(10.**6)
     p_lam(param_Twhim)=log10(10.**7)
     p_min(param_Twhim)=log10(1e2)
@@ -1522,6 +1549,7 @@ CONTAINS
 
     p_nme(param_cstar)='c_*'
     p_ori(param_cstar)=7.
+    p_rge(param_cstar)=0.1
     p_lim(param_cstar)=5.
     p_lam(param_cstar)=50.
     p_min(param_cstar)=1e0
@@ -1531,6 +1559,7 @@ CONTAINS
     ! Needed to boost original here so that it has an effect
     p_nme(param_fcold)='f_cold'
     p_ori(param_fcold)=0.00126
+    p_rge(param_fcold)=0.1
     p_lim(param_fcold)=1e-4
     p_lam(param_fcold)=1e-1
     p_min(param_fcold)=1e-5
@@ -1539,6 +1568,7 @@ CONTAINS
 
     p_nme(param_Mstar)='log_M_*'
     p_ori(param_Mstar)=log10(10.**12.5)
+    p_rge(param_Mstar)=0.1
     p_lim(param_Mstar)=log10(10.**12)
     p_lam(param_Mstar)=log10(10.**13)
     p_min(param_Mstar)=log10(1e8)
@@ -1547,6 +1577,7 @@ CONTAINS
 
     p_nme(param_sstar)='sigma_*'
     p_ori(param_sstar)=0.8
+    p_rge(param_sstar)=0.02
     p_lim(param_sstar)=0.5
     p_lam(param_sstar)=2.
     p_min(param_sstar)=0.1
@@ -1555,6 +1586,7 @@ CONTAINS
 
     p_nme(param_fhot)='f_hot'
     p_ori(param_fhot)=0.01
+    p_rge(param_fhot)=0.1
     p_lim(param_fhot)=1e-3
     p_lam(param_fhot)=1e-1
     p_min(param_fhot)=1e-5
@@ -1563,6 +1595,7 @@ CONTAINS
 
     p_nme(param_eta)='eta'
     p_ori(param_eta)=-0.2
+    p_rge(param_eta)=0.01
     p_lim(param_eta)=-0.6
     p_lam(param_eta)=-0.1
     p_min(param_eta)=-2.0
@@ -1571,6 +1604,7 @@ CONTAINS
 
     p_nme(param_alphap)='alpha_M_pow'
     p_ori(param_alphap)=-0.5
+    p_rge(param_alphap)=0.01
     p_lim(param_alphap)=-0.75
     p_lam(param_alphap)=-0.25
     p_min(param_alphap)=-1.
@@ -1579,6 +1613,7 @@ CONTAINS
 
     p_nme(param_Gammap)='Gamma_M_pow'
     p_ori(param_Gammap)=-0.02
+    p_rge(param_Gammap)=0.001
     p_lim(param_Gammap)=-0.05
     p_lam(param_Gammap)=0.05
     p_min(param_Gammap)=-0.2
@@ -1587,6 +1622,7 @@ CONTAINS
 
     p_nme(param_cstarp)='c_*_M_pow'
     p_ori(param_cstarp)=-0.2
+    p_rge(param_cstarp)=0.01
     p_lim(param_cstarp)=-0.5
     p_lam(param_cstarp)=-0.1
     p_min(param_cstarp)=-1.
@@ -1595,6 +1631,7 @@ CONTAINS
 
     p_nme(param_alphaz)='alpha_z_pow'
     p_ori(param_alphaz)=0.43
+    p_rge(param_alphaz)=0.01
     p_lim(param_alphaz)=0.1
     p_lam(param_alphaz)=1.
     p_min(param_alphaz)=-3.
@@ -1603,6 +1640,7 @@ CONTAINS
 
     p_nme(param_Gammaz)='Gamma_z_pow'
     p_ori(param_Gammaz)=0.3
+    p_rge(param_Gammaz)=0.01
     p_lim(param_Gammaz)=0.
     p_lam(param_Gammaz)=0.6
     p_min(param_Gammaz)=-1.
@@ -1611,6 +1649,7 @@ CONTAINS
 
     p_nme(param_M0z)='M0_z_pow'
     p_ori(param_M0z)=-0.08
+    p_rge(param_M0z)=0.01
     p_lim(param_M0z)=-0.2
     p_lam(param_M0z)=-0.01
     p_min(param_M0z)=-1.
@@ -1619,6 +1658,7 @@ CONTAINS
 
     p_nme(param_Astarz)='Astar_z_pow'
     p_ori(param_Astarz)=-0.45
+    p_rge(param_Astarz)=0.01
     p_lim(param_Astarz)=-0.65
     p_lam(param_Astarz)=-0.15
     p_min(param_Astarz)=-1.
@@ -1627,6 +1667,7 @@ CONTAINS
 
     p_nme(param_Twhimz)='Twhim_z_pow'
     p_ori(param_Twhimz)=-0.11
+    p_rge(param_Twhimz)=0.01
     p_lim(param_Twhimz)=-0.5
     p_lam(param_Twhimz)=-0.01
     p_min(param_Twhimz)=-1.
@@ -1635,6 +1676,7 @@ CONTAINS
 
     p_nme(param_HMcode_Dv0)='Dv0'
     p_ori(param_HMcode_Dv0)=418.
+    p_rge(param_HMcode_Dv0)=1.
     p_lim(param_HMcode_Dv0)=100.
     p_lam(param_HMcode_Dv0)=600.
     p_min(param_HMcode_Dv0)=50.
@@ -1642,7 +1684,8 @@ CONTAINS
     p_log(param_HMcode_Dv0)=.FALSE.
 
     p_nme(param_HMcode_Dvp)='Dvp'
-    p_ori(param_HMcode_Dvp)=-0.352    
+    p_ori(param_HMcode_Dvp)=-0.352
+    p_rge(param_HMcode_Dvp)=0.02
     p_lim(param_HMcode_Dvp)=-0.5
     p_lam(param_HMcode_Dvp)=-0.2
     p_min(param_HMcode_Dvp)=-5.
@@ -1650,7 +1693,8 @@ CONTAINS
     p_log(param_HMcode_Dvp)=.FALSE.
 
     p_nme(param_HMcode_dc0)='dc0'
-    p_ori(param_HMcode_dc0)=1.59
+    p_ori(param_HMcode_dc0)=1.590
+    p_rge(param_HMcode_dc0)=0.005
     p_lim(param_HMcode_dc0)=1.55
     p_lam(param_HMcode_dc0)=1.65
     p_min(param_HMcode_dc0)=1.
@@ -1659,6 +1703,7 @@ CONTAINS
 
     p_nme(param_HMcode_dcp)='dcp'
     p_ori(param_HMcode_dcp)=0.0314
+    p_rge(param_HMcode_dcp)=0.002
     p_lim(param_HMcode_dcp)=0.01
     p_lam(param_HMcode_dcp)=0.1
     p_min(param_HMcode_dcp)=-5.
@@ -1667,6 +1712,7 @@ CONTAINS
 
     p_nme(param_HMcode_eta0)='eta0'
     p_ori(param_HMcode_eta0)=0.603
+    p_rge(param_HMcode_eta0)=0.02
     p_lim(param_HMcode_eta0)=-1.
     p_lam(param_HMcode_eta0)=1.
     p_min(param_HMcode_eta0)=-5.
@@ -1675,6 +1721,7 @@ CONTAINS
 
     p_nme(param_HMcode_eta1)='eta1'
     p_ori(param_HMcode_eta1)=0.300
+    p_rge(param_HMcode_eta1)=0.02
     p_lim(param_HMcode_eta1)=0.1
     p_lam(param_HMcode_eta1)=0.7
     p_min(param_HMcode_eta1)=-5.
@@ -1684,6 +1731,7 @@ CONTAINS
     p_nme(param_HMcode_f0)='f0'
     !p_ori(param_HMcode_f0)=0.0095 ! Mead (2016) 
     p_ori(param_HMcode_f0)=0.188 ! Mead (2015) damping
+    p_rge(param_HMcode_f0)=0.01
     p_lim(param_HMcode_f0)=-1.
     p_lam(param_HMcode_f0)=1.
     p_min(param_HMcode_f0)=-5.
@@ -1693,7 +1741,8 @@ CONTAINS
     p_nme(param_HMcode_fp)='fp'
     !p_ori(param_HMcode_fp)=1.37 ! Mead (2016)
     p_ori(param_HMcode_fp)=4.29 ! Mead (2015)
-    p_lim(param_HMcode_fp)=1.
+    p_rge(param_HMcode_fp)=0.1
+    p_lim(param_HMcode_fp)=1.    
     p_lam(param_HMcode_fp)=6.
     p_min(param_HMcode_fp)=-10.
     p_max(param_HMcode_fp)=10.
@@ -1701,6 +1750,7 @@ CONTAINS
 
     p_nme(param_HMcode_kstar)='kstar'
     p_ori(param_HMcode_kstar)=0.584
+    p_rge(param_HMcode_kstar)=0.05
     p_lim(param_HMcode_kstar)=-1.
     p_lam(param_HMcode_kstar)=1.
     p_min(param_HMcode_kstar)=-5.
@@ -1709,6 +1759,7 @@ CONTAINS
 
     p_nme(param_HMcode_As)='As'
     p_ori(param_HMcode_As)=3.13
+    p_rge(param_HMcode_As)=0.1
     p_lim(param_HMcode_As)=2.
     p_lam(param_HMcode_As)=6.
     p_min(param_HMcode_As)=1.
@@ -1717,6 +1768,7 @@ CONTAINS
 
     p_nme(param_HMcode_alpha0)='alpha0'
     p_ori(param_HMcode_alpha0)=3.24
+    p_rge(param_HMcode_alpha0)=0.1
     p_lim(param_HMcode_alpha0)=1.
     p_lam(param_HMcode_alpha0)=4.
     p_min(param_HMcode_alpha0)=-5.
@@ -1725,6 +1777,7 @@ CONTAINS
 
     p_nme(param_HMcode_alpha1)='alpha1'
     p_ori(param_HMcode_alpha1)=1.85
+    p_rge(param_HMcode_alpha1)=0.1
     p_lim(param_HMcode_alpha1)=1.
     p_lam(param_HMcode_alpha1)=3.
     p_min(param_HMcode_alpha1)=-5.

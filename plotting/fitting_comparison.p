@@ -30,7 +30,7 @@ print ''
 # Choose plot to make
 if(!exists('iplot')){iplot=1}
 print 'iplot = 1: Power comparison'
-print 'iplot = 2: Matter P(k) suppression'
+print 'iplot = 2: Response comparison'
 print 'iplot = ', iplot
 print ''
 
@@ -62,8 +62,8 @@ print 'field 2: f2: ', f2, ' ', word(fields,f2), ' ', word(field_names,f2)
 }
 
 # Set ouput file names
-if(print==1 && (iplot==1)) {outfile(m,f1,f2)=sprintf('fitting_comparison_m%d_%s-%s.eps',m,f1,f2)}
-if(print==1 && (iplot==2)) {outfile(m)=sprintf('fitting_suppression_m%d.eps',m)}
+if(print==1 && iplot==1) {outfile(m,f1,f2)=sprintf('fitting_power_m%d_%s-%s.eps',m,f1,f2)}
+if(print==1 && iplot==2) {outfile(m,f1,f2)=sprintf('fitting_response_m%d_%s-%s.eps',m,f1,f2)}
 
 # Print an example file to screen to check
 print 'Example file: ', power(dir,word(mods,2),'_z0.0',n,m,c,f1,f2,1)
@@ -97,15 +97,15 @@ tit=''.word(field_names,f1).'-'.word(field_names,f2).''
 
 # Power suppression plots
 if(iplot==2){
-rmin=0.75
-rmax=1.02
+#rmin=0.75
+#rmax=1.02
 set ylabel 'P(k) / P_{dmonly}(k)'
-set yrange [rmin:rmax]
-tit='Matter power suppression'
+#set yrange [rmin:rmax]
+set yrange [*:*]
 }
 
 if(print==1 && iplot==1) {set output outfile(m,word(fields,f1),word(fields,f2))}
-if(print==1 && iplot==2) {set output outfile(m)}
+if(print==1 && iplot==2) {set output outfile(m,word(fields,f1),word(fields,f2))}
 show output
 
 # Key position
@@ -193,8 +193,8 @@ print 'Note that you must have a DMONLY file for the correct k spacing'
 print 'DMONLY file: ', dmonly(z)
 print ''
 
-plot for [i=1:words(mods_few)] '<paste '.power(dir,word(mods_few,i),za,n,m,c,1,1,izz).' '.dmonly(z).'' u 1:($3/$8) w p ps point_size pt point_type lc rgb word(cols_few,i) noti,\
-     for [i=1:words(mods)]     '<paste '.power(dir,word(mods,i),za,n,m,c,1,1,izz).'     '.dmonly(z).'' u 1:($2/$8) w l lw line_width dt line_type  lc rgb word(cols,i) noti
+plot for [i=1:words(mods_few)] '<paste '.power(dir,word(mods_few,i),za,n,m,c,f1,f2,izz).' '.dmonly(z).'' u 1:($3/$8) w p ps point_size pt point_type lc rgb word(cols_few,i) noti,\
+     for [i=1:words(mods)]     '<paste '.power(dir,word(mods,i),za,n,m,c,f1,f2,izz).'     '.dmonly(z).'' u 1:($2/$8) w l lw line_width dt line_type  lc rgb word(cols,i) noti
 
 }
 

@@ -26,7 +26,7 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: ell(:), Cl(:), Cl_bm(:), theta(:), xi(:,:), zs(:), masses(:)
   REAL, ALLOCATABLE :: z_tab(:), HI_frac(:)
   INTEGER :: i, j, ii, nk, na, j1, j2, nf
-  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, ntriad
+  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, ntriad, nfeed
   INTEGER :: ip(2), ix(2), ixx(2), field(1)
   INTEGER, ALLOCATABLE :: fields(:)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
@@ -75,7 +75,7 @@ PROGRAM HMx_driver
   REAL, PARAMETER :: kmin_xcorr=1e-3 ! Minimum k
   REAL, PARAMETER :: kmax_xcorr=1e1  ! Maximum k (some halo-model things go hectic for k>10)
   INTEGER, PARAMETER :: nk_xcorr=128 ! Number of k values (used to be 32)
-  REAL, PARAMETER :: amin_xcorr=0.1 ! Minimum scale factor (problems with one-halo term if amin is less than 0.1 (CMB lensing?))
+  REAL, PARAMETER :: amin_xcorr=0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1 (CMB lensing?))
   REAL, PARAMETER :: amax_xcorr=1.0 ! Maximum scale factor
   INTEGER, PARAMETER :: na_xcorr=16 ! Number of scale factores
 
@@ -162,6 +162,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '52 - Hydrodynamical halo model with BAHAMAS k range'
      WRITE(*,*) '53 - Breakdown 3D hydro power in halo mass II'
      WRITE(*,*) '54 - Trispectrum test'
+     WRITE(*,*) '55 - Triad for all feedback models'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -1501,25 +1502,31 @@ PROGRAM HMx_driver
 
      END IF
 
-  ELSE IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44) THEN
+  ELSE IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44 .OR. imode==55) THEN
 
      ! Triad stuff
      ! 12 - Current project triad (13 cross correlations)
      ! 38 - Old project triad (3 cross correlations)
      ! 39 - New project triad (7 cross correlations)
      ! 44 - Project triad for paper
+     ! 55 - Triad for all feedback scenarios
+
+     IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44) THEN
+        nfeed=1
+     ELSE IF(imode==55) THEN
+        nfeed=3
+     ELSE
+        STOP 'HMx_DRIVER: Error, something fucked up'
+     END IF
 
      ! Directory for data output
      dir='data'
 
      ! Assign the cosmological model
-     IF(imode==44) icosmo=4 ! WMAP 9 - BAHAMAS
+     IF(imode==44 .OR. imode==55) icosmo=4 ! WMAP 9 - BAHAMAS
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
-     CALL print_cosmology(cosm)
-
-     IF(imode==44) ihm=18 ! AGN 7.8
-     CALL assign_halomod(ihm,hmod,verbose)
+     CALL print_cosmology(cosm)          
 
      ! Set the ell range
      lmin=100.
@@ -1542,93 +1549,120 @@ PROGRAM HMx_driver
         ntriad=3
      ELSE IF(imode==39) THEN
         ntriad=7
-     ELSE IF(imode==12 .OR. imode==44) THEN
+     ELSE IF(imode==12 .OR. imode==44 .OR. imode==55) THEN
         ntriad=13
      ELSE
         STOP 'HMX_DRIVER: Error, imode specified incorrectly'
      END IF
 
-     ! Loop over the triad (septad?)
-     ! Original triad is 1,2,3 extended is tomographic lensing
-     DO i=1,ntriad
+     DO j=1,nfeed
 
-        IF(i==1) THEN           
-           IF(imode==38) THEN
-              ix(1)=tracer_KiDS        ! KiDS (z = 0.1 -> 0.9)
-              ix(2)=tracer_CMB_lensing ! CMB lensing
-              outfile=TRIM(dir)//'/triad_Cl_gal-CMB.dat'
-           ELSE IF(imode==39 .OR. imode==12 .OR. imode==44) THEN
-              ix(1)=tracer_KiDS_450    ! KiDS 450 (z = 0.1 -> 0.9)
-              ix(2)=tracer_CMB_lensing ! CMB
-              outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-CMB.dat'
-           ELSE
-              STOP 'HMX_DRIVER: Error, imode specified incorrectly'
-           END IF
-        ELSE IF(i==2) THEN
-           ix(1)=tracer_CMB_lensing ! CMB
-           ix(2)=tracer_Compton_y   ! y
-           outfile=TRIM(dir)//'/triad_Cl_CMB-y.dat'
-        ELSE IF(i==3) THEN
-           IF(imode==38) THEN
-              ix(1)=tracer_Compton_y ! y
-              ix(2)=tracer_KiDS      ! KiDS (z = 0.1 -> 0.9)
-              outfile=TRIM(dir)//'/triad_Cl_y-gal.dat'
-           ELSE IF(imode==39 .OR. imode==12 .OR. imode==44) THEN
-              ix(1)=tracer_Compton_y ! y
-              ix(2)=tracer_KiDS_450  ! KiDS 450 (z = 0.1 -> 0.9)
-              outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.9.dat'
-           ELSE
-              STOP 'HMX_DRIVER: Error, imode specified incorrectly'
-           END IF
-        ELSE IF(i==4) THEN
-           ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-           ix(2)=tracer_CMB_lensing   ! CMB
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-CMB.dat'
-        ELSE IF(i==5) THEN
-           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=tracer_CMB_lensing   ! CMB
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-CMB.dat'
-        ELSE IF(i==6) THEN
-           ix(1)=tracer_Compton_y     ! y
-           ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-           outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.1-0.5.dat'
-        ELSE IF(i==7) THEN
-           ix(1)=tracer_Compton_y     ! y
-           ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-           outfile=TRIM(dir)//'/triad_Cl_y-gal_z0.5-0.9.dat'
-        ELSE IF(i==8) THEN
-           ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-           ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-gal_z0.1-0.5.dat'
-        ELSE IF(i==9) THEN
-           ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z =  0.1 -> 0.5)
-           ix(2)=tracer_KiDS_450      ! KiDS 450 (z =  0.1 -> 0.9)
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.5-gal_z0.1-0.9.dat'
-        ELSE IF(i==10) THEN
-           ix(1)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
-           ix(2)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.1-0.9-gal_z0.1-0.9.dat'
-        ELSE IF(i==11) THEN
-           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.1-0.5.dat'
-        ELSE IF(i==12) THEN
-           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=tracer_KiDS_450      ! KiDS 450 (z = 0.1 -> 0.9)
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.1-0.9.dat'
-        ELSE IF(i==13) THEN
-           ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-           ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-           outfile=TRIM(dir)//'/triad_Cl_gal_z0.5-0.9-gal_z0.5-0.9.dat'
+        IF(imode==44) ihm=18 ! AGN tuned
+
+        IF(imode==55) THEN
+           !IF(j==1) ihm=17 ! AGN low
+           !IF(j==2) ihm=18 ! AGN tuned
+           !IF(j==3) ihm=19 ! AGN high
+           IF(j==1) ihm=38 ! AGN low
+           IF(j==2) ihm=39 ! AGN tuned
+           IF(j==3) ihm=40 ! AGN high
         END IF
 
-        ! Do the cross correlation
-        CALL xcorr(ix,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
-        CALL write_Cl(ell,Cl,nl,outfile)
+        CALL assign_halomod(ihm,hmod,verbose)
 
-        WRITE(*,*) 'HMx_DRIVER: Done'
-        WRITE(*,*)
-        
+        IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44) THEN
+           base='triad_Cl'
+        ELSE IF(imode==55) THEN
+           IF(j==1) base='triad_Cl_AGN-lo'
+           IF(j==2) base='triad_Cl_AGN'
+           IF(j==3) base='triad_Cl_AGN-hi'
+        ELSE
+           STOP 'HMx_DRIVER: Error, something fucked up'
+        END IF
+
+        ! Loop over the triad (septad?)
+        ! Original triad is 1,2,3 extended is tomographic lensing
+        DO i=1,ntriad
+
+           IF(i==1) THEN           
+              IF(imode==38) THEN
+                 ix(1)=tracer_KiDS        ! KiDS (z = 0.1 -> 0.9)
+                 ix(2)=tracer_CMB_lensing ! CMB lensing
+                 outfile=TRIM(dir)//'/'//TRIM(base)//'_gal-CMB.dat'
+              ELSE IF(imode==39 .OR. imode==12 .OR. imode==44 .OR. imode==55) THEN
+                 ix(1)=tracer_KiDS_450    ! KiDS 450 (z = 0.1 -> 0.9)
+                 ix(2)=tracer_CMB_lensing ! CMB
+                 outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.9-CMB.dat'
+              ELSE
+                 STOP 'HMX_DRIVER: Error, imode specified incorrectly'
+              END IF
+           ELSE IF(i==2) THEN
+              ix(1)=tracer_CMB_lensing ! CMB
+              ix(2)=tracer_Compton_y   ! y
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_CMB-y.dat'
+           ELSE IF(i==3) THEN
+              IF(imode==38) THEN
+                 ix(1)=tracer_Compton_y ! y
+                 ix(2)=tracer_KiDS      ! KiDS (z = 0.1 -> 0.9)
+                 outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal.dat'
+              ELSE IF(imode==39 .OR. imode==12 .OR. imode==44 .OR. imode==55) THEN
+                 ix(1)=tracer_Compton_y ! y
+                 ix(2)=tracer_KiDS_450  ! KiDS 450 (z = 0.1 -> 0.9)
+                 outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal_z0.1-0.9.dat'
+              ELSE
+                 STOP 'HMX_DRIVER: Error, imode specified incorrectly'
+              END IF
+           ELSE IF(i==4) THEN
+              ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
+              ix(2)=tracer_CMB_lensing   ! CMB
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.5-CMB.dat'
+           ELSE IF(i==5) THEN
+              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+              ix(2)=tracer_CMB_lensing   ! CMB
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-CMB.dat'
+           ELSE IF(i==6) THEN
+              ix(1)=tracer_Compton_y     ! y
+              ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal_z0.1-0.5.dat'
+           ELSE IF(i==7) THEN
+              ix(1)=tracer_Compton_y     ! y
+              ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal_z0.5-0.9.dat'
+           ELSE IF(i==8) THEN
+              ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
+              ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.5-gal_z0.1-0.5.dat'
+           ELSE IF(i==9) THEN
+              ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z =  0.1 -> 0.5)
+              ix(2)=tracer_KiDS_450      ! KiDS 450 (z =  0.1 -> 0.9)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.5-gal_z0.1-0.9.dat'
+           ELSE IF(i==10) THEN
+              ix(1)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
+              ix(2)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.9-gal_z0.1-0.9.dat'
+           ELSE IF(i==11) THEN
+              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+              ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-gal_z0.1-0.5.dat'
+           ELSE IF(i==12) THEN
+              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+              ix(2)=tracer_KiDS_450      ! KiDS 450 (z = 0.1 -> 0.9)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-gal_z0.1-0.9.dat'
+           ELSE IF(i==13) THEN
+              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+              ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-gal_z0.5-0.9.dat'
+           END IF
+
+           ! Do the cross correlation
+           CALL xcorr(ix,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
+           CALL write_Cl(ell,Cl,nl,outfile)
+
+           WRITE(*,*) 'HMx_DRIVER: Done'
+           WRITE(*,*)
+
+        END DO
+
      END DO
 
   ELSE IF(imode==13) THEN
