@@ -43,7 +43,7 @@ if(!exists('n')) {n=50000}
 print 'Number of points in chain: n: ', n
 
 # Fitting mode
-if(!exists('m')) {m=16}
+if(!exists('m')) {m=17}
 print 'Fitting mode: m: ', m
 
 if(m==16) {zsep=1}

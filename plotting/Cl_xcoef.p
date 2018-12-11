@@ -3,6 +3,7 @@ unset multiplot
 
 cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
+if(!exists('print')){print=0}
 if(print==0){set term aqua; ell='l'}
 if(print==1){set term post enh col fontfile cmmi; ell='{/cmmi10 \140}'; set output 'xcoef.eps'}
 
@@ -29,9 +30,10 @@ set format y '10^{%T}'
 
 set key bottom right
 
-plot Cl_11 u 1:3 w l lw 3 ti 'Autospectra: field 1',\
-     Cl_22 u 1:3 w l lw 3 ti 'Autospectra: field 2',\
-     Cl_12 u 1:3 w l lw 3 ti 'Cross spectra'
+plot Cl_11 u 1:3 w l lc 2 dt 1 lw 2 ti 'Tracer 1',\
+     Cl_22 u 1:3 w l lc 3 dt 1 lw 2 ti 'Tracer 2',\
+     Cl_12 u 1:3 w l lc 2 dt 1 lw 2 noti,\
+     Cl_12 u 1:3 w l lc 3 dt 2 lw 2 noti
 
 set xlabel ''.ell.''
 set format x '10^{%T}'
@@ -44,6 +46,7 @@ set yrange [rmin:rmax]
 set format y
 
 plot 1 w l lt -1 noti,\
-     '<paste '.Cl_12.' '.Cl_11.' '.Cl_22.'' u 1:($2/sqrt($5*$8)) w l lc -1 lw 3 noti
+     '<paste '.Cl_12.' '.Cl_11.' '.Cl_22.'' u 1:($2/sqrt($5*$8)) w l lc 2 dt 1 lw 2 noti,\
+     '<paste '.Cl_12.' '.Cl_11.' '.Cl_22.'' u 1:($2/sqrt($5*$8)) w l lc 3 dt 2 lw 2 noti
 
 unset multiplot

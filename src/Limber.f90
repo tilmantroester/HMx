@@ -11,7 +11,6 @@ MODULE Limber
 
   ! Types
   PUBLIC :: projection
-  !PUBLIC :: lensing
 
   ! Functions
   PUBLIC :: maxdist
@@ -27,6 +26,7 @@ MODULE Limber
   PUBLIC :: calculate_angular_xi
   PUBLIC :: write_Cl
   PUBLIC :: k_ell
+  PUBLIC :: xpow_pka
 
   ! Tracers
   PUBLIC :: n_tracers
@@ -52,14 +52,6 @@ MODULE Limber
      REAL, ALLOCATABLE :: nz(:), z_nz(:)
      INTEGER :: nX, nq, nnz
   END TYPE projection
-
-!!$  ! Quantities that are necessary for lensing specifically
-!!$  ! Possibly this could usefully be merged with the projection type
-!!$  TYPE lensing
-!!$     REAL, ALLOCATABLE :: q(:), r_q(:)
-!!$     REAL, ALLOCATABLE :: nz(:), z_nz(:)
-!!$     INTEGER :: nq, nnz
-!!$  END TYPE lensing
   
   ! P(k,a) look-up table parameters
   REAL, PARAMETER :: kmin_pka=1e-4   ! k' value for P(k,a) table; P(k<k',a)=0
@@ -181,6 +173,7 @@ CONTAINS
   SUBROUTINE fill_projection_kernels(ix,proj,cosm)
 
     ! Fill look-up tables for the two projection kerels X_ij
+    ! TODO: Change to take ix(n)
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix(2) ! Label for the type of projection kernel needed
     TYPE(projection), INTENT(OUT) :: proj(2) ! Output the projection kernel
@@ -316,20 +309,27 @@ CONTAINS
 
   END SUBROUTINE Cl_contribution_ell
 
-  SUBROUTINE write_Cl(l,Cl,nl,output)
+  SUBROUTINE write_Cl(l,Cl,nl,outfile,verbose)
 
     ! Write C(l) to a file; writes l, C(l), l(l+1)C(l)/2pi
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: nl
-    REAL, INTENT(IN) :: l(nl), Cl(nl)
-    CHARACTER(len=256) :: output
+    REAL, INTENT(IN) :: l(nl)
+    REAL, INTENT(IN) :: Cl(nl)
+    CHARACTER(len=256) :: outfile
+    LOGICAL, INTENT(IN) :: verbose
     INTEGER :: i
 
-    OPEN(7,file=output)
+    IF(verbose) WRITE(*,*) 'WRITE_CL: Writing data to: ', TRIM(outfile)
+    OPEN(7,file=outfile)
     DO i=1,nl
        WRITE(7,*) l(i), Cl(i), l(i)*(l(i)+1.)*Cl(i)/twopi
     END DO
     CLOSE(7)
+    IF(verbose) THEN
+       WRITE(*,*) 'WRITE_CL: Done'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE write_Cl
 
@@ -394,16 +394,16 @@ CONTAINS
 
   END SUBROUTINE calculate_angular_xi
 
-  SUBROUTINE write_angular_xi(th_tab,xi_tab,nth,output)
+  SUBROUTINE write_angular_xi(th_tab,xi_tab,nth,outfile)
 
     ! Write angular correlation functions to disk
     IMPLICIT NONE
     REAL, INTENT(IN) :: th_tab(nth), xi_tab(3,nth)
     INTEGER, INTENT(IN) :: nth
-    CHARACTER(len=256), INTENT(IN) :: output
+    CHARACTER(len=256), INTENT(IN) :: outfile
     INTEGER :: i
 
-    OPEN(7,file=output)
+    OPEN(7,file=outfile)
     DO i=1,nth
        WRITE(7,*) th_tab(i), xi_tab(1,i), xi_tab(2,i), xi_tab(3,i)
     END DO
@@ -428,18 +428,18 @@ CONTAINS
     
   END FUNCTION maxdist
 
-  SUBROUTINE write_projection_kernel(proj,cosm,output)
+  SUBROUTINE write_projection_kernel(proj,cosm,outfile)
 
     IMPLICIT NONE
     TYPE(projection), INTENT(IN) :: proj
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    CHARACTER(len=256), INTENT(IN) :: output
+    CHARACTER(len=256), INTENT(IN) :: outfile
     INTEGER :: i
     REAL :: r, z
 
     ! Kernel
-    IF(verbose_Limber) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel: ', trim(output)
-    OPEN(7,file=output)
+    IF(verbose_Limber) WRITE(*,*) 'WRITE_PROJECTION_KERNEL: Writing out kernel: ', trim(outfile)
+    OPEN(7,file=outfile)
     DO i=1,proj%nX    
        r=proj%r_X(i)
        z=redshift_r(r,cosm)
@@ -588,18 +588,18 @@ CONTAINS
 
   END FUNCTION q_r
 
-  SUBROUTINE write_efficiency(proj,cosm,output)
+  SUBROUTINE write_efficiency(proj,cosm,outfile)
 
     ! Write lensing efficiency q(r) function to a file
     IMPLICIT NONE
     TYPE(projection), INTENT(INOUT) :: proj
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    CHARACTER(len=256), INTENT(IN) :: output
+    CHARACTER(len=256), INTENT(IN) :: outfile
     REAL :: r, z, q
     INTEGER :: i
 
-    WRITE(*,*) 'WRITE_EFFICIENCY: Writing q(r): ', trim(output)
-    OPEN(7,file=output)
+    WRITE(*,*) 'WRITE_EFFICIENCY: Writing q(r): ', trim(outfile)
+    OPEN(7,file=outfile)
     DO i=1,proj%nq
        r=proj%r_q(i)
        z=redshift_r(r,cosm)
@@ -680,6 +680,7 @@ CONTAINS
   FUNCTION y_kernel(r,cosm)
 
     ! The Compton-y projection kernel
+    ! TODO: (re)check the power of 'a'
     IMPLICIT NONE
     REAL :: y_kernel
     REAL, INTENT(IN) :: r
@@ -1202,5 +1203,36 @@ CONTAINS
     END IF
 
   END FUNCTION find_pka
+
+  SUBROUTINE xpow_pka(ix,ell,Cl,nl,k,a,pow,nk,na,cosm)
+
+    ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2) given P(k,a)
+    ! TODO: Should I change this to take in ix(n)?
+    IMPLICIT NONE
+    INTEGER, INTENT(INOUT) :: ix(2)
+    REAL, INTENT(IN) :: ell(nl)
+    REAL, INTENT(OUT) :: Cl(nl)
+    INTEGER, INTENT(IN) :: nl
+    REAL, INTENT(IN) :: k(nk)
+    REAL, INTENT(IN) :: a(na)
+    REAL, INTENT(IN) :: pow(nk,na)
+    INTEGER, INTENT(IN) :: nk
+    INTEGER, INTENT(IN) :: na
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    TYPE(projection) :: proj(2)
+    REAL :: r1, r2
+
+    ! Fill out the projection kernel
+    CALL fill_projection_kernels(ix,proj,cosm)
+
+    ! Set the range in comoving distance for the Limber integral
+    r1=0.
+    r2=maxdist(proj)
+
+    ! Actually calculate the C(ell), but only for the full halo model part
+    ! TODO: Array temporary
+    CALL calculate_Cl(r1,r2,ell,Cl,nl,k,a,pow,nk,na,proj,cosm)
+
+  END SUBROUTINE xpow_pka
   
 END MODULE Limber

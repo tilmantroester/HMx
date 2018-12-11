@@ -23,12 +23,12 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: powd_li(:), powd_2h(:), powd_1h(:), powd_hm(:)
   REAL, ALLOCATABLE :: pows_li(:,:), pows_2h(:,:,:,:), pows_1h(:,:,:,:), pows_hm(:,:,:,:)
   REAL, ALLOCATABLE :: powb_hm(:,:,:,:)
-  REAL, ALLOCATABLE :: ell(:), Cl(:), Cl_bm(:), theta(:), xi(:,:), zs(:), masses(:)
+  REAL, ALLOCATABLE :: ell(:), Cl(:,:,:), Cl_bm(:), theta(:), xi(:,:), zs(:), masses(:)
   REAL, ALLOCATABLE :: z_tab(:), HI_frac(:)
-  INTEGER :: i, j, ii, nk, na, j1, j2, nf
-  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, ntriad, nfeed
-  INTEGER :: ip(2), ix(2), ixx(2), field(1)
-  INTEGER, ALLOCATABLE :: fields(:)
+  INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt
+  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, nfeed
+  INTEGER :: ip(2), ix(2), field(1)
+  INTEGER, ALLOCATABLE :: fields(:), ixx(:)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: rcore_min, rcore_max
   REAL :: z, z1, z2, r1, r2, a1, a2
@@ -38,7 +38,7 @@ PROGRAM HMx_driver
   TYPE(halomod), ALLOCATABLE :: hmods(:)
   TYPE(projection) :: proj(2), pro
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname, inbase, outbase, inext, outext
-  CHARACTER(len=256) :: mode, halomodel, cosmo, benchmark
+  CHARACTER(len=256) :: mode, halomodel, cosmo, benchmark, tracer1, tracer2
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
   INTEGER :: imin, imax
   REAL :: sig8min, sig8max
@@ -72,12 +72,12 @@ PROGRAM HMx_driver
   LOGICAL, PARAMETER :: ifull=.FALSE.      ! Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
 
   ! Cross correlation
-  REAL, PARAMETER :: kmin_xcorr=1e-3 ! Minimum k
-  REAL, PARAMETER :: kmax_xcorr=1e1  ! Maximum k (some halo-model things go hectic for k>10)
-  INTEGER, PARAMETER :: nk_xcorr=128 ! Number of k values (used to be 32)
-  REAL, PARAMETER :: amin_xcorr=0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1 (CMB lensing?))
-  REAL, PARAMETER :: amax_xcorr=1.0 ! Maximum scale factor
-  INTEGER, PARAMETER :: na_xcorr=16 ! Number of scale factores
+  REAL, PARAMETER :: kmin_xpow=1e-3 ! Minimum k
+  REAL, PARAMETER :: kmax_xpow=1e2  ! Maximum k
+  INTEGER, PARAMETER :: nk_xpow=128 ! Number of k values (used to be 32)
+  REAL, PARAMETER :: amin_xpow=0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1 (CMB lensing?))
+  REAL, PARAMETER :: amax_xpow=1.0  ! Maximum scale factor
+  INTEGER, PARAMETER :: na_xpow=16  ! Number of scale factores
 
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
@@ -119,7 +119,7 @@ PROGRAM HMx_driver
      WRITE(*,*) ' 9 - Breakdown angular correlations in halo mass'
      WRITE(*,*) '10 - Breakdown angular correlations in redshift'
      WRITE(*,*) '11 - Do general angular cross correlation and correlation functions'
-     WRITE(*,*) '12 - Project triad'
+     WRITE(*,*) '12 - Triad'
      WRITE(*,*) '13 - Cross-correlation coefficient'
      WRITE(*,*) '14 - 3D spectra for variations in baryon parameters'
      WRITE(*,*) '15 - 3D spectra for cosmo-OWLS models (Feedback models and k values) NOT SUPPORTED'
@@ -145,13 +145,13 @@ PROGRAM HMx_driver
      WRITE(*,*) '35 - Power spectra of cored halo profiles'
      WRITE(*,*) '36 - TESTS: hydro spectra'
      WRITE(*,*) '37 - Produce CFHTLenS correlation functions'
-     WRITE(*,*) '38 - Project triad (3 combinations)'
-     WRITE(*,*) '39 - Project triad (5 combinations)'
+     WRITE(*,*) '38 - '
+     WRITE(*,*) '39 - '
      WRITE(*,*) '40 - Halo bias'
      WRITE(*,*) '41 - 3D power as a function of cosmological parameters'
      WRITE(*,*) '42 - PAPER: Contributions to k-k C(l) integral'
      WRITE(*,*) '43 - PAPER: Contributions to k-y C(l) integral'
-     WRITE(*,*) '44 - PAPER: Project triad'
+     WRITE(*,*) '44 - PAPER: Triad'
      WRITE(*,*) '45 - Comparison of Sheth-Tormen vs. Tinker mass function'
      WRITE(*,*) '46 - Mass function and bias plots'
      WRITE(*,*) '47 - Make CMB lensing to compare with CAMB'
@@ -163,6 +163,9 @@ PROGRAM HMx_driver
      WRITE(*,*) '53 - Breakdown 3D hydro power in halo mass II'
      WRITE(*,*) '54 - Trispectrum test'
      WRITE(*,*) '55 - Triad for all feedback models'
+     WRITE(*,*) '56 - Triad for all feedback models (Triad 3 ell)'
+     WRITE(*,*) '57 - Triad: KiDS(0.1->0.9)-y computed with actual BAHAMAS spectra'
+     WRITE(*,*) '58 - Multiple same fields check'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -909,7 +912,9 @@ PROGRAM HMx_driver
 
      ! Set the field types
      ix=-1
-     CALL set_field_for_xcorr(ix,ip)
+     DO i=1,2
+        CALL set_field_for_xpow(ix(i),ip(i))
+     END DO
      
      ! Fill the projection kernels (plural)
      CALL fill_projection_kernels(ix,proj,cosm)
@@ -994,7 +999,9 @@ PROGRAM HMx_driver
         ix(1)=tracer_KiDS_450  ! KiDS-450 z = 0.1->0.9
         ix(2)=tracer_Compton_y ! Compton y
      END IF
-     CALL set_field_for_xcorr(ix,ip)
+     DO i=1,2
+        CALL set_field_for_xpow(ix(i),ip(i))
+     END DO
      IF(imode==37 .OR. imode==47) ip=field_dmonly ! Set DMONLY haloes
 
      ! Assign the cosmological model
@@ -1040,7 +1047,7 @@ PROGRAM HMx_driver
      ! Allocate arrays for l and C(l)
      CALL fill_array(log(lmin),log(lmax),ell,nl)
      ell=exp(ell)
-     ALLOCATE(Cl(nl))
+     ALLOCATE(Cl(2,2,nl))
 
      ! Set the angular arrays in degrees and allocate arrays for theta and xi(theta)
      thmin=0.01
@@ -1141,8 +1148,8 @@ PROGRAM HMx_driver
            WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
            ! Actually calculate the C(ell)
-           CALL calculate_Cl(r1,r2,ell,Cl,nl,k,a,pow_ka,nk,na,proj,cosm)
-           CALL write_Cl(ell,Cl,nl,outfile)
+           CALL calculate_Cl(r1,r2,ell,Cl(1,2,:),nl,k,a,pow_ka,nk,na,proj,cosm)
+           CALL write_Cl(ell,Cl(1,2,:),nl,outfile,verbose)
 
            IF(j==4 .AND. (imode==7 .OR. imode==11 .OR. imode==42 .OR. imode==43)) THEN
               CALL Cl_contribution_ell(r1,r2,k,a,pow_ka,nk,na,proj,cosm)
@@ -1239,7 +1246,7 @@ PROGRAM HMx_driver
               
               ! Actually calculate the C(l)
               CALL calculate_Cl(0.,maxdist(proj),ell,Cl,nl,k,a,pow_ka,nk,na,proj,cosm)
-              CALL write_Cl(ell,Cl,nl,outfile)
+              CALL write_Cl(ell,Cl,nl,outfile,verbose)
               
            END DO
            WRITE(*,*) 'HMx_DRIVER: Done'
@@ -1387,7 +1394,7 @@ PROGRAM HMx_driver
               WRITE(*,*) 'HMx_DRIVER: File: ', TRIM(outfile)
 
               CALL calculate_Cl(0.,maxdist(proj),ell,Cl,nl,k,a,pow_ka,nk,na,proj,cosm)
-              CALL write_Cl(ell,Cl,nl,outfile)
+              CALL write_Cl(ell,Cl,nl,outfile,verbose)
 
            END DO
            WRITE(*,*) 'HMx_DRIVER: Done'
@@ -1486,7 +1493,7 @@ PROGRAM HMx_driver
               !Only a problem if lmax ~ 10^5
               !STOP 'This crashes for the low r2 values for high ell for some reason - should debug'
               CALL calculate_Cl(r1,r2,ell,Cl,nl,k,a,pow_ka,nk,na,proj,cosm)
-              CALL write_Cl(ell,Cl,nl,outfile)
+              CALL write_Cl(ell,Cl,nl,outfile,verbose)
 
            END DO
            WRITE(*,*)
@@ -1502,18 +1509,17 @@ PROGRAM HMx_driver
 
      END IF
 
-  ELSE IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44 .OR. imode==55) THEN
+  ELSE IF(imode==12 .OR. imode==44 .OR. imode==55 .OR. imode==56) THEN
 
      ! Triad stuff
-     ! 12 - Current project triad (13 cross correlations)
-     ! 38 - Old project triad (3 cross correlations)
-     ! 39 - New project triad (7 cross correlations)
-     ! 44 - Project triad for paper
-     ! 55 - Triad for all feedback scenarios
+     ! 12 - Triad (T_5 cross correlations)
+     ! 44 - Triad for paper (fixed WMAP9 and feedback)
+     ! 55 - Triad for all BAHAMAS feedback scenarios
+     ! 56 - Triad for all BAHAMAS feedback scenarios and ell
 
-     IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44) THEN
+     IF(imode==12 .OR. imode==44) THEN
         nfeed=1
-     ELSE IF(imode==55) THEN
+     ELSE IF(imode==55 .OR. imode==56) THEN
         nfeed=3
      ELSE
         STOP 'HMx_DRIVER: Error, something fucked up'
@@ -1523,20 +1529,35 @@ PROGRAM HMx_driver
      dir='data'
 
      ! Assign the cosmological model
-     IF(imode==44 .OR. imode==55) icosmo=4 ! WMAP 9 - BAHAMAS
+     IF(imode==44 .OR. imode==55 .OR. imode==56) icosmo=4 ! WMAP 9 - BAHAMAS
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)          
 
      ! Set the ell range
-     lmin=100.
-     lmax=4000.
-     nl=64
-
-     ! Allocate arrays for l and C(l)
-     CALL fill_array(log(lmin),log(lmax),ell,nl)
-     ell=exp(ell)
-     ALLOCATE(Cl(nl))
+     IF(imode==12 .OR. imode==44 .OR. imode==55) THEN
+        lmin=100.
+        lmax=4000.
+        nl=64
+        ! Allocate arrays for l and C(l)
+        CALL fill_array(log(lmin),log(lmax),ell,nl)
+        ell=exp(ell)
+     ELSE IF(imode==56) THEN        
+        nl=10
+        ALLOCATE(ell(nl))
+        ell(1)=1.018233764908628416e+02
+        ell(2)=1.553312629199899391e+02
+        ell(3)=2.323690199521311399e+02
+        ell(4)=3.400698045589385288e+02
+        ell(5)=4.735860422267907666e+02
+        ell(6)=6.606652213933027724e+02
+        ell(7)=8.337396960949569120e+02
+        ell(8)=1.314593569663487642e+03
+        ell(9)=1.844659111122426793e+03
+        ell(10)=2.590093228780283425e+03
+     ELSE
+        STOP 'HMx_DRIVER: Error, something fucked up, ell not set'
+     END IF
 
      WRITE(*,*) 'HMx_DRIVER: Cross-correlation information'
      WRITE(*,*) 'HMx_DRIVER: output directiory: ', TRIM(dir)
@@ -1545,129 +1566,61 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
      WRITE(*,*)
 
-     IF(imode==38) THEN
-        ntriad=3
-     ELSE IF(imode==39) THEN
-        ntriad=7
-     ELSE IF(imode==12 .OR. imode==44 .OR. imode==55) THEN
-        ntriad=13
-     ELSE
-        STOP 'HMX_DRIVER: Error, imode specified incorrectly'
-     END IF
+     ! Set tracers
+     nt=5
+     ALLOCATE(ixx(nt))     
+     ixx(1)=tracer_KiDS_450
+     ixx(2)=tracer_KiDS_450_bin1
+     ixx(3)=tracer_KiDS_450_bin2
+     ixx(4)=tracer_Compton_y
+     ixx(5)=tracer_CMB_lensing
 
+     ! Allocate array for Cl
+     ALLOCATE(Cl(nl,nt,nt))
+   
      DO j=1,nfeed
 
         IF(imode==44) ihm=18 ! AGN tuned
 
-        IF(imode==55) THEN
-           !IF(j==1) ihm=17 ! AGN low
-           !IF(j==2) ihm=18 ! AGN tuned
+        IF(imode==55 .OR. imode==56) THEN
+           !IF(j==1) ihm=18 ! AGN tuned
+           !IF(j==2) ihm=17 ! AGN low
            !IF(j==3) ihm=19 ! AGN high
-           IF(j==1) ihm=38 ! AGN low
-           IF(j==2) ihm=39 ! AGN tuned
+           IF(j==1) ihm=39 ! AGN tuned
+           IF(j==2) ihm=38 ! AGN low
            IF(j==3) ihm=40 ! AGN high
         END IF
 
         CALL assign_halomod(ihm,hmod,verbose)
 
-        IF(imode==12 .OR. imode==38 .OR. imode==39 .OR. imode==44) THEN
-           base='triad_Cl'
-        ELSE IF(imode==55) THEN
-           IF(j==1) base='triad_Cl_AGN-lo'
-           IF(j==2) base='triad_Cl_AGN'
-           IF(j==3) base='triad_Cl_AGN-hi'
-        ELSE
-           STOP 'HMx_DRIVER: Error, something fucked up'
-        END IF
+        IF(j==1) base='triad_Cl_AGN'
+        IF(j==2) base='triad_Cl_AGN-lo'
+        IF(j==3) base='triad_Cl_AGN-hi'
 
-        ! Loop over the triad (septad?)
-        ! Original triad is 1,2,3 extended is tomographic lensing
-        DO i=1,ntriad
+        CALL xpow(ixx,nt,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose=.TRUE.)
 
-           IF(i==1) THEN           
-              IF(imode==38) THEN
-                 ix(1)=tracer_KiDS        ! KiDS (z = 0.1 -> 0.9)
-                 ix(2)=tracer_CMB_lensing ! CMB lensing
-                 outfile=TRIM(dir)//'/'//TRIM(base)//'_gal-CMB.dat'
-              ELSE IF(imode==39 .OR. imode==12 .OR. imode==44 .OR. imode==55) THEN
-                 ix(1)=tracer_KiDS_450    ! KiDS 450 (z = 0.1 -> 0.9)
-                 ix(2)=tracer_CMB_lensing ! CMB
-                 outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.9-CMB.dat'
-              ELSE
-                 STOP 'HMX_DRIVER: Error, imode specified incorrectly'
-              END IF
-           ELSE IF(i==2) THEN
-              ix(1)=tracer_CMB_lensing ! CMB
-              ix(2)=tracer_Compton_y   ! y
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_CMB-y.dat'
-           ELSE IF(i==3) THEN
-              IF(imode==38) THEN
-                 ix(1)=tracer_Compton_y ! y
-                 ix(2)=tracer_KiDS      ! KiDS (z = 0.1 -> 0.9)
-                 outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal.dat'
-              ELSE IF(imode==39 .OR. imode==12 .OR. imode==44 .OR. imode==55) THEN
-                 ix(1)=tracer_Compton_y ! y
-                 ix(2)=tracer_KiDS_450  ! KiDS 450 (z = 0.1 -> 0.9)
-                 outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal_z0.1-0.9.dat'
-              ELSE
-                 STOP 'HMX_DRIVER: Error, imode specified incorrectly'
-              END IF
-           ELSE IF(i==4) THEN
-              ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-              ix(2)=tracer_CMB_lensing   ! CMB
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.5-CMB.dat'
-           ELSE IF(i==5) THEN
-              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-              ix(2)=tracer_CMB_lensing   ! CMB
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-CMB.dat'
-           ELSE IF(i==6) THEN
-              ix(1)=tracer_Compton_y     ! y
-              ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal_z0.1-0.5.dat'
-           ELSE IF(i==7) THEN
-              ix(1)=tracer_Compton_y     ! y
-              ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_y-gal_z0.5-0.9.dat'
-           ELSE IF(i==8) THEN
-              ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-              ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.5-gal_z0.1-0.5.dat'
-           ELSE IF(i==9) THEN
-              ix(1)=tracer_KiDS_450_bin1 ! KiDS 450 (z =  0.1 -> 0.5)
-              ix(2)=tracer_KiDS_450      ! KiDS 450 (z =  0.1 -> 0.9)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.5-gal_z0.1-0.9.dat'
-           ELSE IF(i==10) THEN
-              ix(1)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
-              ix(2)=tracer_KiDS_450 ! KiDS 450 (z = 0.1 -> 0.9)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.1-0.9-gal_z0.1-0.9.dat'
-           ELSE IF(i==11) THEN
-              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-              ix(2)=tracer_KiDS_450_bin1 ! KiDS 450 (z = 0.1 -> 0.5)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-gal_z0.1-0.5.dat'
-           ELSE IF(i==12) THEN
-              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-              ix(2)=tracer_KiDS_450      ! KiDS 450 (z = 0.1 -> 0.9)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-gal_z0.1-0.9.dat'
-           ELSE IF(i==13) THEN
-              ix(1)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-              ix(2)=tracer_KiDS_450_bin2 ! KiDS 450 (z = 0.5 -> 0.9)
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_gal_z0.5-0.9-gal_z0.5-0.9.dat'
-           END IF
-
-           ! Do the cross correlation
-           CALL xcorr(ix,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
-           CALL write_Cl(ell,Cl,nl,outfile)
-
-           WRITE(*,*) 'HMx_DRIVER: Done'
-           WRITE(*,*)
-
+        DO ii=1,nt           
+           IF(ii==1) tracer1='gal_z0.1-0.9'
+           IF(ii==2) tracer1='gal_z0.1-0.5'
+           IF(ii==3) tracer1='gal_z0.5-0.9'
+           IF(ii==4) tracer1='y'
+           IF(ii==5) tracer1='CMB'
+           DO jj=1,nt              
+              IF(jj==1) tracer2='gal_z0.1-0.9'
+              IF(jj==2) tracer2='gal_z0.1-0.5'
+              IF(jj==3) tracer2='gal_z0.5-0.9'
+              IF(jj==4) tracer2='y'
+              IF(jj==5) tracer2='CMB'
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_'//TRIM(tracer1)//'-'//TRIM(tracer2)//'.dat'
+              CALL write_Cl(ell,Cl(:,ii,jj),nl,outfile,verbose=.TRUE.)
+           END DO
         END DO
 
      END DO
 
   ELSE IF(imode==13) THEN
 
-     ! 13 - Calculate a cross-correlation coefficient
+     ! Calculate a cross-correlation coefficient
 
      ! Assign the cosmology
      CALL assign_cosmology(icosmo,cosm,verbose)
@@ -1685,34 +1638,36 @@ PROGRAM HMx_driver
      nl=64 
      CALL fill_array(log(lmin),log(lmax),ell,nl)
      ell=exp(ell)
-     ALLOCATE(Cl(nl))
+     ALLOCATE(Cl(nl,2,2))
 
      ! Directory for outputs
      dir='data'
 
-     ixx=-1
-     CALL set_field_for_xcorr(ixx,ip)
+     ! Set the necessary fields
+     ix=-1
+     DO i=1,2
+        CALL set_field_for_xpow(ix(i),ip(i))
+     END DO
 
-     DO i=1,3
-        
-        IF(i==1) THEN
-           ix(1)=ixx(1)
-           ix(2)=ixx(1)
-           outfile=TRIM(dir)//'/cl_first.dat'
-        ELSE IF(i==2) THEN
-           ix(1)=ixx(2)
-           ix(2)=ixx(2)
-           outfile=TRIM(dir)//'/cl_second.dat'
-        ELSE IF(i==3) THEN
-           ix(1)=ixx(1)
-           ix(2)=ixx(2)
-           outfile=TRIM(dir)//'/cl_hm.dat'
-        END IF
+     ! Do the cross correlation
+     CALL xpow(ix,2,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
 
-        ! Do the cross correlation
-        CALL xcorr(ix,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
-        CALL write_Cl(ell,Cl,nl,outfile)
-        
+     DO i=1,2
+        DO j=i,2
+
+           ! Set output files
+           IF(i==1 .AND. j==1) THEN
+              outfile=TRIM(dir)//'/cl_first.dat'
+           ELSE IF(i==2 .AND. j==2) THEN
+              outfile=TRIM(dir)//'/cl_second.dat'
+           ELSE IF(i==1 .AND. j==2) THEN
+              outfile=TRIM(dir)//'/cl_hm.dat'
+           END IF
+
+           ! Write data
+           CALL write_Cl(ell,Cl(:,i,j),nl,outfile,verbose)           
+
+        END DO
      END DO
 
   ELSE IF(imode==14 .OR. imode==33) THEN
@@ -2373,7 +2328,13 @@ PROGRAM HMx_driver
   ELSE IF(imode==24) THEN
 
      ! Projection tests
+     ! TODO: Why the fuck are these so slow?
+     
+     ! Number of tests
      ntests=3
+
+     ! Initially assume tests pass
+     ifail=.FALSE.
 
      ! Loop over tests
      DO j=1,ntests
@@ -2405,7 +2366,7 @@ PROGRAM HMx_driver
 
         ! Get file size
         nl=file_length(benchmark,verbose)
-        ALLOCATE(ell(nl),Cl_bm(nl),Cl(nl))
+        ALLOCATE(ell(nl),Cl_bm(nl),Cl(nl,2,2))
 
         ! Read in data
         OPEN(7,file=benchmark)
@@ -2422,30 +2383,37 @@ PROGRAM HMx_driver
         CALL assign_halomod(ihm,hmod,verbose=.FALSE.)      
 
         ! Do the cross correlation     
-        CALL xcorr(ix,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose=.TRUE.)
+        CALL xpow(ix,2,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose=.TRUE.)
+
+        ! Write data to disk
+        CALL write_Cl(ell,Cl(:,1,2),nl,outfile,verbose)
 
         ! Loop over and check values
         DO i=1,nl
-           error=ABS(-1.+Cl(i)/Cl_bm(i))
+           error=ABS(-1.+Cl(i,1,2)/Cl_bm(i))
            IF(error > tolerance) THEN
               WRITE(*,*) 'HMx_DRIVER: Test:', j
+              WRITE(*,*) 'HMx_DRIVER: Benchmark: ', TRIM(benchmark)
+              WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
               WRITE(*,*) 'HMx_DRIVER: ell:', ell(i)       
               WRITE(*,*) 'HMx_DRIVER: Benchmark C(l):', Cl_bm(i)
-              WRITE(*,*) 'HMx_DRIVER: Calculated C(l):', Cl(i)
+              WRITE(*,*) 'HMx_DRIVER: Calculated C(l):', Cl(i,1,2)
               WRITE(*,*) 'HMx_DRIVER: Error:', error
-              STOP 'HMx_DRIVER: Limber test failed'
+              WRITE(*,*)
+              ifail=.TRUE.
            END IF
         END DO
-
-        ! Write data to disk
-        CALL write_Cl(ell,Cl,nl,outfile)
 
         ! Deallocate arrays
         DEALLOCATE(ell,Cl_bm,Cl)
 
      END DO
 
-     WRITE(*,*) 'HMx_DRIVER: Limber tests passed'
+     IF(ifail) THEN
+        WRITE(*,*) 'HMx_DRIVER: Limber tests failed'
+     ELSE
+        WRITE(*,*) 'HMx_DRIVER: Limber tests passed'
+     END IF
      WRITE(*,*)
 
   ELSE IF(imode==25) THEN
@@ -3354,10 +3322,11 @@ PROGRAM HMx_driver
   ELSE IF(imode==54) THEN
 
      ! Set number of k points and k range (log spaced)
-     nk=128
+     nk=64
      kmin=1e-3
      kmax=1e2
      CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=k*real(nk)/real(nk+1) ! To stop plot spilling over border
      k=exp(k)
 
      ! Set the redshift
@@ -3378,10 +3347,121 @@ PROGRAM HMx_driver
      CALL print_halomod(hmod,cosm,verbose)     
 
      OPEN(7,file='data/trispectrum.dat')    
-     DO i=1,nk
-        WRITE(7,*) k(i), T_1h(k(i),k(i),fields,hmod,cosm)
+     DO j=1,nk
+        DO i=1,nk
+           WRITE(7,*) k(i), k(j), T_1h(k(i),k(j),fields,hmod,cosm)
+        END DO
      END DO
      CLOSE(7)
+
+  ELSE IF(imode==57) THEN
+
+     ! Assigns the cosmological model
+     icosmo=4 ! WMAP9
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Redshifts
+     na=4
+     ALLOCATE(a(na))
+     a(1)=scale_factor_z(2.0)
+     a(2)=scale_factor_z(1.0)
+     a(3)=scale_factor_z(0.5)
+     a(4)=scale_factor_z(0.0)
+
+     ! Allocate arrays for l and C(l)
+     lmin=100.
+     lmax=4000.
+     nl=64     
+     CALL fill_array(log(lmin),log(lmax),ell,nl)
+     ell=exp(ell)
+     ALLOCATE(Cl(nl,2,2))
+
+     ! Loop over BAHAMAS models
+     DO j=1,3
+
+        ! Set BAHAMAS models
+        IF(j==1) THEN
+           name='AGN_TUNED_nu0'
+           outfile='data/triad_Cl_direct_AGN_y-gal_z0.1-0.9.dat'
+        ELSE IF(j==2) THEN
+           name='AGN_7p6_nu0'
+           outfile='data/triad_Cl_direct_AGN-lo_y-gal_z0.1-0.9.dat'
+        ELSE IF(j==3) THEN
+           name='AGN_8p0_nu0'
+           outfile='data/triad_Cl_direct_AGN-hi_y-gal_z0.1-0.9.dat'
+        ELSE
+           STOP 'HMx_DRIVER: Error, feedback senario not supported'
+        END IF
+
+        ! Set fields
+        ip(1)=field_matter
+        ip(2)=field_electron_pressure
+
+        ! Read in power
+        DO i=1,na
+           CALL read_BAHAMAS_power(k,pow_sim,nk,redshift_a(a(i)),name,ip,cosm)
+           IF(i==1) THEN
+              ALLOCATE(pow_ka(nk,na))
+           END IF
+           pow_ka(:,i)=pow_sim
+        END DO
+
+        ! Do the cross correlation
+        ix(1)=tracer_KiDS_450
+        ix(2)=tracer_Compton_y
+        CALL xpow_pka(ix,ell,Cl(:,1,2),nl,k,a,pow_ka,nk,na,cosm)
+
+        ! Write data
+        OPEN(7,file=outfile)
+        DO i=1,nl
+           WRITE(7,*) ell(i), Cl(i,1,2)
+        END DO
+        CLOSE(7)
+
+        ! Deallocate array
+        DEALLOCATE(pow_ka)
+
+     END DO
+
+  ELSE IF(imode==58) THEN
+
+     ! Check to see power is the same
+
+     ! Assigns the cosmological model
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Assign the halo model
+     CALL assign_halomod(ihm,hmod,verbose)
+     
+     ! Set number of k points and k range (log spaced)
+     nk=32
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     ! Set the scale factor and range (linearly spaced)
+     na=4
+     amin=0.1
+     amax=1.0
+     CALL fill_array(amin,amax,a,na)
+
+     nf=2
+     ALLOCATE(fields(nf))
+     !fields=field_matter
+     fields=field_gas
+     
+     CALL calculate_HMx(fields,2,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
+
+     ! Write to screen to check they are the same
+     DO i=1,nk
+        WRITE(*,*) pows_hm(1,1,i,na), pows_hm(1,2,i,na), pows_hm(2,1,i,na), pows_hm(2,2,i,na)
+     END DO
+     WRITE(*,*)
      
   ELSE
         
@@ -3671,32 +3751,34 @@ CONTAINS
     
   END SUBROUTINE random_baryon_parameters
 
-  SUBROUTINE xcorr(ix,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
+  SUBROUTINE xpow(ix,n,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
 
     ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
+    ! TODO: Speed up if there are repeated fields in ix(n) (should this ever happen?)
     IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: ix(2)
+    INTEGER, INTENT(INOUT) :: ix(n)
+    INTEGER, INTENT(IN) :: n
     REAL, INTENT(IN) :: mmin, mmax
     REAL, INTENT(IN) :: ell(nl)
-    REAL, INTENT(OUT) :: Cl(nl)
+    REAL, INTENT(OUT) :: Cl(nl,n,n)
     INTEGER, INTENT(IN) :: nl
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose
     REAL, ALLOCATABLE :: a(:), k(:), pow_li(:,:), pow_2h(:,:,:,:), pow_1h(:,:,:,:), pow_hm(:,:,:,:)
-    TYPE(projection) :: proj(2)
     REAL :: lmin, lmax
-    INTEGER :: ip(2), nk, na
-    REAL :: r1, r2
+    INTEGER :: ixx(2), ip(n), nk, na, i, j
+
+    IF(repeated_entries(ix,n)) STOP 'XPOW: Error, repeated tracers'
 
     ! Set the k range
-    nk=nk_xcorr
-    CALL fill_array(log(kmin_xcorr),log(kmax_xcorr),k,nk)
+    nk=nk_xpow
+    CALL fill_array(log(kmin_xpow),log(kmax_xpow),k,nk)
     k=exp(k)   
 
     ! Set the a range
-    na=na_xcorr
-    CALL fill_array(amin_xcorr,amax_xcorr,a,na)
+    na=na_xpow
+    CALL fill_array(amin_xpow,amax_xpow,a,na)
 
     ! Set the ell range
     lmin=ell(1)
@@ -3704,92 +3786,315 @@ CONTAINS
 
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) 'XCORR: Cross-correlation information'
-       WRITE(*,*) 'XCORR: P(k) minimum k [h/Mpc]:', REAL(kmin_xcorr)
-       WRITE(*,*) 'XCORR: P(k) maximum k [h/Mpc]:', REAL(kmax_xcorr)
-       WRITE(*,*) 'XCORR: Number of k:', nk
-       WRITE(*,*) 'XCORR: minimum a:', REAL(amin_xcorr)
-       WRITE(*,*) 'XCORR: maximum a:', REAL(amax_xcorr)
-       WRITE(*,*) 'XCORR: number of a:', na
-       WRITE(*,*) 'XCORR: minimum ell:', REAL(lmin)
-       WRITE(*,*) 'XCORR: maximum ell:', REAL(lmax)
-       WRITE(*,*) 'XCORR: number of ell:', nl
+       WRITE(*,*) 'XPOW: Cross-correlation information'
+       WRITE(*,*) 'XPOW: Number of tracers:', nt
+       WRITE(*,*) 'XPOW: P(k) minimum k [h/Mpc]:', REAL(kmin_xpow)
+       WRITE(*,*) 'XPOW: P(k) maximum k [h/Mpc]:', REAL(kmax_xpow)
+       WRITE(*,*) 'XPOW: Number of k:', nk
+       WRITE(*,*) 'XPOW: minimum a:', REAL(amin_xpow)
+       WRITE(*,*) 'XPOW: maximum a:', REAL(amax_xpow)
+       WRITE(*,*) 'XPOW: number of a:', na
+       WRITE(*,*) 'XPOW: minimum ell:', REAL(lmin)
+       WRITE(*,*) 'XPOW: maximum ell:', REAL(lmax)
+       WRITE(*,*) 'XPOW: number of ell:', nl
        WRITE(*,*)
     END IF
 
-    ! Use the xcorrelation type to set the necessary halo profiles
-    CALL set_field_for_xcorr(ix,ip)
+    ! Use the xpowlation type to set the necessary halo profiles
+    DO i=1,n
+       CALL set_field_for_xpow(ix(i),ip(i))
+    END DO
 
     ! Do the halo model power spectrum calculation
-    CALL calculate_HMx(ip,2,mmin,mmax,k,nk,a,na,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
+    CALL calculate_HMx(ip,n,mmin,mmax,k,nk,a,na,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
-    ! Fill out the projection kernels
-    CALL fill_projection_kernels(ix,proj,cosm)
+    ! Set the Cl to zero initially
+    Cl=0.
 
-    ! Set the range in comoving distance for the Limber integral
-    r1=0.
-    r2=maxdist(proj)
+    ! Loop over triangle combinations
+    DO i=1,n
+       ixx(1)=ix(i)
+       DO j=i,n
+          ixx(2)=ix(j)
+          CALL xpow_pka(ixx,ell,Cl(:,i,j),nl,k,a,pow_hm(i,j,:,:),nk,na,cosm)
+          !CALL xpow_pka(ixx,ell,Cl(:,i,j),nl,k,a,pow_li,nk,na,cosm)
+       END DO
+    END DO
 
-    ! Actually calculate the C(ell), but only for the full halo model part
-    ! TODO: Array temporary
-    CALL calculate_Cl(r1,r2,ell,Cl,nl,k,a,pow_hm(1,2,:,:),nk,na,proj,cosm)
+    ! Fill the symmetric cross terms
+    DO i=1,n
+       DO j=i+1,n
+          Cl(:,j,i)=Cl(:,i,j)
+       END DO
+    END DO
 
     ! Write to screen
     IF(verbose) THEN
-       WRITE(*,*) 'XCORR: Done'
+       WRITE(*,*) 'XPOW: Done'
        WRITE(*,*)
     END IF
 
-  END SUBROUTINE xcorr
+  END SUBROUTINE xpow
 
-  SUBROUTINE set_field_for_xcorr(ix,ip)
+  SUBROUTINE set_field_for_xpow(ix,ip)
 
     ! Set the cross-correlation type
     IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: ix(2)
-    INTEGER, INTENT(OUT) :: ip(2)
-    INTEGER :: i, j
+    INTEGER, INTENT(INOUT) :: ix ! Tracer for cross correlation
+    INTEGER, INTENT(OUT) :: ip   ! Corresponding field for power spectrum
+    INTEGER :: j
 
-    ! Loop over two-components of xcorr
-    DO i=1,2
+    IF(ix==-1) THEN
+       WRITE(*,*) 'SET_FIELDS_FOR_XPOW: Choose field'
+       WRITE(*,*) '================================='
+       DO j=1,n_tracers
+          WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
+       END DO
+       READ(*,*) ix
+       WRITE(*,*) '==================================='
+       WRITE(*,*)
+    END IF
 
-       IF(ix(i)==-1) THEN
-          WRITE(*,*) 'SET_FIELDS_FOR_XCORR: Choose field: ', i
-          WRITE(*,*) '==================================='
-          DO j=1,n_tracers
-             WRITE(*,fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
-          END DO
-          READ(*,*) ix(i)
-          WRITE(*,*) '==================================='
-          WRITE(*,*)
-       END IF
+    IF(ix==tracer_Compton_y) THEN
+       ! Compton y
+       ip=field_electron_pressure
+    ELSE IF(ix==tracer_gravity_wave) THEN
+       ! Gravitational waves
+       ip=field_dmonly         
+    ELSE IF(ix==tracer_RCSLenS .OR. &
+         ix==tracer_CFHTLenS .OR. &
+         ix==tracer_CMB_lensing .OR. &
+         ix==tracer_KiDS .OR. &
+         ix==tracer_KiDS_bin1 .OR. &
+         ix==tracer_KiDS_bin2 .OR. &
+         ix==tracer_KiDS_bin3 .OR. &
+         ix==tracer_KiDS_bin4 .OR. &
+         ix==tracer_KiDS_450 .OR. &
+         ix==tracer_KiDS_450_bin1 .OR. &
+         ix==tracer_KiDS_450_bin2 .OR. &
+         ix==tracer_KiDS_450_highz) THEN
+       ! Lensing
+       ip=field_matter
+    ELSE
+       STOP 'SET_FIELD_FOR_XPOW: Error, tracer specified incorrectly'
+    END IF
 
-       IF(ix(i)==tracer_Compton_y) THEN
-          ! Compton y
-          ip(i)=field_electron_pressure
-       ELSE IF(ix(i)==tracer_gravity_wave) THEN
-          ! Gravitational waves
-          ip(i)=field_dmonly
-          ! Lensing
-       ELSE IF(ix(i)==tracer_RCSLenS .OR. &
-         ix(i)==tracer_CFHTLenS .OR. &
-         ix(i)==tracer_CMB_lensing .OR. &
-         ix(i)==tracer_KiDS .OR. &
-         ix(i)==tracer_KiDS_bin1 .OR. &
-         ix(i)==tracer_KiDS_bin2 .OR. &
-         ix(i)==tracer_KiDS_bin3 .OR. &
-         ix(i)==tracer_KiDS_bin4 .OR. &
-         ix(i)==tracer_KiDS_450 .OR. &
-         ix(i)==tracer_KiDS_450_bin1 .OR. &
-         ix(i)==tracer_KiDS_450_bin2 .OR. &
-         ix(i)==tracer_KiDS_450_highz) THEN
-          ip(i)=field_matter
+  END SUBROUTINE set_field_for_xpow
+
+  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
+
+    IMPLICIT NONE
+    CHARACTER(len=*), INTENT(IN) :: model
+    REAL, INTENT(IN) :: z
+    INTEGER, INTENT(IN) :: ip(2)
+    CHARACTER(len=64) :: dir
+    CHARACTER(len=32) :: snap, field(2), f1, f2
+    LOGICAL :: lexist
+    INTEGER :: j
+    INTEGER, PARAMETER :: computer=1
+
+    ! Directory containing everything
+    IF(computer==1) dir='/Users/Mead/Physics/data/BAHAMAS/power/M1536'
+    IF(computer==2) dir='/home/amead/data/BAHAMAS/power/M1536'
+
+    ! Set the redshift
+    IF(z==0.0) THEN
+       snap='snap32'
+    ELSE IF(z==0.5) THEN
+       snap='snap28'
+    ELSE IF(z==1.0) THEN
+       snap='snap26'
+    ELSE IF(z==2.0) THEN
+       snap='snap22'
+    ELSE
+       STOP 'BAHAMAS_POWER_FILE_NAME: Error, redshift specified incorrectly'
+    END IF
+
+    ! Set the fields
+    DO j=1,2
+       IF(ip(j)==field_matter) THEN
+          field(j)='all'
+       ELSE IF(ip(j)==field_cdm) THEN
+          field(j)='dm'
+       ELSE IF(ip(j)==field_gas) THEN
+          field(j)='gas'
+       ELSE IF(ip(j)==field_star) THEN
+          field(j)='stars'
+       ELSE IF(ip(j)==field_electron_pressure) THEN
+          field(j)='epressure'
        ELSE
-          STOP 'SET_FIELD_FOR_XCORR: Error, tracer specified incorrectly'
+          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Field number', j
+          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Halo type', ip(j)
+          STOP 'BAHAMAS_POWER_FILE_NAME: Error, ip specified incorrectly'
        END IF
-       
     END DO
 
-  END SUBROUTINE set_field_for_xcorr
+    DO j=1,2
+
+       IF(j==1) THEN
+          f1=field(1)
+          f2=field(2)
+       ELSE IF(j==2) THEN
+          f1=field(2)
+          f2=field(1)
+       ELSE
+          STOP 'BAHAMAS_POWER_FILE_NAME: Error, something fucked up'
+       END IF
+
+       ! File name
+       BAHAMAS_power_file_name=trim(dir)//'/'//trim(model)//'_L400N1024_WMAP9_'//trim(snap)//'_'//trim(f1)//'_'//trim(f2)//'_power.dat'
+
+       ! Check it exists
+       INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
+
+       IF(lexist) THEN
+          EXIT
+       ELSE IF(j==2) THEN
+          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', trim(BAHAMAS_power_file_name)
+          STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
+       END IF
+
+    END DO
+
+  END FUNCTION BAHAMAS_power_file_name
+
+  SUBROUTINE read_BAHAMAS_power(k,Pk,nk,z,name,field,cosm,kmin,kmax)
+
+    IMPLICIT NONE
+    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
+    REAL, ALLOCATABLE, INTENT(OUT) :: Pk(:)
+    INTEGER, INTENT(OUT) :: nk
+    REAL, INTENT(IN) :: z
+    CHARACTER(len=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: field(2)
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax
+    REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
+    CHARACTER(len=256) :: infile, dmonly
+
+    INTEGER, PARAMETER :: field_all_matter(2)=field_matter
+    REAL, PARAMETER :: mmin=1e7
+    REAL, PARAMETER :: mmax=1e17
+    LOGICAL, PARAMETER :: cut_nyquist=.FALSE.
+    LOGICAL, PARAMETER :: subtract_shot=.TRUE.
+    LOGICAL, PARAMETER :: verbose=.TRUE.
+
+    dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',z,field_all_matter)
+    infile=BAHAMAS_power_file_name(name,z,field)
+
+    CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+    CALL read_simulation_power_spectrum(k,Pk,   nk,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+    Pk=Pk/Pk_DM
+
+    ALLOCATE(Pk_HMcode(nk))
+    CALL calculate_HMcode_a(k,scale_factor_z(z),Pk_HMcode,nk,cosm)
+    Pk=Pk*Pk_HMcode
+
+  END SUBROUTINE read_BAHAMAS_power
+
+   SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+
+    IMPLICIT NONE
+    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:) ! Output simulation k and power
+    INTEGER, INTENT(OUT) :: n ! Number of output k values
+    CHARACTER(len=*), INTENT(IN) :: infile ! Input file location
+    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax ! Minimum and maximum k values to cut at
+    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
+    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot ! Logical to subtract shot noise or not
+    LOGICAL, OPTIONAL, INTENT(IN) :: verbose ! Logical verbose
+    INTEGER :: i, i1, i2, m
+    REAL :: shot, kbig
+    LOGICAL :: lexist
+
+    ! Deallocate arrays if they are already allocated
+    IF(ALLOCATED(k))  DEALLOCATE(k)
+    IF(ALLOCATED(Pk)) DEALLOCATE(Pk)
+
+    ! Check file exists
+    INQUIRE(file=infile,exist=lexist)
+    IF(.NOT. lexist) THEN
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
+       STOP 'READ_SIMULATION_POWER_SPECTRUM: File does not exist'
+    END IF
+
+    ! Get file length and allocate arrays for output
+    n=file_length(infile,verbose=.FALSE.)
+    ALLOCATE(k(n),Pk(n))
+
+    ! Write to screen
+    IF(PRESENT(verbose)) THEN
+       IF(verbose) THEN
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: nk:', nk
+       END IF
+    END IF
+
+    ! Read in data from file
+    OPEN(9,file=infile,status='old')
+    DO i=1,n
+       READ(9,*) k(i), Pk(i), shot
+       IF(PRESENT(subtract_shot)) THEN
+          IF(subtract_shot) Pk(i)=Pk(i)-shot
+       END IF
+    END DO
+    CLOSE(9)
+
+    IF(PRESENT(cut_nyquist)) THEN
+       IF(cut_nyquist) THEN
+
+          ! Find position in array of half-Nyquist
+          kbig=k(n)
+          DO i=1,n
+             IF(k(i)>kbig/2.) EXIT
+          END DO
+
+          ! Cut arrays down to half-Nyquist
+          CALL amputate(k,n,i)
+          CALL amputate(Pk,n,i)
+          n=i
+
+          ! Write to screen
+          IF(PRESENT(verbose)) THEN
+             IF(verbose) THEN
+                WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
+             END IF
+          END IF
+
+       END IF
+    END IF
+
+    IF(PRESENT(kmin) .AND. PRESENT(kmax)) THEN
+
+       i1=0
+       i2=0
+       DO i=1,n-1
+          IF(k(i)<kmin .AND. k(i+1)>kmin) THEN
+             i1=i
+          END IF
+          IF(k(i)<kmax .AND. k(i+1)>kmax) THEN
+             i2=i+1
+          END IF
+       END DO
+
+       IF(i1==0 .OR. i2==0) THEN
+          STOP 'READ_SIMULATION_POWER_SPECTRUM: Error, something went wrong with kmin, kmax'
+       END IF
+
+       CALL amputate_general(k,n,m,i1,i2)
+       CALL amputate_general(Pk,n,m,i1,i2)
+       n=m
+
+    END IF
+
+    ! Write to screen
+    IF(PRESENT(verbose)) THEN
+       IF(verbose) THEN
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
+          WRITE(*,*)
+       END IF
+    END IF
+
+  END SUBROUTINE read_simulation_power_spectrum
   
 END PROGRAM HMx_driver
