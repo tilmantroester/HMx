@@ -15,7 +15,7 @@ print ''
 if(!exists('iplot')){iplot=1}
 print 'iplot = 1: Triad 3: Cross spectra; separate plots'
 print 'iplot = 2: Triad 2: Cross spectra; same plot'
-print 'iplot = 3: '
+print 'iplot = 3: Triad 3: Cross spectra and residuals'
 print 'iplot = 4: Triad 2: Cross spectra; separate plots'
 print 'iplot = 5: Triad 3: Residuals'
 print 'iplot = 6: Triad 3: Directly KiDS(0.1->0.9)-y'
@@ -24,14 +24,13 @@ print 'iplot = ', iplot
 print ''
 
 if(iplot==1){set output 'triad.eps'}
-if(iplot==2){set output 'paper/triad.eps'}
-if(iplot==3){set output 'triad.eps'}
+if(iplot==2){set output 'triad.eps'}
+if(iplot==3){set output 'paper/triad.eps'}
 if(iplot==4){set output 'triad.eps'}
 if(iplot==5){set output 'triad_residuals.eps'}
 if(iplot==6){set output 'triad_direct.eps'}
 
-# 1 - C(l)
-# 2 - l(l+1)C(l)/2pi
+# Set units for y axis
 print 'icl = 1: C(l)'
 print 'icl = 2: l(l+1)C(l)/2pi'
 print 'icl = 3: (l+1)C(l)'
@@ -44,8 +43,6 @@ set log x
 set xlabel ''.ell.''
 
 # y axis
-#if(icl==1){p1=0; p2=0; p3=0; ylab='C_{uv}('.ell.')'                                 ; c=2; clmin=1e-14; clmax=2e-12; set key top right}
-#if(icl==2){p1=1; p2=1; p3=1; ylab=''.ell.'('.ell.'+1)C_{uv}('.ell.') / 2{/Symbol p}'; c=3; clmin=1e-10; clmax=7e-7;  set key top left}
 if(icl==1) {DC(l,Cl)=Cl; ylab='C_{uv}('.ell.')'; set key top right}
 if(icl==2) {DC(l,Cl)=l*(l+1)*Cl/(2.*pi); ylab=''.ell.'('.ell.'+1)C_{uv}('.ell.') / 2{/Symbol p}'; set key top left}
 if(icl==3) {DC(l,Cl)=(l+1)*Cl; ylab='('.ell.'+1)C_{uv}('.ell.')'; set key top left}
@@ -99,7 +96,7 @@ print ''
 
 ## TRIAD 3 ##
 
-if(iplot==1 || iplot==5 || iplot==6){
+if(iplot==1 || iplot==3 || iplot==5 || iplot==6){
 
 # Location of C(ell) measured from the simulations
 sim_file(x,y,mod)=sprintf('/Users/Mead/Physics/people/Tilman/BAHAMAS_triad_3/mean_Cl_%s-%s_%s.txt', x, y, mod)
@@ -131,9 +128,6 @@ plot NaN w l lw 2 dt 1  lc -1 ti t1,\
      for [j=1:nsim] hm_file(word(mods,j),word(hms,f1),word(hms,f2)) u 1:(DC($1,$2)) w l lw 2 lc rgb word(cols,j) dt 1 noti,\
      for [j=1:nsim] sim_file(word(fields,f1),word(fields,f2),word(sims,j)) u ($1*disp(j,nsim)):(DC($1,$2)):(DC($1,$3)) w errorbars lc rgb word(cols,j) pt 7 ps .5 ti word(sim_names,j)
 
-     #for [j=1:nsim] hm_file(word(mods,j),word(hms,f1),word(hms,f2)) u 1:(column(c)) w l lw 2 lc rgb word(cols,j) dt 1 noti,\
-     #for [j=1:nsim] sim_file(word(fields,f1),word(fields,f2),word(sims,j)) u ($1*disp(j,nsim)):(($1**p1)*(($1+1)**p2)*$2/(2.*pi)**p3):(($1**p1)*(($1+1)**p2)*$3/(2.*pi)**p3) w errorbars lc rgb word(cols,j) pt 7 ps .5 ti word(sim_names,j)
-
 }
 
 if(iplot==5){
@@ -155,6 +149,84 @@ unset multiplot
 
 }
 
+if(iplot==3){
+
+DC(l,Cl)=l*(l+1)*Cl
+
+if(print==1) {set term post enh col font ',8'}
+
+set multiplot layout 6,3 margins 0.06,0.98,0.06,0.98 spacing 0.01,0.01
+
+set key bottom right
+
+# Loop over rows of plots (gamma-gamma auto; gamma-gamma cross; gamma-y))
+do for [i=1:3]{
+
+# Loop over actual C(l) and residuals
+do for [j=1:2]{
+
+# Loop over columns
+do for [k=1:3]{
+
+if(i==1 && k==1) {f1=3; f2=3; clmin=0; clmax=40; sim_names="'AGN-lo' 'AGN' 'AGN-hi'"; t1=''; t2=''}
+if(i==1 && k==2) {f1=4; f2=4; clmin=0; clmax=40; sim_names=""; t1='Halo model'; t2='BAHAMAS data'}
+if(i==1 && k==3) {f1=5; f2=5; clmin=0; clmax=40; t1=''; t2=''}
+if(i==2 && k==1) {f1=3; f2=4; clmin=0; clmax=40; t1=''; t2=''}
+if(i==2 && k==2) {f1=4; f2=5; clmin=0; clmax=40; t1=''; t2=''}
+if(i==2 && k==3) {f1=5; f2=3; clmin=0; clmax=40; t1=''; t2=''}
+if(i==3 && k==1) {f1=2; f2=3; clmin=0; clmax=40; t1=''; t2=''}
+if(i==3 && k==2) {f1=2; f2=4; clmin=0; clmax=40; t1=''; t2=''}
+if(i==3 && k==3) {f1=2; f2=5; clmin=0; clmax=40; t1=''; t2=''}
+
+set xlabel ''; set format x ''
+if(i==3 && j==2) {set xlabel ''.ell.''; set format x}
+
+set ylabel ''
+set format y ''
+
+# C(ell)
+if(j==1){
+if(i==1) {ylab='10^{5} '.ell.'('.ell.'+1)C_{{/Symbol g}{/Symbol g}}('.ell.')'; b=1e5}
+if(i==2) {ylab='10^{5} '.ell.'('.ell.'+1)C_{{/Symbol g}{/Symbol g}}('.ell.')'; b=1e5}
+if(i==3) {ylab='10^{9} '.ell.'('.ell.'+1)C_{y{/Symbol g}}('.ell.')'; b=1e9}
+if(k==1) {set ylabel ylab; set format y}
+set yrange [clmin:clmax]; unset log y
+}
+
+# Residuals
+if(j==2){
+if(i==1) {ylab='C_{{/Symbol g}{/Symbol g}}('.ell.') / C_{sim}('.ell.')'}
+if(i==2) {ylab='C_{{/Symbol g}{/Symbol g}}('.ell.') / C_{sim}('.ell.')'}
+if(i==3) {ylab='C_{y{/Symbol g}}('.ell.') / C_{sim}('.ell.')'}
+if(k==1) {set ylabel ylab; set format y}
+set yrange [0.5:1.5]; unset log y
+}
+
+set key top right
+
+if(j==1){
+
+set label ''.word(field_names,f1).'-'.word(field_names,f2).'' enh at graph 0.05,0.9
+plot NaN w l lw 2 dt 1  lc -1 ti t1,\
+     NaN w p pt 7 ps .5 lc -1 ti t2,\
+     for [j=1:nsim] hm_file(word(mods,j),word(hms,f1),word(hms,f2)) u 1:(b*DC($1,$2)) w l lw 2 lc rgb word(cols,j) dt 1 noti,\
+     for [j=1:nsim] sim_file(word(fields,f1),word(fields,f2),word(sims,j)) u ($1*disp(j,nsim)):(b*DC($1,$2)):(b*DC($1,$3)) w errorbars lc rgb word(cols,j) pt 7 ps .5 ti word(sim_names,j)
+unset label
+}
+
+if(j==2){
+
+plot 1 w l lt -1 noti,\
+     for [j=1:nsim] '<paste '.hm_file(word(mods,j),word(hms,f1),word(hms,f2)).' '.sim_file(word(fields,f1),word(fields,f2),word(sims,j)).'' u ($1*disp(j,nsim)):(column(2)/column(2+3)):(column(6)/column(5)) w e ps .5 pt 7 lc rgb word(cols,j) dt 1 noti
+
+}
+
+}}}
+
+unset multiplot
+
+}
+
 if(iplot==6){
 
 f1=2
@@ -163,7 +235,6 @@ print 'Field 1: ', word(field_names,f1)
 print 'Field 2: ', word(field_names,f2)
 print ''
 
-#directs="'Cl_triad_ky_AGN_7p6.dat' 'Cl_triad_ky_AGN_TUNED.dat' 'Cl_triad_ky_AGN_8p0.dat'"
 directs="'data/triad_Cl_direct_AGN-lo_y-gal_z0.1-0.9.dat' 'data/triad_Cl_direct_AGN_y-gal_z0.1-0.9.dat' 'data/triad_Cl_direct_AGN-hi_y-gal_z0.1-0.9.dat'"
 
 set log x
@@ -177,10 +248,6 @@ set format y
 
 set yrange [*:*]
 if(icl==2) {set yrange [clmin:clmax]}
-#set yrange [*:*]
-
-#p1=0
-#p2=1
 
 plot NaN w l dt 1 lw  2 lc -1 ti 'Halo model',\
      NaN w l dt 2 lw  2 lc -1 ti 'Direct integration of 3D spectra',\
@@ -188,10 +255,6 @@ plot NaN w l dt 1 lw  2 lc -1 ti 'Halo model',\
      for [i=1:nsim] hm_file(word(mods,i),word(hms,f1),word(hms,f2)) u 1:(DC($1,$2)) w l lw 2 lc rgb word(cols,i) dt 1 noti,\
      for [i=1:nsim] sim_file(word(fields,f1),word(fields,f2),word(sims,i)) u ($1*disp(i,nsim)):(DC($1,$2)):(DC($1,$3)) w errorbars lc rgb word(cols,i) pt 7 ps .5 ti word(sim_names,i),\
      for [i=1:nsim] word(directs,i) u 1:(DC($1,$2)) w l dt 2 lc rgb word(cols,i) lw 2 noti
-
-#for [i=1:nsim] hm_file(word(mods,i),word(hms,f1),word(hms,f2)) u 1:(column(c)) w l lw 2 lc rgb word(cols,i) dt 1 noti,\
-#for [i=1:nsim] sim_file(word(fields,f1),word(fields,f2),word(sims,i)) u ($1*disp(i,nsim)):(($1**p1)*(($1+1)**p2)*$2/(2.*pi)**p3):(($1**p1)*(($1+1)**p2)*$3/(2.*pi)**p3) w errorbars lc rgb word(cols,i) pt 7 ps .5 ti word(sim_names,i),\
-#for [i=1:nsim] word(directs,i) u 1:($1*($1+1)*$2/(2.*pi)) w l dt 2 lc rgb word(cols,i) lw 2 noti
 
 }
 
@@ -299,79 +362,4 @@ unset multiplot
 
 ## ##
 
-
-
-## OLD ##
-
-if(iplot==-1){
-
-# Location of C(ell) measured from the simulations
-sim_file(x,y,mod)=sprintf('/Users/Mead/Physics/people/Tilman/BAHAMAS_triad_1_and_2/mean_Cl_%s-%s_%s.txt', x, y, mod)
-
-sim="TUNED"
-sim_name="AGN"
-col='blue'
-
-set ylabel ylab
-set yrange [*:*]
-
-set lmargin 10
-set rmargin 2
-
-set multiplot layout 1,2
-
-# List of fields 1
-array ifield1[9]
-ifield1[1]=3
-ifield1[2]=4
-ifield1[3]=5
-ifield1[4]=5
-ifield1[5]=5
-ifield1[6]=5
-ifield1[7]=4
-ifield1[8]=4
-ifield1[9]=3
-
-# List of fields 2
-array ifield2[9]
-ifield2[1]=1
-ifield2[2]=1
-ifield2[3]=1
-ifield2[4]=5
-ifield2[5]=4
-ifield2[6]=3
-ifield2[7]=4
-ifield2[8]=3
-ifield2[9]=3
-
-# Make the plot
-plot for [i=1:9] hm_file(mod,word(hms,ifield1[i]),word(hms,ifield2[i])) u 1:(DC($1,$2)) w l lw 3 lc -1 dt i ti ''.word(field_names,ifield1[i]).'-'.word(field_names,ifield2[i]).'',\
-     for [i=1:9] for [j=2:2] sim_file(word(fields,ifield1[i]),word(fields,ifield2[i]),word(sims,j)) u ($1*disp(j,nsim)):(DC($1,$2)):(DC($1,$3)) w errorbars lc rgb word(cols,j) pt 7 noti
-
-#plot for [i=1:9] hm_file(mod,word(hms,ifield1[i]),word(hms,ifield2[i])) u 1:(column(c)) w l lw 3 lc -1 dt i ti ''.word(field_names,ifield1[i]).'-'.word(field_names,ifield2[i]).'',\
-#     for [i=1:9] for [j=2:2] sim_file(word(fields,ifield1[i]),word(fields,ifield2[i]),word(sims,j)) u ($1*disp(j,nsim)):(($1**p1)*(($1+1)**p2)*$2/(2.*pi)**p3):(($1**p1)*(($1+1)**p2)*$3/(2.*pi)**p3) w errorbars lc rgb word(cols,j) pt 7 noti
-
-# List of fields 1
-array ifield1[4]
-ifield1[1]=1
-ifield1[2]=2
-ifield1[3]=2
-ifield1[4]=2
-
-# List of fields 2
-array ifield2[4]
-ifield2[1]=2
-ifield2[2]=3
-ifield2[3]=4
-ifield2[4]=5
-
-# Make the plot
-plot for [i=1:4] hm_file(mod,word(hms,ifield1[i]),word(hms,ifield2[i])) u 1:(column(c)) w l lw 3 lc -1 dt i ti ''.word(field_names,ifield1[i]).'-'.word(field_names,ifield2[i]).'',\
-     for [i=1:4] for [j=2:2] sim_file(word(fields,ifield1[i]),word(fields,ifield2[i]),word(sims,j)) u ($1*disp(j,nsim)):(($1**p1)*(($1+1)**p2)*$2/(2.*pi)**p3):(($1**p1)*(($1+1)**p2)*$3/(2.*pi)**p3) w errorbars lc rgb word(cols,j) pt 7 noti word(sim_names,j),\
-     for [j=2:2] NaN w p lc rgb word(cols,j) pt 7 ti word(sim_names,j)
-
-unset multiplot
-
-}
-
-## ##
+show output

@@ -63,7 +63,11 @@ PROGRAM HMx_fitting
   INTEGER, PARAMETER :: param_HMcode_As=30
   INTEGER, PARAMETER :: param_HMcode_alpha0=31
   INTEGER, PARAMETER :: param_HMcode_alpha1=32
-  INTEGER, PARAMETER :: param_n=32
+  INTEGER, PARAMETER :: param_epsz=33
+  INTEGER, PARAMETER :: param_beta=34
+  INTEGER, PARAMETER :: param_betap=35
+  INTEGER, PARAMETER :: param_betaz=36
+  INTEGER, PARAMETER :: param_n=36
 
   ! Halo model calculation parameters
   REAL, PARAMETER :: mmin=mmin_HMx ! Minimum halo mass for the calculation
@@ -115,6 +119,9 @@ PROGRAM HMx_fitting
      WRITE(*,*) '20 - Hydro: all z; finessed version of 17: DOES NOT WORK'
      WRITE(*,*) '21 - Hydro: all z; no stars or pressure-pressure'
      WRITE(*,*) '22 - Hydro: all z; only matter spectra'
+     WRITE(*,*) '23 - Hydro: all z; everything but pressure-pressure, including epsz'
+     WRITE(*,*) '24 - Hydro: all z; everything but pressure-pressure, no response for pressure'
+     WRITE(*,*) '25 - Hydro: all z; everything but pressure-pressure, including beta'
      READ(*,*) im
      WRITE(*,*)
   END IF
@@ -190,7 +197,7 @@ PROGRAM HMx_fitting
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21 .OR. im==23 .OR. im==24 .OR. im==25) THEN
         nf=5   
      ELSE IF(im==12 .OR. im==13 .OR. im==19) THEN
         nf=1
@@ -228,7 +235,7 @@ PROGRAM HMx_fitting
      
      IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
         nz=1
-     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21 .OR. im==22) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21 .OR. im==22 .OR. im==23 .OR. im==24 .OR. im==25) THEN
         nz=4
      ELSE
         STOP 'HMx_FITTING: Error, im not specified correctly'
@@ -243,7 +250,7 @@ PROGRAM HMx_fitting
         ELSE
            READ(zin,*) z(1)
         END IF        
-     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21 .OR. im==22) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21 .OR. im==22 .OR. im==23 .OR. im==24 .OR. im==25) THEN
         z(1)=0.0
         z(2)=0.5
         z(3)=1.0
@@ -253,7 +260,7 @@ PROGRAM HMx_fitting
      END IF
 
      ! Set the fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21 .OR. im==23 .OR. im==24 .OR. im==25) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -304,10 +311,10 @@ PROGRAM HMx_fitting
   ALLOCATE(hmod(ncos))
   IF(im==1 .OR. im==2 .OR. im==3 .OR. im==4) THEN
      ihm=15 ! HMcode 2018
-  ELSE IF(im>=11) THEN
-     ihm=20 ! Standard halo-model response
+  ELSE IF(im==20) THEN
+     ihm=43 ! Standard halo-model response on matter fields only
   ELSE
-     STOP 'HMx_FITTING: Error, im not specified correctly'
+     ihm=20 ! Standard halo-model response
   END IF
      
   DO i=1,ncos
@@ -366,7 +373,7 @@ PROGRAM HMx_fitting
   END IF
 
   ! No weight to pressure-pressure
-  IF(im==16 .OR. im==17 .OR. im==20) THEN
+  IF(im==16 .OR. im==17 .OR. im==20 .OR. im==23 .OR. im==24 .OR. im==25) THEN
      weight(:,5,5,:,:)=0. 
   END IF
 
@@ -462,7 +469,7 @@ PROGRAM HMx_fitting
         p_set(param_fhot)=.TRUE.
         p_set(param_eta)=.TRUE.
 
-     ELSE IF(im==17 .OR. im==18 .OR. im==20) THEN
+     ELSE IF(im==17 .OR. im==18 .OR. im==20 .OR. im==23 .OR. im==24 .OR. im==25) THEN
 
         ! redshift dependent everything minus pressure-pressure
         p_set(param_alpha)=.TRUE.
@@ -483,10 +490,17 @@ PROGRAM HMx_fitting
         p_set(param_cstarp)=.TRUE.        
         
         p_set(param_alphaz)=.TRUE.
+        IF(im==23) p_set(param_epsz)=.TRUE.
         p_set(param_Gammaz)=.TRUE.
         p_set(param_M0z)=.TRUE.
         p_set(param_Astarz)=.TRUE.
         p_set(param_Twhimz)=.TRUE.
+
+        IF(im==25) THEN
+           p_set(param_beta)=.TRUE.
+           p_set(param_betap)=.TRUE.
+           p_set(param_betaz)=.TRUE.
+        END IF
 
      ELSE IF(im==12) THEN
 
@@ -863,6 +877,7 @@ CONTAINS
 
        ! Hydro
        hmod(i)%alpha=pexp(param_alpha)
+       hmod(i)%beta=pexp(param_beta)
        hmod(i)%eps=pexp(param_eps)
        hmod(i)%Gamma=1.+pexp(param_Gamma)
        hmod(i)%M0=10.**pexp(param_M0)
@@ -875,9 +890,12 @@ CONTAINS
        hmod(i)%fhot=pexp(param_fhot)
        hmod(i)%eta=pexp(param_eta)
        hmod(i)%alphap=pexp(param_alphap)
+       hmod(i)%betap=pexp(param_betap)
        hmod(i)%Gammap=pexp(param_Gammap)
        hmod(i)%cstarp=pexp(param_cstarp)     
        hmod(i)%alphaz=pexp(param_alphaz)
+       hmod(i)%betaz=pexp(param_betaz)
+       hmod(i)%epsz=pexp(param_epsz)
        hmod(i)%Gammaz=pexp(param_Gammaz)
        hmod(i)%M0z=pexp(param_M0z)
        hmod(i)%Astarz=pexp(param_Astarz)
@@ -1218,7 +1236,7 @@ CONTAINS
     INTEGER :: j
 
     ! Directory containing everything
-    IF(computer==1) dir='/Users/Mead/Physics/data/BAHAMAS/power/M1536'
+    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
     IF(computer==2) dir='/home/amead/data/BAHAMAS/power/M1536'
 
     ! Set the redshift
@@ -1435,6 +1453,10 @@ CONTAINS
        STOP 'FINESSE_PARAMETERS: Error, model name not specified correctly'
     END IF
 
+    p(param_beta)=p(param_alpha)
+    p(param_betap)=p(param_alphap)
+    p(param_betaz)=p(param_alphaz)
+
   END SUBROUTINE finesse_parameters
 
   SUBROUTINE fix_star_parameters(p,n,name)
@@ -1497,6 +1519,15 @@ CONTAINS
     p_min(param_alpha)=1e-2
     p_max(param_alpha)=1e1
     p_log(param_alpha)=.TRUE.
+
+    p_nme(param_beta)='beta'
+    p_ori(param_beta)=1.60!*(1.+z(1))
+    p_rge(param_beta)=0.02
+    p_lim(param_beta)=1.40
+    p_lam(param_beta)=1.80
+    p_min(param_beta)=1e-2
+    p_max(param_beta)=1e1
+    p_log(param_beta)=.TRUE.
 
     ! Can not be one because log(1)=0 and this messes things up in setting the ranges
     p_nme(param_eps)='epsilon'
@@ -1611,6 +1642,15 @@ CONTAINS
     p_max(param_alphap)=1.
     p_log(param_alphap)=.FALSE.
 
+    p_nme(param_betap)='beta_M_pow'
+    p_ori(param_betap)=-0.5
+    p_rge(param_betap)=0.01
+    p_lim(param_betap)=-0.75
+    p_lam(param_betap)=-0.25
+    p_min(param_betap)=-1.
+    p_max(param_betap)=1.
+    p_log(param_betap)=.FALSE.
+
     p_nme(param_Gammap)='Gamma_M_pow'
     p_ori(param_Gammap)=-0.02
     p_rge(param_Gammap)=0.001
@@ -1637,6 +1677,24 @@ CONTAINS
     p_min(param_alphaz)=-3.
     p_max(param_alphaz)=3.
     p_log(param_alphaz)=.FALSE.
+
+    p_nme(param_betaz)='beta_z_pow'
+    p_ori(param_betaz)=0.43
+    p_rge(param_betaz)=0.01
+    p_lim(param_betaz)=0.1
+    p_lam(param_betaz)=1.
+    p_min(param_betaz)=-3.
+    p_max(param_betaz)=3.
+    p_log(param_betaz)=.FALSE.
+
+    p_nme(param_epsz)='eps_z_pow'
+    p_ori(param_epsz)=0.5
+    p_rge(param_epsz)=0.01
+    p_lim(param_epsz)=-0.5
+    p_lam(param_epsz)=0.5
+    p_min(param_epsz)=-3.
+    p_max(param_epsz)=3.
+    p_log(param_epsz)=.FALSE.
 
     p_nme(param_Gammaz)='Gamma_z_pow'
     p_ori(param_Gammaz)=0.3

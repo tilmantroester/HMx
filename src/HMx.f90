@@ -60,6 +60,7 @@ MODULE HMx
 
   ! HMx functions
   PUBLIC :: HMx_alpha
+  PUBLIC :: HMx_beta
   PUBLIC :: HMx_eps
   PUBLIC :: HMx_Gamma
   PUBLIC :: HMx_M0
@@ -95,9 +96,9 @@ MODULE HMx
      INTEGER :: idc, iDv, ieta, ikstar, i2hdamp, i1hdamp, itrans
      LOGICAL :: voids
      REAL :: z, a, dc, Dv
-     REAL :: alpha, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar ! HMx baryon parameters
-     REAL :: Theat, fcold, fhot, alphap, Gammap, cstarp, eta ! HMx baryon parameters
-     REAL :: alphaz, Gammaz, M0z, Astarz, Twhimz
+     REAL :: alpha, beta, eps, Gamma, M0, Astar, Twhim, cstar, sstar, mstar ! HMx baryon parameters
+     REAL :: Theat, fcold, fhot, alphap, betap, Gammap, cstarp, eta ! HMx baryon parameters
+     REAL :: alphaz, betaz, epsz, Gammaz, M0z, Astarz, Twhimz
      REAL :: A_alpha, B_alpha, C_alpha, D_alpha, E_alpha
      REAL :: A_eps, B_eps, C_eps, D_eps
      REAL :: A_Gamma, B_Gamma, C_Gamma, D_Gamma, E_gamma
@@ -123,7 +124,8 @@ MODULE HMx
      LOGICAL :: one_parameter_baryons
      LOGICAL :: has_HI, has_galaxies, has_mass_conversions, safe_negative, has_dewiggle, has_Tinker
      REAL :: Tinker_alpha, Tinker_beta, Tinker_gamma, Tinker_phi, Tinker_eta
-     LOGICAL :: response, simple_pivot
+     LOGICAL :: simple_pivot
+     INTEGER :: response
      REAL :: acc_HMx, large_nu
      CHARACTER(len=256) :: name
      REAL, ALLOCATABLE :: log_k_pdamp(:), log_pdamp(:)
@@ -150,15 +152,16 @@ MODULE HMx
   REAL, PARAMETER :: zinf_Dolag=100. ! An approximate infinite z
 
   ! HMcode
-  REAL, PARAMETER :: mmin_HMcode=1e7          ! Minimum mass to consider for one-halo integration
-  REAL, PARAMETER :: mmax_HMcode=1e17         ! Maximum mass to consider for one-halo integration
-  REAL, PARAMETER :: fdamp_HMcode_min=1e-3           ! Minimum value for f_damp parameter
-  REAL, PARAMETER :: fdamp_HMcode_max=0.99           ! Maximum value for f_damp parameter
-  REAL, PARAMETER :: alpha_HMcode_min=0.5 ! Minimum value for alpha transition parameter
-  REAL, PARAMETER :: alpha_HMcode_max=2.0 ! Maximum value for alpha transition parameter
+  REAL, PARAMETER :: mmin_HMcode=1e7       ! Minimum mass to consider for one-halo integration
+  REAL, PARAMETER :: mmax_HMcode=1e17      ! Maximum mass to consider for one-halo integration
+  REAL, PARAMETER :: fdamp_HMcode_min=1e-3 ! Minimum value for f_damp parameter
+  REAL, PARAMETER :: fdamp_HMcode_max=0.99 ! Maximum value for f_damp parameter
+  REAL, PARAMETER :: alpha_HMcode_min=0.5  ! Minimum value for alpha transition parameter
+  REAL, PARAMETER :: alpha_HMcode_max=2.0  ! Maximum value for alpha transition parameter
 
   ! HMx
   REAL, PARAMETER :: HMx_alpha_min=1e-2 ! Minimum alpha parameter; needs to be set at not zero
+  REAL, PARAMETER :: HMx_beta_min=1e-2 ! Minimum alpha parameter; needs to be set at not zero
   REAL, PARAMETER :: HMx_Gamma_min=1.10 ! Minimum polytropic index
   REAL, PARAMETER :: HMx_Gamma_max=2.00 ! Maximum polytropic index
   REAL, PARAMETER :: HMx_Astar_min=1e-4 ! Minimum halo star fraction; needs to be set at not zero
@@ -206,7 +209,7 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=42 ! Total number of pre-defined halo-model types (TODO: this is stupid)
+    INTEGER, PARAMETER :: nhalomod=43 ! Total number of pre-defined halo-model types (TODO: this is stupid)
     CHARACTER(len=256):: names(nhalomod)    
     names(1)='HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
@@ -250,6 +253,7 @@ CONTAINS
     names(40)='HMx: AGN 8.0'
     names(41)='Put some galaxy mass in the halo/satellites'
     names(42)='Tinker with M200c'
+    names(43)='Standard halo-model (Seljak 2000) in matter response'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
 
@@ -494,7 +498,8 @@ CONTAINS
     hmod%simple_pivot=.FALSE.
 
     ! Fixed parameters
-    hmod%alpha=0.33333 ! Non-virial temperature correction
+    hmod%alpha=0.33333 ! Non-virial temperature correction for static gas
+    hmod%beta=0.33333  ! Non-virial temperature correction for hot gas
     hmod%eps=1.        ! Concentration modification
     hmod%Gamma=1.17    ! Polytropic gas index
     hmod%M0=1e14       ! Halo mass that has lost half gas
@@ -509,11 +514,14 @@ CONTAINS
     
     ! Mass indices
     hmod%alphap=0.0    ! Power-law index of alpha with halo mass
+    hmod%betap=0.0     ! Power-law index of beta with halo mass
     hmod%Gammap=0.0    ! Power-law index of Gamma with halo mass
     hmod%cstarp=0.0    ! Power-law index of c* with halo mass
 
     ! Redshift indices
     hmod%alphaz=0.0    ! Power-law index of alpha with halo redshift
+    hmod%betaz=0.0     ! Power-law index of alpha with halo redshift
+    hmod%epsz=0.0      ! Power-law index of eps with halo redshift
     hmod%Gammaz=0.0    ! Power-law index of Gamma with halo redshift
     hmod%M0z=0.0       ! Power-law index of M0 with redshift
     hmod%Astarz=0.0    ! Power-law index of Astar with redshift
@@ -559,7 +567,10 @@ CONTAINS
     hmod%D_Twhim=1.717
 
     ! Do we treat the halomodel as a response model (multiply by HMcode) or not
-    hmod%response=.FALSE.
+    ! 0 - No
+    ! 1 - Yes, to all spectra
+    ! 2 - Yes, only to matter spectra
+    hmod%response=0  
 
     ! Halo mass if the mass function is a delta function
     hmod%hmass=1e13
@@ -739,7 +750,7 @@ CONTAINS
        hmod%ikstar=2
        hmod%i1hdamp=3
        hmod%safe_negative=.TRUE.
-       hmod%response=.TRUE.
+       hmod%response=1
        IF(ihm==17) THEN
           ! AGN 7.6
           hmod%Theat=10**7.6
@@ -752,19 +763,19 @@ CONTAINS
        END IF
     ELSE IF(ihm==20) THEN
        ! Standard halo model but as response with HMcode
-       hmod%response=.TRUE.
+       hmod%response=1
     ELSE IF(ihm==21) THEN
        ! Cored NFW halo profile model
        hmod%halo_DMONLY=5 ! Cored profile
     ELSE IF(ihm==22) THEN
        ! Different stellar profile
        hmod%halo_central_stars=2 ! Schneider & Teyssier (2015)
-       hmod%response=.TRUE.
+       hmod%response=1
     ELSE IF(ihm==23) THEN
        ! Tinker mass function and bias
        hmod%imf=3 ! Tinker mass function and bias
     ELSE IF(ihm==24) THEN
-       ! Non-linear halo bias
+       ! Non-linear halo bias for M200c haloes
        hmod%ibias=3 ! Non-linear halo bias
        hmod%iDv=7   ! M200c
        hmod%imf=3   ! Tinker mass function and bias
@@ -799,7 +810,7 @@ CONTAINS
        ! 35 - Response model for AGN 7.6;   z = 0.0; clever pivot; f_hot
        ! 36 - Response model for AGN tuned; z = 0.0; clever pivot; f_hot
        ! 37 - Response model for AGN 8.0;   z = 0.0; clever pivot; f_hot
-       hmod%response=.TRUE.
+       hmod%response=1
        IF(ihm==32) THEN
           ! AGN 7.6
           ! Mpiv = 1e14; z = 0.0
@@ -854,7 +865,7 @@ CONTAINS
        ELSE IF(ihm==35) THEN
           ! AGN 7.6
           ! Mpiv = Mh; z = 0.0; f_hot
-          hmod%alpha=1.247
+          hmod%alpha=1.247          
           hmod%eps=1.087
           hmod%Gamma=1.253
           hmod%M0=10.**13.63
@@ -905,11 +916,13 @@ CONTAINS
        ELSE
           STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
        END IF
+       hmod%beta=hmod%alpha
+       hmod%betap=hmod%alphap
     ELSE IF(ihm==38 .OR. ihm==39 .OR. ihm==40) THEN
        ! 38 - AGN 7p6
        ! 39 - AGN tuned
        ! 49 - AGN 8p0
-       hmod%response=.TRUE.
+       hmod%response=1
        IF(ihm==38) THEN
           ! AGN 7p6
           hmod%alpha =   1.52016437    
@@ -979,6 +992,9 @@ CONTAINS
        ELSE
           STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
        END IF
+       hmod%beta=hmod%alpha
+       hmod%betap=hmod%alphap
+       hmod%betaz=hmod%alphaz
     ELSE IF(ihm==41) THEN
        ! Some stellar mass in satellite galaxies
        hmod%eta=-0.3
@@ -988,6 +1004,9 @@ CONTAINS
        hmod%iDv=7   ! M200c
        hmod%iconc=5 ! Duffy for M200c
        hmod%idc=1   ! Fixed to 1.686
+    ELSE IF(ihm==43) THEN
+       ! Standard halo model but as response with HMcode but only for matter spectra
+       hmod%response=2
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -1304,7 +1323,7 @@ CONTAINS
        IF(hmod%frac_central_stars==2) WRITE(*,*) 'HALOMODEL: Central star fraction: Schneider et al. (2018)'
 
        ! HI fraction
-       IF(hmod%frac_HI==1) WRITE(*,*) 'HALOMODEL: Halo HI fraction: Simple model'
+       IF(hmod%frac_HI==1) WRITE(*,*) 'HALOMODEL: Halo HI fraction: Hard truncation at high and low masses'
        IF(hmod%frac_HI==2) WRITE(*,*) 'HALOMODEL: Halo HI fraction: Villaescusa-Navarro et al. (2018; 1804.09180)'
 
        ! DMONLY halo model
@@ -1421,7 +1440,8 @@ CONTAINS
        IF(hmod%itrans==5) WRITE(*,*) 'HALOMODEL: Tanh transition with k_nl'
 
        ! Response
-       IF(hmod%response) WRITE(*,*) 'HALOMODEL: Power computed as reaction with HMcode multiplication'
+       IF(hmod%response==1) WRITE(*,*) 'HALOMODEL: Power computed as response with HMcode multiplication'
+       IF(hmod%response==2) WRITE(*,*) 'HALOMODEL: Matter power computed as response with HMcode multiplication'
 
        ! Numerical parameters
        WRITE(*,*) '======================================='
@@ -1443,7 +1463,8 @@ CONTAINS
        WRITE(*,*) 'HALOMODEL: HMx parameters'
        WRITE(*,*) '======================================='
        IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
-          WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha          
+          WRITE(*,fmt='(A30,F10.5)') 'alpha:', hmod%alpha
+          WRITE(*,fmt='(A30,F10.5)') 'beta:', hmod%beta
           WRITE(*,fmt='(A30,F10.5)') 'epsilon:', hmod%eps
           WRITE(*,fmt='(A30,F10.5)') 'Gammma:', hmod%Gamma          
           WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(hmod%M0)          
@@ -1458,11 +1479,14 @@ CONTAINS
        WRITE(*,fmt='(A30,F10.5)') 'f_hot:', hmod%fhot
        IF(hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
           WRITE(*,fmt='(A30,F10.5)') 'alpha mass index:', hmod%alphap
+          WRITE(*,fmt='(A30,F10.5)') 'beta mass index:', hmod%betap
           WRITE(*,fmt='(A30,F10.5)') 'Gammma mass index:', hmod%Gammap
           WRITE(*,fmt='(A30,F10.5)') 'c* mass index:', hmod%cstarp
        END IF
        IF(hmod%HMx_mode==3) THEN
           WRITE(*,fmt='(A30,F10.5)') 'alpha z index:', hmod%alphaz
+          WRITE(*,fmt='(A30,F10.5)') 'beta z index:', hmod%betaz
+          WRITE(*,fmt='(A30,F10.5)') 'epsilon z index:', hmod%epsz
           WRITE(*,fmt='(A30,F10.5)') 'Gammma z index:', hmod%Gammaz
           WRITE(*,fmt='(A30,F10.5)') 'log10(M0) z index:', hmod%M0z
           WRITE(*,fmt='(A30,F10.5)') 'A* z index:', hmod%Astarz
@@ -1471,7 +1495,7 @@ CONTAINS
        IF(hmod%HMx_mode==4) THEN
           WRITE(*,fmt='(A30,F10.5)') 'log10(T_heat) [K]:', log10(hmod%Theat)
           WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_alpha(hmod%Mh,hmod)
-          WRITE(*,fmt='(A30,F10.5)') 'alpha:', HMx_beta(hmod%Mh,hmod)
+          WRITE(*,fmt='(A30,F10.5)') 'beta:', HMx_beta(hmod%Mh,hmod)
           WRITE(*,fmt='(A30,F10.5)') 'epsilon:', HMx_eps(hmod)
           WRITE(*,fmt='(A30,F10.5)') 'Gamma:', HMx_Gamma(hmod%Mh,hmod)
           WRITE(*,fmt='(A30,F10.5)') 'log10(M0) [Msun/h]:', log10(HMx_M0(hmod))
@@ -1632,14 +1656,13 @@ CONTAINS
 
   END SUBROUTINE set_halo_type
 
-  SUBROUTINE calculate_HMx(ifield,nt,mmin,mmax,k,nk,a,na,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response)
+  SUBROUTINE calculate_HMx(ifield,nf,mmin,mmax,k,nk,a,na,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response)
 
     ! Public facing function, calculates the halo model power for k and a range
     ! TODO: Change (:,:,k,a) to (k,a,:,:) for speed or (a,k,:,:)?
-    ! TODO: Optimize for case of being called with multiple similar fields
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: ifield(nt) ! Indices for different fields
-    INTEGER, INTENT(IN) :: nt ! Number of different fields
+    INTEGER, INTENT(IN) :: ifield(nf) ! Indices for different fields
+    INTEGER, INTENT(IN) :: nf ! Number of different fields
     REAL, INTENT(IN) :: mmin ! Minimum halo mass [Msun/h]
     REAL, INTENT(IN) :: mmax ! Maximum halo mass [Msun/h]
     REAL, INTENT(IN) :: k(nk) ! k array [h/Mpc]
@@ -1668,7 +1691,7 @@ CONTAINS
     IF(ALLOCATED(pow_hm)) DEALLOCATE(pow_hm)
 
     ! Allocate power arrays
-    ALLOCATE(pow_li(nk,na),pow_2h(nt,nt,nk,na),pow_1h(nt,nt,nk,na),pow_hm(nt,nt,nk,na))
+    ALLOCATE(pow_li(nk,na),pow_2h(nf,nf,nk,na),pow_1h(nf,nf,nk,na),pow_hm(nf,nf,nk,na))
 
     ! Do the halo-model calculation by looping over scale factor index
     DO i=na,1,-1
@@ -1676,11 +1699,11 @@ CONTAINS
        z=redshift_a(a(i))
        CALL init_halomod(mmin,mmax,a(i),hmod,cosm,verbose2)
        CALL print_halomod(hmod,cosm,verbose2)
-       CALL calculate_HMx_a(ifield,nt,k,nk,pow_li(:,i),pow_2h(:,:,:,i),pow_1h(:,:,:,i),pow_hm(:,:,:,i),hmod,cosm,verbose2,response)
+       CALL calculate_HMx_a(ifield,nf,k,nk,pow_li(:,i),pow_2h(:,:,:,i),pow_1h(:,:,:,i),pow_hm(:,:,:,i),hmod,cosm,verbose2,response)
        
        IF(i==na .and. verbose) THEN
           WRITE(*,*) 'CALCULATE_HMx: Doing calculation'
-          DO j=1,nt
+          DO j=1,nf
              WRITE(*,*) 'CALCULATE_HMx: Haloes:', ifield(j), TRIM(halo_type(ifield(j)))
           END DO
           WRITE(*,*) '======================================='
@@ -1723,10 +1746,99 @@ CONTAINS
 
   END SUBROUTINE calculate_HMcode_a
 
+!!$  SUBROUTINE calculate_HMx_a(ifield,nf,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response)
+!!$
+!!$    ! Calculate halo model Pk(a) for a k range
+!!$    ! TODO: Make quicker if repeated indices in ifield
+!!$    IMPLICIT NONE
+!!$    INTEGER, INTENT(IN) :: ifield(nf)
+!!$    INTEGER, INTENT(IN) :: nf
+!!$    REAL, INTENT(IN) :: k(nk)
+!!$    INTEGER, INTENT(IN) :: nk
+!!$    REAL, INTENT(OUT) :: pow_li(nk)
+!!$    REAL, INTENT(OUT) :: pow_2h(nf,nf,nk)
+!!$    REAL, INTENT(OUT) :: pow_1h(nf,nf,nk)
+!!$    REAL, INTENT(OUT) :: pow_hm(nf,nf,nk)
+!!$    TYPE(halomod), INTENT(INOUT) :: hmod
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    LOGICAL, INTENT(IN) :: verbose
+!!$    LOGICAL, INTENT(IN) :: response
+!!$    REAL :: plin
+!!$    REAL :: powg_2h(nk), powg_1h(nk), powg_hm(nk)
+!!$    REAL :: hmcode_2h(nk), hmcode_1h(nk), hmcode_hm(nk)
+!!$    INTEGER :: i, ihmcode
+!!$    TYPE(halomod) :: hmcode
+!!$
+!!$    INTEGER, PARAMETER :: dmonly(1)=field_dmonly ! Needed because it needs to be an array(1)
+!!$
+!!$    ! Write to screen
+!!$    IF(verbose) THEN
+!!$       DO i=1,nf
+!!$          WRITE(*,*) 'CALCULATE_HMX_A: Halo type:', ifield(i), TRIM(halo_type(ifield(i)))
+!!$       END DO
+!!$       WRITE(*,*) 'CALCULATE_HMX_A: k min [h/Mpc]:', REAL(k(1))
+!!$       WRITE(*,*) 'CALCULATE_HMX_A: k max [h/Mpc]:', REAL(k(nk))
+!!$       WRITE(*,*) 'CALCULATE_HMX_A: number of k:', nk
+!!$       WRITE(*,*) 'CALCULATE_HMX_A: a:', REAL(hmod%a)
+!!$       WRITE(*,*) 'CALCULATE_HMX_A: z:', REAL(hmod%z)
+!!$       WRITE(*,*) 'CALCULATE_HMX_A: Calculating halo-model power spectrum'
+!!$       WRITE(*,*)
+!!$    END IF
+!!$
+!!$    ! Do an HMcode calculation for multiplying the response
+!!$    IF(hmod%response) THEN
+!!$       ihmcode=1
+!!$       CALL assign_halomod(ihmcode,hmcode,verbose=.FALSE.)
+!!$       CALL init_halomod(mmin_HMx,mmax_HMx,hmod%a,hmcode,cosm,verbose=.FALSE.)
+!!$    END IF
+!!$
+!!$    ! Loop over k values
+!!$    ! TODO: add OMP support properly. What is private and what is shared? CHECK THIS!
+!!$!!$OMP PARALLEL DO DEFAULT(SHARED)!, private(k,plin,pow_2h,pow_1h,pow,pow_lin)
+!!$!!$OMP PARALLEL DO DEFAULT(PRIVATE)
+!!$!!$OMP PARALLEL DO FIRSTPRIVATE(nk,cosm,compute_p_lin,k,a,pow_lin,plin,itype1,itype2,z,pow_2h,pow_1h,pow,hmod)
+!!$!!$OMP PARALLEL DO
+!!$    DO i=1,nk
+!!$
+!!$       ! Get the linear power
+!!$       plin=p_lin(k(i),hmod%a,cosm)
+!!$       pow_li(i)=plin
+!!$
+!!$       ! Do the halo model calculation
+!!$       ! TODO: slow array accessing
+!!$       CALL calculate_HMx_ka(ifield,nf,k(i),plin,pow_2h(:,:,i),pow_1h(:,:,i),pow_hm(:,:,i),hmod,cosm)
+!!$
+!!$       IF(response .OR. hmod%response) THEN
+!!$
+!!$          ! If doing a response then calculate a DMONLY prediction too
+!!$          CALL calculate_HMx_ka(dmonly,1,k(i),plin,powg_2h(i),powg_1h(i),powg_hm(i),hmod,cosm)
+!!$          pow_li(i)=1.                           ! This is just linear-over-linear, which is one
+!!$          pow_2h(:,:,i)=pow_2h(:,:,i)/powg_2h(i) ! Two-halo response (slow array accessing)
+!!$          pow_1h(:,:,i)=pow_1h(:,:,i)/powg_1h(i) ! One-halo response (slow array accessing)
+!!$          pow_hm(:,:,i)=pow_hm(:,:,i)/powg_hm(i) ! Full model response (slow array accessing)
+!!$
+!!$          IF((.NOT. response) .AND. hmod%response) THEN
+!!$
+!!$             ! If multiplying the response by an 'accurate' HMcode prediction
+!!$             ! TODO: slow array accessing
+!!$             CALL calculate_HMx_ka(dmonly,1,k(i),plin,hmcode_2h(i),hmcode_1h(i),hmcode_hm(i),hmcode,cosm)
+!!$             pow_li(i)=plin                           ! Linear power is just linear power again
+!!$             pow_2h(:,:,i)=pow_2h(:,:,i)*hmcode_2h(i) ! Multiply two-halo response through by HMcode two-halo term
+!!$             pow_1h(:,:,i)=pow_1h(:,:,i)*hmcode_1h(i) ! Multiply one-halo response through by HMcode one-halo term
+!!$             pow_hm(:,:,i)=pow_hm(:,:,i)*hmcode_hm(i) ! Multiply response through by HMcode
+!!$
+!!$          END IF
+!!$
+!!$       END IF
+!!$
+!!$    END DO
+!!$OMP END PARALLEL DO
+!!$
+!!$  END SUBROUTINE calculate_HMx_a
+
   SUBROUTINE calculate_HMx_a(ifield,nf,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response)
 
     ! Calculate halo model Pk(a) for a k range
-    ! TODO: Make quicker if repeated indices in ifield
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ifield(nf)
     INTEGER, INTENT(IN) :: nf
@@ -1742,16 +1854,21 @@ CONTAINS
     LOGICAL, INTENT(IN) :: response
     REAL :: plin
     REAL :: powg_2h(nk), powg_1h(nk), powg_hm(nk)
+    REAL, ALLOCATABLE :: upow_2h(:,:,:), upow_1h(:,:,:), upow_hm(:,:,:)
     REAL :: hmcode_2h(nk), hmcode_1h(nk), hmcode_hm(nk)
-    INTEGER :: i, ihmcode
-    TYPE(halomod) :: hmcode
-
+    INTEGER :: i, j, ii, jj, ihmcode, match(nf), nnf
+    INTEGER, ALLOCATABLE :: iifield(:)
+    TYPE(halomod) :: hmcode    
     INTEGER, PARAMETER :: dmonly(1)=field_dmonly ! Needed because it needs to be an array(1)
+
+    ! Make a new indexing scheme for only the unique arrays
+    CALL unique_index(ifield,nf,iifield,nnf,match)
+    ALLOCATE(upow_2h(nnf,nnf,nk),upow_1h(nnf,nnf,nk),upow_hm(nnf,nnf,nk))
 
     ! Write to screen
     IF(verbose) THEN
-       DO i=1,nf
-          WRITE(*,*) 'CALCULATE_HMX_A: Halo type:', ifield(i), TRIM(halo_type(ifield(i)))
+       DO i=1,nnf
+          WRITE(*,*) 'CALCULATE_HMX_A: Halo type:', iifield(i), TRIM(halo_type(iifield(i)))
        END DO
        WRITE(*,*) 'CALCULATE_HMX_A: k min [h/Mpc]:', REAL(k(1))
        WRITE(*,*) 'CALCULATE_HMX_A: k max [h/Mpc]:', REAL(k(nk))
@@ -1763,7 +1880,7 @@ CONTAINS
     END IF
 
     ! Do an HMcode calculation for multiplying the response
-    IF(hmod%response) THEN
+    IF(hmod%response==1 .OR. hmod%response==2) THEN
        ihmcode=1
        CALL assign_halomod(ihmcode,hmcode,verbose=.FALSE.)
        CALL init_halomod(mmin_HMx,mmax_HMx,hmod%a,hmcode,cosm,verbose=.FALSE.)
@@ -1783,27 +1900,43 @@ CONTAINS
 
        ! Do the halo model calculation
        ! TODO: slow array accessing
-       CALL calculate_HMx_ka(ifield,nf,k(i),plin,pow_2h(:,:,i),pow_1h(:,:,i),pow_hm(:,:,i),hmod,cosm)
+       CALL calculate_HMx_ka(iifield,nnf,k(i),plin,upow_2h(:,:,i),upow_1h(:,:,i),upow_hm(:,:,i),hmod,cosm)
 
-       IF(response .OR. hmod%response) THEN
+       IF(response) THEN
 
           ! If doing a response then calculate a DMONLY prediction too
           CALL calculate_HMx_ka(dmonly,1,k(i),plin,powg_2h(i),powg_1h(i),powg_hm(i),hmod,cosm)
-          pow_li(i)=1.                           ! This is just linear-over-linear, which is one
-          pow_2h(:,:,i)=pow_2h(:,:,i)/powg_2h(i) ! Two-halo response (slow array accessing)
-          pow_1h(:,:,i)=pow_1h(:,:,i)/powg_1h(i) ! One-halo response (slow array accessing)
-          pow_hm(:,:,i)=pow_hm(:,:,i)/powg_hm(i) ! Full model response (slow array accessing)
+          pow_li(i)=1.                             ! This is just linear-over-linear, which is one
+          upow_2h(:,:,i)=upow_2h(:,:,i)/powg_2h(i) ! Two-halo response (slow array accessing)
+          upow_1h(:,:,i)=upow_1h(:,:,i)/powg_1h(i) ! One-halo response (slow array accessing)
+          upow_hm(:,:,i)=upow_hm(:,:,i)/powg_hm(i) ! Full model response (slow array accessing)
+          
+       ELSE IF(hmod%response==1 .OR. hmod%response==2) THEN
 
-          IF((.NOT. response) .AND. hmod%response) THEN
+          ! If doing a response then calculate a DMONLY prediction too
+          CALL calculate_HMx_ka(dmonly,1,k(i),plin,powg_2h(i),powg_1h(i),powg_hm(i),hmod,cosm)
+          CALL calculate_HMx_ka(dmonly,1,k(i),plin,hmcode_2h(i),hmcode_1h(i),hmcode_hm(i),hmcode,cosm)
 
-             ! If multiplying the response by an 'accurate' HMcode prediction
-             ! TODO: slow array accessing
-             CALL calculate_HMx_ka(dmonly,1,k(i),plin,hmcode_2h(i),hmcode_1h(i),hmcode_hm(i),hmcode,cosm)
-             pow_li(i)=plin                           ! Linear power is just linear power again
-             pow_2h(:,:,i)=pow_2h(:,:,i)*hmcode_2h(i) ! Multiply two-halo response through by HMcode two-halo term
-             pow_1h(:,:,i)=pow_1h(:,:,i)*hmcode_1h(i) ! Multiply one-halo response through by HMcode one-halo term
-             pow_hm(:,:,i)=pow_hm(:,:,i)*hmcode_hm(i) ! Multiply response through by HMcode
+          IF(hmod%response==1) THEN
 
+             ! Do the response for everything
+             upow_2h(:,:,i)=upow_2h(:,:,i)*hmcode_2h(i)/powg_2h(i) ! Two-halo response times HMcode (slow array accessing)
+             upow_1h(:,:,i)=upow_1h(:,:,i)*hmcode_1h(i)/powg_1h(i) ! One-halo response times HMcode (slow array accessing)
+             upow_hm(:,:,i)=upow_hm(:,:,i)*hmcode_hm(i)/powg_hm(i) ! Full model response times HMcode (slow array accessing)
+
+          ELSE IF(hmod%response==2) THEN
+
+             ! Exclude pressure from the response
+             DO ii=1,nf
+                DO jj=1,nf
+                   IF((iifield(ii) .NE. field_electron_pressure) .AND. (iifield(jj) .NE. field_electron_pressure)) THEN 
+                      upow_2h(ii,jj,i)=upow_2h(ii,jj,i)*hmcode_2h(i)/powg_2h(i) ! Two-halo response times HMcode (slow accessing)
+                      upow_1h(ii,jj,i)=upow_1h(ii,jj,i)*hmcode_1h(i)/powg_1h(i) ! One-halo response times HMcode (slow accessing)
+                      upow_hm(ii,jj,i)=upow_hm(ii,jj,i)*hmcode_hm(i)/powg_hm(i) ! Full model response times HMcode (slow accessing)
+                   END IF
+                END DO
+             END DO
+             
           END IF
 
        END IF
@@ -1811,24 +1944,34 @@ CONTAINS
     END DO
 !!$OMP END PARALLEL DO
 
+    ! Now fill the full arrays from the unique arrays
+    DO i=1,nf
+       DO j=1,nf
+          ii=match(i)
+          jj=match(j)
+          pow_1h(i,j,:)=upow_1h(ii,jj,:)
+          pow_2h(i,j,:)=upow_2h(ii,jj,:)
+          pow_hm(i,j,:)=upow_hm(ii,jj,:)
+       END DO
+    END DO
+
   END SUBROUTINE calculate_HMx_a
 
-  SUBROUTINE calculate_HMx_ka(ifield,nt,k,plin,pow_2h,pow_1h,pow_hm,hmod,cosm)
+  SUBROUTINE calculate_HMx_ka(ifield,nf,k,plin,pow_2h,pow_1h,pow_hm,hmod,cosm)
 
     ! Gets the one- and two-halo terms and combines them
     ! TODO: Include scatter in two-halo term
-    ! TODO: Make quicker if repeated indices in ifield
     IMPLICIT NONE
-    INTEGER, INTENT(IN) :: ifield(nt)
-    INTEGER, INTENT(IN) :: nt
+    INTEGER, INTENT(IN) :: ifield(nf)
+    INTEGER, INTENT(IN) :: nf
     REAL, INTENT(IN) :: k
     REAL, INTENT(IN) :: plin
-    REAL, INTENT(OUT) :: pow_2h(nt,nt)
-    REAL, INTENT(OUT) :: pow_1h(nt,nt)
-    REAL, INTENT(OUT) :: pow_hm(nt,nt)
+    REAL, INTENT(OUT) :: pow_2h(nf,nf)
+    REAL, INTENT(OUT) :: pow_1h(nf,nf)
+    REAL, INTENT(OUT) :: pow_hm(nf,nf)
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: wk(hmod%n,nt), wk2(hmod%n,2), wk_product(hmod%n)
+    REAL :: wk(hmod%n,nf), wk2(hmod%n,2), wk_product(hmod%n)
     INTEGER :: i, j, f1, f2, ih(2)
 
     ! Calls expressions for two- and one-halo terms and then combines to form the full power spectrum
@@ -1841,11 +1984,11 @@ CONTAINS
     ELSE
 
        ! Get the window functions
-       CALL init_windows(k,ifield,nt,wk,hmod%n,hmod,cosm)
+       CALL init_windows(k,ifield,nf,wk,hmod%n,hmod,cosm)
 
        ! Loop over fields and get the one-halo term for each pair
-       DO f1=1,nt
-          DO f2=f1,nt
+       DO f1=1,nf
+          DO f2=f1,nf
              IF(hmod%dlnc==0.) THEN
                 wk_product=wk(:,f1)*wk(:,f2)
              ELSE
@@ -1857,17 +2000,17 @@ CONTAINS
           END DO
        END DO
 
-       ! If linear theory is used for two-halo term we need to recalculate the window functions for the two-halo term with k=0 fixed
+       ! If linear theory is used for two-halo term we recalculate the window functions for the two-halo term with k=0 fixed
        IF(hmod%ip2h==1 .OR. hmod%ip2h==3) THEN
-          CALL init_windows(0.,ifield,nt,wk,hmod%n,hmod,cosm)      
+          CALL init_windows(0.,ifield,nf,wk,hmod%n,hmod,cosm)      
        ELSE IF(hmod%halo_free_gas==7) THEN
           ! If we are worrying about unbound gas then we need this
-          CALL add_smooth_component_to_windows(ifield,nt,wk,hmod%n,hmod,cosm)
+          CALL add_smooth_component_to_windows(ifield,nf,wk,hmod%n,hmod,cosm)
        END IF
 
        ! Get the two-halo term
-       DO i=1,nt
-          DO j=i,nt
+       DO i=1,nf
+          DO j=i,nf
              ih(1)=ifield(i)
              ih(2)=ifield(j)
              wk2(:,1)=wk(:,i)
@@ -1879,27 +2022,26 @@ CONTAINS
     END IF
 
     ! Loop over fields and get the total halo-model power
-    DO i=1,nt
-       DO j=i,nt
+    DO i=1,nf
+       DO j=i,nf
           pow_hm(i,j)=p_hm(k,pow_2h(i,j),pow_1h(i,j),hmod,cosm)
        END DO
     END DO
 
     ! Construct symmetric parts using ij=ji symmetry of spectra
-    DO i=1,nt
-       DO j=i,nt
+    DO i=1,nf
+       DO j=i,nf
           pow_1h(j,i)=pow_1h(i,j)
           pow_2h(j,i)=pow_2h(i,j)
           pow_hm(j,i)=pow_hm(i,j)
        END DO
     END DO
-
+    
   END SUBROUTINE calculate_HMx_ka
 
   SUBROUTINE init_windows(k,fields,nf,wk,nm,hmod,cosm)
 
     ! Fill the window functions for all the different fields
-    ! BUG: Fix for multiple fields of the same type
     IMPLICIT NONE
     REAL, INTENT(IN) :: k
     INTEGER, INTENT(IN) :: fields(nf)
@@ -1919,8 +2061,6 @@ CONTAINS
     quick_matter=.FALSE.
 
     ! Get the array positions corresponding to all, cdm, gas, stars if they exist
-    ! BUG?: What if there are multiple field_matter?
-    ! TODO: Assumes each component appears once and only once
     i_all=array_position(field_matter,fields,nf)
     i_cdm=array_position(field_cdm,fields,nf)
     i_gas=array_position(field_gas,fields,nf)
@@ -1961,6 +2101,91 @@ CONTAINS
 
   END SUBROUTINE init_windows
 
+!!$  SUBROUTINE add_smooth_component_to_windows(fields,nf,wk,nm,hmod,cosm)
+!!$
+!!$    ! Refills the window functions for the two-halo term if this is necessary
+!!$    ! This is for contributions due to unbound gas, and the effect of this on electron pressure
+!!$    IMPLICIT NONE
+!!$    INTEGER, INTENT(IN) :: fields(nf)
+!!$    REAL, INTENT(INOUT) :: wk(nm,nf)
+!!$    INTEGER, INTENT(IN) :: nf
+!!$    INTEGER, INTENT(IN) :: nm
+!!$    TYPE(halomod), INTENT(INOUT) :: hmod
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    REAL :: m, rv, c, rs, nu, et, fc, pc
+!!$    REAL :: rho0, T0
+!!$    INTEGER :: i, j
+!!$    INTEGER, ALLOCATABLE :: i_all(:), i_gas(:), i_pre(:)
+!!$    INTEGER :: n_all, n_gas, n_pre
+!!$
+!!$    ! Get the array positions corresponding to all, cdm, gas, stars if they exist
+!!$    CALL array_positions(field_matter,fields,nf,i_all,n_all)
+!!$    CALL array_positions(field_gas,fields,nf,i_gas,n_gas)
+!!$    CALL array_positions(field_electron_pressure,fields,nf,i_pre,n_pre)
+!!$
+!!$    IF(n_all==0 .AND. n_gas==0 .AND. n_pre==0) THEN
+!!$
+!!$       ! Do nothing
+!!$
+!!$    ELSE
+!!$
+!!$       ! Get eta
+!!$       et=eta_HMcode(hmod,cosm)
+!!$
+!!$       ! Loop over mass and apply corrections
+!!$
+!!$       DO i=1,hmod%n
+!!$
+!!$          ! Halo variables
+!!$          m=hmod%m(i)
+!!$          rv=hmod%rv(i)
+!!$          c=hmod%c(i)
+!!$          rs=rv/c
+!!$          nu=hmod%nu(i)
+!!$
+!!$          ! Correction factor for the gas density profiles
+!!$          fc=halo_free_gas_fraction(m,hmod,cosm)*m/comoving_matter_density(cosm)
+!!$
+!!$          ! Add correction to 'matter' haloes
+!!$          DO j=1,n_all                                     
+!!$             wk(i,i_all(j))=wk(i,i_all(j))+fc
+!!$          END DO
+!!$
+!!$          ! Add correction to 'gas' haloes
+!!$          DO j=1,n_gas
+!!$             wk(i,i_gas(j))=wk(i,i_gas(j))+fc
+!!$          END DO
+!!$             
+!!$          IF(n_pre .NE. 0) THEN
+!!$
+!!$             ! TODO: The units here are a mess
+!!$
+!!$             ! Calculate the value of the density profile prefactor [(Msun/h)/(Mpc/h)^3] and change units from cosmological to SI
+!!$             rho0=m*halo_free_gas_fraction(m,hmod,cosm) ! rho0 in [(Msun/h)/(Mpc/h)^3]
+!!$             rho0=rho0*msun/Mpc/Mpc/Mpc                 ! Overflow with REAL(4) if you use Mpc**3, this converts to SI units [h^2 kg/m^3]
+!!$             rho0=rho0*cosm%h**2                        ! Absorb factors of h, so now [kg/m^3]
+!!$
+!!$             ! This is the total thermal pressure of the WHIM
+!!$             T0=HMx_Twhim(hmod) ! [K]
+!!$
+!!$             ! Factors to convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
+!!$             pc=(rho0/(mp*cosm%mup))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
+!!$             pc=pc/(eV*(0.01)**(-3))         ! Change units to pressure in [eV/cm^3]
+!!$             pc=pc*cosm%mue/cosm%mup         ! Convert from total thermal pressure to electron pressure
+!!$             
+!!$             ! Add correction to 'electron pressure' haloes
+!!$             DO j=1,n_pre
+!!$                wk(i,i_pre(j))=wk(i,i_pre(j))+pc
+!!$             END DO
+!!$
+!!$          END IF
+!!$
+!!$       END DO
+!!$
+!!$    END IF
+!!$
+!!$  END SUBROUTINE add_smooth_component_to_windows
+
   SUBROUTINE add_smooth_component_to_windows(fields,nf,wk,nm,hmod,cosm)
 
     ! Refills the window functions for the two-halo term if this is necessary
@@ -1974,16 +2199,17 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: m, rv, c, rs, nu, et, fc, pc
     REAL :: rho0, T0
-    INTEGER :: i, j
-    INTEGER, ALLOCATABLE :: i_all(:), i_gas(:), i_pre(:)
-    INTEGER :: n_all, n_gas, n_pre
+    INTEGER :: i, i_all, i_gas, i_pre
 
-    ! Get the array positions corresponding to all, cdm, gas, stars if they exist
-    CALL array_positions(field_matter,fields,nf,i_all,n_all)
-    CALL array_positions(field_gas,fields,nf,i_gas,n_gas)
-    CALL array_positions(field_electron_pressure,fields,nf,i_pre,n_pre)
+    ! Check for repeated fields
+    IF(repeated_entries(fields,nf)) STOP 'ADD_SMOOTH_COMPONENT_TO_WINDOWS: Error, repeated fields'
 
-    IF(n_all==0 .AND. n_gas==0 .AND. n_pre==0) THEN
+    ! Get the array positions corresponding to all, cdm, gas, stars if they existza
+    i_all=array_position(field_matter,fields,nf)
+    i_gas=array_position(field_gas,fields,nf)
+    i_pre=array_position(field_electron_pressure,fields,nf)
+
+    IF(i_all==0 .AND. i_gas==0 .AND. i_pre==0) THEN
 
        ! Do nothing
 
@@ -1993,7 +2219,6 @@ CONTAINS
        et=eta_HMcode(hmod,cosm)
 
        ! Loop over mass and apply corrections
-
        DO i=1,hmod%n
 
           ! Halo variables
@@ -2005,18 +2230,10 @@ CONTAINS
 
           ! Correction factor for the gas density profiles
           fc=halo_free_gas_fraction(m,hmod,cosm)*m/comoving_matter_density(cosm)
-
-          ! Add correction to 'matter' haloes
-          DO j=1,n_all                                     
-             wk(i,i_all(j))=wk(i,i_all(j))+fc
-          END DO
-
-          ! Add correction to 'gas' haloes
-          DO j=1,n_gas
-             wk(i,i_gas(j))=wk(i,i_gas(j))+fc
-          END DO
-             
-          IF(n_pre .NE. 0) THEN
+          IF(i_all .NE. 0) wk(i,i_all)=wk(i,i_all)+fc
+          IF(i_gas .NE. 0) wk(i,i_gas)=wk(i,i_gas)+fc
+          
+          IF(i_pre .NE. 0) THEN
 
              ! TODO: The units here are a mess
 
@@ -2030,13 +2247,11 @@ CONTAINS
 
              ! Factors to convert from Temp x density -> electron pressure (Temp x n; n is all particle number density) 
              pc=(rho0/(mp*cosm%mup))*(kb*T0) ! Multiply window by *number density* (all particles) times temperature time k_B [J/m^3]
-             pc=pc/(eV*(0.01)**(-3))         ! Change units to pressure in [eV/cm^3]
-             pc=pc*cosm%mue/cosm%mup         ! Convert from total thermal pressure to electron pressure
+             pc=pc/(eV*(0.01)**(-3)) ! Change units to pressure in [eV/cm^3]
+             pc=pc*cosm%mue/cosm%mup ! Convert from total thermal pressure to electron pressure
              
              ! Add correction to 'electron pressure' haloes
-             DO j=1,n_pre
-                wk(i,i_pre(j))=wk(i,i_pre(j))+pc
-             END DO
+             wk(i,i_pre)=wk(i,i_pre)+pc
 
           END IF
 
@@ -2559,7 +2774,8 @@ CONTAINS
   
     ! Not sure if this is the correct k and field combinations
     uk_quad=uk1(:,1)*uk1(:,2)*uk2(:,1)*uk2(:,2)
-    !uk_quad=uk1(:,1)*uk1(:,1)*uk2(:,2)*uk2(:,2) ! Could be this  
+    !uk_quad=uk1(:,1)*uk1(:,1)*uk2(:,2)*uk2(:,2) ! Could be this
+    !uk_quad=uk1(:,1)*uk2(:,2)
 
     IF(hmod%imf==4) THEN
 
@@ -2577,7 +2793,6 @@ CONTAINS
           g=g_nu(hmod%nu(i),hmod)
           m=hmod%m(i)
           integrand(i)=g*uk_quad(i)*rhom/m
-          integrand(i)=integrand(i)
        END DO
 
        ! Carries out the integration 
@@ -3048,7 +3263,6 @@ CONTAINS
 
   REAL FUNCTION HMx_alpha(m,hmod)
 
-    ! TODO: Should Mp be M* ?
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
@@ -3106,8 +3320,42 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
+    REAL :: z, T, A, B, C, D, E, Mp
 
-    HMx_beta=HMx_alpha(m,hmod)
+    IF(hmod%HMx_mode==1) THEN
+
+       HMx_beta=hmod%beta
+
+    ELSE IF(hmod%HMx_mode==2) THEN
+
+       IF(hmod%simple_pivot) THEN
+          Mp=1e14
+       ELSE
+          Mp=hmod%Mh
+       END IF
+       HMx_beta=hmod%beta*((m/Mp)**hmod%betap)
+
+    ELSE IF(hmod%HMx_mode==3) THEN
+
+       IF(hmod%simple_pivot) THEN
+          Mp=1e14
+       ELSE
+          Mp=hmod%Mh
+       END IF
+       z=hmod%z
+       HMx_beta=hmod%beta*((m/Mp)**hmod%betap)*((1.+z)**hmod%betaz)
+
+    ELSE IF(hmod%HMx_mode==4) THEN
+
+       HMx_beta=HMx_alpha(m,hmod)
+
+    ELSE
+
+       STOP 'HMx_BETA: Error, HMx_mode not specified correctly'
+
+    END IF
+
+    IF(HMx_beta<HMx_beta_min) HMx_beta=HMx_beta_min
 
   END FUNCTION HMx_beta
 
@@ -3117,9 +3365,14 @@ CONTAINS
     TYPE(halomod), INTENT(INOUT) :: hmod
     REAL :: z, T, A, B, C, D
 
-    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
+    IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2) THEN
 
        HMx_eps=hmod%eps
+
+    ELSE IF(hmod%HMx_mode==3) THEN
+
+       z=hmod%z
+       HMx_eps=hmod%eps*((1.+z)**hmod%epsz)
 
     ELSE IF(hmod%HMx_mode==4) THEN
 
@@ -3190,7 +3443,6 @@ CONTAINS
 
     END IF
 
-    !IF(HMx_Gamma<=1.) STOP 'HMx_GAMMA: Error, Gamma <= 1'
     IF(HMx_Gamma<HMx_Gamma_min) HMx_Gamma=HMx_Gamma_min
     IF(HMx_Gamma>HMx_Gamma_max) HMx_Gamma=HMx_Gamma_max
 

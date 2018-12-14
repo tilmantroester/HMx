@@ -25,7 +25,7 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: powb_hm(:,:,:,:)
   REAL, ALLOCATABLE :: ell(:), Cl(:,:,:), Cl_bm(:), theta(:), xi(:,:), zs(:), masses(:)
   REAL, ALLOCATABLE :: z_tab(:), HI_frac(:)
-  INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt
+  INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx
   INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, nfeed
   INTEGER :: ip(2), ix(2), field(1)
   INTEGER, ALLOCATABLE :: fields(:), ixx(:)
@@ -39,6 +39,7 @@ PROGRAM HMx_driver
   TYPE(projection) :: proj(2), pro
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname, inbase, outbase, inext, outext
   CHARACTER(len=256) :: mode, halomodel, cosmo, benchmark, tracer1, tracer2
+  CHARACTER(len=256), ALLOCATABLE :: ixx_names(:)
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
   INTEGER :: imin, imax
   REAL :: sig8min, sig8max
@@ -51,6 +52,9 @@ PROGRAM HMx_driver
   ! Baryon stuff
   REAL :: param_min, param_max, param, param_neat
   LOGICAL :: ilog
+
+  ! Tests
+  INTEGER, PARAMETER :: iseed=1
 
   ! Halo-model Parameters
   Logical, PARAMETER :: verbose=.TRUE. ! Verbosity
@@ -780,7 +784,7 @@ PROGRAM HMx_driver
            ! Do the calculation for the rest of the fields
            CALL calculate_HMx_a(fields,nf,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
-           ! Loop over fields and write data to disk
+           ! Loop over fields and write data
            DO j1=1,nf
               DO j2=j1,nf
 
@@ -790,7 +794,7 @@ PROGRAM HMx_driver
                  ! Set the halo types and write to screen
                  WRITE(*,*) fields(j1), fields(j2), TRIM(outfile)
 
-                 ! Write P(k) to disk
+                 ! Write P(k
                  CALL write_power(k,pow_li,pow_2h(j1,j2,:),pow_1h(j1,j2,:),pow_hm(j1,j2,:),nk,outfile,verbose=.FALSE.)
 
               END DO
@@ -835,8 +839,8 @@ PROGRAM HMx_driver
 
      ! Random baryon parameters
 
-     ! Ignore this, only useful for bug tests
-     CALL RNG_set(1)
+     ! Set the random number generator
+     CALL RNG_set(iseed)
 
      ! Set number of k points and k range (log spaced)
      nk=128
@@ -1568,16 +1572,22 @@ PROGRAM HMx_driver
 
      ! Set tracers
      nt=5
-     ALLOCATE(ixx(nt))     
+     ALLOCATE(ixx(nt),ixx_names(nt))     
      ixx(1)=tracer_KiDS_450
      ixx(2)=tracer_KiDS_450_bin1
      ixx(3)=tracer_KiDS_450_bin2
      ixx(4)=tracer_Compton_y
      ixx(5)=tracer_CMB_lensing
+     ixx_names(1)='gal_z0.1-0.9'
+     ixx_names(2)='gal_z0.1-0.5'
+     ixx_names(3)='gal_z0.5-0.9'
+     ixx_names(4)='y'
+     ixx_names(5)='CMB'
 
      ! Allocate array for Cl
      ALLOCATE(Cl(nl,nt,nt))
-   
+
+     ! Loop over feedback scenarios
      DO j=1,nfeed
 
         IF(imode==44) ihm=18 ! AGN tuned
@@ -1591,6 +1601,7 @@ PROGRAM HMx_driver
            IF(j==3) ihm=40 ! AGN high
         END IF
 
+        ! Assign the halo
         CALL assign_halomod(ihm,hmod,verbose)
 
         IF(j==1) base='triad_Cl_AGN'
@@ -1599,19 +1610,10 @@ PROGRAM HMx_driver
 
         CALL xpow(ixx,nt,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose=.TRUE.)
 
+        ! Write data
         DO ii=1,nt           
-           IF(ii==1) tracer1='gal_z0.1-0.9'
-           IF(ii==2) tracer1='gal_z0.1-0.5'
-           IF(ii==3) tracer1='gal_z0.5-0.9'
-           IF(ii==4) tracer1='y'
-           IF(ii==5) tracer1='CMB'
            DO jj=1,nt              
-              IF(jj==1) tracer2='gal_z0.1-0.9'
-              IF(jj==2) tracer2='gal_z0.1-0.5'
-              IF(jj==3) tracer2='gal_z0.5-0.9'
-              IF(jj==4) tracer2='y'
-              IF(jj==5) tracer2='CMB'
-              outfile=TRIM(dir)//'/'//TRIM(base)//'_'//TRIM(tracer1)//'-'//TRIM(tracer2)//'.dat'
+              outfile=TRIM(dir)//'/'//TRIM(base)//'_'//TRIM(ixx_names(ii))//'-'//TRIM(ixx_names(jj))//'.dat'
               CALL write_Cl(ell,Cl(:,ii,jj),nl,outfile,verbose=.TRUE.)
            END DO
         END DO
@@ -2328,85 +2330,85 @@ PROGRAM HMx_driver
   ELSE IF(imode==24) THEN
 
      ! Projection tests
-     ! TODO: Why the fuck are these so slow?
+     ! TODO: Fix why these tests are super slow if ihm=3 and Cl_yy looks really fucked up
+     ! TODO: I think this is probably because of the pressure evolution in ihm=3
      
      ! Number of tests
-     ntests=3
+     nx=3
 
      ! Initially assume tests pass
      ifail=.FALSE.
 
-     ! Loop over tests
-     DO j=1,ntests
+     ALLOCATE(ixx(nx))
+     ixx(1)=tracer_RCSLenS
+     ixx(2)=tracer_Compton_y
+     ixx(3)=tracer_CMB_lensing
 
-        ! Test options
-        IF(j==1) THEN
-           benchmark='benchmarks/cl_RCSLenS_RCSLenS.txt'
-           outfile='data/cl_RCSLenS_RCSLenS.dat'
-           ihm=3
-           icosmo=1
-           ix=tracer_RCSLenS
-        ELSE IF(j==2) THEN
-           benchmark='benchmarks/cl_CMB_y.txt'
-           outfile='data/cl_CMB_y.dat'
-           ihm=3
-           icosmo=1
-           ix(1)=tracer_CMB_lensing
-           ix(2)=tracer_Compton_y
-        ELSE IF(j==3) THEN
-           benchmark='benchmarks/cl_KiDS_y.txt'
-           outfile='data/cl_KiDS_y.dat'
-           ihm=3
-           icosmo=4
-           ix(1)=tracer_KiDS
-           ix(2)=tracer_Compton_y
-        ELSE
-           STOP 'HMx_DRIVER: Error, something went wrong'
-        END IF
+     ALLOCATE(ixx_names(nx))
+     ixx_names(1)='RCSLenS'
+     ixx_names(2)='y'
+     ixx_names(3)='CMB'
 
-        ! Get file size
-        nl=file_length(benchmark,verbose)
-        ALLOCATE(ell(nl),Cl_bm(nl),Cl(nl,2,2))
+     ! Set the ell range (should probably read this in from a file)
+     lmin=1e0
+     lmax=1e4
+     nl=128
+     CALL fill_array(log(lmin),log(lmax),ell,nl)
+     ell=exp(ell)
+     ALLOCATE(Cl_bm(nl),Cl(nl,nx,nx))
 
-        ! Read in data
-        OPEN(7,file=benchmark)
-        DO i=1,nl
-           READ(7,*) ell(i), Cl_bm(i)
+     ! Set the cosmology
+     icosmo=1
+
+     ! Assigns the cosmological model
+     CALL assign_cosmology(icosmo,cosm,verbose=.FALSE.)
+     CALL init_cosmology(cosm)
+
+     ! Set the halo model
+     ihm=18 ! Incredibly slow if I set ihm=3
+
+     ! Assign the halo model
+     CALL assign_halomod(ihm,hmod,verbose=.FALSE.)      
+
+     ! Do the cross correlation     
+     CALL xpow(ixx,nx,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose=.TRUE.)
+
+     ! Write data
+     DO ii=1,nx
+        DO jj=1,nx
+           outfile='data/cl_'//TRIM(ixx_names(ii))//'_'//TRIM(ixx_names(jj))//'.dat'
+           CALL write_Cl(ell,Cl(:,ii,jj),nl,outfile,verbose)
         END DO
-        CLOSE(7)
+     END DO
 
-        ! Assigns the cosmological model
-        CALL assign_cosmology(icosmo,cosm,verbose=.FALSE.)
-        CALL init_cosmology(cosm)
+     ! Loop over and check values
+     DO ii=1,nx
+        DO jj=1,nx
 
-        ! Assign the halo model
-        CALL assign_halomod(ihm,hmod,verbose=.FALSE.)      
+           infile='benchmarks/cl_'//TRIM(ixx_names(ii))//'_'//TRIM(ixx_names(jj))//'.txt'
+           IF(file_length(infile,verbose=.FALSE.) .NE. nl) STOP 'HMx_DRIVER: Error, benchmark file is not the correct lenght'
 
-        ! Do the cross correlation     
-        CALL xpow(ix,2,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose=.TRUE.)
+           OPEN(7,file=infile)
+           DO i=1,nl
+              READ(7,*) crap, Cl_bm(i)
+           END DO
+           CLOSE(7)
 
-        ! Write data to disk
-        CALL write_Cl(ell,Cl(:,1,2),nl,outfile,verbose)
-
-        ! Loop over and check values
-        DO i=1,nl
-           error=ABS(-1.+Cl(i,1,2)/Cl_bm(i))
-           IF(error > tolerance) THEN
-              WRITE(*,*) 'HMx_DRIVER: Test:', j
-              WRITE(*,*) 'HMx_DRIVER: Benchmark: ', TRIM(benchmark)
-              WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
-              WRITE(*,*) 'HMx_DRIVER: ell:', ell(i)       
-              WRITE(*,*) 'HMx_DRIVER: Benchmark C(l):', Cl_bm(i)
-              WRITE(*,*) 'HMx_DRIVER: Calculated C(l):', Cl(i,1,2)
-              WRITE(*,*) 'HMx_DRIVER: Error:', error
-              WRITE(*,*)
-              ifail=.TRUE.
-           END IF
+           DO i=1,nl
+              error=ABS(-1.+Cl(i,ii,jj)/Cl_bm(i))
+              IF(error > tolerance) THEN
+                 WRITE(*,*) 'HMx_DRIVER: Tracer 1: ', TRIM(ixx_names(ii))
+                 WRITE(*,*) 'HMx_DRIVER: Tracer 2: ', TRIM(ixx_names(jj))
+                 WRITE(*,*) 'HMx_DRIVER: ell:', ell(i)       
+                 WRITE(*,*) 'HMx_DRIVER: Benchmark C(l):', Cl_bm(i)
+                 WRITE(*,*) 'HMx_DRIVER: Calculated C(l):', Cl(i,ii,jj)
+                 WRITE(*,*) 'HMx_DRIVER: Error:', error
+                 WRITE(*,*)
+                 ifail=.TRUE.
+              END IF
+           END DO
+           
         END DO
-
-        ! Deallocate arrays
-        DEALLOCATE(ell,Cl_bm,Cl)
-
      END DO
 
      IF(ifail) THEN
@@ -2610,7 +2612,7 @@ PROGRAM HMx_driver
            ALLOCATE(pow_ql(nk),pow_oh(nk),pow_hf(nk))
            CALL calculate_halofit_a(k_sim,a(j),pow_li,pow_ql,pow_oh,pow_hf,nk,cosm,verbose=.TRUE.,ihf=4)
 
-           ! Write data to disk
+           ! Write data
            outfile=number_file2(base,i,mid,j,ext)
            OPEN(7,file=outfile)
            DO ii=1,nk
@@ -3115,7 +3117,7 @@ PROGRAM HMx_driver
         field=field_dmonly
         CALL calculate_HMx_a(field,1,k,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose2,response=.FALSE.)
 
-        ! Write out data to disk
+        ! Write out data
         CALL write_power(k,pow_li,pow_2h(1,1,:),pow_1h(1,1,:),pow_hm(1,1,:),nk,outfile,verbose)
 
      END DO
@@ -3346,6 +3348,7 @@ PROGRAM HMx_driver
      CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
      CALL print_halomod(hmod,cosm,verbose)     
 
+     ! Write data
      OPEN(7,file='data/trispectrum.dat')    
      DO j=1,nk
         DO i=1,nk
@@ -3453,14 +3456,17 @@ PROGRAM HMx_driver
      nf=2
      ALLOCATE(fields(nf))
      !fields=field_matter
+     !fields=field_electron_pressure
      fields=field_gas
      
      CALL calculate_HMx(fields,2,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
 
      ! Write to screen to check they are the same
+     WRITE(*,*) 'HMx_DRIVER: All these columns should be idential'
      DO i=1,nk
         WRITE(*,*) pows_hm(1,1,i,na), pows_hm(1,2,i,na), pows_hm(2,1,i,na), pows_hm(2,2,i,na)
      END DO
+     WRITE(*,*) 'HMx_DRIVER: Done'
      WRITE(*,*)
      
   ELSE
@@ -3751,25 +3757,29 @@ CONTAINS
     
   END SUBROUTINE random_baryon_parameters
 
-  SUBROUTINE xpow(ix,n,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
+  SUBROUTINE xpow(ix,nx,mmin,mmax,ell,Cl,nl,hmod,cosm,verbose)
 
     ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
     ! TODO: Speed up if there are repeated fields in ix(n) (should this ever happen?)
     IMPLICIT NONE
-    INTEGER, INTENT(INOUT) :: ix(n)
-    INTEGER, INTENT(IN) :: n
+    INTEGER, INTENT(INOUT) :: ix(nx)
+    INTEGER, INTENT(IN) :: nx
     REAL, INTENT(IN) :: mmin, mmax
     REAL, INTENT(IN) :: ell(nl)
-    REAL, INTENT(OUT) :: Cl(nl,n,n)
+    REAL, INTENT(OUT) :: Cl(nl,nx,nx)
     INTEGER, INTENT(IN) :: nl
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
     LOGICAL, INTENT(IN) :: verbose
     REAL, ALLOCATABLE :: a(:), k(:), pow_li(:,:), pow_2h(:,:,:,:), pow_1h(:,:,:,:), pow_hm(:,:,:,:)
     REAL :: lmin, lmax
-    INTEGER :: ixx(2), ip(n), nk, na, i, j
+    INTEGER :: ixx(2), ip(nx), nk, na, i, j, nnx, match(nx)
+    INTEGER, ALLOCATABLE :: iix(:)
+    REAL, ALLOCATABLE :: uCl(:,:,:)
 
-    IF(repeated_entries(ix,n)) STOP 'XPOW: Error, repeated tracers'
+    !IF(repeated_entries(ix,n)) STOP 'XPOW: Error, repeated tracers'
+    CALL unique_index(ix,nx,iix,nnx,match)
+    ALLOCATE(uCl(nl,nnx,nnx))
 
     ! Set the k range
     nk=nk_xpow
@@ -3801,30 +3811,39 @@ CONTAINS
     END IF
 
     ! Use the xpowlation type to set the necessary halo profiles
-    DO i=1,n
+    DO i=1,nnx
        CALL set_field_for_xpow(ix(i),ip(i))
     END DO
 
     ! Do the halo model power spectrum calculation
-    CALL calculate_HMx(ip,n,mmin,mmax,k,nk,a,na,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
+    CALL calculate_HMx(ip,nnx,mmin,mmax,k,nk,a,na,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose,response=.FALSE.)
 
     ! Set the Cl to zero initially
-    Cl=0.
+    uCl=0.
 
     ! Loop over triangle combinations
-    DO i=1,n
+    DO i=1,nnx
        ixx(1)=ix(i)
-       DO j=i,n
+       DO j=i,nnx
           ixx(2)=ix(j)
-          CALL xpow_pka(ixx,ell,Cl(:,i,j),nl,k,a,pow_hm(i,j,:,:),nk,na,cosm)
+          CALL xpow_pka(ixx,ell,uCl(:,i,j),nl,k,a,pow_hm(i,j,:,:),nk,na,cosm)
           !CALL xpow_pka(ixx,ell,Cl(:,i,j),nl,k,a,pow_li,nk,na,cosm)
        END DO
     END DO
 
     ! Fill the symmetric cross terms
-    DO i=1,n
-       DO j=i+1,n
-          Cl(:,j,i)=Cl(:,i,j)
+    DO i=1,nnx
+       DO j=i+1,nnx
+          uCl(:,j,i)=uCl(:,i,j)
+       END DO
+    END DO
+
+    ! Now fill the full arrays from the unique arrays
+    DO i=1,nx
+       DO j=1,nx
+          ii=match(i)
+          jj=match(j)
+          Cl(:,i,j)=uCl(:,ii,jj)
        END DO
     END DO
 

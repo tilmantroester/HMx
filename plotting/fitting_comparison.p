@@ -39,7 +39,7 @@ if(!exists('dir')) {dir='fitting'}
 print 'Directory: ', dir
 
 # Number of points in chain
-if(!exists('n')) {n=50000}
+if(!exists('n')) {n=100000}
 print 'Number of points in chain: n: ', n
 
 # Fitting mode

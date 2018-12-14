@@ -56,7 +56,7 @@ print 'Snapshot: ', snap
 if(!exists('sim')){sim=4}
 simulation_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
 simulation_titles="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
-simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/data/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
+simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
 sim_name=word(simulation_names,sim)
 #sim_title(name,z)=''.word(simulation_titles,sim).'; z = '.z.''
 name=word(simulation_titles,sim)

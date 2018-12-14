@@ -4,7 +4,7 @@ cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
 if(!exists('print')){print=0}
 if(print==0){set term aqua dashed; sun='sun'; width=3}
-if(print==1){set term post enh col fontfile cmsy; set output 'paper/halo_mass_fractions.eps'; sun='{/cmsy10 \014}'; width=5}
+if(print==1){set term post enh col font ',18' fontfile cmsy; set output 'paper/halo_mass_fractions.eps'; sun='{/cmsy10 \014}'; width=5}
 
 file='data/mass_fractions.dat'
 
@@ -34,4 +34,6 @@ plot om_b/om_m  w l lw width dt 2 lc -1 ti 'Universal baryon',\
      file u 1:4 w l lw width dt 1 lc 4  ti 'Stars',\
      file u 1:5 w l lw width dt 2 lc 3  ti 'Bound gas',\
      file u 1:6 w l lw width dt 3 lc 3  ti 'Unbound gas'
+
+show output
 
