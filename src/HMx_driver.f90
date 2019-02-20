@@ -8,6 +8,7 @@ PROGRAM HMx_driver
   USE calculus_table
   USE string_operations
   USE special_functions
+  USE logical_operations
 
   ! TODO: Many pow(1,1,nk) could be pow(nk)
   ! TODO: Too many different pow(:,:), pow(:,:,:), pow(:,:,:,:), ...
@@ -23,14 +24,17 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: powd_li(:), powd_2h(:), powd_1h(:), powd_hm(:)
   REAL, ALLOCATABLE :: pows_li(:,:), pows_2h(:,:,:,:), pows_1h(:,:,:,:), pows_hm(:,:,:,:)
   REAL, ALLOCATABLE :: powb_hm(:,:,:,:)
-  REAL, ALLOCATABLE :: ell(:), Cl(:,:,:), Cl_bm(:), theta(:), xi(:,:), zs(:), masses(:)
+  REAL, ALLOCATABLE :: ell(:), ell_edge(:), Cl(:,:,:), Cl_bm(:), theta(:), xi(:,:)
+  REAL, ALLOCATABLE :: all_ell(:), all_Cl(:,:,:)
+  REAL, ALLOCATABLE :: zs(:), masses(:)
   REAL, ALLOCATABLE :: z_tab(:), HI_frac(:)
-  INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx
+  INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx, n_all, l, n_edge
   INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, nfeed
   INTEGER :: ip(2), ix(2), field(1)
   INTEGER, ALLOCATABLE :: fields(:), ixx(:)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: rcore_min, rcore_max
+  REAL :: weight, weight_total
   REAL :: z, z1, z2, r1, r2, a1, a2
   TYPE(cosmology) :: cosm
   TYPE(cosmology), ALLOCATABLE :: cosms(:)
@@ -41,9 +45,9 @@ PROGRAM HMx_driver
   CHARACTER(len=256) :: mode, halomodel, cosmo, benchmark, tracer1, tracer2
   CHARACTER(len=256), ALLOCATABLE :: ixx_names(:)
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
-  INTEGER :: imin, imax
+  INTEGER :: imin, imax, mesh, iz
   REAL :: sig8min, sig8max
-  REAL :: mass, m1, m2, nu, nu_min, nu_max, mf
+  REAL :: mass, m1, m2, nu, numin, numax, mf
   REAL :: c, rmin, rmax, rv, rs, p1, p2, cmin, cmax, cbar
   REAL :: spam
   CHARACTER(len=1) :: crap
@@ -54,19 +58,20 @@ PROGRAM HMx_driver
   LOGICAL :: ilog
 
   ! Tests
-  INTEGER, PARAMETER :: iseed=1
+  REAL :: error, error_max
+  INTEGER :: ntests
+  
 
   ! Halo-model Parameters
-  Logical, PARAMETER :: verbose=.TRUE. ! Verbosity
+  LOGICAL, PARAMETER :: verbose=.TRUE. ! Verbosity
   REAL, PARAMETER :: mmin=mmin_HMx     ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=mmax_HMx     ! Maximum halo mass for the calculation
 
   ! Test parameters
-  REAL, PARAMETER :: tolerance=3e-3
-  REAL :: error, error_max
+  INTEGER, PARAMETER :: iseed=1
+  REAL, PARAMETER :: tolerance=3e-3  
   LOGICAL :: verbose_tests=.FALSE.
-  LOGICAl :: ifail=.FALSE.
-  INTEGER :: ntests
+  LOGICAl :: ifail=.FALSE.  
 
   ! Benchmark parameters
   LOGICAL, PARAMETER :: Alonso_k=.TRUE.
@@ -75,13 +80,20 @@ PROGRAM HMx_driver
   LOGICAL, PARAMETER :: icumulative=.TRUE. ! Do cumlative distributions for breakdown
   LOGICAL, PARAMETER :: ifull=.FALSE.      ! Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
 
+  ! Triad direct comparison
+  LOGICAL, PARAMETER :: bin_theory=.FALSE.     ! Should the theory be binned in the same way as measurements?
+  LOGICAL, PARAMETER :: cut_nyquist=.TRUE.     ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
+  LOGICAL, PARAMETER :: subtract_shot=.TRUE.   ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
+  LOGICAL, PARAMETER :: response_triad=.FALSE. ! Should I treat the BAHAMAS P(k) as HMcode response?
+  REAL, PARAMETER :: kmax_BAHAMAS=1000.        ! Maximum k to trust the BAHAMAS P(k) [h/Mpc]
+
   ! Cross correlation
-  REAL, PARAMETER :: kmin_xpow=1e-3 ! Minimum k
-  REAL, PARAMETER :: kmax_xpow=1e2  ! Maximum k
-  INTEGER, PARAMETER :: nk_xpow=128 ! Number of k values (used to be 32)
-  REAL, PARAMETER :: amin_xpow=0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1 (CMB lensing?))
+  REAL, PARAMETER :: kmin_xpow=1e-3 ! Minimum k to calculate P(k); it will be extrapolated below this by Limber
+  REAL, PARAMETER :: kmax_xpow=1e2  ! Maximum k to calculate P(k); it will be extrapolated above this by Limber
+  INTEGER, PARAMETER :: nk_xpow=128 ! Number of log-spaced k values (used to be 32)
+  REAL, PARAMETER :: amin_xpow=0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1)
   REAL, PARAMETER :: amax_xpow=1.0  ! Maximum scale factor
-  INTEGER, PARAMETER :: na_xpow=16  ! Number of scale factores
+  INTEGER, PARAMETER :: na_xpow=16  ! Number of linearly-spaced scale factores
 
   CALL get_command_argument(1,mode)
   IF(mode=='') THEN
@@ -149,8 +161,8 @@ PROGRAM HMx_driver
      WRITE(*,*) '35 - Power spectra of cored halo profiles'
      WRITE(*,*) '36 - TESTS: hydro spectra'
      WRITE(*,*) '37 - Produce CFHTLenS correlation functions'
-     WRITE(*,*) '38 - '
-     WRITE(*,*) '39 - '
+     WRITE(*,*) '38 - Tilman AGN model triad for all feedback models'
+     WRITE(*,*) '39 - Tilman AGN model Triad for all feedback models (Triad 3 ell)'
      WRITE(*,*) '40 - Halo bias'
      WRITE(*,*) '41 - 3D power as a function of cosmological parameters'
      WRITE(*,*) '42 - PAPER: Contributions to k-k C(l) integral'
@@ -168,8 +180,10 @@ PROGRAM HMx_driver
      WRITE(*,*) '54 - Trispectrum test'
      WRITE(*,*) '55 - Triad for all feedback models'
      WRITE(*,*) '56 - Triad for all feedback models (Triad 3 ell)'
-     WRITE(*,*) '57 - Triad: KiDS(0.1->0.9)-y computed with actual BAHAMAS spectra'
+     WRITE(*,*) '57 - Triad computed with direct integration of a subset of measured 3D BAHAMAS spectra'
      WRITE(*,*) '58 - Multiple same fields check'
+     WRITE(*,*) '59 - Tinker (2010) bias plot check'
+     WRITE(*,*) '60 - Triad computed with direct integration of all measured 3D BAHAMAS spectra'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -292,7 +306,7 @@ PROGRAM HMx_driver
         ELSE IF(imode==52) THEN
 
            ! Get the k values from the simulation measured P(k)
-           infile='/Users/Mead/Physics/data/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+           infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
            CALL read_k_values(infile,k,nk)
 
         ELSE
@@ -356,7 +370,7 @@ PROGRAM HMx_driver
         z_tab(4)=2.0
 
         ! Get the k values from the simulation measured P(k)
-        infile='/Users/Mead/Physics/data/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+        infile='/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
         CALL read_k_values(infile,k,nk)
         
      END IF
@@ -1042,15 +1056,22 @@ PROGRAM HMx_driver
      WRITE(*,*) '======================================================='
      WRITE(*,*)
 
-     ! Set the ell range
-     lmin=1
-     lmax=1e4 ! Problems if this is pushed up to 10^5
-     IF(imode==11 .OR. imode==37) lmax=1e5 ! Need higher lmax for the correlation functions
-     nl=128
+     ! Set the ell range and fill ell array
+     IF(imode==47) THEN
+        lmin=2.
+        lmax=10000.
+        nl=lmax-lmin+1
+        CALL fill_array(lmin,lmax,ell,nl)
+     ELSE
+        lmin=1e0
+        lmax=1e4 ! Problems if this is pushed up to 10^5
+        IF(imode==11 .OR. imode==37) lmax=1e5 ! Need higher lmax for the correlation functions
+        nl=128
+        CALL fill_array(log(lmin),log(lmax),ell,nl)
+        ell=exp(ell)
+     END IF
 
      ! Allocate arrays for l and C(l)
-     CALL fill_array(log(lmin),log(lmax),ell,nl)
-     ell=exp(ell)
      ALLOCATE(Cl(2,2,nl))
 
      ! Set the angular arrays in degrees and allocate arrays for theta and xi(theta)
@@ -1081,7 +1102,7 @@ PROGRAM HMx_driver
 
      IF(imode==7 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
 
-        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        ! Write cosmology to screen
         CALL print_cosmology(cosm)
 
         ! Write out diagnostics
@@ -1262,8 +1283,7 @@ PROGRAM HMx_driver
 
         ! Breakdown cross-correlation in terms of mass
 
-        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-        !CALL initialise_cosmology(verbose,cosm)
+        ! Print to screen
         CALL print_cosmology(cosm)
 
         ! Fill out the projection kernels
@@ -1410,7 +1430,7 @@ PROGRAM HMx_driver
 
         ! Break down cross-correlation in terms of redshift
 
-        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
+        ! Print to screen
         CALL print_cosmology(cosm)
 
         CALL assign_halomod(ihm,hmod,verbose)
@@ -1513,17 +1533,19 @@ PROGRAM HMx_driver
 
      END IF
 
-  ELSE IF(imode==12 .OR. imode==44 .OR. imode==55 .OR. imode==56) THEN
+  ELSE IF(imode==12 .OR. imode==44 .OR. imode==38 .OR. imode==39 .OR. imode==55 .OR. imode==56) THEN
 
      ! Triad stuff
      ! 12 - Triad (T_5 cross correlations)
+     ! 38 - AGN triad for all BAHAMAS feedback scenarios
+     ! 39 - AGN triad for all BAHAMAS feedback scenarios and ell
      ! 44 - Triad for paper (fixed WMAP9 and feedback)
      ! 55 - Triad for all BAHAMAS feedback scenarios
      ! 56 - Triad for all BAHAMAS feedback scenarios and ell
 
      IF(imode==12 .OR. imode==44) THEN
         nfeed=1
-     ELSE IF(imode==55 .OR. imode==56) THEN
+     ELSE IF(imode==38 .OR. imode==39 .OR. imode==55 .OR. imode==56) THEN
         nfeed=3
      ELSE
         STOP 'HMx_DRIVER: Error, something fucked up'
@@ -1533,7 +1555,7 @@ PROGRAM HMx_driver
      dir='data'
 
      ! Assign the cosmological model
-     IF(imode==44 .OR. imode==55 .OR. imode==56) icosmo=4 ! WMAP 9 - BAHAMAS
+     IF(imode==38 .OR. imode==39 .OR. imode==44 .OR. imode==55 .OR. imode==56) icosmo=4 ! WMAP 9 - BAHAMAS
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)          
@@ -1546,19 +1568,9 @@ PROGRAM HMx_driver
         ! Allocate arrays for l and C(l)
         CALL fill_array(log(lmin),log(lmax),ell,nl)
         ell=exp(ell)
-     ELSE IF(imode==56) THEN        
-        nl=10
-        ALLOCATE(ell(nl))
-        ell(1)=1.018233764908628416e+02
-        ell(2)=1.553312629199899391e+02
-        ell(3)=2.323690199521311399e+02
-        ell(4)=3.400698045589385288e+02
-        ell(5)=4.735860422267907666e+02
-        ell(6)=6.606652213933027724e+02
-        ell(7)=8.337396960949569120e+02
-        ell(8)=1.314593569663487642e+03
-        ell(9)=1.844659111122426793e+03
-        ell(10)=2.590093228780283425e+03
+     ELSE IF(imode==39 .OR. imode==56) THEN
+        ! Triad 3 ell values
+        CALL triad_ell(ell,nl)
      ELSE
         STOP 'HMx_DRIVER: Error, something fucked up, ell not set'
      END IF
@@ -1592,10 +1604,13 @@ PROGRAM HMx_driver
 
         IF(imode==44) ihm=18 ! AGN tuned
 
+        IF(imode==38 .OR. imode==39) THEN
+           IF(j==1) ihm=18 ! AGN tuned
+           IF(j==2) ihm=17 ! AGN low
+           IF(j==3) ihm=19 ! AGN high
+        END IF
+
         IF(imode==55 .OR. imode==56) THEN
-           !IF(j==1) ihm=18 ! AGN tuned
-           !IF(j==2) ihm=17 ! AGN low
-           !IF(j==3) ihm=19 ! AGN high
            IF(j==1) ihm=39 ! AGN tuned
            IF(j==2) ihm=38 ! AGN low
            IF(j==3) ihm=40 ! AGN high
@@ -1627,12 +1642,10 @@ PROGRAM HMx_driver
      ! Assign the cosmology
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
 
      ! Assign the halo model
-     CALL assign_halomod(ihm,hmod,verbose)
-
-     ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     CALL print_cosmology(cosm)
+     CALL assign_halomod(ihm,hmod,verbose)     
 
      ! Set the ell range and allocate arrays for l and C(l)
      lmin=1e0
@@ -1675,6 +1688,8 @@ PROGRAM HMx_driver
   ELSE IF(imode==14 .OR. imode==33) THEN
 
      ! Make power spectra variations as a function of baryon parameter variations
+     ! 14 - General version
+     ! 33 - Paper version
 
      ! Number of values to try for each parameter
      m=9
@@ -1706,9 +1721,6 @@ PROGRAM HMx_driver
      icosmo=4
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
-
-     ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
-     !CALL initialise_cosmology(verbose,cosm)
      CALL print_cosmology(cosm)
 
      ! Initiliasation for the halo-model calcualtion
@@ -1726,66 +1738,132 @@ PROGRAM HMx_driver
      ! Prevents warning
      ilog=.FALSE.
 
-     ! Number of parameters
-     npa=11
-
      ! Loop over parameters     
-     DO ipa=1,npa
+     DO ipa=1,param_n
+
+        ! Cycle HMcode parameters
+        IF(ipa>=21 .AND. ipa<=32) CYCLE
         
         ! Set maximum and minimum parameter values and linear or log range
-        IF(ipa==1) THEN
-           ! alpha - virial temperature pre factor
-           param_min=0.05
-           param_max=0.65
+        IF(ipa==param_alpha) THEN
+           ! 1 - alpha - virial temperature pre factor
+           param_min=hmod%alpha-0.3
+           param_max=hmod%alpha+0.3
            ilog=.FALSE.
-        ELSE IF(ipa==2) THEN
-           ! epsilon - concentration change due to gas
-           param_min=0.5
-           param_max=2.0
+        ELSE IF(ipa==param_eps) THEN
+           ! 2 - epsilon - concentration change due to gas
+           param_min=hmod%eps-0.5
+           param_max=hmod%eps+0.5
            ilog=.FALSE.
-        ELSE IF(ipa==3) THEN
-           ! Gamma - KS polytropic index
-           param_min=1.12
-           param_max=1.22
+        ELSE IF(ipa==param_gamma) THEN
+           ! 3 - Gamma - KS polytropic index
+           param_min=hmod%Gamma-0.05
+           param_max=hmod%Gamma+0.05
            ilog=.FALSE.
-        ELSE IF(ipa==4) THEN
-           ! M0 - bound gas transition in Msun/h
-           param_min=1e13
-           param_max=1e15
+        ELSE IF(ipa==param_M0) THEN
+           ! 4 - M0 - bound gas transition in Msun/h
+           param_min=hmod%M0/10.
+           param_max=hmod%M0*10.
            ilog=.TRUE.
-        ELSE IF(ipa==5) THEN
-           ! A* - Stellar mass fraction
-           param_min=0.02
-           param_max=0.04
+        ELSE IF(ipa==param_Astar) THEN
+           ! 5 - A* - Stellar mass fraction
+           param_min=hmod%Astar-0.01
+           param_max=hmod%Astar+0.01
            ilog=.FALSE.
-        ELSE IF(ipa==6) THEN
-           ! WHIM temperature in K
-           param_min=1e5
-           param_max=1e7
+        ELSE IF(ipa==param_Twhim) THEN
+           ! 6 - WHIM temperature in K
+           param_min=hmod%Twhim/10.
+           param_max=hmod%Twhim*10.
            ilog=.TRUE.
-        ELSE IF(ipa==7) THEN
-           ! c* - stellar concentation
-           param_min=10.
-           param_max=100.
+        ELSE IF(ipa==param_cstar) THEN
+           ! 7 - c* - stellar concentation
+           param_min=hmod%cstar/2.
+           param_max=hmod%cstar*2.
            ilog=.TRUE.
-        ELSE IF(ipa==8) THEN
-           ! fcold - fraction of bound gas that is cold
-           param_min=0.0
-           param_max=0.25
+        ELSE IF(ipa==param_fcold) THEN
+           ! 8 - fcold - fraction of bound gas that is cold
+           param_min=hmod%fcold
+           param_max=hmod%fcold+0.25
+           ilog=.FALSE.        
+        ELSE IF(ipa==param_mstar) THEN
+           ! 9 - M* - peak of stellar halo mass filling
+           param_min=hmod%mstar/10.
+           param_max=hmod%mstar*10.
+           ilog=.TRUE.
+        ELSE IF(ipa==param_sstar) THEN
+           ! 10 - sigma* - width of stellar halo mass filling distribution
+           param_min=hmod%sstar-0.5
+           param_max=hmod%sstar+0.5
+           ilog=.FALSE. 
+        ELSE IF(ipa==param_alphap) THEN
+           ! 11 - alphap - alpha mass index
+           param_min=hmod%alphap-0.1
+           param_max=hmod%alphap+0.1
            ilog=.FALSE.
-        ELSE IF(ipa==9) THEN
-           ! alphap - alpha mass index
-           param_min=-0.1
-           param_max=0.1
+        ELSE IF(ipa==param_Gammap) THEN
+           ! 12 - Gammap - Gamma mass index
+           param_min=hmod%Gammap-0.01
+           param_max=hmod%Gammap+0.01
+           ilog=.FALSE.       
+        ELSE IF(ipa==param_cstarp) THEN
+           ! 13 - cstarp - mass power law for c*
+           param_min=hmod%cstarp-0.1
+           param_max=hmod%cstarp+0.1
            ilog=.FALSE.
-        ELSE IF(ipa==10) THEN
-           ! Gammap - Gamma mass index
-           param_min=-0.01
-           param_max=0.01
+        ELSE IF(ipa==param_fhot) THEN
+           ! 14 - fhot - hot gas fraction
+           param_min=hmod%fcold
+           param_max=hmod%fcold+0.25
            ilog=.FALSE.
-        ELSE IF(ipa==11) THEN
-           param_min=-0.5
-           param_max=0.
+        ELSE IF(ipa==param_alphaz) THEN
+           ! 15 - alphaz - z power-law for alpha
+           param_min=hmod%alphaz-0.1
+           param_max=hmod%alphaz+0.1
+           ilog=.FALSE.
+        ELSE IF(ipa==param_gammaz) THEN
+           ! 16 - Gammaz - z power-law for Gamma
+           param_min=hmod%gammaz-0.1
+           param_max=hmod%gammaz+0.1
+           ilog=.FALSE.
+        ELSE IF(ipa==param_M0z) THEN
+           ! 17 - M0z - z power-law for M0
+           param_min=hmod%M0z-0.1
+           param_max=hmod%M0z+0.1
+           ilog=.FALSE.
+        ELSE IF(ipa==param_Astarz) THEN
+           ! 18 - Astarz - z power-law for A*
+           param_min=hmod%Astarz-0.1
+           param_max=hmod%Astarz+0.1
+           ilog=.FALSE.
+        ELSE IF(ipa==param_Twhimz) THEN
+           ! 19 - Twhimz - z power-law for Twhim
+           param_min=hmod%Twhimz-0.1
+           param_max=hmod%Twhimz+0.1
+           ilog=.FALSE.
+        ELSE IF(ipa==param_eta) THEN
+           ! 20 - eta - power-law for central galaxy mass fraction
+           param_min=hmod%eta-0.5
+           param_max=hmod%eta
+           ilog=.FALSE.
+        ELSE IF(ipa==param_epsz) THEN
+           ! 33 - epsz - z power-law for epsilon
+           param_min=hmod%epsz-0.1
+           param_max=hmod%epsz+0.1
+           ilog=.FALSE.
+        ELSE IF(ipa==param_beta) THEN
+           ! 34 - beta - temperature of hot gas
+           param_min=hmod%beta-0.3
+           param_max=hmod%beta+0.3
+           ilog=.FALSE.
+        ELSE IF(ipa==param_betap) THEN
+           ! 35 - betap - mass power law for beta
+           param_min=hmod%betap-0.1
+           param_max=hmod%betap+0.1
+           ilog=.FALSE.
+        ELSE IF(ipa==param_betaz) THEN
+           ! 36 - betaz - z power law for beta
+           param_min=hmod%betaz-0.1
+           param_max=hmod%betaz+0.1
            ilog=.FALSE.
         END IF
 
@@ -1802,44 +1880,57 @@ PROGRAM HMx_driver
            CALL assign_halomod(ihm,hmod,verbose)
 
            IF(hmod%HMx_mode==1 .OR. hmod%HMx_mode==2 .OR. hmod%HMx_mode==3) THEN
-              IF(ipa==1)  hmod%alpha=param
-              IF(ipa==2)  hmod%eps=param
-              IF(ipa==3)  hmod%Gamma=param
-              IF(ipa==4)  hmod%M0=param
-              IF(ipa==5)  hmod%Astar=param
-              IF(ipa==6)  hmod%Twhim=param
-              IF(ipa==7)  hmod%cstar=param
-              IF(ipa==8)  hmod%fcold=param
-              IF(ipa==9)  hmod%alphap=param
-              IF(ipa==10) hmod%Gammap=param
-              IF(ipa==11) hmod%eta=param
+              IF(ipa==param_alpha)  hmod%alpha=param
+              IF(ipa==param_eps)    hmod%eps=param
+              IF(ipa==param_Gamma)  hmod%Gamma=param
+              IF(ipa==param_M0)     hmod%M0=param
+              IF(ipa==param_Astar)  hmod%Astar=param
+              IF(ipa==param_Twhim)  hmod%Twhim=param
+              IF(ipa==param_cstar)  hmod%cstar=param
+              IF(ipa==param_fcold)  hmod%fcold=param
+              IF(ipa==param_mstar)  hmod%mstar=param
+              IF(ipa==param_sstar)  hmod%sstar=param
+              IF(ipa==param_alphap) hmod%alphap=param
+              IF(ipa==param_Gammap) hmod%Gammap=param
+              IF(ipa==param_cstarp) hmod%cstarp=param
+              IF(ipa==param_fhot)   hmod%fhot=param
+              IF(ipa==param_alphaz) hmod%alphaz=param
+              IF(ipa==param_Gammaz) hmod%Gammaz=param
+              IF(ipa==param_M0z)    hmod%M0z=param
+              IF(ipa==param_Astarz) hmod%Astarz=param
+              IF(ipa==param_Twhimz) hmod%Twhimz=param
+              IF(ipa==param_eta)    hmod%eta=param
+              IF(ipa==param_epsz)   hmod%epsz=param
+              IF(ipa==param_beta)   hmod%beta=param
+              IF(ipa==param_betap)  hmod%betap=param
+              IF(ipa==param_betaz)  hmod%betaz=param
            ELSE IF(hmod%HMx_mode==4) THEN
-              IF(ipa==1) THEN
+              IF(ipa==param_alpha) THEN
                  hmod%A_alpha=0.
                  hmod%B_alpha=0.
                  hmod%C_alpha=0.
                  hmod%D_alpha=param
-              ELSE IF(ipa==2) THEN
+              ELSE IF(ipa==param_eps) THEN
                  hmod%A_eps=0.
                  hmod%B_eps=0.
                  hmod%C_eps=0.
                  hmod%D_eps=log10(param)
-              ELSE IF(ipa==3) THEN
+              ELSE IF(ipa==param_Gamma) THEN
                  hmod%A_Gamma=0.
                  hmod%B_Gamma=0.
                  hmod%C_Gamma=0.
                  hmod%D_Gamma=param
-              ELSE IF(ipa==4) THEN
+              ELSE IF(ipa==param_M0) THEN
                  hmod%A_M0=0.
                  hmod%B_M0=0.
                  hmod%C_M0=0.
                  hmod%D_M0=log10(param)
-              ELSE IF(ipa==5) THEN
+              ELSE IF(ipa==param_Astar) THEN
                  hmod%A_Astar=0.
                  hmod%B_Astar=0.
                  hmod%C_Astar=0.
                  hmod%D_Astar=param
-              ELSE IF(ipa==6) THEN
+              ELSE IF(ipa==param_Twhim) THEN
                  hmod%A_Twhim=0.
                  hmod%B_Twhim=0.
                  hmod%C_Twhim=0.
@@ -2308,8 +2399,6 @@ PROGRAM HMx_driver
         ! Assigns the cosmological model
         CALL assign_cosmology(icosmo,cosm,verbose)
         CALL init_cosmology(cosm)
-
-        ! Normalises power spectrum (via sigma_8) and fills sigma(R) look-up tables
         CALL print_cosmology(cosm)
 
         ! Initiliasation for the halomodel calcualtion
@@ -3142,8 +3231,8 @@ PROGRAM HMx_driver
      CALL print_halomod(hmod,cosm,verbose)
 
      ! Range in nu
-     nu_min=0.1
-     nu_max=6.
+     numin=0.1
+     numax=6.
      n=256
 
      ! Loop over nu and write out mass function
@@ -3151,7 +3240,7 @@ PROGRAM HMx_driver
      OPEN(8,file='data/gnu_functions.dat')
      OPEN(9,file='data/mass_functions.dat')
      DO i=1,n
-        nu=progression(nu_min,nu_max,i,n)
+        nu=progression(numin,numax,i,n)
         mass=M_nu(nu,hmod)
         mf=mass_function(mass,hmod,cosm)
         WRITE(7,*) nu, mass, b_ps(nu,hmod), b_st(nu,hmod), b_Tinker(nu,hmod)
@@ -3248,15 +3337,15 @@ PROGRAM HMx_driver
      CALL print_halomod(hmods(1),cosms(1),verbose)
 
      ! Range in nu
-     nu_min=0.1
-     nu_max=6.
+     numin=0.1
+     numax=6.
      n=256
 
      ALLOCATE(masses(ncos))
      OPEN(7,file='data/nu_mass_Lbox.dat')
      DO i=1,n
         DO j=1,ncos
-           nu=progression(nu_min,nu_max,i,n)
+           nu=progression(numin,numax,i,n)
            masses(j)=M_nu(nu,hmods(j))
            !mf, mf*mass/comoving_matter_density(cosm), mf*mass**2/comoving_matter_density(cosm)
         END DO
@@ -3357,29 +3446,61 @@ PROGRAM HMx_driver
      END DO
      CLOSE(7)
 
-  ELSE IF(imode==57) THEN
+  ELSE IF(imode==57 .OR. imode==60) THEN
+
+     ! Calculate C(l) by direct integration of the measured 3D BAHAMAS power spectra
 
      ! Assigns the cosmological model
-     icosmo=4 ! WMAP9
+     icosmo=4 ! 4 - WMAP9
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
      CALL print_cosmology(cosm)
 
-     ! Redshifts
-     na=4
-     ALLOCATE(a(na))
-     a(1)=scale_factor_z(2.0)
-     a(2)=scale_factor_z(1.0)
-     a(3)=scale_factor_z(0.5)
-     a(4)=scale_factor_z(0.0)
+     ! Choose the set of redshifts to use
+     IF(imode==57) THEN
+        na=4
+        ALLOCATE(a(na))
+        a(1)=scale_factor_z(2.0)
+        a(2)=scale_factor_z(1.0)
+        a(3)=scale_factor_z(0.5)
+        a(4)=scale_factor_z(0.0)
+     ELSE IF(imode==60) THEN
+        na=11
+        ALLOCATE(a(na))
+        a(1)=scale_factor_z(2.0)
+        a(2)=scale_factor_z(1.75)
+        a(3)=scale_factor_z(1.5)
+        a(4)=scale_factor_z(1.25)
+        a(5)=scale_factor_z(1.0)
+        a(6)=scale_factor_z(0.75)
+        a(7)=scale_factor_z(0.5)
+        a(8)=scale_factor_z(0.375)
+        a(9)=scale_factor_z(0.25)
+        a(10)=scale_factor_z(0.125)
+        a(11)=scale_factor_z(0.0)
+     ELSE
+        STOP 'HMX_DRIVER: Error, iz specified incorrectly'
+     END IF
+        
+     ! Set the mesh size used for the measured P(k)
+     mesh=1024
 
-     ! Allocate arrays for l and C(l)
-     lmin=100.
-     lmax=4000.
-     nl=64     
-     CALL fill_array(log(lmin),log(lmax),ell,nl)
-     ell=exp(ell)
+     ! Triad 3 ell values
+     CALL triad_ell(ell,nl)
      ALLOCATE(Cl(nl,2,2))
+
+     ! Triad 3 ell bin-edge values
+     CALL triad_ell_edges(ell_edge,n_edge)
+
+     ! Get range for all ell
+     lmin=ell_edge(1)
+     lmax=ell_edge(nl+1)
+     n_all=NINT(lmax-lmin+1)
+     CALL fill_array(lmin,lmax,all_ell,n_all)
+     ALLOCATE(all_Cl(n_all,2,2))
+     
+     ! Allocate array for cross-correlation names
+     ALLOCATE(ixx_names(2))
 
      ! Loop over BAHAMAS models
      DO j=1,3
@@ -3387,44 +3508,93 @@ PROGRAM HMx_driver
         ! Set BAHAMAS models
         IF(j==1) THEN
            name='AGN_TUNED_nu0'
-           outfile='data/triad_Cl_direct_AGN_y-gal_z0.1-0.9.dat'
+           outbase='data/triad_Cl_direct_AGN'
         ELSE IF(j==2) THEN
            name='AGN_7p6_nu0'
-           outfile='data/triad_Cl_direct_AGN-lo_y-gal_z0.1-0.9.dat'
+           outbase='data/triad_Cl_direct_AGN-lo'
         ELSE IF(j==3) THEN
            name='AGN_8p0_nu0'
-           outfile='data/triad_Cl_direct_AGN-hi_y-gal_z0.1-0.9.dat'
+           outbase='data/triad_Cl_direct_AGN-hi'
         ELSE
            STOP 'HMx_DRIVER: Error, feedback senario not supported'
         END IF
 
-        ! Set fields
-        ip(1)=field_matter
-        ip(2)=field_electron_pressure
+        ! Loop over first tracer
+        verbose2=verbose
+        DO ii=1,4
 
-        ! Read in power
-        DO i=1,na
-           CALL read_BAHAMAS_power(k,pow_sim,nk,redshift_a(a(i)),name,ip,cosm)
-           IF(i==1) THEN
-              ALLOCATE(pow_ka(nk,na))
+           IF(ii==1) THEN
+              ix(1)=tracer_KiDS_450
+              ixx_names(1)='gal_z0.1-0.9'
+           ELSE IF(ii==2) THEN
+              ix(1)=tracer_KiDS_450_bin1
+              ixx_names(1)='gal_z0.1-0.5'
+           ELSE IF(ii==3) THEN
+              ix(1)=tracer_KiDS_450_bin2
+              ixx_names(1)='gal_z0.5-0.9'
+           ELSE IF(ii==4) THEN
+              ix(1)=tracer_Compton_y
+              ixx_names(1)='y'
            END IF
-           pow_ka(:,i)=pow_sim
+
+           ! Loop over second tracer
+           DO jj=1,4
+
+              IF(jj==1) THEN
+                 ix(2)=tracer_KiDS_450
+                 ixx_names(2)='gal_z0.1-0.9'
+              ELSE IF(jj==2) THEN
+                 ix(2)=tracer_KiDS_450_bin1
+                 ixx_names(2)='gal_z0.1-0.5'
+              ELSE IF(jj==3) THEN
+                 ix(2)=tracer_KiDS_450_bin2
+                 ixx_names(2)='gal_z0.5-0.9'
+              ELSE IF(jj==4) THEN
+                 ix(2)=tracer_Compton_y
+                 ixx_names(2)='y'
+              END IF
+
+              ! Use the xpowlation type to set the necessary halo profiles
+              DO i=1,2
+                 CALL set_field_for_xpow(ix(i),ip(i))
+              END DO
+
+              ! Read in power
+              DO i=1,na
+                 CALL read_BAHAMAS_power(k,pow_sim,nk,redshift_a(a(i)),name,mesh,ip,cosm,&
+                      kmax=kmax_BAHAMAS,&
+                      cut_nyquist=cut_nyquist,&
+                      subtract_shot=subtract_shot,&
+                      response=response_triad,&
+                      verbose=verbose2)
+                 verbose2=.FALSE.
+                 IF(i==1) THEN
+                    ALLOCATE(pow_ka(nk,na))
+                 END IF
+                 pow_ka(:,i)=pow_sim
+              END DO
+
+              ! Do the cross correlation
+              IF(bin_theory) THEN                
+                 CALL xpow_pka(ix,all_ell,all_Cl(:,1,2),n_all,k,a,pow_ka,nk,na,cosm)
+                 CALL bin_theory_ell(all_ell,all_Cl(:,1,2),n_all,ell_edge,Cl(:,1,2),nl)
+              ELSE
+                 CALL xpow_pka(ix,ell,Cl(:,1,2),nl,k,a,pow_ka,nk,na,cosm)
+              END IF
+
+              ! Write data
+              outfile=TRIM(outbase)//'_'//TRIM(ixx_names(1))//'-'//TRIM(ixx_names(2))//'.dat'
+              OPEN(7,file=outfile)
+              DO i=1,nl
+                 WRITE(7,*) ell(i), Cl(i,1,2), ell(i)*(ell(i)+1)*Cl(i,1,2)/twopi
+              END DO
+              CLOSE(7)
+
+              ! Deallocate array
+              DEALLOCATE(pow_ka)
+
+           END DO
         END DO
-
-        ! Do the cross correlation
-        ix(1)=tracer_KiDS_450
-        ix(2)=tracer_Compton_y
-        CALL xpow_pka(ix,ell,Cl(:,1,2),nl,k,a,pow_ka,nk,na,cosm)
-
-        ! Write data
-        OPEN(7,file=outfile)
-        DO i=1,nl
-           WRITE(7,*) ell(i), Cl(i,1,2)
-        END DO
-        CLOSE(7)
-
-        ! Deallocate array
-        DEALLOCATE(pow_ka)
 
      END DO
 
@@ -3468,6 +3638,33 @@ PROGRAM HMx_driver
      END DO
      WRITE(*,*) 'HMx_DRIVER: Done'
      WRITE(*,*)
+
+  ELSE IF(imode==59) THEN
+
+     ! Produce data for Fig. 1 of Tinker et al. (2010)
+
+     ! Assigns the cosmological model
+     icosmo=1
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ihm=44
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,1.,hmod,cosm,verbose)
+
+     ! Range in nu
+     numin=0.1
+     numax=10.
+     n=256
+
+     outfile='data/Tinker_bias.dat'
+     OPEN(7,file=outfile)
+     DO i=1,n
+        nu=exp(progression(log(numin),log(numax),i,n))
+        WRITE(7,*) nu, b_nu(nu,hmod)
+     END DO
+     CLOSE(7)
      
   ELSE
         
@@ -3761,6 +3958,7 @@ CONTAINS
 
     ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
     ! TODO: Speed up if there are repeated fields in ix(n) (should this ever happen?)
+    ! TODO: Add bin theory option
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(nx)
     INTEGER, INTENT(IN) :: nx
@@ -3827,7 +4025,6 @@ CONTAINS
        DO j=i,nnx
           ixx(2)=ix(j)
           CALL xpow_pka(ixx,ell,uCl(:,i,j),nl,k,a,pow_hm(i,j,:,:),nk,na,cosm)
-          !CALL xpow_pka(ixx,ell,Cl(:,i,j),nl,k,a,pow_li,nk,na,cosm)
        END DO
     END DO
 
@@ -3894,40 +4091,76 @@ CONTAINS
          ix==tracer_KiDS_450_highz) THEN
        ! Lensing
        ip=field_matter
+    ELSE IF(ix==tracer_CIB_353) THEN
+       ip=field_CIB_353
+    ELSE IF(ix==tracer_CIB_545) THEN
+       ip=field_CIB_545
+    ELSE IF(ix==tracer_CIB_857) THEN
+       ip=field_CIB_857
+    ELSE IF(ix==tracer_galaxies) THEN
+       ip=field_central_galaxies
     ELSE
        STOP 'SET_FIELD_FOR_XPOW: Error, tracer specified incorrectly'
     END IF
 
   END SUBROUTINE set_field_for_xpow
+  
+  CHARACTER(len=32) FUNCTION BAHAMAS_snap(z)
 
-  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: z
+
+    ! Set the redshift
+    IF(z==0.0) THEN
+       BAHAMAS_snap='snap32'
+    ELSE IF(z==0.125) THEN
+       BAHAMAS_snap='snap31'
+    ELSE IF(z==0.25) THEN
+       BAHAMAS_snap='snap30'
+    ELSE IF(z==0.375) THEN
+       BAHAMAS_snap='snap29'
+    ELSE IF(z==0.5) THEN
+       BAHAMAS_snap='snap28'
+    ELSE IF(z==0.75) THEN
+       BAHAMAS_snap='snap27'
+    ELSE IF(z==1.0) THEN
+       BAHAMAS_snap='snap26'
+    ELSE IF(z==1.25) THEN
+       BAHAMAS_snap='snap25'
+    ELSE IF(z==1.5) THEN
+       BAHAMAS_snap='snap24'
+    ELSE IF(z==1.75) THEN
+       BAHAMAS_snap='snap23'
+    ELSE IF(z==2.0) THEN
+       BAHAMAS_snap='snap22'
+    ELSE
+       STOP 'BAHAMAS_SNAP: Error, redshift specified incorrectly'
+    END IF
+
+  END FUNCTION BAHAMAS_snap
+
+  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,m,z,ip)
 
     IMPLICIT NONE
     CHARACTER(len=*), INTENT(IN) :: model
+    INTEGER, INTENT(IN) :: m
     REAL, INTENT(IN) :: z
     INTEGER, INTENT(IN) :: ip(2)
     CHARACTER(len=64) :: dir
-    CHARACTER(len=32) :: snap, field(2), f1, f2
+    CHARACTER(len=32) :: snap, field(2), f1, f2, mesh
     LOGICAL :: lexist
     INTEGER :: j
     INTEGER, PARAMETER :: computer=1
 
     ! Directory containing everything
-    IF(computer==1) dir='/Users/Mead/Physics/data/BAHAMAS/power/M1536'
-    IF(computer==2) dir='/home/amead/data/BAHAMAS/power/M1536'
+    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/'!M1536'
+    IF(computer==2) dir='/home/amead/BAHAMAS/power/'!M1536'
 
-    ! Set the redshift
-    IF(z==0.0) THEN
-       snap='snap32'
-    ELSE IF(z==0.5) THEN
-       snap='snap28'
-    ELSE IF(z==1.0) THEN
-       snap='snap26'
-    ELSE IF(z==2.0) THEN
-       snap='snap22'
-    ELSE
-       STOP 'BAHAMAS_POWER_FILE_NAME: Error, redshift specified incorrectly'
-    END IF
+    ! Convert the mesh size to a string and append to directory
+    WRITE(mesh,*) m
+    dir=TRIM(dir)//'M'//trim(adjustl(mesh))
+
+    snap=BAHAMAS_snap(z)
 
     ! Set the fields
     DO j=1,2
@@ -3977,7 +4210,7 @@ CONTAINS
 
   END FUNCTION BAHAMAS_power_file_name
 
-  SUBROUTINE read_BAHAMAS_power(k,Pk,nk,z,name,field,cosm,kmin,kmax)
+  SUBROUTINE read_BAHAMAS_power(k,Pk,nk,z,name,mesh,field,cosm,kmin,kmax,cut_nyquist,subtract_shot,response,verbose)
 
     IMPLICIT NONE
     REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
@@ -3985,30 +4218,38 @@ CONTAINS
     INTEGER, INTENT(OUT) :: nk
     REAL, INTENT(IN) :: z
     CHARACTER(len=*), INTENT(IN) :: name
+    INTEGER, INTENT(IN) :: mesh
     INTEGER, INTENT(IN) :: field(2)
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, OPTIONAL, INTENT(IN) :: kmin, kmax
+    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist
+    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot
+    LOGICAL, OPTIONAL, INTENT(IN) :: response
+    LOGICAL, OPTIONAL, INTENT(IN) :: verbose    
     REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
     CHARACTER(len=256) :: infile, dmonly
 
     INTEGER, PARAMETER :: field_all_matter(2)=field_matter
     REAL, PARAMETER :: mmin=1e7
     REAL, PARAMETER :: mmax=1e17
-    LOGICAL, PARAMETER :: cut_nyquist=.FALSE.
-    LOGICAL, PARAMETER :: subtract_shot=.TRUE.
-    LOGICAL, PARAMETER :: verbose=.TRUE.
 
-    dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',z,field_all_matter)
-    infile=BAHAMAS_power_file_name(name,z,field)
+    IF(present_and_correct(response)) THEN
+       dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',mesh,z,field_all_matter)
+    END IF
+    infile=BAHAMAS_power_file_name(name,mesh,z,field)
 
-    CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-    CALL read_simulation_power_spectrum(k,Pk,   nk,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-    Pk=Pk/Pk_DM
+    IF(present_and_correct(response)) THEN
+       CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+    END IF
+    CALL read_simulation_power_spectrum(k,Pk,nk,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+    IF(present_and_correct(response)) Pk=Pk/Pk_DM
 
-    ALLOCATE(Pk_HMcode(nk))
-    CALL calculate_HMcode_a(k,scale_factor_z(z),Pk_HMcode,nk,cosm)
-    Pk=Pk*Pk_HMcode
-
+    IF(present_and_correct(response)) THEN
+       ALLOCATE(Pk_HMcode(nk))
+       CALL calculate_HMcode_a(k,scale_factor_z(z),Pk_HMcode,nk,cosm)
+       Pk=Pk*Pk_HMcode
+    END IF
+    
   END SUBROUTINE read_BAHAMAS_power
 
    SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
@@ -4021,7 +4262,7 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
     LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot ! Logical to subtract shot noise or not
     LOGICAL, OPTIONAL, INTENT(IN) :: verbose ! Logical verbose
-    INTEGER :: i, i1, i2, m
+    INTEGER :: i, j, m
     REAL :: shot, kbig
     LOGICAL :: lexist
 
@@ -4041,79 +4282,148 @@ CONTAINS
     ALLOCATE(k(n),Pk(n))
 
     ! Write to screen
-    IF(PRESENT(verbose)) THEN
-       IF(verbose) THEN
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: nk:', nk
-       END IF
+    IF(present_and_correct(verbose)) THEN
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Initial nk:', n
     END IF
 
     ! Read in data from file
     OPEN(9,file=infile,status='old')
     DO i=1,n
        READ(9,*) k(i), Pk(i), shot
-       IF(PRESENT(subtract_shot)) THEN
-          IF(subtract_shot) Pk(i)=Pk(i)-shot
-       END IF
+       IF(present_and_correct(subtract_shot)) Pk(i)=Pk(i)-shot
     END DO
     CLOSE(9)
 
-    IF(PRESENT(cut_nyquist)) THEN
-       IF(cut_nyquist) THEN
-
-          ! Find position in array of half-Nyquist
-          kbig=k(n)
-          DO i=1,n
-             IF(k(i)>kbig/2.) EXIT
-          END DO
-
-          ! Cut arrays down to half-Nyquist
-          CALL amputate(k,n,i)
-          CALL amputate(Pk,n,i)
-          n=i
-
-          ! Write to screen
-          IF(PRESENT(verbose)) THEN
-             IF(verbose) THEN
-                WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
-             END IF
-          END IF
-
+    IF(present_and_correct(cut_nyquist)) THEN
+       ! Find position in array of half-Nyquist
+       kbig=k(n)
+       DO i=1,n
+          IF(k(i)>kbig/2.) EXIT
+       END DO
+       ! Cut arrays down to half-Nyquist
+       CALL amputate(k,n,i)
+       CALL amputate(Pk,n,i)
+       n=i
+       ! Write to screen
+       IF(present_and_correct(verbose)) THEN
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
        END IF
     END IF
 
-    IF(PRESENT(kmin) .AND. PRESENT(kmax)) THEN
-
-       i1=0
-       i2=0
+    IF(PRESENT(kmin)) THEN
+       j=0
        DO i=1,n-1
           IF(k(i)<kmin .AND. k(i+1)>kmin) THEN
-             i1=i
-          END IF
-          IF(k(i)<kmax .AND. k(i+1)>kmax) THEN
-             i2=i+1
+             j=i
           END IF
        END DO
-
-       IF(i1==0 .OR. i2==0) THEN
-          STOP 'READ_SIMULATION_POWER_SPECTRUM: Error, something went wrong with kmin, kmax'
+       IF(j .NE. 0) THEN
+          CALL amputate_general(k,n,m,j,n)
+          CALL amputate_general(Pk,n,m,j,n)
+          n=m
        END IF
+    END IF
 
-       CALL amputate_general(k,n,m,i1,i2)
-       CALL amputate_general(Pk,n,m,i1,i2)
-       n=m
-
+    IF(PRESENT(kmax)) THEN
+       j=n
+       DO i=1,n-1
+          IF(k(i)<kmax .AND. k(i+1)>kmax) THEN
+             j=i
+          END IF
+       END DO
+       IF(j .NE. n) THEN
+          CALL amputate_general(k,n,m,1,j)
+          CALL amputate_general(Pk,n,m,1,j)
+          n=m
+       END IF
     END IF
 
     ! Write to screen
-    IF(PRESENT(verbose)) THEN
-       IF(verbose) THEN
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
-          WRITE(*,*)
-       END IF
+    IF(present_and_correct(verbose)) THEN
+       !DO i=1,n
+       !   WRITE(*,*) k(i), Pk(i)
+       !END DO
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Final nk:', n
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
+       WRITE(*,*)
     END IF
 
   END SUBROUTINE read_simulation_power_spectrum
+
+  SUBROUTINE triad_ell(ell,nl)
+
+    IMPLICIT NONE
+    REAL, ALLOCATABLE, INTENT(OUT) :: ell(:)
+    INTEGER, INTENT(OUT) :: nl
+
+    ! Triad 3 ell values
+    nl=10
+    ALLOCATE(ell(nl))
+    ell(1)=1.018233764908628416e+02
+    ell(2)=1.553312629199899391e+02
+    ell(3)=2.323690199521311399e+02
+    ell(4)=3.400698045589385288e+02
+    ell(5)=4.735860422267907666e+02
+    ell(6)=6.606652213933027724e+02
+    ell(7)=9.337396960949569120e+02
+    ell(8)=1.314593569663487642e+03
+    ell(9)=1.844659111122426793e+03
+    ell(10)=2.590093228780283425e+03
+
+  END SUBROUTINE triad_ell
+
+  SUBROUTINE triad_ell_edges(ell,nl)
+
+    IMPLICIT NONE
+    REAL, ALLOCATABLE, INTENT(OUT) :: ell(:)
+    INTEGER, INTENT(OUT) :: nl
+
+    ! Triad 3 ell bin edge values
+    nl=11
+    ALLOCATE(ell(nl))
+    ell(1)=1.000000000000000000e+02
+    ell(2)=1.405115826483646799e+02
+    ell(3)=1.974350485834819722e+02
+    ell(4)=2.774191114672182152e+02
+    ell(5)=3.898059840916188250e+02
+    ell(6)=5.477225575051662645e+02
+    ell(7)=7.696136340726083063e+02
+    ell(8)=1.081396297513015952e+03
+    ell(9)=1.519487052336355418e+03
+    ell(10)=2.135055305374795807e+03
+    ell(11)=3.000000000000001364e+03
+
+  END SUBROUTINE triad_ell_edges
+
+  SUBROUTINE bin_theory_ell(ell,Cl,nl,ell_bin,Cl_bin,n_bin)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: ell(nl)
+    REAL, INTENT(IN) :: Cl(nl)
+    INTEGER, INTENT(IN) :: nl
+    REAL, INTENT(IN) :: ell_bin(n_bin+1)
+    REAL, INTENT(OUT) :: Cl_bin(n_bin)
+    INTEGER, INTENT(IN) :: n_bin
+    REAL :: lmin, lmax, weight, weight_total
+
+    ! Loop over new ell values
+    DO i=1,n_bin
+       lmin=ell_bin(i)
+       lmax=ell_bin(i+1)
+       weight_total=0.
+       Cl_bin(i)=0.
+       DO l=1,nl
+          IF(ell(l)>=lmin .AND. ell(l)<lmax) THEN
+             weight=ell(l)
+             Cl_bin(i)=Cl_bin(i)+Cl(l)*weight
+             weight_total=weight_total+weight
+          END IF
+       END DO
+       Cl_bin(i)=Cl_bin(i)/weight_total                   
+    END DO
+    
+  END SUBROUTINE bin_theory_ell
   
 END PROGRAM HMx_driver

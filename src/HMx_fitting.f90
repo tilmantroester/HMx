@@ -30,44 +30,44 @@ PROGRAM HMx_fitting
   LOGICAL :: verbose2
   INTEGER :: out
 
-  ! Fitting parameters
-  INTEGER, PARAMETER :: param_alpha=1
-  INTEGER, PARAMETER :: param_eps=2
-  INTEGER, PARAMETER :: param_gamma=3
-  INTEGER, PARAMETER :: param_M0=4
-  INTEGER, PARAMETER :: param_Astar=5
-  INTEGER, PARAMETER :: param_Twhim=6
-  INTEGER, PARAMETER :: param_cstar=7
-  INTEGER, PARAMETER :: param_fcold=8
-  INTEGER, PARAMETER :: param_mstar=9
-  INTEGER, PARAMETER :: param_sstar=10
-  INTEGER, PARAMETER :: param_alphap=11
-  INTEGER, PARAMETER :: param_Gammap=12
-  INTEGER, PARAMETER :: param_cstarp=13
-  INTEGER, PARAMETER :: param_fhot=14
-  INTEGER, PARAMETER :: param_alphaz=15
-  INTEGER, PARAMETER :: param_Gammaz=16
-  INTEGER, PARAMETER :: param_M0z=17
-  INTEGER, PARAMETER :: param_Astarz=18
-  INTEGER, PARAMETER :: param_Twhimz=19
-  INTEGER, PARAMETER :: param_eta=20
-  INTEGER, PARAMETER :: param_HMcode_Dv0=21
-  INTEGER, PARAMETER :: param_HMcode_Dvp=22
-  INTEGER, PARAMETER :: param_HMcode_dc0=23
-  INTEGER, PARAMETER :: param_HMcode_dcp=24
-  INTEGER, PARAMETER :: param_HMcode_eta0=25
-  INTEGER, PARAMETER :: param_HMcode_eta1=26
-  INTEGER, PARAMETER :: param_HMcode_f0=27
-  INTEGER, PARAMETER :: param_HMcode_fp=28
-  INTEGER, PARAMETER :: param_HMcode_kstar=29
-  INTEGER, PARAMETER :: param_HMcode_As=30
-  INTEGER, PARAMETER :: param_HMcode_alpha0=31
-  INTEGER, PARAMETER :: param_HMcode_alpha1=32
-  INTEGER, PARAMETER :: param_epsz=33
-  INTEGER, PARAMETER :: param_beta=34
-  INTEGER, PARAMETER :: param_betap=35
-  INTEGER, PARAMETER :: param_betaz=36
-  INTEGER, PARAMETER :: param_n=36
+!!$  ! Fitting parameters
+!!$  INTEGER, PARAMETER :: param_alpha=1
+!!$  INTEGER, PARAMETER :: param_eps=2
+!!$  INTEGER, PARAMETER :: param_gamma=3
+!!$  INTEGER, PARAMETER :: param_M0=4
+!!$  INTEGER, PARAMETER :: param_Astar=5
+!!$  INTEGER, PARAMETER :: param_Twhim=6
+!!$  INTEGER, PARAMETER :: param_cstar=7
+!!$  INTEGER, PARAMETER :: param_fcold=8
+!!$  INTEGER, PARAMETER :: param_mstar=9
+!!$  INTEGER, PARAMETER :: param_sstar=10
+!!$  INTEGER, PARAMETER :: param_alphap=11
+!!$  INTEGER, PARAMETER :: param_Gammap=12
+!!$  INTEGER, PARAMETER :: param_cstarp=13
+!!$  INTEGER, PARAMETER :: param_fhot=14
+!!$  INTEGER, PARAMETER :: param_alphaz=15
+!!$  INTEGER, PARAMETER :: param_Gammaz=16
+!!$  INTEGER, PARAMETER :: param_M0z=17
+!!$  INTEGER, PARAMETER :: param_Astarz=18
+!!$  INTEGER, PARAMETER :: param_Twhimz=19
+!!$  INTEGER, PARAMETER :: param_eta=20
+!!$  INTEGER, PARAMETER :: param_HMcode_Dv0=21
+!!$  INTEGER, PARAMETER :: param_HMcode_Dvp=22
+!!$  INTEGER, PARAMETER :: param_HMcode_dc0=23
+!!$  INTEGER, PARAMETER :: param_HMcode_dcp=24
+!!$  INTEGER, PARAMETER :: param_HMcode_eta0=25
+!!$  INTEGER, PARAMETER :: param_HMcode_eta1=26
+!!$  INTEGER, PARAMETER :: param_HMcode_f0=27
+!!$  INTEGER, PARAMETER :: param_HMcode_fp=28
+!!$  INTEGER, PARAMETER :: param_HMcode_kstar=29
+!!$  INTEGER, PARAMETER :: param_HMcode_As=30
+!!$  INTEGER, PARAMETER :: param_HMcode_alpha0=31
+!!$  INTEGER, PARAMETER :: param_HMcode_alpha1=32
+!!$  INTEGER, PARAMETER :: param_epsz=33
+!!$  INTEGER, PARAMETER :: param_beta=34
+!!$  INTEGER, PARAMETER :: param_betap=35
+!!$  INTEGER, PARAMETER :: param_betaz=36
+!!$  INTEGER, PARAMETER :: param_n=36
 
   ! Halo model calculation parameters
   REAL, PARAMETER :: mmin=mmin_HMx ! Minimum halo mass for the calculation
@@ -1237,7 +1237,7 @@ CONTAINS
 
     ! Directory containing everything
     IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
-    IF(computer==2) dir='/home/amead/data/BAHAMAS/power/M1536'
+    IF(computer==2) dir='/home/amead/BAHAMAS/power/M1536'
 
     ! Set the redshift
     IF(z==0.0) THEN

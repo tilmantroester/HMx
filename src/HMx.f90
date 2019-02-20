@@ -26,9 +26,12 @@ MODULE HMx
   PUBLIC :: set_halo_type
   PUBLIC :: halo_type
   PUBLIC :: M_nu
+  PUBLIC :: b_nu
+  PUBLIC :: g_nu
   PUBLIC :: nu_M
   PUBLIC :: mean_bias
   PUBLIC :: mean_nu
+  PUBLIC :: mean_halo_density
   PUBLIC :: virial_radius
   PUBLIC :: convert_mass_definitions
   PUBLIC :: win_type
@@ -87,8 +90,50 @@ MODULE HMx
   PUBLIC :: field_static_gas
   PUBLIC :: field_central_stars
   PUBLIC :: field_satellite_stars
+  PUBLIC :: field_CIB_353
+  PUBLIC :: field_CIB_545
+  PUBLIC :: field_CIB_857
   PUBLIC :: i1_fields
   PUBLIC :: i2_fields
+
+  ! Fitting parameters
+  PUBLIC :: param_alpha
+  PUBLIC :: param_eps
+  PUBLIC :: param_gamma
+  PUBLIC :: param_M0
+  PUBLIC :: param_Astar
+  PUBLIC :: param_Twhim
+  PUBLIC :: param_cstar
+  PUBLIC :: param_fcold
+  PUBLIC :: param_mstar
+  PUBLIC :: param_sstar
+  PUBLIC :: param_alphap
+  PUBLIC :: param_Gammap
+  PUBLIC :: param_cstarp
+  PUBLIC :: param_fhot
+  PUBLIC :: param_alphaz
+  PUBLIC :: param_Gammaz
+  PUBLIC :: param_M0z
+  PUBLIC :: param_Astarz
+  PUBLIC :: param_Twhimz
+  PUBLIC :: param_eta
+  PUBLIC :: param_HMcode_Dv0
+  PUBLIC :: param_HMcode_Dvp
+  PUBLIC :: param_HMcode_dc0
+  PUBLIC :: param_HMcode_dcp
+  PUBLIC :: param_HMcode_eta0
+  PUBLIC :: param_HMcode_eta1
+  PUBLIC :: param_HMcode_f0
+  PUBLIC :: param_HMcode_fp
+  PUBLIC :: param_HMcode_kstar
+  PUBLIC :: param_HMcode_As
+  PUBLIC :: param_HMcode_alpha0
+  PUBLIC :: param_HMcode_alpha1
+  PUBLIC :: param_epsz
+  PUBLIC :: param_beta
+  PUBLIC :: param_betap
+  PUBLIC :: param_betaz
+  PUBLIC :: param_n
 
   ! Halo-model stuff that needs to be recalculated for each new z
   TYPE halomod
@@ -176,6 +221,7 @@ MODULE HMx
   LOGICAL, PARAMETER :: verbose_HI=.TRUE.       ! Verbosity when doing the HI initialisation
 
   ! Field types
+  ! TODO: Have this run from 1->n, rather than -1->n
   INTEGER, PARAMETER :: field_dmonly=-1
   INTEGER, PARAMETER :: field_matter=0
   INTEGER, PARAMETER :: field_cdm=1
@@ -195,8 +241,50 @@ MODULE HMx
   INTEGER, PARAMETER :: field_static_gas=15
   INTEGER, PARAMETER :: field_central_stars=16
   INTEGER, PARAMETER :: field_satellite_stars=17
+  INTEGER, PARAMETER :: field_CIB_353=18
+  INTEGER, PARAMETER :: field_CIB_545=19
+  INTEGER, PARAMETER :: field_CIB_857=20
   INTEGER, PARAMETER :: i1_fields=-1
-  INTEGER, PARAMETER :: i2_fields=17
+  INTEGER, PARAMETER :: i2_fields=20
+
+   ! Fitting parameters
+  INTEGER, PARAMETER :: param_alpha=1
+  INTEGER, PARAMETER :: param_eps=2
+  INTEGER, PARAMETER :: param_gamma=3
+  INTEGER, PARAMETER :: param_M0=4
+  INTEGER, PARAMETER :: param_Astar=5
+  INTEGER, PARAMETER :: param_Twhim=6
+  INTEGER, PARAMETER :: param_cstar=7
+  INTEGER, PARAMETER :: param_fcold=8
+  INTEGER, PARAMETER :: param_mstar=9
+  INTEGER, PARAMETER :: param_sstar=10
+  INTEGER, PARAMETER :: param_alphap=11
+  INTEGER, PARAMETER :: param_Gammap=12
+  INTEGER, PARAMETER :: param_cstarp=13
+  INTEGER, PARAMETER :: param_fhot=14
+  INTEGER, PARAMETER :: param_alphaz=15
+  INTEGER, PARAMETER :: param_Gammaz=16
+  INTEGER, PARAMETER :: param_M0z=17
+  INTEGER, PARAMETER :: param_Astarz=18
+  INTEGER, PARAMETER :: param_Twhimz=19
+  INTEGER, PARAMETER :: param_eta=20
+  INTEGER, PARAMETER :: param_HMcode_Dv0=21
+  INTEGER, PARAMETER :: param_HMcode_Dvp=22
+  INTEGER, PARAMETER :: param_HMcode_dc0=23
+  INTEGER, PARAMETER :: param_HMcode_dcp=24
+  INTEGER, PARAMETER :: param_HMcode_eta0=25
+  INTEGER, PARAMETER :: param_HMcode_eta1=26
+  INTEGER, PARAMETER :: param_HMcode_f0=27
+  INTEGER, PARAMETER :: param_HMcode_fp=28
+  INTEGER, PARAMETER :: param_HMcode_kstar=29
+  INTEGER, PARAMETER :: param_HMcode_As=30
+  INTEGER, PARAMETER :: param_HMcode_alpha0=31
+  INTEGER, PARAMETER :: param_HMcode_alpha1=32
+  INTEGER, PARAMETER :: param_epsz=33
+  INTEGER, PARAMETER :: param_beta=34
+  INTEGER, PARAMETER :: param_betap=35
+  INTEGER, PARAMETER :: param_betaz=36
+  INTEGER, PARAMETER :: param_n=36
 
 CONTAINS
 
@@ -209,7 +297,7 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=43 ! Total number of pre-defined halo-model types (TODO: this is stupid)
+    INTEGER, PARAMETER :: nhalomod=44 ! Total number of pre-defined halo-model types (TODO: this is stupid)
     CHARACTER(len=256):: names(nhalomod)    
     names(1)='HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
@@ -233,7 +321,7 @@ CONTAINS
     names(20)='Standard halo-model (Seljak 2000) in response'
     names(21)='Cored profile model'
     names(22)='Delta function-NFW star profile model response'
-    names(23)='Tinker mass function and bias'
+    names(23)='Tinker mass function and bias; virial mass'
     names(24)='Full non-linear halo bias'
     names(25)='Villaescusa-Navarro HI halo model'
     names(26)='Delta-function mass function'
@@ -254,6 +342,7 @@ CONTAINS
     names(41)='Put some galaxy mass in the halo/satellites'
     names(42)='Tinker with M200c'
     names(43)='Standard halo-model (Seljak 2000) in matter response'
+    names(44)='Tinker with M200'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
 
@@ -308,7 +397,10 @@ CONTAINS
     ! 2 - Simple Bullock et al. (2001; astro-ph/9909159)
     ! 3 - Duffy et al. (2008; astro-ph/0804.2486): full 200m
     ! 4 - Duffy et al. (2008; astro-ph/0804.2486): full virial
-    ! 5 - Duffy et al. (2008; astro-ph/0804.2486): relaxed 200c
+    ! 5 - Duffy et al. (2008; astro-ph/0804.2486): full 200c
+    ! 6 - Duffy et al. (2008; astro-ph/0804.2486): relaxed 200m
+    ! 7 - Duffy et al. (2008; astro-ph/0804.2486): relaxed virial
+    ! 8 - Duffy et al. (2008; astro-ph/0804.2486): relaxed 200c
     hmod%iconc=4
 
     ! Linear collapse threshold delta_c
@@ -705,7 +797,7 @@ CONTAINS
        hmod%ibias=1
        hmod%i1hdamp=1
        hmod%imf=2
-       hmod%iconc=4 ! Virial Duffy relation
+       hmod%iconc=4 ! Virial Duffy relation for full sample
        hmod%idc=2   ! Virial dc
        hmod%iDv=2   ! Virial Dv
        hmod%ieta=1
@@ -779,7 +871,7 @@ CONTAINS
        hmod%ibias=3 ! Non-linear halo bias
        hmod%iDv=7   ! M200c
        hmod%imf=3   ! Tinker mass function and bias
-       hmod%iconc=5 ! Duffy M200c concentrations
+       hmod%iconc=5 ! Duffy M200c concentrations for full sample
        hmod%idc=1   ! Fixed to 1.686
     ELSE IF(ihm==25) THEN
        ! Villaescusa-Navarro HI halo model
@@ -1002,11 +1094,17 @@ CONTAINS
        ! Things apprpriate for M200c
        hmod%imf=3   ! Tinker mass function and bias
        hmod%iDv=7   ! M200c
-       hmod%iconc=5 ! Duffy for M200c
+       hmod%iconc=5 ! Duffy for M200c for full sample
        hmod%idc=1   ! Fixed to 1.686
     ELSE IF(ihm==43) THEN
        ! Standard halo model but as response with HMcode but only for matter spectra
        hmod%response=2
+    ELSE IF(ihm==44) THEN
+       ! Things apprpriate for M200c
+       hmod%imf=3   ! Tinker mass function and bias
+       hmod%iDv=1   ! M200
+       hmod%iconc=5 ! Duffy for M200c for full sample
+       hmod%idc=1   ! Fixed to 1.686
     ELSE
        STOP 'ASSIGN_HALOMOD: Error, ihm specified incorrectly'
     END IF
@@ -1156,6 +1254,9 @@ CONTAINS
        WRITE(*,*) 'INIT_HALOMOD: Non-linear wavenumber [h/Mpc]:', REAL(hmod%knl)
     END IF
 
+    !WRITE(*,*) 'INIT_HALOMOD: Cumulative halo number density above M* [(Mpc/h)^-3]:', REAL(cumulative_halo_density(hmod%mnl,hmod,cosm))
+    !STOP
+
     hmod%neff=effective_index(hmod,cosm)
 
     IF(verbose) WRITE(*,*) 'INIT_HALOMOD: Collapse n_eff:', REAL(hmod%neff)
@@ -1186,10 +1287,11 @@ CONTAINS
 
   REAL FUNCTION mass_interval(nu1,nu2,hmod)
 
+    ! Integrate g(nu) between nu1 and nu2
     IMPLICIT NONE
-    REAL, INTENT(IN) :: nu1, nu2
+    REAL, INTENT(IN) :: nu1, nu2 ! Range in nu
     TYPE(halomod), INTENT(INOUT) :: hmod
-    INTEGER, PARAMETER :: iorder=3
+    INTEGER, PARAMETER :: iorder=3 ! Order for integration
 
     mass_interval=integrate_hmod(nu1,nu2,g_nu,hmod,hmod%acc_HMx,iorder)
 
@@ -1197,10 +1299,11 @@ CONTAINS
 
   REAL FUNCTION bias_interval(nu1,nu2,hmod)
 
+    ! Integrate b(nu) between nu1 and nu2
     IMPLICIT NONE
-    REAL, INTENT(IN) :: nu1, nu2
+    REAL, INTENT(IN) :: nu1, nu2 ! Range in nu
     TYPE(halomod), INTENT(INOUT) :: hmod
-    INTEGER, PARAMETER :: iorder=3
+    INTEGER, PARAMETER :: iorder=3 ! Order for integration
 
     bias_interval=integrate_hmod(nu1,nu2,gb_nu,hmod,hmod%acc_HMx,iorder)
 
@@ -1208,10 +1311,11 @@ CONTAINS
 
   REAL FUNCTION nu_interval(nu1,nu2,hmod)
 
+    ! Integrate nu*g(nu) between nu1 and nu2
     IMPLICIT NONE
-    REAL, INTENT(IN) :: nu1, nu2
+    REAL, INTENT(IN) :: nu1, nu2 ! Range in nu
     TYPE(halomod), INTENT(INOUT) :: hmod
-    INTEGER, PARAMETER :: iorder=3
+    INTEGER, PARAMETER :: iorder=3 ! Order for integration
 
     nu_interval=integrate_hmod(nu1,nu2,nug_nu,hmod,hmod%acc_HMx,iorder)
 
@@ -1220,9 +1324,9 @@ CONTAINS
   REAL FUNCTION mean_bias(nu1,nu2,hmod)
 
     IMPLICIT NONE
-    REAL, INTENT(IN) :: nu1, nu2
+    REAL, INTENT(IN) :: nu1, nu2 ! Range in nu
     TYPE(halomod), INTENT(INOUT) :: hmod
-    INTEGER, PARAMETER :: iorder=3
+    INTEGER, PARAMETER :: iorder=3 ! Order for integration
 
     mean_bias=bias_interval(nu1,nu2,hmod)/mass_interval(nu1,nu2,hmod)
 
@@ -1231,13 +1335,28 @@ CONTAINS
   REAL FUNCTION mean_nu(nu1,nu2,hmod)
 
     IMPLICIT NONE
-    REAL, INTENT(IN) :: nu1, nu2
+    REAL, INTENT(IN) :: nu1, nu2 ! Range in nu
     TYPE(halomod), INTENT(INOUT) :: hmod
-    INTEGER, PARAMETER :: iorder=3
+    INTEGER, PARAMETER :: iorder=3 ! Order for integration
 
     mean_nu=nu_interval(nu1,nu2,hmod)/mass_interval(nu1,nu2,hmod)
 
   END FUNCTION mean_nu
+
+  REAL FUNCTION mean_halo_density(nu1,nu2,hmod,cosm)
+
+    ! Calculate N(m) where N is the number density of haloes above mass m
+    ! Obtained by integrating the mass function
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: nu1, nu2 ! Range in nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER, PARAMETER :: iorder=3 ! Order for integration
+
+    mean_halo_density=integrate_hmod(nu1,nu2,g_nu_on_M,hmod,hmod%acc_HMx,iorder)
+    mean_halo_density=mean_halo_density*comoving_matter_density(cosm)
+    
+  END FUNCTION mean_halo_density
 
   SUBROUTINE print_halomod(hmod,cosm,verbose)
 
@@ -1291,9 +1410,12 @@ CONTAINS
        ! Concentration-mass relation
        IF(hmod%iconc==1) WRITE(*,*) 'HALOMODEL: Full Bullock et al. (2001) concentration-mass relation'
        IF(hmod%iconc==2) WRITE(*,*) 'HALOMODEL: Simple Bullock et al. (2001) concentration-mass relation'
-       IF(hmod%iconc==3) WRITE(*,*) 'HALOMODEL: Full sample 200 times mean density Duffy et al. (2008) concentration-mass relation'
-       IF(hmod%iconc==4) WRITE(*,*) 'HALOMODEL: Full sample virial denity Duffy et al. (2008) concentration-mass relation'
-       IF(hmod%iconc==5) WRITE(*,*) 'HALOMODEL: Relaxed sample 200 times critical density Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==3) WRITE(*,*) 'HALOMODEL: Full sample for M200 Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==4) WRITE(*,*) 'HALOMODEL: Full sample for Mv Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==5) WRITE(*,*) 'HALOMODEL: Full sample for M200c Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==6) WRITE(*,*) 'HALOMODEL: Relaxed sample for M200 Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==7) WRITE(*,*) 'HALOMODEL: Relaxed sample for Mv Duffy et al. (2008) concentration-mass relation'
+       IF(hmod%iconc==8) WRITE(*,*) 'HALOMODEL: Relaxed sample for M200c Duffy et al. (2008) concentration-mass relation'
 
        ! Concentration-mass relation correction
        IF(hmod%iDolag==1) WRITE(*,*) 'HALOMODEL: No concentration-mass correction for dark energy'
@@ -1606,7 +1728,7 @@ CONTAINS
 
     ! Name function for halo types
     ! TODO: This must be able to be combined with set_halo_type
-    ! TODO: Can this be in the header?
+    ! TODO: Can this be in the header? Is this even necessary?
     IMPLICIT NONE
     CHARACTER(len=256) :: halo_type
     INTEGER :: i
@@ -1631,6 +1753,9 @@ CONTAINS
     IF(i==field_static_gas)         halo_type='Static gas'
     IF(i==field_central_stars)      halo_type='Central stars'
     IF(i==field_satellite_stars)    halo_type='Satellite stars'
+    IF(i==field_CIB_353)            halo_type='CIB 353 GHz'
+    IF(i==field_CIB_545)            halo_type='CIB 545 GHz'
+    IF(i==field_CIB_857)            halo_type='CIB 857 GHz'
     IF(halo_type=='') STOP 'HALO_TYPE: Error, i not specified correctly'
 
   END FUNCTION halo_type
@@ -2190,6 +2315,7 @@ CONTAINS
 
     ! Refills the window functions for the two-halo term if this is necessary
     ! This is for contributions due to unbound gas, and the effect of this on electron pressure
+    ! TODO: Have I inculded the halo bias corresponding to the free component correctly?
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: fields(nf)
     REAL, INTENT(INOUT) :: wk(nm,nf)
@@ -3320,7 +3446,7 @@ CONTAINS
     IMPLICIT NONE
     REAL, INTENT(IN) :: m
     TYPE(halomod), INTENT(INOUT) :: hmod
-    REAL :: z, T, A, B, C, D, E, Mp
+    REAL :: z, Mp
 
     IF(hmod%HMx_mode==1) THEN
 
@@ -4077,11 +4203,17 @@ CONTAINS
        ELSE IF(hmod%iconc==2) THEN         
           hmod%c(i)=conc_Bullock_simple(m,mnl)
        ELSE IF(hmod%iconc==3) THEN
-          hmod%c(i)=conc_Duffy_full_200m(m,z)
+          hmod%c(i)=conc_Duffy_full_M200(m,z)
        ELSE IF(hmod%iconc==4) THEN
           hmod%c(i)=conc_Duffy_full_virial(m,z)
        ELSE IF(hmod%iconc==5) THEN
-          hmod%c(i)=conc_Duffy_relaxed_200c(m,z)
+          hmod%c(i)=conc_Duffy_full_M200c(m,z)
+       ELSE IF(hmod%iconc==6) THEN
+          hmod%c(i)=conc_Duffy_relaxed_M200(m,z)
+       ELSE IF(hmod%iconc==7) THEN
+          hmod%c(i)=conc_Duffy_relaxed_virial(m,z)
+       ELSE IF(hmod%iconc==8) THEN
+          hmod%c(i)=conc_Duffy_relaxed_M200c(m,z)
        ELSE
           STOP 'FILL_HALO_CONCENTRATION: Error, iconc specified incorrectly'
        END IF
@@ -4231,21 +4363,37 @@ CONTAINS
 
   END FUNCTION conc_Bullock_simple
 
-  REAL FUNCTION conc_Duffy_full_200m(m,z)
+  REAL FUNCTION conc_Duffy_full_M200c(m,z)
 
     ! Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
     IMPLICIT NONE
     REAL, INTENT(IN) :: m, z
 
     REAL, PARAMETER :: m_piv=2e12 ! Pivot mass in Msun/h
-    REAL, PARAMETER :: A=10.14
-    REAL, PARAMETER :: B=-0.081
-    REAL, PARAMETER :: C=-1.01
+    REAL, PARAMETER :: A=5.71
+    REAL, PARAMETER :: B=-0.084
+    REAL, PARAMETER :: C=-0.47
 
-    ! Equation (4) in 0804.2486, parameters from 10th row of Table 1
-    conc_Duffy_full_200m=A*(m/m_piv)**B*(1.+z)**C
+    ! Equation (4) in 0804.2486, parameters from 4th row of Table 1
+    conc_Duffy_full_M200c=A*(m/m_piv)**B*(1.+z)**C
 
-  END FUNCTION conc_Duffy_full_200m
+  END FUNCTION conc_Duffy_full_M200c
+
+  REAL FUNCTION conc_Duffy_relaxed_M200c(m,z)
+
+    ! Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m, z
+
+    REAL, PARAMETER :: m_piv=2e12 ! Pivot mass in Msun/h
+    REAL, PARAMETER :: A=6.71
+    REAL, PARAMETER :: B=-0.091
+    REAL, PARAMETER :: C=-0.44
+
+    ! Equation (4) in 0804.2486, parameters from 4th row of Table 1
+    conc_Duffy_relaxed_M200c=A*(m/m_piv)**B*(1.+z)**C
+
+  END FUNCTION conc_Duffy_relaxed_M200c
 
   REAL FUNCTION conc_Duffy_full_virial(m,z)
 
@@ -4263,21 +4411,53 @@ CONTAINS
 
   END FUNCTION conc_Duffy_full_virial
 
-  REAL FUNCTION conc_Duffy_relaxed_200c(m,z)
+  REAL FUNCTION conc_Duffy_relaxed_virial(m,z)
 
     ! Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
     IMPLICIT NONE
     REAL, INTENT(IN) :: m, z
 
     REAL, PARAMETER :: m_piv=2e12 ! Pivot mass in Msun/h
-    REAL, PARAMETER :: A=6.71
-    REAL, PARAMETER :: B=-0.091
-    REAL, PARAMETER :: C=-0.44
+    REAL, PARAMETER :: A=9.23
+    REAL, PARAMETER :: B=-0.090
+    REAL, PARAMETER :: C=-0.69
 
-    ! Equation (4) in 0804.2486, parameters from 4th row of Table 1
-    conc_Duffy_relaxed_200c=A*(m/m_piv)**B*(1.+z)**C
+    ! Equation (4) in 0804.2486, parameters from 6th row of Table 1
+    conc_Duffy_relaxed_virial=A*(m/m_piv)**B*(1.+z)**C
 
-  END FUNCTION conc_Duffy_relaxed_200c
+  END FUNCTION conc_Duffy_relaxed_virial  
+
+  REAL FUNCTION conc_Duffy_full_M200(m,z)
+
+    ! Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m, z
+
+    REAL, PARAMETER :: m_piv=2e12 ! Pivot mass in Msun/h
+    REAL, PARAMETER :: A=10.14
+    REAL, PARAMETER :: B=-0.081
+    REAL, PARAMETER :: C=-1.01
+
+    ! Equation (4) in 0804.2486, parameters from 10th row of Table 1
+    conc_Duffy_full_M200=A*(m/m_piv)**B*(1.+z)**C
+
+  END FUNCTION conc_Duffy_full_M200
+
+  REAL FUNCTION conc_Duffy_relaxed_M200(m,z)
+
+    ! Duffy et al (2008; 0804.2486) c(M) relation for WMAP5, See Table 1
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: m, z
+
+    REAL, PARAMETER :: m_piv=2e12 ! Pivot mass in Msun/h
+    REAL, PARAMETER :: A=11.93
+    REAL, PARAMETER :: B=-0.090
+    REAL, PARAMETER :: C=-0.99
+
+    ! Equation (4) in 0804.2486, parameters from 10th row of Table 1
+    conc_Duffy_relaxed_M200=A*(m/m_piv)**B*(1.+z)**C
+
+  END FUNCTION conc_Duffy_relaxed_M200
 
   REAL FUNCTION mass_r(r,cosm)
 
@@ -4291,60 +4471,72 @@ CONTAINS
 
   END FUNCTION mass_r
 
-  REAL FUNCTION win_type(real_space,itype,k,m,rv,rs,hmod,cosm)
+  REAL FUNCTION win_type(real_space,ifield,k,m,rv,rs,hmod,cosm)
 
     ! Selects the halo profile type
     IMPLICIT NONE
     LOGICAL, INTENT(IN) :: real_space
-    INTEGER, INTENT(IN) :: itype
+    INTEGER, INTENT(IN) :: ifield
     REAL, INTENT(IN) :: k
     REAL, INTENT(IN) :: m
     REAL, INTENT(IN) :: rv
     REAL, INTENT(IN) :: rs
     TYPE(halomod), INTENT(INOUT) :: hmod
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: nu
 
-    IF(itype==field_dmonly) THEN
+    IF(ifield==field_dmonly) THEN
        win_type=win_DMONLY(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_matter) THEN
+    ELSE IF(ifield==field_matter) THEN
        win_type=win_total(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_cdm) THEN
+    ELSE IF(ifield==field_cdm) THEN
        win_type=win_CDM(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_gas) THEN
-       win_type=win_gas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_star) THEN
+    ELSE IF(ifield==field_gas) THEN
+       win_type=win_gas(real_space,ifield,k,m,rv,rs,hmod,cosm)
+    ELSE IF(ifield==field_star) THEN
        win_type=win_stars(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_bound_gas) THEN
-       win_type=win_bound_gas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_free_gas) THEN
-       win_type=win_free_gas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_electron_pressure) THEN
+    ELSE IF(ifield==field_bound_gas) THEN
+       win_type=win_bound_gas(real_space,ifield,k,m,rv,rs,hmod,cosm)
+    ELSE IF(ifield==field_free_gas) THEN
+       win_type=win_free_gas(real_space,ifield,k,m,rv,rs,hmod,cosm)
+    ELSE IF(ifield==field_electron_pressure) THEN
        win_type=win_electron_pressure(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_void) THEN
+    ELSE IF(ifield==field_void) THEN
        win_type=win_void(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_compensated_void) THEN
+    ELSE IF(ifield==field_compensated_void) THEN
        win_type=win_compensated_void(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_central_galaxies) THEN
+    ELSE IF(ifield==field_central_galaxies) THEN
        win_type=win_centrals(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_satellite_galaxies) THEN
+    ELSE IF(ifield==field_satellite_galaxies) THEN
        win_type=win_satellites(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_galaxies) THEN
+    ELSE IF(ifield==field_galaxies) THEN
        win_type=win_galaxies(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_HI) THEN
+    ELSE IF(ifield==field_HI) THEN
        win_type=win_HI(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_cold_gas) THEN
-       win_type=win_cold_gas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_hot_gas) THEN
-       win_type=win_hot_gas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_static_gas) THEN
-       win_type=win_static_gas(real_space,itype,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_central_stars) THEN
+    ELSE IF(ifield==field_cold_gas) THEN
+       win_type=win_cold_gas(real_space,ifield,k,m,rv,rs,hmod,cosm)
+    ELSE IF(ifield==field_hot_gas) THEN
+       win_type=win_hot_gas(real_space,ifield,k,m,rv,rs,hmod,cosm)
+    ELSE IF(ifield==field_static_gas) THEN
+       win_type=win_static_gas(real_space,ifield,k,m,rv,rs,hmod,cosm)
+    ELSE IF(ifield==field_central_stars) THEN
        win_type=win_central_stars(real_space,k,m,rv,rs,hmod,cosm)
-    ELSE IF(itype==field_satellite_stars) THEN
+    ELSE IF(ifield==field_satellite_stars) THEN
        win_type=win_satellite_stars(real_space,k,m,rv,rs,hmod,cosm)
+    ELSE IF(ifield==field_CIB_353 .OR. ifield==field_CIB_545 .OR. ifield==field_CIB_857) THEN
+       IF(ifield==field_CIB_353) THEN
+          nu=353.e9 ! Frequency [Hz]
+       ELSE IF(ifield==field_CIB_545) THEN
+          nu=545.e9 ! Frequency [Hz]
+       ELSE IF(ifield==field_CIB_857) THEN
+          nu=857.e9 ! Frequency [Hz]
+       ELSE
+          STOP 'WIN_TYPE: Error, ifield specified incorrectly' 
+       END IF
+       win_type=win_CIB(real_space,nu,k,m,rv,rs,hmod,cosm)
     ELSE
-       WRITE(*,*) 'WIN_TYPE: itype:', itype
-       STOP 'WIN_TYPE: Error, itype not specified correclty' 
+       WRITE(*,*) 'WIN_TYPE: ifield:', ifield
+       STOP 'WIN_TYPE: Error, ifield specified incorreclty' 
     END IF
 
   END FUNCTION win_type
@@ -5407,6 +5599,67 @@ CONTAINS
     END IF
 
   END FUNCTION win_satellites
+
+  REAL FUNCTION win_CIB(real_space,nu,k,m,rv,rs,hmod,cosm)
+
+    ! Halo profile for all matter under the assumption that it is all CDM
+    IMPLICIT NONE
+    LOGICAL, INTENT(IN) :: real_space
+    REAL, INTENT(IN) :: nu
+    REAL, INTENT(IN) :: k
+    REAL, INTENT(IN) :: m
+    REAL, INTENT(IN) :: rv
+    REAL, INTENT(IN) :: rs
+    TYPE(halomod), INTENT(INOUT) :: hmod
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    INTEGER :: irho
+    REAL :: r, rmin, rmax, p1, p2, z
+    
+    REAL, PARAMETER :: a=1. ! Dust blob size relative to halo virial radius
+    REAL, PARAMETER :: T=15. ! Dust temperature [K]
+    REAL, PARAMETER :: beta=1.6 ! Grey-body power-law index
+
+    ! Set additional halo parameters to zero
+    p1=0.
+    p2=0.
+
+    rmin=0.
+    rmax=rv
+
+    ! Delta function
+    irho=0 
+
+    IF(real_space) THEN
+       r=k
+       win_CIB=rho(r,rmin,rmax,rv,rs,p1,p2,irho)
+       win_CIB=win_CIB/normalisation(rmin,rmax,rv,rs,p1,p2,irho)
+    ELSE
+       !Properly normalise and convert to overdensity
+       win_CIB=win_norm(k,rmin,rmax,rv,rs,p1,p2,irho)
+    END IF
+
+    z=hmod%z
+    win_CIB=grey_body_nu((1.+z)*nu,T,beta) ! Get the black-body radiance [W m^-2 Sr^-1 Hz^-1]
+    win_CIB=win_CIB*SI_to_Jansky ! Convert units to Jansky [Jy Sr^-1]
+    win_CIB=win_CIB*(a*rv)**2  ! [Jy Sr^-1 (Mpc/h)^2]
+    !win_CIB=win_CIB/(1e-3+luminosity_distance(a,cosm))**2 ! Bad idea because divide by zero when z=0
+
+  END FUNCTION win_CIB
+
+  REAL FUNCTION grey_body_nu(nu,T,beta)
+
+    ! Grey body irradiance [W m^-2 Hz^-1 Sr^-1]
+    USE physics
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: nu ! Observing frequency [Hz]
+    REAL, INTENT(IN) :: T !  Grey body temperature [K]
+    REAL, INTENT(IN) :: beta ! Power-law index
+    REAL, PARAMETER :: tau=1. ! Emissivity (degenerate with R in CIB work)
+    REAL, PARAMETER :: nu0=545.e9 ! Reference frequency [Hz]
+    
+    grey_body_nu=tau*((nu/nu0)**beta)*black_body_nu(nu,T)
+    
+  END FUNCTION grey_body_nu
 
   REAL FUNCTION N_centrals(m,hmod)
 
@@ -7012,6 +7265,17 @@ CONTAINS
     nug_nu=nu*g_nu(nu,hmod)
 
   END FUNCTION nug_nu
+
+  REAL FUNCTION g_nu_on_M(nu,hmod)
+
+    ! g(nu)/M(nu)
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: nu
+    TYPE(halomod), INTENT(INOUT) :: hmod
+
+    g_nu_on_M=g_nu(nu,hmod)/M_nu(nu,hmod)
+    
+  END FUNCTION g_nu_on_M
 
   FUNCTION wk_isothermal(x)
 

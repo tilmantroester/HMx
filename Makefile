@@ -40,6 +40,7 @@ TEST_DIR = tests
 
 # Objects
 _OBJ = constants.o \
+	physics.o \
 	random_numbers.o \
 	file_info.o \
 	logical_operations.o \

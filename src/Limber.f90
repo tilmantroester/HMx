@@ -44,6 +44,10 @@ MODULE Limber
   PUBLIC :: tracer_KiDS_450_bin1
   PUBLIC :: tracer_KiDS_450_bin2
   PUBLIC :: tracer_KiDS_450_highz
+  PUBLIC :: tracer_CIB_353
+  PUBLIC :: tracer_CIB_545
+  PUBLIC :: tracer_CIB_857
+  PUBLIC :: tracer_galaxies
  
   ! Projection quantities that need to be calculated only once; these relate to the Limber integrals
   TYPE projection    
@@ -59,6 +63,9 @@ MODULE Limber
   REAL, PARAMETER :: amin_pka=1e-3   ! a' value for P(k,a) table; P(k,a<a')=0
   REAL, PARAMETER :: amax_pka=1.     ! a' value for P(k,a) table; P(k,a>a')=0
 
+  ! Maximum k that corresponding to a given ell (prevents infinities for low z)
+  REAL, PARAMETER :: k_ell_max=1e3
+
   ! xcorr - C(l) calculation
   LOGICAL, PARAMETER :: verbose_Limber=.FALSE. ! Verbosity
   LOGICAL, PARAMETER :: verbose_xi=.FALSE. ! Verbosity
@@ -69,28 +76,27 @@ MODULE Limber
   ! Limber integration parameters
   INTEGER, PARAMETER  :: n_cont=1024 ! Number of samples to take in r for Cl ell contribution calculation
   REAL, PARAMETER :: lcorr=0.5       ! 1/2 in LoVerde (2008) Limber correction k(r)=(l+1/2)/f_k(r)
-  REAL, PARAMETER :: acc_Limber=1e-4 ! Accuracy parameter for Limber integration
+  REAL, PARAMETER :: acc_Limber=1e-4 ! Accuracy parameter for Limber integration 
 
   ! n(z)
   REAL, PARAMETER :: zmin_nz=0.  ! Minimum redshift for the analytic n(z) tables
   REAL, PARAMETER :: zmax_nz=2.5 ! Maximum redshift for the analytic n(z) tables
   INTEGER, PARAMETER :: n_nz=128 ! Number of entries in the analytic n(z) tables
 
-  ! General kernel
-  REAL, PARAMETER :: rmin_kernel=0.   ! Minimum r for table
-  INTEGER, PARAMETER :: nx_kernel=128 ! Number of entires in look-up table
-
-  ! Lensing kernel/efficiency
-  REAL, PARAMETER :: rmin_lensing=0.      ! Minimum distance in integral    
-  INTEGER, PARAMETER :: nX_lensing=128    ! Number of entries in X(r) table
-  INTEGER, PARAMETER :: nq_efficiency=128 ! Number of entries in q(r) table
+  ! Projection kernel options
+  REAL, PARAMETER :: rmin_kernel=0.         ! Minimum r for table
+  INTEGER, PARAMETER :: nx_kernel=128       ! Number of entires in look-up table
+  REAL, PARAMETER :: rmin_lensing=0.        ! Minimum distance in integral    
+  INTEGER, PARAMETER :: nX_lensing=128      ! Number of entries in X(r) table
+  INTEGER, PARAMETER :: nq_efficiency=128   ! Number of entries in q(r) table
+  INTEGER, PARAMETER :: iorder_efficiency=1 ! Order for lensing-efficiency integration over n(z) (treat as continuous function or histogram?)
 
   ! Gravitational waves
   REAL, PARAMETER :: A_gwave=1.
   REAL, PARAMETER :: rmin_gwave=10.
 
   ! Tracer types
-  INTEGER, PARAMETER :: n_tracers=14
+  INTEGER, PARAMETER :: n_tracers=18
   INTEGER, PARAMETER :: tracer_RCSLenS=1
   INTEGER, PARAMETER :: tracer_Compton_y=2
   INTEGER, PARAMETER :: tracer_CMB_lensing=3
@@ -105,6 +111,10 @@ MODULE Limber
   INTEGER, PARAMETER :: tracer_KiDS_450_bin1=12
   INTEGER, PARAMETER :: tracer_KiDS_450_bin2=13
   INTEGER, PARAMETER :: tracer_KiDS_450_highz=14
+  INTEGER, PARAMETER :: tracer_CIB_353=15
+  INTEGER, PARAMETER :: tracer_CIB_545=16
+  INTEGER, PARAMETER :: tracer_CIB_857=17
+  INTEGER, PARAMETER :: tracer_galaxies=18
   
 CONTAINS
 
@@ -130,6 +140,10 @@ CONTAINS
     IF(ix==tracer_KiDS_450_bin1)  xcorr_type='KiDS 450 (z = 0.1 -> 0.5)'
     IF(ix==tracer_KiDS_450_bin2)  xcorr_type='KiDS 450 (z = 0.5 -> 0.9)'
     IF(ix==tracer_KiDS_450_highz) xcorr_type='KiDS 450 (z = 0.9 -> 3.5)'
+    IF(ix==tracer_CIB_353)        xcorr_type='CIB 353 GHz'
+    IF(ix==tracer_CIB_545)        xcorr_type='CIB 545 GHz'
+    IF(ix==tracer_CIB_857)        xcorr_type='CIB 857 GHz'
+    IF(ix==tracer_galaxies)       xcorr_type='Galaxies'
     IF(xcorr_type=='') STOP 'XCORR_TYPE: Error, ix not specified correctly'
     
   END FUNCTION xcorr_type
@@ -144,9 +158,8 @@ CONTAINS
     REAL :: r
 
     IF(a==1.) THEN
-       ! This should really be infinite
-       ! Stops a division by infinity
-       k_ell=1e3
+       ! This should really be infinite, but this stops a division by infinity
+       k_ell=k_ell_max
     ELSE
        r=comoving_distance(a,cosm)
        k_ell=(ell+lcorr)/f_k(r,cosm)
@@ -173,7 +186,7 @@ CONTAINS
   SUBROUTINE fill_projection_kernels(ix,proj,cosm)
 
     ! Fill look-up tables for the two projection kerels X_ij
-    ! TODO: Change to take ix(n)
+    ! TODO: Change to take ix(n)?
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: ix(2) ! Label for the type of projection kernel needed
     TYPE(projection), INTENT(OUT) :: proj(2) ! Output the projection kernel
@@ -207,7 +220,12 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     !TYPE(lensing) :: lens
 
-    IF(ix==tracer_Compton_y .OR. ix==tracer_gravity_wave) THEN
+    IF(ix==tracer_Compton_y .OR. &
+         ix==tracer_gravity_wave .OR. &
+         ix==tracer_CIB_353 .OR. &
+         ix==tracer_CIB_545 .OR. &
+         ix==tracer_CIB_857 .OR. &
+         ix==tracer_galaxies) THEN
        CALL fill_kernel(ix,proj,cosm)
     ELSE IF(ix==tracer_RCSLenS .OR. &
          ix==tracer_CFHTLenS .OR. &
@@ -563,7 +581,7 @@ CONTAINS
                ix==tracer_KiDS_450_bin2 .OR. &
                ix==tracer_KiDS_450_highz) THEN
              ! q(r) for a n(z) distribution 
-             proj%q(i)=integrate_q(r,z,zmax,acc_Limber,3,proj,cosm)
+             proj%q(i)=integrate_q(r,z,zmax,acc_Limber,iorder_efficiency,proj,cosm)
           ELSE
              STOP 'FILL_EFFICIENCY: Error, tracer specified incorrectly'
           END IF
@@ -667,6 +685,10 @@ CONTAINS
           proj%x(i)=y_kernel(r,cosm)
        ELSE IF(ix==tracer_gravity_wave) THEN
           proj%x(i)=gwave_kernel(r,cosm)
+       ELSE IF(ix==tracer_CIB_353 .OR. ix==tracer_CIB_545 .OR. ix==tracer_CIB_857) THEN
+          proj%x(i)=CIB_kernel(r,cosm)
+       ELSE IF(ix==tracer_galaxies) THEN
+          proj%x(i)=galaxy_kernel(r,cosm)
        ELSE
           STOP 'FILL_KERNEL: Error, tracer specified incorrectly'
        END IF
@@ -718,6 +740,43 @@ CONTAINS
 
   END FUNCTION gwave_kernel
 
+  REAL FUNCTION CIB_kernel(r,cosm)
+
+    ! Projection kernel CIB emission
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: r
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: z, a
+    REAL :: rmin=1. ! Minimum radius [Mpc/h]
+
+    IF(r<rmin) THEN
+       CIB_kernel=0.
+    ELSE
+       z=redshift_r(r,cosm)
+       a=scale_factor_z(z)
+       CIB_kernel=1./((1.+z)*luminosity_distance(a,cosm)**2)
+    END IF
+
+  END FUNCTION CIB_kernel
+
+  REAL FUNCTION galaxy_kernel(r,cosm)
+
+    USE special_functions
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: r
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: z, a, nz
+    REAL, PARAMETER :: sig=0.5
+
+    z=redshift_r(r,cosm)
+    a=scale_factor_z(z)
+
+    !nz=Rayleigh(z,sig) ! No, because this is included in the window function for galaxiex
+    
+    galaxy_kernel=sqrt(Hubble2(a,cosm))/Hdist
+    
+  END FUNCTION galaxy_kernel
+
   SUBROUTINE read_nz(ix,proj)
 
     ! The the n(z) function for lensing
@@ -766,7 +825,7 @@ CONTAINS
     ! Fill the look-up tables
     CALL fill_array(zmin_nz,zmax_nz,proj%z_nz,proj%nnz)
     DO i=1,n_nz
-       proj%nz(i)=nz_lensing(proj%z_nz(i),ix)
+       proj%nz(i)=nz(proj%z_nz(i),ix)
     END DO
 
   END SUBROUTINE fill_analytic_nz_table
@@ -840,11 +899,11 @@ CONTAINS
 
   END SUBROUTINE fill_nz_table
 
-  FUNCTION nz_lensing(z,ix)
+  FUNCTION nz(z,ix)
 
     ! Analytical n(z) for different surveys
     IMPLICIT NONE
-    REAL :: nz_lensing
+    REAL :: nz
     REAL, INTENT(IN) :: z
     INTEGER, INTENT(IN) :: ix
     REAL :: a, b, c, d, e, f, g, h, i
@@ -865,21 +924,21 @@ CONTAINS
        n1=a*z*exp(-(z-b)**2/c**2)
        n2=d*z*exp(-(z-e)**2/f**2)
        n3=g*z*exp(-(z-h)**2/i**2)
-       nz_lensing=n1+n2+n3
+       nz=n1+n2+n3
     ELSE IF(ix==tracer_CFHTLenS) THEN
        ! CFHTLenS
-       z1=0.7 ! Not a free parameter in Van Waerbeke et al. (2013)
-       z2=1.2 ! Not a free parameter in Van Waerbeke et al. (2013)
+       z1=0.7 ! Not a free parameter in Van Waerbeke et al. fit (2013)
+       z2=1.2 ! Not a free parameter in Van Waerbeke et al. fit (2013)
        a=1.50
        b=0.32
        c=0.20
        d=0.46
-       nz_lensing=a*exp(-((z-z1)/b)**2)+c*exp(-((z-z2)/d)**2)
+       nz=a*exp(-((z-z1)/b)**2)+c*exp(-((z-z2)/d)**2)
     ELSE
-       STOP 'NZ_LENSING: Error, tracer specified incorrectly'
+       STOP 'NZ: Error, tracer specified incorrectly'
     END IF
 
-  END FUNCTION nz_lensing
+  END FUNCTION nz
 
   FUNCTION integrate_q(r,a,b,acc,iorder,proj,cosm)
 
@@ -899,6 +958,9 @@ CONTAINS
 
     INTEGER, PARAMETER :: jmin=5  ! Standard integration parameters
     INTEGER, PARAMETER :: jmax=30 ! Standard integration parameters
+
+    !WRITE(*,*) 'order =', iorder
+    ! IdeaSTOP
 
     IF(a==b) THEN
 
@@ -1004,7 +1066,6 @@ CONTAINS
   FUNCTION integrate_Limber(l,a,b,logktab,logatab,logptab,nk,na,acc,iorder,proj,cosm)
 
     ! Integrates between a and b until desired accuracy is reached
-    ! Stores information to reduce function calls
     IMPLICIT NONE
     REAL :: integrate_Limber
     REAL, INTENT(IN) :: a, b, acc
@@ -1112,6 +1173,7 @@ CONTAINS
 
     IF(r==0.) THEN
 
+       ! Must be set to zero here to prevent division by zero
        Limber_integrand=0.
 
     ELSE
@@ -1126,7 +1188,7 @@ CONTAINS
        z=redshift_r(r,cosm)
        a=scale_factor_z(z)
        k=(l+lcorr)/f_k(r,cosm) ! LoVerde et al. (2008) Limber correction
-       !k=k_ell(l,a,cosm)
+       !k=k_ell(l,a,cosm) ! Does not make sense since this does an internal a->r conversion
 
        ! Construct the integrand
        Limber_integrand=X(1)*X(2)*find_pka(k,a,logktab,logatab,logptab,nk,na)/f_k(r,cosm)**2
@@ -1166,6 +1228,7 @@ CONTAINS
           CYCLE
        ELSE
           k=(l+lcorr)/f_k(r,cosm)
+          !k=k_ell(l,a,cosm) ! Does not make sense since this does an internal a->r conversion
           z=redshift_r(r,cosm)
           a=scale_factor_z(z)
           int=Limber_integrand(r,l,logktab,logatab,logptab,nk,na,proj,cosm)
@@ -1207,7 +1270,7 @@ CONTAINS
   SUBROUTINE xpow_pka(ix,ell,Cl,nl,k,a,pow,nk,na,cosm)
 
     ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2) given P(k,a)
-    ! TODO: Should I change this to take in ix(n)?
+    ! TODO: Change to take in ix(n)?
     IMPLICIT NONE
     INTEGER, INTENT(INOUT) :: ix(2)
     REAL, INTENT(IN) :: ell(nl)
@@ -1225,7 +1288,7 @@ CONTAINS
     ! Fill out the projection kernel
     CALL fill_projection_kernels(ix,proj,cosm)
 
-    ! Set the range in comoving distance for the Limber integral
+    ! Set the range in comoving distance for the Limber integral [Mpc]
     r1=0.
     r2=maxdist(proj)
 
