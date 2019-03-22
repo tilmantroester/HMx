@@ -85,12 +85,15 @@ PROGRAM HMx_driver
   LOGICAL, PARAMETER :: cut_nyquist=.TRUE.     ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
   LOGICAL, PARAMETER :: subtract_shot=.TRUE.   ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
   LOGICAL, PARAMETER :: response_triad=.FALSE. ! Should I treat the BAHAMAS P(k) as HMcode response?
+  LOGICAL, PARAMETER :: add_highz=.FALSE.      ! Add in z=3 power 
+  INTEGER, PARAMETER :: mesh_BAHAMAS=1024      ! Mesh size for BAHAMAS P(k) measurements
+  INTEGER, PARAMETER :: nz_BAHAMAS=15          ! Number of BAHAMAS redshift slices to use (4, 11 or 15)
   REAL, PARAMETER :: kmax_BAHAMAS=1000.        ! Maximum k to trust the BAHAMAS P(k) [h/Mpc]
 
   ! Cross correlation
   REAL, PARAMETER :: kmin_xpow=1e-3 ! Minimum k to calculate P(k); it will be extrapolated below this by Limber
   REAL, PARAMETER :: kmax_xpow=1e2  ! Maximum k to calculate P(k); it will be extrapolated above this by Limber
-  INTEGER, PARAMETER :: nk_xpow=128 ! Number of log-spaced k values (used to be 32)
+  INTEGER, PARAMETER :: nk_xpow=256 ! Number of log-spaced k values (used to be 32)
   REAL, PARAMETER :: amin_xpow=0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1)
   REAL, PARAMETER :: amax_xpow=1.0  ! Maximum scale factor
   INTEGER, PARAMETER :: na_xpow=16  ! Number of linearly-spaced scale factores
@@ -164,10 +167,10 @@ PROGRAM HMx_driver
      WRITE(*,*) '38 - Tilman AGN model triad for all feedback models'
      WRITE(*,*) '39 - Tilman AGN model Triad for all feedback models (Triad 3 ell)'
      WRITE(*,*) '40 - Halo bias'
-     WRITE(*,*) '41 - 3D power as a function of cosmological parameters'
+     WRITE(*,*) '41 - 3D power as a function of cosmology'
      WRITE(*,*) '42 - PAPER: Contributions to k-k C(l) integral'
      WRITE(*,*) '43 - PAPER: Contributions to k-y C(l) integral'
-     WRITE(*,*) '44 - PAPER: Triad'
+     WRITE(*,*) '44 - Triad with Tilman model'
      WRITE(*,*) '45 - Comparison of Sheth-Tormen vs. Tinker mass function'
      WRITE(*,*) '46 - Mass function and bias plots'
      WRITE(*,*) '47 - Make CMB lensing to compare with CAMB'
@@ -179,11 +182,15 @@ PROGRAM HMx_driver
      WRITE(*,*) '53 - Breakdown 3D hydro power in halo mass II'
      WRITE(*,*) '54 - Trispectrum test'
      WRITE(*,*) '55 - Triad for all feedback models'
-     WRITE(*,*) '56 - Triad for all feedback models (Triad 3 ell)'
-     WRITE(*,*) '57 - Triad computed with direct integration of a subset of measured 3D BAHAMAS spectra'
+     WRITE(*,*) '56 - PAPER: Triad for all feedback models (Triad 3 ell)'
+     WRITE(*,*) '57 - Direct integration of measured 3D BAHAMAS spectra: Triad 3'
      WRITE(*,*) '58 - Multiple same fields check'
      WRITE(*,*) '59 - Tinker (2010) bias plot check'
-     WRITE(*,*) '60 - Triad computed with direct integration of all measured 3D BAHAMAS spectra'
+     WRITE(*,*) '60 - Make data for Limber comparison with CCL'
+     WRITE(*,*) '61 - Direct integration of measured 3D BAHAMAS spectra: Triad 4'
+     WRITE(*,*) '62 - Direct integration of measured 3D BAHAMAS spectra: Triad 5'
+     WRITE(*,*) '63 - Contributions to y-y C(l) integral'
+     WRITE(*,*) '64 - CIB 545 GHz'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -973,7 +980,7 @@ PROGRAM HMx_driver
      WRITE(*,*)
 
      ! Number of n(z) to check
-     nnz=11
+     nnz=15
      DO i=1,nnz
         IF(i==1)  nz=tracer_RCSLenS
         IF(i==2)  nz=tracer_CFHTLenS
@@ -983,9 +990,13 @@ PROGRAM HMx_driver
         IF(i==6)  nz=tracer_KiDS_bin3
         IF(i==7)  nz=tracer_KiDS_bin4
         IF(i==8)  nz=tracer_KiDS_450
-        IF(i==9)  nz=tracer_KiDS_450_bin1
-        IF(i==10) nz=tracer_KiDS_450_bin2
+        IF(i==9)  nz=tracer_KiDS_450_fat_bin1
+        IF(i==10) nz=tracer_KiDS_450_fat_bin2
         IF(i==11) nz=tracer_KiDS_450_highz
+        IF(i==12) nz=tracer_KiDS_450_bin1
+        IF(i==13) nz=tracer_KiDS_450_bin2
+        IF(i==14) nz=tracer_KiDS_450_bin3
+        IF(i==15) nz=tracer_KiDS_450_bin4
         WRITE(*,*) 'HMx_DRIVER: n(z) number:', nz
         WRITE(*,*)
         CALL read_nz(nz,pro)
@@ -995,7 +1006,17 @@ PROGRAM HMx_driver
         WRITE(*,*)
      END DO
 
-  ELSE IF(imode==7 .OR. imode==8 .OR. imode==9 .OR. imode==10 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
+  ELSE IF(imode==7 .OR. &
+       imode==8 .OR. &
+       imode==9 .OR. &
+       imode==10 .OR. &
+       imode==11 .OR. &
+       imode==37 .OR. &
+       imode==42 .OR. &
+       imode==43 .OR. &
+       imode==47 .OR. &
+       imode==63 .OR. &
+       imode==64) THEN
 
      ! General stuff for various 2D projections
      !  7 - Do general angular cross correlation
@@ -1007,16 +1028,20 @@ PROGRAM HMx_driver
      ! 42 - PAPER: breakdown lensing-lensing per ell
      ! 43 - PAPER: breakdown lensing-y per ell
      ! 47 - Make CMB-lensing data to compare with CAMB
+     ! 63 - Breakdown y-y per ell
+     ! 64 - CIB
      
      ! Set the fields
      ix=-1
      IF(imode==37) ix=tracer_CFHTLenS    ! CFHTLenS autospectrum
      IF(imode==42) ix=tracer_KiDS_450    ! KiDS-450 autospectrum
-     IF(imode==47) ix=tracer_CMB_lensing ! CMB lensing autospectrum
      IF(imode==43) THEN
         ix(1)=tracer_KiDS_450  ! KiDS-450 z = 0.1->0.9
         ix(2)=tracer_Compton_y ! Compton y
      END IF
+     IF(imode==47) ix=tracer_CMB_lensing ! CMB lensing autospectrum     
+     IF(imode==63) ix=tracer_Compton_y   ! tSZ Compton y parameter
+     IF(imode==64) ix=tracer_CIB_545     ! CIB at 545 GHz
      DO i=1,2
         CALL set_field_for_xpow(ix(i),ip(i))
      END DO
@@ -1024,7 +1049,7 @@ PROGRAM HMx_driver
 
      ! Assign the cosmological model
      IF(imode==37) icosmo=4 ! WMAP9 fits CFHTLenS okay
-     IF(imode==42 .OR. imode==43) icosmo=1 ! Boring
+     IF(imode==42 .OR. imode==43 .OR. imode==63) icosmo=4 ! WMAP9
      IF(imode==47) icosmo=26 ! Boring with CAMB linear spectrum
      CALL assign_cosmology(icosmo,cosm,verbose)
      CALL init_cosmology(cosm)
@@ -1100,14 +1125,22 @@ PROGRAM HMx_driver
      WRITE(*,*) 'HMx_DRIVER: maximum ell:', REAL(lmax)
      WRITE(*,*)     
 
-     IF(imode==7 .OR. imode==11 .OR. imode==37 .OR. imode==42 .OR. imode==43 .OR. imode==47) THEN
+     IF(imode==7 .OR. &
+          imode==11 .OR. &
+          imode==37 .OR. &
+          imode==42 .OR. &
+          imode==43 .OR. &
+          imode==47 .OR. &
+          imode==63 .OR. &
+          imode==64) THEN
 
         ! Write cosmology to screen
         CALL print_cosmology(cosm)
 
         ! Write out diagnostics
         IF(imode==37 .OR. imode==47) ihm=1  ! HMcode (2016)
-        IF(imode==42 .OR. imode==43) ihm=20 ! Standard halo-model in response
+        IF(imode==42 .OR. imode==43 .OR. imode==63) ihm=3 ! 3 - Standard halo model
+        IF(imode==64) ihm=3 ! Standard
         CALL assign_halomod(ihm,hmod,verbose)
         CALL calculate_HMx(ip,2,mmin,mmax,k,nk,a,na,pows_li,pows_2h,pows_1h,pows_hm,hmod,cosm,verbose,response=.FALSE.)
 
@@ -1176,9 +1209,9 @@ PROGRAM HMx_driver
            CALL calculate_Cl(r1,r2,ell,Cl(1,2,:),nl,k,a,pow_ka,nk,na,proj,cosm)
            CALL write_Cl(ell,Cl(1,2,:),nl,outfile,verbose)
 
-           IF(j==4 .AND. (imode==7 .OR. imode==11 .OR. imode==42 .OR. imode==43)) THEN
+           IF(j==4 .AND. (imode==7 .OR. imode==11 .OR. imode==42 .OR. imode==43 .OR. imode==63)) THEN
               CALL Cl_contribution_ell(r1,r2,k,a,pow_ka,nk,na,proj,cosm)
-              IF(imode==42 .OR. imode==43) EXIT
+              IF(imode==42 .OR. imode==43 .OR. imode==63) EXIT
            END IF
 
            IF(imode==11 .OR. imode==37) THEN
@@ -1541,7 +1574,7 @@ PROGRAM HMx_driver
      ! 39 - AGN triad for all BAHAMAS feedback scenarios and ell
      ! 44 - Triad for paper (fixed WMAP9 and feedback)
      ! 55 - Triad for all BAHAMAS feedback scenarios
-     ! 56 - Triad for all BAHAMAS feedback scenarios and ell
+     ! 56 - PAPER: Triad for all BAHAMAS feedback scenarios and ell
 
      IF(imode==12 .OR. imode==44) THEN
         nfeed=1
@@ -1583,18 +1616,13 @@ PROGRAM HMx_driver
      WRITE(*,*)
 
      ! Set tracers
-     nt=5
-     ALLOCATE(ixx(nt),ixx_names(nt))     
-     ixx(1)=tracer_KiDS_450
-     ixx(2)=tracer_KiDS_450_bin1
-     ixx(3)=tracer_KiDS_450_bin2
-     ixx(4)=tracer_Compton_y
-     ixx(5)=tracer_CMB_lensing
-     ixx_names(1)='gal_z0.1-0.9'
-     ixx_names(2)='gal_z0.1-0.5'
-     ixx_names(3)='gal_z0.5-0.9'
-     ixx_names(4)='y'
-     ixx_names(5)='CMB'
+     nt=13
+     !nt=5
+     ALLOCATE(ixx(nt),ixx_names(nt))
+     DO i=1,nt
+        CALL triad_tracers(i,ixx(i),ixx_names(i))
+        !CALL triad_4_tracers(i,ixx(i),ixx_names(i))
+     END DO
 
      ! Allocate array for Cl
      ALLOCATE(Cl(nl,nt,nt))
@@ -3109,7 +3137,7 @@ PROGRAM HMx_driver
      ! Set range in sigma_8
      sig8min=0.7
      sig8max=0.9
-     ncos=5
+     ncos=15
 
      ! Allocate arrays for the fields
      nf=2
@@ -3446,9 +3474,12 @@ PROGRAM HMx_driver
      END DO
      CLOSE(7)
 
-  ELSE IF(imode==57 .OR. imode==60) THEN
+  ELSE IF(imode==57 .OR. imode==61 .OR. imode==62) THEN
 
      ! Calculate C(l) by direct integration of the measured 3D BAHAMAS power spectra
+     ! 57 - Triad 3
+     ! 61 - Triad 4
+     ! 62 - Triad 5
 
      ! Assigns the cosmological model
      icosmo=4 ! 4 - WMAP9
@@ -3457,33 +3488,11 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Choose the set of redshifts to use
-     IF(imode==57) THEN
-        na=4
-        ALLOCATE(a(na))
-        a(1)=scale_factor_z(2.0)
-        a(2)=scale_factor_z(1.0)
-        a(3)=scale_factor_z(0.5)
-        a(4)=scale_factor_z(0.0)
-     ELSE IF(imode==60) THEN
-        na=11
-        ALLOCATE(a(na))
-        a(1)=scale_factor_z(2.0)
-        a(2)=scale_factor_z(1.75)
-        a(3)=scale_factor_z(1.5)
-        a(4)=scale_factor_z(1.25)
-        a(5)=scale_factor_z(1.0)
-        a(6)=scale_factor_z(0.75)
-        a(7)=scale_factor_z(0.5)
-        a(8)=scale_factor_z(0.375)
-        a(9)=scale_factor_z(0.25)
-        a(10)=scale_factor_z(0.125)
-        a(11)=scale_factor_z(0.0)
-     ELSE
-        STOP 'HMX_DRIVER: Error, iz specified incorrectly'
-     END IF
+     !na=nz_BAHAMAS
+     !CALL BAHAMAS_zs(a,na)
         
      ! Set the mesh size used for the measured P(k)
-     mesh=1024
+     mesh=mesh_BAHAMAS
 
      ! Triad 3 ell values
      CALL triad_ell(ell,nl)
@@ -3501,6 +3510,17 @@ PROGRAM HMx_driver
      
      ! Allocate array for cross-correlation names
      ALLOCATE(ixx_names(2))
+
+     ! Number of tracers
+     IF(imode==57) THEN
+        nt=4
+     ELSE IF(imode==61) THEN
+        nt=5
+     ELSE IF(imode==62) THEN
+        nt=6
+     ELSE
+        STOP 'HMX_DRIVER: Error, imode specified incorrectly'
+     END IF
 
      ! Loop over BAHAMAS models
      DO j=1,3
@@ -3521,43 +3541,40 @@ PROGRAM HMx_driver
 
         ! Loop over first tracer
         verbose2=verbose
-        DO ii=1,4
+        DO ii=1,nt
 
-           IF(ii==1) THEN
-              ix(1)=tracer_KiDS_450
-              ixx_names(1)='gal_z0.1-0.9'
-           ELSE IF(ii==2) THEN
-              ix(1)=tracer_KiDS_450_bin1
-              ixx_names(1)='gal_z0.1-0.5'
-           ELSE IF(ii==3) THEN
-              ix(1)=tracer_KiDS_450_bin2
-              ixx_names(1)='gal_z0.5-0.9'
-           ELSE IF(ii==4) THEN
-              ix(1)=tracer_Compton_y
-              ixx_names(1)='y'
+           IF(imode==57) THEN
+              CALL triad_3_tracers(ii,ix(1),ixx_names(1))
+           ELSE IF(imode==61) THEN
+              CALL triad_4_tracers(ii,ix(1),ixx_names(1))
+           ELSE IF(imode==62) THEN
+              CALL triad_5_tracers(ii,ix(1),ixx_names(1))
+           ELSE
+              STOP 'HMX_DRIVER: Error, imode specified incorrectly'
            END IF
+              
 
            ! Loop over second tracer
-           DO jj=1,4
+           DO jj=1,nt
 
-              IF(jj==1) THEN
-                 ix(2)=tracer_KiDS_450
-                 ixx_names(2)='gal_z0.1-0.9'
-              ELSE IF(jj==2) THEN
-                 ix(2)=tracer_KiDS_450_bin1
-                 ixx_names(2)='gal_z0.1-0.5'
-              ELSE IF(jj==3) THEN
-                 ix(2)=tracer_KiDS_450_bin2
-                 ixx_names(2)='gal_z0.5-0.9'
-              ELSE IF(jj==4) THEN
-                 ix(2)=tracer_Compton_y
-                 ixx_names(2)='y'
+              IF(imode==57) THEN
+                 CALL triad_3_tracers(jj,ix(2),ixx_names(2))
+              ELSE IF(imode==61) THEN
+                 CALL triad_4_tracers(jj,ix(2),ixx_names(2))
+              ELSE IF(imode==62) THEN
+                 CALL triad_5_tracers(jj,ix(2),ixx_names(2))
+              ELSE
+                 STOP 'HMX_DRIVER: Error, imode specified incorrectly'
               END IF
 
               ! Use the xpowlation type to set the necessary halo profiles
               DO i=1,2
                  CALL set_field_for_xpow(ix(i),ip(i))
               END DO
+
+              ! Choose the set of redshifts to use
+              na=nz_BAHAMAS
+              CALL BAHAMAS_zs(a,na)
 
               ! Read in power
               DO i=1,na
@@ -3574,6 +3591,8 @@ PROGRAM HMx_driver
                  pow_ka(:,i)=pow_sim
               END DO
 
+              IF(add_highz) CALL add_highz_BAHAMAS(k,a,pow_ka,nk,na,cosm)
+
               ! Do the cross correlation
               IF(bin_theory) THEN                
                  CALL xpow_pka(ix,all_ell,all_Cl(:,1,2),n_all,k,a,pow_ka,nk,na,cosm)
@@ -3581,6 +3600,11 @@ PROGRAM HMx_driver
               ELSE
                  CALL xpow_pka(ix,ell,Cl(:,1,2),nl,k,a,pow_ka,nk,na,cosm)
               END IF
+
+!!$              IF(ii==1 .AND. jj==6) THEN
+!!$                 WRITE(*,*) 'EXITING PREMATURELY'
+!!$                 STOP
+!!$              END IF
 
               ! Write data
               outfile=TRIM(outbase)//'_'//TRIM(ixx_names(1))//'-'//TRIM(ixx_names(2))//'.dat'
@@ -3665,6 +3689,55 @@ PROGRAM HMx_driver
         WRITE(7,*) nu, b_nu(nu,hmod)
      END DO
      CLOSE(7)
+
+  ELSE IF(imode==60) THEN
+
+     ! Make data for Limber comparison with CCL
+
+     ! Assigns the cosmological model
+     icosmo=1 ! 1 - Boring
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! k range and array
+     kmin=kmin_xpow
+     kmax=kmax_xpow
+     nk=nk_xpow
+     CALL fill_array(kmin,kmax,k,nk)
+
+     ! a range and array
+     amin=amin_xpow
+     amax=amax_xpow
+     na=na_xpow
+     CALL fill_array(amin,amax,a,na)
+
+     ! Allocate and fill array with linear power; P(k,a)
+     ALLOCATE(pow_ka(nk,na))
+     DO j=1,na
+        DO i=1,nk
+           pow_ka(i,j)=p_lin(k(i),a(j),cosm)
+        END DO
+     END DO
+     
+     ! l range
+     lmin=2
+     lmax=10000
+     nl=lmax-lmin+1 ! Get all ell  
+     CALL fill_array(lmin,lmax,ell,nl)
+     ALLOCATE(Cl_bm(nl))
+
+     ! Set lensing tracer and call C(l) routine
+     ix=tracer_CFHTLenS
+     CALL xpow_pka(ix,ell,Cl_bm,nl,k,a,pow_ka,nk,na,cosm)
+
+     ! Write data
+     outfile='data/HMx_Cl_test.dat'
+     OPEN(7,file=outfile)
+     DO i=1,nl
+        WRITE(7,*) ell(i), Cl_bm(i)
+     END DO
+     CLOSE(7)
      
   ELSE
         
@@ -3673,6 +3746,192 @@ PROGRAM HMx_driver
   END IF
 
 CONTAINS
+
+  SUBROUTINE triad_1_tracers(i,ix,ix_name)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: i
+    INTEGER, INTENT(OUT) :: ix
+    CHARACTER(len=256), INTENT(OUT) :: ix_name
+    
+    IF(i==1) THEN
+       ix=tracer_KiDS
+       ix_name='gal_z0.1-0.9'
+    ELSE IF(i==2) THEN
+       ix=tracer_Compton_y
+       ix_name='y'
+    ELSE IF(i==3)  THEN
+       ix=tracer_CMB_lensing
+       ix_name='CMB'
+    ELSE
+       STOP 'TRIAD_1_TRACERS: Error, out of bounds'
+    END IF
+
+  END SUBROUTINE triad_1_tracers
+
+  SUBROUTINE triad_2_tracers(i,ix,ix_name)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: i
+    INTEGER, INTENT(OUT) :: ix
+    CHARACTER(len=256), INTENT(OUT) :: ix_name
+    
+    IF(i==1) THEN
+       ix=tracer_KiDS_450
+       ix_name='gal_z0.1-0.9'
+    ELSE IF(i==2) THEN
+       ix=tracer_KiDS_450_fat_bin1
+       ix_name='gal_z0.1-0.5'
+    ELSE IF(i==3) THEN
+       ix=tracer_KiDS_450_fat_bin2
+       ix_name='gal_z0.5-0.9'
+    ELSE IF(i==4) THEN
+       ix=tracer_Compton_y
+       ix_name='y'
+    ELSE IF(i==5) THEN
+       ix=tracer_CMB_lensing
+       ix_name='CMB'
+    ELSE
+       STOP 'TRIAD_2_TRACERS: Error, out of bounds'
+    END IF
+
+  END SUBROUTINE triad_2_tracers
+
+  SUBROUTINE triad_3_tracers(i,ix,ix_name)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: i
+    INTEGER, INTENT(OUT) :: ix
+    CHARACTER(len=256), INTENT(OUT) :: ix_name
+    
+    IF(i==1) THEN
+       ix=tracer_KiDS_450
+       ix_name='gal_z0.1-0.9'
+    ELSE IF(i==2) THEN
+       ix=tracer_KiDS_450_fat_bin1
+       ix_name='gal_z0.1-0.5'
+    ELSE IF(i==3) THEN
+       ix=tracer_KiDS_450_fat_bin2
+       ix_name='gal_z0.5-0.9'
+    ELSE IF(i==4) THEN
+       ix=tracer_Compton_y
+       ix_name='y'
+    ELSE
+       STOP 'TRIAD_3_TRACERS: Error, out of bounds'
+    END IF
+
+  END SUBROUTINE triad_3_tracers
+
+  SUBROUTINE triad_4_tracers(i,ix,ix_name)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: i
+    INTEGER, INTENT(OUT) :: ix
+    CHARACTER(len=256), INTENT(OUT) :: ix_name
+    
+    IF(i==1) THEN
+       ix=tracer_lensing_z1p00
+       ix_name='gal_z1.00'
+    ELSE IF(i==2) THEN
+       ix=tracer_lensing_z0p75
+       ix_name='gal_z0.75'
+    ELSE IF(i==3) THEN
+       ix=tracer_lensing_z0p50
+       ix_name='gal_z0.50'
+    ELSE IF(i==4) THEN
+       ix=tracer_lensing_z0p25
+       ix_name='gal_z0.25'
+    ELSE IF(i==5) THEN
+       ix=tracer_Compton_y
+       ix_name='y'
+    ELSE
+       STOP 'TRIAD_4_TRACERS: Error, out of bounds'
+    END IF
+
+  END SUBROUTINE triad_4_tracers
+
+  SUBROUTINE triad_5_tracers(i,ix,ix_name)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: i
+    INTEGER, INTENT(OUT) :: ix
+    CHARACTER(len=256), INTENT(OUT) :: ix_name
+    
+    IF(i==1) THEN
+       ix=tracer_KiDS_450
+       ix_name='gal_z0.1-0.9'
+    ELSE IF(i==2) THEN
+       ix=tracer_KiDS_450_bin1
+       ix_name='gal_z0.1-0.3'
+    ELSE IF(i==3) THEN
+       ix=tracer_KiDS_450_bin2
+       ix_name='gal_z0.3-0.5'
+    ELSE IF(i==4) THEN
+       ix=tracer_KiDS_450_bin3
+       ix_name='gal_z0.5-0.7'
+    ELSE IF(i==5) THEN
+       ix=tracer_KiDS_450_bin4
+       ix_name='gal_z0.7-0.9'
+    ELSE IF(i==6) THEN
+       ix=tracer_Compton_y
+       ix_name='y'
+    ELSE
+       STOP 'TRIAD_5_TRACERS: Error, out of bounds'
+    END IF
+
+  END SUBROUTINE triad_5_tracers
+
+  SUBROUTINE triad_tracers(i,ix,ix_name)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: i
+    INTEGER, INTENT(OUT) :: ix
+    CHARACTER(len=256), INTENT(OUT) :: ix_name
+
+    IF(i==1) THEN
+       ix=tracer_KiDS_450
+       ix_name='gal_z0.1-0.9'
+    ELSE IF(i==2) THEN
+       ix=tracer_KiDS_450_fat_bin1
+       ix_name='gal_z0.1-0.5'
+    ELSE IF(i==3) THEN
+       ix=tracer_KiDS_450_fat_bin2
+       ix_name='gal_z0.5-0.9'
+    ELSE IF(i==4) THEN
+       ix=tracer_KiDS_450_bin1
+       ix_name='gal_z0.1-0.3'
+    ELSE IF(i==5) THEN
+       ix=tracer_KiDS_450_bin2
+       ix_name='gal_z0.3-0.5'
+    ELSE IF(i==6) THEN
+       ix=tracer_KiDS_450_bin3
+       ix_name='gal_z0.5-0.7'
+    ELSE IF(i==7) THEN
+       ix=tracer_KiDS_450_bin4
+       ix_name='gal_z0.7-0.9'
+    ELSE IF(i==8) THEN
+       ix=tracer_lensing_z1p00
+       ix_name='gal_z1.00'
+    ELSE IF(i==9) THEN
+       ix=tracer_lensing_z0p75
+       ix_name='gal_z0.75'
+    ELSE IF(i==10) THEN
+       ix=tracer_lensing_z0p50
+       ix_name='gal_z0.50'
+    ELSE IF(i==11) THEN
+       ix=tracer_lensing_z0p25
+       ix_name='gal_z0.25'
+    ELSE IF(i==12) THEN
+       ix=tracer_Compton_y
+       ix_name='y'
+    ELSE IF(i==13) THEN
+       ix=tracer_CMB_lensing
+       ix_name='CMB'
+    ELSE
+       STOP 'TRIAD_TRACERS: Error, out of bounds'
+    END IF
+    
+  END SUBROUTINE triad_tracers
 
   SUBROUTINE read_k_values(infile,k,nk)
 
@@ -4086,9 +4345,17 @@ CONTAINS
          ix==tracer_KiDS_bin3 .OR. &
          ix==tracer_KiDS_bin4 .OR. &
          ix==tracer_KiDS_450 .OR. &
+         ix==tracer_KiDS_450_fat_bin1 .OR. &
+         ix==tracer_KiDS_450_fat_bin2 .OR. &
+         ix==tracer_KiDS_450_highz .OR. &
+         ix==tracer_lensing_z1p00 .OR. &
+         ix==tracer_lensing_z0p75 .OR. &
+         ix==tracer_lensing_z0p50 .OR. &
+         ix==tracer_lensing_z0p25 .OR. &
          ix==tracer_KiDS_450_bin1 .OR. &
          ix==tracer_KiDS_450_bin2 .OR. &
-         ix==tracer_KiDS_450_highz) THEN
+         ix==tracer_KiDS_450_bin3 .OR. &
+         ix==tracer_KiDS_450_bin4) THEN
        ! Lensing
        ip=field_matter
     ELSE IF(ix==tracer_CIB_353) THEN
@@ -4105,39 +4372,48 @@ CONTAINS
 
   END SUBROUTINE set_field_for_xpow
   
-  CHARACTER(len=32) FUNCTION BAHAMAS_snap(z)
+  CHARACTER(len=32) FUNCTION BAHAMAS_snapshot(z)
 
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
 
     ! Set the redshift
     IF(z==0.0) THEN
-       BAHAMAS_snap='snap32'
+       BAHAMAS_snapshot='snap32'
     ELSE IF(z==0.125) THEN
-       BAHAMAS_snap='snap31'
+       BAHAMAS_snapshot='snap31'
     ELSE IF(z==0.25) THEN
-       BAHAMAS_snap='snap30'
+       BAHAMAS_snapshot='snap30'
     ELSE IF(z==0.375) THEN
-       BAHAMAS_snap='snap29'
+       BAHAMAS_snapshot='snap29'
     ELSE IF(z==0.5) THEN
-       BAHAMAS_snap='snap28'
+       BAHAMAS_snapshot='snap28'
     ELSE IF(z==0.75) THEN
-       BAHAMAS_snap='snap27'
+       BAHAMAS_snapshot='snap27'
     ELSE IF(z==1.0) THEN
-       BAHAMAS_snap='snap26'
+       BAHAMAS_snapshot='snap26'
     ELSE IF(z==1.25) THEN
-       BAHAMAS_snap='snap25'
+       BAHAMAS_snapshot='snap25'
     ELSE IF(z==1.5) THEN
-       BAHAMAS_snap='snap24'
+       BAHAMAS_snapshot='snap24'
     ELSE IF(z==1.75) THEN
-       BAHAMAS_snap='snap23'
+       BAHAMAS_snapshot='snap23'
     ELSE IF(z==2.0) THEN
-       BAHAMAS_snap='snap22'
+       BAHAMAS_snapshot='snap22'
+    ELSE IF(z==2.25) THEN
+       BAHAMAS_snapshot='snap21'
+    ELSE IF(z==2.5) THEN
+       BAHAMAS_snapshot='snap20'
+    ELSE IF(z==2.75) THEN
+       BAHAMAS_snapshot='snap19'
+    ELSE IF(z==3.0) THEN
+       BAHAMAS_snapshot='snap18'
     ELSE
-       STOP 'BAHAMAS_SNAP: Error, redshift specified incorrectly'
+       WRITE(*,*) 'BAHAMAS_SNAPSHOT: z', z
+       STOP 'BAHAMAS_SNAPSHOT: Error, redshift specified incorrectly'
     END IF
 
-  END FUNCTION BAHAMAS_snap
+  END FUNCTION BAHAMAS_snapshot
 
   CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,m,z,ip)
 
@@ -4152,7 +4428,7 @@ CONTAINS
     INTEGER :: j
     INTEGER, PARAMETER :: computer=1
 
-    ! Directory containing everything
+     ! Directory containing everything
     IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/'!M1536'
     IF(computer==2) dir='/home/amead/BAHAMAS/power/'!M1536'
 
@@ -4160,7 +4436,7 @@ CONTAINS
     WRITE(mesh,*) m
     dir=TRIM(dir)//'M'//trim(adjustl(mesh))
 
-    snap=BAHAMAS_snap(z)
+    snap=BAHAMAS_snapshot(z)
 
     ! Set the fields
     DO j=1,2
@@ -4296,6 +4572,12 @@ CONTAINS
     END DO
     CLOSE(9)
 
+    ! Write to screen
+    IF(present_and_correct(verbose)) THEN
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: kmin [h/Mpc]:', k(1)
+       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: kmax [h/Mpc]:', k(n)
+    END IF
+    
     IF(present_and_correct(cut_nyquist)) THEN
        ! Find position in array of half-Nyquist
        kbig=k(n)
@@ -4309,6 +4591,7 @@ CONTAINS
        ! Write to screen
        IF(present_and_correct(verbose)) THEN
           WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmax [h/Mpc]:', k(n)
        END IF
     END IF
 
@@ -4324,6 +4607,10 @@ CONTAINS
           CALL amputate_general(Pk,n,m,j,n)
           n=m
        END IF
+       IF(present_and_correct(verbose)) THEN
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmin'
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmin [h/Mpc]:', k(1)
+       END IF
     END IF
 
     IF(PRESENT(kmax)) THEN
@@ -4337,6 +4624,10 @@ CONTAINS
           CALL amputate_general(k,n,m,1,j)
           CALL amputate_general(Pk,n,m,1,j)
           n=m
+       END IF
+       IF(present_and_correct(verbose)) THEN
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmax'
+          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmax [h/Mpc]:', k(n)
        END IF
     END IF
 
@@ -4425,5 +4716,98 @@ CONTAINS
     END DO
     
   END SUBROUTINE bin_theory_ell
+
+  SUBROUTINE BAHAMAS_zs(a,n)
+
+    IMPLICIT NONE
+    REAL, ALLOCATABLE, INTENT(OUT) :: a(:)
+    INTEGER, INTENT(IN) :: n
+
+    IF(ALLOCATED(a)) DEALLOCATE(a)
+    ALLOCATE(a(n))
+
+    IF(n==4) THEN        
+       a(1)=scale_factor_z(2.0)
+       a(2)=scale_factor_z(1.0)
+       a(3)=scale_factor_z(0.5)
+       a(4)=scale_factor_z(0.0)
+    ELSE IF(n==11) THEN
+       a(1)=scale_factor_z(2.0)
+       a(2)=scale_factor_z(1.75)
+       a(3)=scale_factor_z(1.5)
+       a(4)=scale_factor_z(1.25)
+       a(5)=scale_factor_z(1.0)
+       a(6)=scale_factor_z(0.75)
+       a(7)=scale_factor_z(0.5)
+       a(8)=scale_factor_z(0.375)
+       a(9)=scale_factor_z(0.25)
+       a(10)=scale_factor_z(0.125)
+       a(11)=scale_factor_z(0.0)
+    ELSE IF(n==15) THEN
+       a(1)=scale_factor_z(3.0)
+       a(2)=scale_factor_z(2.75)
+       a(3)=scale_factor_z(2.5)
+       a(4)=scale_factor_z(2.25)
+       a(5)=scale_factor_z(2.0)
+       a(6)=scale_factor_z(1.75)
+       a(7)=scale_factor_z(1.5)
+       a(8)=scale_factor_z(1.25)
+       a(9)=scale_factor_z(1.0)
+       a(10)=scale_factor_z(0.75)
+       a(11)=scale_factor_z(0.5)
+       a(12)=scale_factor_z(0.375)
+       a(13)=scale_factor_z(0.25)
+       a(14)=scale_factor_z(0.125)
+       a(15)=scale_factor_z(0.0)
+    ELSE
+       STOP 'BAHAMAS_ZS: Error, nz specified incorrectly'
+    END IF
+
+  END SUBROUTINE BAHAMAS_zs
+
+  SUBROUTINE add_highz_BAHAMAS(k,a,pow,nk,na,cosm)
+
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k(nk)
+    REAL, ALLOCATABLE, INTENT(INOUT) :: a(:)
+    REAL, ALLOCATABLE, INTENT(INOUT) :: pow(:,:)
+    INTEGER, INTENT(IN) :: nk
+    INTEGER, INTENT(INOUT) :: na
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: a_save(na), pow_save(nk,na), a_new
+    INTEGER :: i, j
+    REAL, PARAMETER :: z_new=3.
+    
+    ! Save the original a and P(k,a) arrays
+    a_save=a
+    pow_save=pow
+
+    ! Deallocate the original arrays
+    DEALLOCATE(a,pow)
+
+    ! Add an extra scale-factor at high-z
+    na=na+1
+
+    ! Reallocate original arrays with enough space for new z
+    ALLOCATE(a(na),pow(nk,na))
+
+    ! Add new scale factor
+    a(1)=scale_factor_z(z_new)
+
+    ! Add power as the previous highest z power times the squared growth ratio
+    pow(:,1)=pow_save(:,1)*(grow(a(1),cosm)/grow(a_save(1),cosm))**2
+
+    ! Fill in the rest of the arrays with the original values
+    DO j=1,na-1
+       a(j+1)=a_save(j)
+       pow(:,j+1)=pow_save(:,j)
+    END DO
+
+    !DO j=1,na
+    !   WRITE(*,*) j, a(j)
+    !END DO
+    !STOP
+
+  END SUBROUTINE add_highz_BAHAMAS
   
 END PROGRAM HMx_driver

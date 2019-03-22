@@ -41,13 +41,21 @@ MODULE Limber
   PUBLIC :: tracer_KiDS_bin4
   PUBLIC :: tracer_gravity_wave
   PUBLIC :: tracer_KiDS_450
-  PUBLIC :: tracer_KiDS_450_bin1
-  PUBLIC :: tracer_KiDS_450_bin2
+  PUBLIC :: tracer_KiDS_450_fat_bin1
+  PUBLIC :: tracer_KiDS_450_fat_bin2
   PUBLIC :: tracer_KiDS_450_highz
   PUBLIC :: tracer_CIB_353
   PUBLIC :: tracer_CIB_545
   PUBLIC :: tracer_CIB_857
   PUBLIC :: tracer_galaxies
+  PUBLIC :: tracer_lensing_z1p00
+  PUBLIC :: tracer_lensing_z0p75
+  PUBLIC :: tracer_lensing_z0p50
+  PUBLIC :: tracer_lensing_z0p25
+  PUBLIC :: tracer_KiDS_450_bin1
+  PUBLIC :: tracer_KiDS_450_bin2
+  PUBLIC :: tracer_KiDS_450_bin3
+  PUBLIC :: tracer_KiDS_450_bin4
  
   ! Projection quantities that need to be calculated only once; these relate to the Limber integrals
   TYPE projection    
@@ -67,8 +75,9 @@ MODULE Limber
   REAL, PARAMETER :: k_ell_max=1e3
 
   ! xcorr - C(l) calculation
-  LOGICAL, PARAMETER :: verbose_Limber=.FALSE. ! Verbosity
-  LOGICAL, PARAMETER :: verbose_xi=.FALSE. ! Verbosity
+  LOGICAL, PARAMETER :: verbose_Limber=.FALSE.   ! Verbosity
+  LOGICAL, PARAMETER :: verbose_xi=.FALSE.       ! Verbosity
+  LOGICAL, PARAMETER :: do_contributions=.FALSE. ! Contributions
 
   ! Maxdist
   REAL, PARAMETER :: dr_max=0.01 ! Small subtraction from maxdist to prevent numerical issues
@@ -89,14 +98,13 @@ MODULE Limber
   REAL, PARAMETER :: rmin_lensing=0.        ! Minimum distance in integral    
   INTEGER, PARAMETER :: nX_lensing=128      ! Number of entries in X(r) table
   INTEGER, PARAMETER :: nq_efficiency=128   ! Number of entries in q(r) table
-  INTEGER, PARAMETER :: iorder_efficiency=1 ! Order for lensing-efficiency integration over n(z) (treat as continuous function or histogram?)
+  INTEGER, PARAMETER :: iorder_efficiency=1 ! Order for lensing-efficiency integration over n(z)
 
   ! Gravitational waves
   REAL, PARAMETER :: A_gwave=1.
   REAL, PARAMETER :: rmin_gwave=10.
 
-  ! Tracer types
-  INTEGER, PARAMETER :: n_tracers=18
+  ! Tracer types  
   INTEGER, PARAMETER :: tracer_RCSLenS=1
   INTEGER, PARAMETER :: tracer_Compton_y=2
   INTEGER, PARAMETER :: tracer_CMB_lensing=3
@@ -108,13 +116,22 @@ MODULE Limber
   INTEGER, PARAMETER :: tracer_KiDS_bin4=9
   INTEGER, PARAMETER :: tracer_gravity_wave=10
   INTEGER, PARAMETER :: tracer_KiDS_450=11
-  INTEGER, PARAMETER :: tracer_KiDS_450_bin1=12
-  INTEGER, PARAMETER :: tracer_KiDS_450_bin2=13
+  INTEGER, PARAMETER :: tracer_KiDS_450_fat_bin1=12
+  INTEGER, PARAMETER :: tracer_KiDS_450_fat_bin2=13
   INTEGER, PARAMETER :: tracer_KiDS_450_highz=14
   INTEGER, PARAMETER :: tracer_CIB_353=15
   INTEGER, PARAMETER :: tracer_CIB_545=16
   INTEGER, PARAMETER :: tracer_CIB_857=17
   INTEGER, PARAMETER :: tracer_galaxies=18
+  INTEGER, PARAMETER :: tracer_lensing_z1p00=19
+  INTEGER, PARAMETER :: tracer_lensing_z0p75=20
+  INTEGER, PARAMETER :: tracer_lensing_z0p50=21
+  INTEGER, PARAMETER :: tracer_lensing_z0p25=22
+  INTEGER, PARAMETER :: tracer_KiDS_450_bin1=23
+  INTEGER, PARAMETER :: tracer_KiDS_450_bin2=24
+  INTEGER, PARAMETER :: tracer_KiDS_450_bin3=25
+  INTEGER, PARAMETER :: tracer_KiDS_450_bin4=26
+  INTEGER, PARAMETER :: n_tracers=26
   
 CONTAINS
 
@@ -126,24 +143,32 @@ CONTAINS
     INTEGER, INTENT(IN) :: ix
 
     xcorr_type=''
-    IF(ix==tracer_RCSLenS)        xcorr_type='RCSLenS lensing'
-    IF(ix==tracer_Compton_y)      xcorr_type='Compton y'
-    IF(ix==tracer_CMB_lensing)    xcorr_type='CMB lensing'
-    IF(ix==tracer_CFHTLenS)       xcorr_type='CFHTLenS lensing'
-    IF(ix==tracer_KiDS)           xcorr_type='KiDS lensing (z = 0.1 -> 0.9)'
-    IF(ix==tracer_KiDS_bin1)      xcorr_type='KiDS lensing (z = 0.1 -> 0.3)'
-    IF(ix==tracer_KiDS_bin2)      xcorr_type='KiDS lensing (z = 0.3 -> 0.5)'
-    IF(ix==tracer_KiDS_bin3)      xcorr_type='KiDS lensing (z = 0.5 -> 0.7)'
-    IF(ix==tracer_KiDS_bin4)      xcorr_type='KiDS lensing (z = 0.7 -> 0.9)'
-    IF(ix==tracer_gravity_wave)   xcorr_type='Gravitational waves'
-    IF(ix==tracer_KiDS_450)       xcorr_type='KiDS 450 (z = 0.1 -> 0.9)'
-    IF(ix==tracer_KiDS_450_bin1)  xcorr_type='KiDS 450 (z = 0.1 -> 0.5)'
-    IF(ix==tracer_KiDS_450_bin2)  xcorr_type='KiDS 450 (z = 0.5 -> 0.9)'
-    IF(ix==tracer_KiDS_450_highz) xcorr_type='KiDS 450 (z = 0.9 -> 3.5)'
-    IF(ix==tracer_CIB_353)        xcorr_type='CIB 353 GHz'
-    IF(ix==tracer_CIB_545)        xcorr_type='CIB 545 GHz'
-    IF(ix==tracer_CIB_857)        xcorr_type='CIB 857 GHz'
-    IF(ix==tracer_galaxies)       xcorr_type='Galaxies'
+    IF(ix==tracer_RCSLenS)           xcorr_type='RCSLenS lensing'
+    IF(ix==tracer_Compton_y)         xcorr_type='Compton y'
+    IF(ix==tracer_CMB_lensing)       xcorr_type='CMB lensing'
+    IF(ix==tracer_CFHTLenS)          xcorr_type='CFHTLenS lensing'
+    IF(ix==tracer_KiDS)              xcorr_type='KiDS lensing (z = 0.1 -> 0.9)'
+    IF(ix==tracer_KiDS_bin1)         xcorr_type='KiDS lensing (z = 0.1 -> 0.3)'
+    IF(ix==tracer_KiDS_bin2)         xcorr_type='KiDS lensing (z = 0.3 -> 0.5)'
+    IF(ix==tracer_KiDS_bin3)         xcorr_type='KiDS lensing (z = 0.5 -> 0.7)'
+    IF(ix==tracer_KiDS_bin4)         xcorr_type='KiDS lensing (z = 0.7 -> 0.9)'
+    IF(ix==tracer_gravity_wave)      xcorr_type='Gravitational waves'
+    IF(ix==tracer_KiDS_450)          xcorr_type='KiDS 450 (z = 0.1 -> 0.9)'
+    IF(ix==tracer_KiDS_450_fat_bin1) xcorr_type='KiDS 450 (z = 0.1 -> 0.5)'
+    IF(ix==tracer_KiDS_450_fat_bin2) xcorr_type='KiDS 450 (z = 0.5 -> 0.9)'
+    IF(ix==tracer_KiDS_450_highz)    xcorr_type='KiDS 450 (z = 0.9 -> 3.5)'
+    IF(ix==tracer_CIB_353)           xcorr_type='CIB 353 GHz'
+    IF(ix==tracer_CIB_545)           xcorr_type='CIB 545 GHz'
+    IF(ix==tracer_CIB_857)           xcorr_type='CIB 857 GHz'
+    IF(ix==tracer_galaxies)          xcorr_type='Galaxies'
+    IF(ix==tracer_lensing_z1p00)     xcorr_type='Lensing with fixed z=1.00 source plane'
+    IF(ix==tracer_lensing_z0p75)     xcorr_type='Lensing with fixed z=0.75 source plane'
+    IF(ix==tracer_lensing_z0p50)     xcorr_type='Lensing with fixed z=0.50 source plane'
+    IF(ix==tracer_lensing_z0p25)     xcorr_type='Lensing with fixed z=0.25 source plane'
+    IF(ix==tracer_KiDS_450_bin1)     xcorr_type='KiDS 450 (z = 0.1 -> 0.3)'
+    IF(ix==tracer_KiDS_450_bin2)     xcorr_type='KiDS 450 (z = 0.3 -> 0.5)'
+    IF(ix==tracer_KiDS_450_bin3)     xcorr_type='KiDS 450 (z = 0.5 -> 0.7)'
+    IF(ix==tracer_KiDS_450_bin4)     xcorr_type='KiDS 450 (z = 0.7 -> 0.9)'
     IF(xcorr_type=='') STOP 'XCORR_TYPE: Error, ix not specified correctly'
     
   END FUNCTION xcorr_type
@@ -236,9 +261,17 @@ CONTAINS
          ix==tracer_KiDS_bin3 .OR. &
          ix==tracer_KiDS_bin4 .OR. &
          ix==tracer_KiDS_450 .OR. &
+         ix==tracer_KiDS_450_fat_bin1 .OR. &
+         ix==tracer_KiDS_450_fat_bin2 .OR. &
+         ix==tracer_KiDS_450_highz .OR. &
+         ix==tracer_lensing_z1p00 .OR. &
+         ix==tracer_lensing_z0p75 .OR. &
+         ix==tracer_lensing_z0p50 .OR. &
+         ix==tracer_lensing_z0p25 .OR. &
          ix==tracer_KiDS_450_bin1 .OR. &
          ix==tracer_KiDS_450_bin2 .OR. &
-         ix==tracer_KiDS_450_highz) THEN
+         ix==tracer_KiDS_450_bin3 .OR. &
+         ix==tracer_KiDS_450_bin4) THEN
        CALL fill_lensing_kernel(ix,proj,cosm)
     ELSE
        STOP 'FILL_PROJECTION_KERNEL: Error, tracer type specified incorrectly'
@@ -274,7 +307,11 @@ CONTAINS
        WRITE(*,*) 'CALCULATE_CL: ell min:', real(ell(1))
        WRITE(*,*) 'CALCULATE_CL: ell max:', real(ell(nl))
        WRITE(*,*) 'CALCULATE_CL: number of ell:', nl
+       WRITE(*,*) 'CALCULATE_CL: kmin [h/Mpc]:', k(1)
+       WRITE(*,*) 'CALCULATE_CL: kmax [h/Mpc]:', k(nk)
        WRITE(*,*) 'CALCULATE_CL: number of k:', nk
+       WRITE(*,*) 'CALCULATE_CL: amin [h/Mpc]:', a(1)
+       WRITE(*,*) 'CALCULATE_CL: amax [h/Mpc]:', a(na)
        WRITE(*,*) 'CALCULATE_CL: number of a:', na
        WRITE(*,*) 'CALCULATE_CL: Minimum distance [Mpc/h]:', real(r1)
        WRITE(*,*) 'CALCULATE_CL: Maximum distance [Mpc/h]:', real(r2)
@@ -304,10 +341,13 @@ CONTAINS
     TYPE(projection), INTENT(IN) :: proj(2) ! Projection kernels
     TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmology
     REAL :: logk(nk), loga(na), logpow(nk,na)
-    INTEGER :: i, j, l
+    REAL, ALLOCATABLE :: ell(:)
+    INTEGER :: i, j
     CHARACTER(len=256) :: fbase, fext, outfile
 
-    INTEGER, PARAMETER :: n=16 ! Number of ell values to take, from l=1 to l=2**(n-1); 2^15 ~ 32,000
+    REAL, PARAMETER :: lmin=1e1
+    REAL, PARAMETER :: lmax=1e4
+    INTEGER, PARAMETER :: nl=16 ! Number of ell values to take, from l=1 to l=2**(n-1); 2^15 ~ 32,000
 
     ! Create log tables to speed up 2D find routine in find_pka
     logk=log(k)
@@ -316,13 +356,16 @@ CONTAINS
        logpow(:,j)=log((2.*pi**2)*pow(:,j)/k**3)
     END DO
 
+    CALL fill_array(log(lmin),log(lmax),ell,nl)
+    ell=exp(ell)
+
     ! Now call the contribution subroutine
     fbase='data/Cl_contribution_ell_'
     fext='.dat'
-    DO i=1,n
-       l=2**(i-1) ! Set the l
+    DO i=1,nl
+       !l=2**(i-1) ! Set the l
        outfile=number_file(fbase,i,fext)
-       CALL Limber_contribution(real(l),r1,r2,logk,loga,logpow,nk,na,proj,cosm,outfile)
+       CALL Limber_contribution(ell(i),r1,r2,logk,loga,logpow,nk,na,proj,cosm,outfile)
     END DO
 
   END SUBROUTINE Cl_contribution_ell
@@ -483,9 +526,25 @@ CONTAINS
     INTEGER :: i, nX
 
     ! Choose either n(z) or fixed z_s
-    IF(ix==tracer_CMB_lensing) THEN      
+    IF(ix==tracer_CMB_lensing .OR. &
+         ix==tracer_lensing_z1p00 .OR. &
+         ix==tracer_lensing_z0p75 .OR. &
+         ix==tracer_lensing_z0p50 .OR. &
+         ix==tracer_lensing_z0p25) THEN      
        zmin=0.
-       zmax=cosm%z_cmb
+       IF(ix==tracer_CMB_lensing) THEN
+          zmax=cosm%z_cmb
+       ELSE IF(ix==tracer_lensing_z1p00) THEN
+          zmax=1.00
+       ELSE IF(ix==tracer_lensing_z0p75) THEN
+          zmax=0.75
+       ELSE IF(ix==tracer_lensing_z0p50) THEN
+          zmax=0.50
+       ELSE IF(ix==tracer_lensing_z0p25) THEN
+          zmax=0.25
+       ELSE
+          STOP 'FILL_LENSING_KERNEL: Error, tracer is specified incorrectly'
+       END IF
        IF(verbose_Limber) WRITE(*,*) 'FILL_LENSING_KERNEL: Source plane redshift:', real(zmax)
     ELSE IF(ix==tracer_RCSLenS .OR. &
          ix==tracer_CFHTLenS .OR. &
@@ -495,9 +554,13 @@ CONTAINS
          ix==tracer_KiDS_bin3 .OR. &
          ix==tracer_KiDS_bin4 .OR. &
          ix==tracer_KiDS_450 .OR. &
+         ix==tracer_KiDS_450_fat_bin1 .OR. &
+         ix==tracer_KiDS_450_fat_bin2 .OR. &
+         ix==tracer_KiDS_450_highz .OR. &
          ix==tracer_KiDS_450_bin1 .OR. &
          ix==tracer_KiDS_450_bin2 .OR. &
-         ix==tracer_KiDS_450_highz) THEN
+         ix==tracer_KiDS_450_bin3 .OR. &
+         ix==tracer_KiDS_450_bin4) THEN
        CALL read_nz(ix,proj)
        zmin=proj%z_nz(1)
        zmax=proj%z_nz(proj%nnz)
@@ -566,7 +629,11 @@ CONTAINS
           ! To avoid division by zero
           proj%q(i)=1.
        ELSE
-          IF(ix==tracer_CMB_lensing) THEN
+          IF(ix==tracer_CMB_lensing .OR. &
+               ix==tracer_lensing_z1p00 .OR. &
+               ix==tracer_lensing_z0p75 .OR. &
+               ix==tracer_lensing_z0p50 .OR. &
+               ix==tracer_lensing_z0p25) THEN
              ! q(r) for a fixed source plane
              proj%q(i)=f_k(rmax-r,cosm)/f_k(rmax,cosm)
           ELSE IF(ix==tracer_RCSLenS .OR. &
@@ -577,9 +644,13 @@ CONTAINS
                ix==tracer_KiDS_bin3 .OR. &
                ix==tracer_KiDS_bin4 .OR. &
                ix==tracer_KiDS_450 .OR. &
+               ix==tracer_KiDS_450_fat_bin1 .OR. &
+               ix==tracer_KiDS_450_fat_bin2 .OR. &
+               ix==tracer_KiDS_450_highz .OR. &
                ix==tracer_KiDS_450_bin1 .OR. &
                ix==tracer_KiDS_450_bin2 .OR. &
-               ix==tracer_KiDS_450_highz) THEN
+               ix==tracer_KiDS_450_bin3 .OR. &
+               ix==tracer_KiDS_450_bin4) THEN
              ! q(r) for a n(z) distribution 
              proj%q(i)=integrate_q(r,z,zmax,acc_Limber,iorder_efficiency,proj,cosm)
           ELSE
@@ -671,9 +742,11 @@ CONTAINS
     rmax=comoving_distance(0.,cosm) ! Cheat to ensure that init_distance has been run
     rmax=MAXVAL(cosm%r)
     CALL fill_array(rmin_kernel,rmax,proj%r_X,proj%nX)
-    WRITE(*,*) 'FILL_KERNEL: minimum r [Mpc/h]:', real(rmin_kernel)
-    WRITE(*,*) 'FILL_KERNEL: maximum r [Mpc/h]:', real(rmax)
-    WRITE(*,*) 'FILL_KERNEL: number of points:', nX
+    IF(verbose_Limber) THEN
+       WRITE(*,*) 'FILL_KERNEL: minimum r [Mpc/h]:', real(rmin_kernel)
+       WRITE(*,*) 'FILL_KERNEL: maximum r [Mpc/h]:', real(rmax)
+       WRITE(*,*) 'FILL_KERNEL: number of points:', nX
+    END IF
 
     IF(ALLOCATED(proj%X)) DEALLOCATE(proj%X)
     ALLOCATE(proj%X(nX))
@@ -694,8 +767,10 @@ CONTAINS
        END IF
     END DO
 
-    WRITE(*,*) 'FILL_KERNEL: Done:'
-    WRITE(*,*)
+    IF(verbose_Limber) THEN
+       WRITE(*,*) 'FILL_KERNEL: Done:'
+       WRITE(*,*)
+    END IF
 
   END SUBROUTINE fill_kernel
 
@@ -708,16 +783,20 @@ CONTAINS
     REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: z, a
+    !REAL :: fac, Xe=1.17, Xi=1.08
 
     ! Get the scale factor
     z=redshift_r(r,cosm)
-    a=scale_factor_z(z)
-
+    a=scale_factor_z(z)  
+    
     ! Make the kernel and do some unit conversions
     y_kernel=yfac                     ! yfac = sigma_T / m_e c^2 [kg^-1 s^2]
     y_kernel=y_kernel*Mpc/cosm%h      ! Add Mpc/h units from the dr in the integral (h is new)
     y_kernel=y_kernel/a**2            ! These come from 'a^-3' for pressure multiplied by 'a' for comoving distance
     y_kernel=y_kernel*eV*(0.01)**(-3) ! Convert units of pressure spectrum from [eV/cm^3] to [J/m^3]
+
+    !fac=(Xe+Xi)/Xe
+    !y_kernel=y_kernel*fac*cosm%h
 
   END FUNCTION y_kernel
 
@@ -792,9 +871,13 @@ CONTAINS
          ix==tracer_KiDS_bin3 .OR. &
          ix==tracer_KiDS_bin4 .OR. &
          ix==tracer_KiDS_450 .OR. &
+         ix==tracer_KiDS_450_fat_bin1 .OR. &
+         ix==tracer_KiDS_450_fat_bin2 .OR. &
+         ix==tracer_KiDS_450_highz .OR. &
          ix==tracer_KiDS_450_bin1 .OR. &
          ix==tracer_KiDS_450_bin2 .OR. &
-         ix==tracer_KiDS_450_highz) THEN
+         ix==tracer_KiDS_450_bin3 .OR. &
+         ix==tracer_KiDS_450_bin4) THEN
        CALL fill_nz_table(ix,proj)
     ELSE
        STOP 'READ_NZ: Error, tracer specified incorrectly'
@@ -843,7 +926,7 @@ CONTAINS
 
     ! Get file name
     IF(ix==tracer_KiDS) THEN
-       input='/Users/Mead/Physics/data/KiDS/nz/KiDS_z0.1-0.9_MEAD.txt'
+       input='/Users/Mead/Physics/data/KiDS/nz/KiDS_z0.1-0.9.txt'
     ELSE IF(ix==tracer_KiDS_bin1) THEN
        input='/Users/Mead/Physics/data/KiDS/nz/KiDS_z0.1-0.3.txt'
     ELSE IF(ix==tracer_KiDS_bin2) THEN
@@ -853,14 +936,22 @@ CONTAINS
     ELSE IF(ix==tracer_KiDS_bin4) THEN
        input='/Users/Mead/Physics/data/KiDS/nz/KiDS_z0.7-0.9.txt'
     ELSE IF(ix==tracer_KiDS_450 .OR. &
-         ix==tracer_KiDS_450_bin1 .OR. &
-         ix==tracer_KiDS_450_bin2 .OR. &
+         ix==tracer_KiDS_450_fat_bin1 .OR. &
+         ix==tracer_KiDS_450_fat_bin2 .OR. &
          ix==tracer_KiDS_450_highz) THEN
        input='/Users/Mead/Physics/data/KiDS/nz/KiDS-450_fat_bin_nofz.txt'
+    ELSE IF(ix==tracer_KiDS_450_bin1) THEN
+       input='/Users/Mead/Physics/data/KiDS/nz/Nz_DIR_z0.1t0.3.asc'
+    ELSE IF(ix==tracer_KiDS_450_bin2) THEN
+       input='/Users/Mead/Physics/data/KiDS/nz/Nz_DIR_z0.3t0.5.asc'
+    ELSE IF(ix==tracer_KiDS_450_bin3) THEN
+       input='/Users/Mead/Physics/data/KiDS/nz/Nz_DIR_z0.5t0.7.asc'
+    ELSE IF(ix==tracer_KiDS_450_bin4) THEN
+       input='/Users/Mead/Physics/data/KiDS/nz/Nz_DIR_z0.7t0.9.asc'
     ELSE
        STOP 'FILL_NZ_TABLE: tracer not specified correctly'
     END IF
-    WRITE(*,*) 'FILL_NZ_TABLE: Input file:', trim(input)
+    IF(verbose_Limber) WRITE(*,*) 'FILL_NZ_TABLE: Input file: ', trim(input)
 
     ! Allocate arrays
     proj%nnz=count_number_of_lines(input)
@@ -875,13 +966,18 @@ CONTAINS
             ix==tracer_KiDS_bin1 .OR. &
             ix==tracer_KiDS_bin2 .OR. &
             ix==tracer_KiDS_bin3 .OR. &
-            ix==tracer_KiDS_bin4) THEN
+            ix==tracer_KiDS_bin4 .OR. &
+            ix==tracer_KiDS_bin4 .OR. &
+            ix==tracer_KiDS_450_bin1 .OR. &
+            ix==tracer_KiDS_450_bin2 .OR. &
+            ix==tracer_KiDS_450_bin3 .OR. &
+            ix==tracer_KiDS_450_bin4) THEN
           READ(7,*) proj%z_nz(i), proj%nz(i) ! Second column
        ELSE IF(ix==tracer_KiDS_450) THEN
           READ(7,*) proj%z_nz(i), proj%nz(i) ! Second column (z = 0.1 -> 0.9)
-       ELSE IF(ix==tracer_KiDS_450_bin1) THEN
+       ELSE IF(ix==tracer_KiDS_450_fat_bin1) THEN
           READ(7,*) proj%z_nz(i), spam, proj%nz(i) ! Third column (z = 0.1 -> 0.5)
-       ELSE IF(ix==tracer_KiDS_450_bin2) THEN
+       ELSE IF(ix==tracer_KiDS_450_fat_bin2) THEN
           READ(7,*) proj%z_nz(i), spam, spam, proj%nz(i) ! Fourth column (z = 0.5 -> 0.9)
        ELSE IF(ix==tracer_KiDS_450_highz) THEN
           READ(7,*) proj%z_nz(i), spam, spam, spam, proj%nz(i) ! Fifth column (z = 0.9 -> 3.5)
@@ -893,8 +989,20 @@ CONTAINS
 
     ! Do this because the KiDS-450 files contain the lower left edge of histograms
     ! The bin sizes are 0.05 in z, so need to add 0.05/2 = 0.025
-    IF(ix==tracer_KiDS_450 .OR. ix==tracer_KiDS_450_bin1 .OR. ix==tracer_KiDS_450_bin2 .OR. ix==tracer_KiDS_450_highz) THEN       
+    IF(ix==tracer_KiDS_450 .OR. &
+         ix==tracer_KiDS_450_fat_bin1 .OR. &
+         ix==tracer_KiDS_450_fat_bin2 .OR. &
+         ix==tracer_KiDS_450_highz .OR. &
+         ix==tracer_KiDS_450_bin1 .OR. &
+         ix==tracer_KiDS_450_bin2 .OR. &
+         ix==tracer_KiDS_450_bin3 .OR. &
+         ix==tracer_KiDS_450_bin4) THEN
        proj%z_nz=proj%z_nz+0.025
+    END IF
+
+    IF(verbose_Limber) THEN
+       WRITE(*,*) 'FILL_NZ_TABLE: Done'
+       WRITE(*,*)
     END IF
 
   END SUBROUTINE fill_nz_table
@@ -907,6 +1015,7 @@ CONTAINS
     REAL, INTENT(IN) :: z
     INTEGER, INTENT(IN) :: ix
     REAL :: a, b, c, d, e, f, g, h, i
+    REAL :: norm
     REAL :: n1, n2, n3
     REAL :: z1, z2
 
@@ -933,7 +1042,8 @@ CONTAINS
        b=0.32
        c=0.20
        d=0.46
-       nz=a*exp(-((z-z1)/b)**2)+c*exp(-((z-z2)/d)**2)
+       norm=1.0129840620118542 ! This is to ensure normalisation; without this integrates to ~1.013 according to python
+       nz=(a*exp(-((z-z1)/b)**2)+c*exp(-((z-z2)/d)**2))/norm
     ELSE
        STOP 'NZ: Error, tracer specified incorrectly'
     END IF
@@ -960,7 +1070,7 @@ CONTAINS
     INTEGER, PARAMETER :: jmax=30 ! Standard integration parameters
 
     !WRITE(*,*) 'order =', iorder
-    ! IdeaSTOP
+    ! STOP
 
     IF(a==b) THEN
 
@@ -1247,7 +1357,7 @@ CONTAINS
     ! It will interpolate in log(k) outside range of ktab until kmin_pka/kmax_pka
     IMPLICIT NONE
     REAL, INTENT(IN) :: k, a ! Input desired values of k and a
-    INTEGER, INTENT(IN) :: nk, na ! Number of entried of k and a in arrays
+    INTEGER, INTENT(IN) :: nk, na ! Number of entries of k and a in arrays
     REAL, INTENT(IN) :: logktab(nk), logatab(na), logptab(nk,na) ! Arrays of log(k), log(a) and log(P(k,a))
     REAL :: logk, loga
 
@@ -1295,6 +1405,9 @@ CONTAINS
     ! Actually calculate the C(ell), but only for the full halo model part
     ! TODO: Array temporary
     CALL calculate_Cl(r1,r2,ell,Cl,nl,k,a,pow,nk,na,proj,cosm)
+
+    ! Do contributions if needed
+    IF(do_contributions) CALL Cl_contribution_ell(r1,r2,k,a,pow,nk,na,proj,cosm)
 
   END SUBROUTINE xpow_pka
   

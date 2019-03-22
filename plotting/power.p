@@ -47,6 +47,8 @@ plot power u 1:($2/(fac*$1**p)) w l lc -1       dt 1 lw 3 ti 'Linear',\
      power u 1:($4/(fac*$1**p)) w l lc rgb col  dt 3 lw 3 ti '1-halo',\
      power u 1:($5/(fac*$1**p)) w l lc rgb col  dt 1 lw 3 ti 'Total'
 
+show output
+
 
 
 

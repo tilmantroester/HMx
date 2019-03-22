@@ -17,7 +17,7 @@ set format x '10^{%T}'
 set mxtics 10
 
 set log y
-set ylabel 'Mass fraction'
+set ylabel 'Halo mass fraction'
 #set yrange [3.162e-3:3.162e0]
 set yrange [3.162e-3:1e0]
 set format y

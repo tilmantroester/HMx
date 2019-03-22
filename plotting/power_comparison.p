@@ -63,14 +63,17 @@ set yrange [rmin:rmax]
 set format y
 set ylabel 'P_{new}(k) / P_{old}(k)'
 
+y=0.1
 dy=0.01
 ddy=0.001
 
 plot 1 w l ls -1 noti,\
-     1.-ddy w l lw 1 lc -1 dt 3 ti '0.1%',\
-     1.+ddy w l lw 1 lc -1 dt 3 noti,\
-     1.-dy  w l lw 1 lc -1 dt 2 ti '1%',\
-     1.+dy  w l lw 1 lc -1 dt 2 noti,\
+     1.-ddy w l lw 1 lc -1 dt 4 ti '0.1%',\
+     1.+ddy w l lw 1 lc -1 dt 4 noti,\
+     1.-dy  w l lw 1 lc -1 dt 3 ti '1%',\
+     1.+dy  w l lw 1 lc -1 dt 3 noti,\
+     1.-y   w l lw 1 lc -1 dt 2 ti '10%',\
+     1.+y   w l lw 1 lc -1 dt 2 noti,\
      for[i=1:nz] '<paste '.new.' '.com.'' u 1:(column(i+1)/column(i+1+17)) w l lw 2 dt 1 lc rgb col_green(i) noti
      #for[i=1:nz] '<paste '.new.' '.com.'' u 1:(column(i+1)/column(35-i)) w l lw 2 dt 1 lc rgb col_green(i) noti
 

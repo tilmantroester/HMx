@@ -12,12 +12,12 @@ print ''
 
 if(!exists('iplot')) {iplot=1}
 print 'iplot = 1: Cumulative mass contraibution'
-print 'iplot = 2: Binned mass contribution'
+print 'iplot = 2: PAPER: Binned mass contribution'
 print 'iplot = ', iplot
 print ''
 
 if(print==1 && iplot==1) {set output 'power_mass_contribution_cumulative.eps'}
-if(print==1 && iplot==2) {set output 'power_mass_contribution_binned.eps'}
+if(print==1 && iplot==2) {set output 'paper/power_mass_contribution.eps'}
 
 # data file
 if(iplot==1) {power(f1,f2,m)=sprintf('data/power_%d%d_m%d.dat',f1,f2,m)}
@@ -56,7 +56,7 @@ plot for [i=m1:m2] power(0,0,i) u 1:5:(i) w l lw 3 dt 1 lc palette noti#,\
      for [i=m1:m2] power(0,0,i) u 1:4:(i) w l lw 3 dt 3 lc palette noti
 }
 if(iplot==2){
-plot base(0,0) u 1:5 w l lw 3 dt 1 lc -1 noti,\
+plot base(0,0) u 1:5 w l lw 5 dt 1 lc -1 noti,\
      for [i=m1:m2] power(0,0,i,i+1) u 1:5:(i) w l lw 3 dt 1 lc palette noti
 }
 
@@ -81,10 +81,12 @@ plot for [i=m1:m2] power(0,6,i) u 1:5:(i) w l lw 3 dt 1 lc palette noti#,\
      for [i=m1:m2] power(0,6,i) u 1:4:(i) w l lw 3 dt 3 lc palette noti
 }
 if(iplot==2){
-plot base(0,6) u 1:5 w l lw 3 dt 1 lc -1 noti,\
+plot base(0,6) u 1:5 w l lw 5 dt 1 lc -1 noti,\
      for [i=m1:m2] power(0,6,i,i+1) u 1:5:(i) w l lw 3 dt 1 lc palette noti
 }
 
 unset label
 
 unset multiplot
+
+show output

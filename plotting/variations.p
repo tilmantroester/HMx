@@ -21,12 +21,12 @@ UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat'
 
 # Fix the parameter to plot
 if(!exists("param")){param=1}
-if(param==1)  {pname='{/Symbol a}';       min=0.0333; max=0.6333; ilog=0; ptype='mid'}
+if(param==1)  {pname='{/Symbol a}';       min=0.4;    max=1.0;    ilog=0; ptype='mid'}
 if(param==2)  {pname='{/Symbol e}';       min=0.5;    max=1.5;    ilog=0; ptype='mid'}
 if(param==3)  {pname='{/Symbol G}';       min=1.12;   max=1.22;   ilog=0; ptype='mid'}
 if(param==4)  {pname='M_g / M_{'.sun.'}'; min=1e13;   max=1e15;   ilog=1; ptype='mid'}
 if(param==5)  {pname='A_*';               min=0.02;   max=0.04;   ilog=0; ptype='mid'}
-if(param==6)  {pname='T_{WHIM} / K';      min=1e5;    max=1e7;    ilog=1; ptype='mid'}
+if(param==6)  {pname='T_{WHIM} / K';      min=3e5;    max=3e7;    ilog=1; ptype='mid'}
 if(param==7)  {pname='c_*';               min=5.;     max=20.;    ilog=1; ptype='mid'}
 if(param==8)  {pname='f_{c}';             min=0.;     max=0.25;   ilog=0; ptype='low'}
 if(param==9)  {pname='M_*';               min=5e11;   max=5e13;   ilog=1; ptype='mid'}
@@ -42,7 +42,7 @@ if(param==18) {pname='A_*^{Z}';           min=-0.1;   max=0.1;    ilog=0; ptype=
 if(param==19) {pname='T_{WHIM}^{Z}';      min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
 if(param==20) {pname='{/Symbol h}';       min=-0.5;   max=0.0;    ilog=0; ptype='hig'}
 if(param==33) {pname='{/Symbol e}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==34) {pname='{/Symbol b}';       min=0.0333; max=0.6333; ilog=0; ptype='mid'}
+if(param==34) {pname='{/Symbol b}';       min=0.4;    max=1.0;    ilog=0; ptype='mid'}
 if(param==35) {pname='{/Symbol b}^{P}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
 if(param==36) {pname='{/Symbol b}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
 print 'Comparison for parameter (set with *param*): '.param.''
@@ -167,7 +167,7 @@ rholab='4{/Symbol p} r^2 {/Symbol r}(r) / M [Mpc/h]^{-1}'
 # Pressure profile axis
 premin=1e-4
 premax=1e2
-prelab='4{/Symbol p} r^2 P(r) [eV (Mpc/h)^{-1}]'
+prelab='4{/Symbol p} r^2 P_e(r) [eV (Mpc/h)^{-1}]'
 
 # Axis range for halo profiles
 rmin=0.
@@ -553,3 +553,5 @@ unset label
 ### ###
 
 unset multiplot
+
+show output

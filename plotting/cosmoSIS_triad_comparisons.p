@@ -6,7 +6,7 @@ if(!exists('print')){print=0}
 if(print==0){set term aqua dashed; ell='l'}
 if(print==1){set term post enh col fontfile cmmi font ',12'; set output 'cosmoSIS_triad_comparisons.eps'; ell='{/cmmi10 \140}'}
 
-hmx(f1,f2)=sprintf('data/triad_Cl_%s-%s.dat',f1,f2)
+hmx(f1,f2)=sprintf('data/triad_Cl_AGN_%s-%s.dat',f1,f2)
 
 cs(f1,f2,thing)=sprintf('/Users/Mead/Physics/people/Tilman/cosmoSIS/%s_%s_cl/%s.txt',f1,f2,thing)
 
@@ -45,7 +45,7 @@ set log y
 set ylabel ylab
 set format y '10^{%T}'
 set yrange [clmin:clmax]
-
+s
 set key top left
 
 plot hmx('gal_z0.1-0.9','CMB') u 1:3 w l lw 2 lc 1 ti 'HMx: {/Symbol g} (z = 0.1->0.9)-{/Symbol k}',\

@@ -86,4 +86,5 @@ plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc pale
 #     for[i=1:n] file_hm u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti#,\
 #     f(x) w l lw 3 dt 2 lc -1 noti
 
+show output
 

@@ -17,16 +17,19 @@ if(!exists('iplot')){iplot=1}
 print 'iplot = 1: Standard'
 print 'iplot = 2: PAPER: k-k'
 print 'iplot = 3: PAPER: k-y'
+print 'iplot = 4: y-y'
 print 'iplot = ', iplot
 print ''
 
 if(print==1 && iplot==1){set output 'Cl_contribution_ell.eps'}
 if(print==1 && iplot==2){set output 'paper/Cl_contribution_ell_kk.eps'}
 if(print==1 && iplot==3){set output 'paper/Cl_contribution_ell_ky.eps'}
+if(print==1 && iplot==4){set output 'Cl_contribution_ell_yy.eps'}
 
 if(iplot==1){lab=''}
 if(iplot==2){lab='{/Symbol k}-{/Symbol k}'}
 if(iplot==3){lab='{/Symbol k}-y'}
+if(iplot==4){lab='y-y'}
 
 # Files to plot
 file(n)=sprintf('data/Cl_contribution_ell_%d.dat', n)
@@ -39,8 +42,11 @@ unset ytics
 
 # Colour bar
 n=16
-ellmin=2**0
-ellmax=2**(n-1)
+#ellmin=2**0
+#ellmax=2**(n-1)
+ellmin=1e1
+ellmax=1e4
+ell(i)=exp(log(ellmin)+log(ellmax/ellmin)*(i-1)/(n-1))
 set log cb
 set cbrange [ellmin:ellmax]
 set cblabel ''.ell.''
@@ -72,7 +78,7 @@ kmax=1e2
 set xlabel 'k / (h Mpc^{-1})' offset 0,1
 set log x
 set xrange [kmin:kmax]
-plot for [i=1:n] file(i) u 1:2:(2**(i-1)) w l lw 3 lc palette noti
+plot for [i=1:n] file(i) u 1:2:(ell(i)) w l lw 3 lc palette noti
 unset label
 
 ## ##
@@ -86,7 +92,7 @@ zmax=3
 set xlabel 'z'
 set log x
 set xrange [zmin:zmax]
-plot for [i=1:n] file(i) u 3:4:(2**(i-1)) w l lw 3 lc palette noti
+plot for [i=1:n] file(i) u 3:4:(ell(i)) w l lw 3 lc palette noti
 
 ## ##
 
@@ -100,8 +106,10 @@ set xlabel 'r / (h^{-1} Mpc)'
 set log x
 set xrange [rmin:rmax]
 set colorbox user origin rig+0.02,bot size 0.03,(top-bot)
-plot for [i=1:n] file(i) u 5:6:(2**(i-1)) w l lw 3 lc palette noti
+plot for [i=1:n] file(i) u 5:6:(ell(i)) w l lw 3 lc palette noti
 
 ## ##
 
 unset multiplot
+
+show output
