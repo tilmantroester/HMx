@@ -55,7 +55,8 @@ _OBJ = constants.o \
 	cosmology_functions.o \
 	HMx.o \
 	Limber.o \
-	cosmic_emu_stuff.o	
+	cosmic_emu_stuff.o \
+	owls.o
 
 # Add prefixes of build directory to objects
 OBJ = $(addprefix $(BUILD_DIR)/,$(_OBJ))

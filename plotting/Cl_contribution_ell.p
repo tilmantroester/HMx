@@ -18,21 +18,32 @@ print 'iplot = 1: Standard'
 print 'iplot = 2: PAPER: k-k'
 print 'iplot = 3: PAPER: k-y'
 print 'iplot = 4: y-y'
+print 'iplot = 5: BAHAMAS k-k (z=0.1->0.9)'
+print 'iplot = 6: BAHAMAS k-y (z=0.1->0.9)'
+print 'iplot = 7: BAHAMAS y-y'
 print 'iplot = ', iplot
 print ''
 
-if(print==1 && iplot==1){set output 'Cl_contribution_ell.eps'}
-if(print==1 && iplot==2){set output 'paper/Cl_contribution_ell_kk.eps'}
-if(print==1 && iplot==3){set output 'paper/Cl_contribution_ell_ky.eps'}
-if(print==1 && iplot==4){set output 'Cl_contribution_ell_yy.eps'}
+if(print==1) {
+if(iplot==1) {set output 'Cl_contribution_ell.eps'}
+if(iplot==2) {set output 'paper/Cl_contribution_ell_kk.eps'}
+if(iplot==3) {set output 'paper/Cl_contribution_ell_ky.eps'}
+if(iplot==4) {set output 'Cl_contribution_ell_yy.eps'}
+if(iplot==5) {set output 'Cl_BAHAMAS_contribution_ell_kk.eps'}
+if(iplot==6) {set output 'Cl_BAHAMAS_contribution_ell_ky.eps'}
+if(iplot==7) {set output 'Cl_BAHAMAS_contribution_ell_yy.eps'}
+}
 
 if(iplot==1){lab=''}
-if(iplot==2){lab='{/Symbol k}-{/Symbol k}'}
-if(iplot==3){lab='{/Symbol k}-y'}
-if(iplot==4){lab='y-y'}
+if(iplot==2 || iplot==5){lab='{/Symbol k}-{/Symbol k}'}
+if(iplot==3 || iplot==6){lab='{/Symbol k}-y'}
+if(iplot==4 || iplot==7){lab='y-y'}
 
 # Files to plot
-file(n)=sprintf('data/Cl_contribution_ell_%d.dat', n)
+if(iplot==1 || iplot==2 || iplot==3 || iplot==4) {file(n)=sprintf('data/Cl_contribution_ell_%d.dat', n)}
+if(iplot==5) {file(n)=sprintf('data/Cl_kk_BAHAMAS_contribution_ell_%d.dat', n)}
+if(iplot==6) {file(n)=sprintf('data/Cl_ky_BAHAMAS_contribution_ell_%d.dat', n)}
+if(iplot==7) {file(n)=sprintf('data/Cl_yy_BAHAMAS_contribution_ell_%d.dat', n)}
 
 # Fix the y axis to have no label
 set ylabel ''

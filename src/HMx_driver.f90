@@ -9,6 +9,7 @@ PROGRAM HMx_driver
   USE string_operations
   USE special_functions
   USE logical_operations
+  USE owls
 
   ! TODO: Many pow(1,1,nk) could be pow(nk)
   ! TODO: Too many different pow(:,:), pow(:,:,:), pow(:,:,:,:), ...
@@ -191,6 +192,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '62 - Direct integration of measured 3D BAHAMAS spectra: Triad 5'
      WRITE(*,*) '63 - Contributions to y-y C(l) integral'
      WRITE(*,*) '64 - CIB 545 GHz'
+     WRITE(*,*) '65 - Contributions to Limber integrals from BAHAMAS'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -1210,7 +1212,9 @@ PROGRAM HMx_driver
            CALL write_Cl(ell,Cl(1,2,:),nl,outfile,verbose)
 
            IF(j==4 .AND. (imode==7 .OR. imode==11 .OR. imode==42 .OR. imode==43 .OR. imode==63)) THEN
-              CALL Cl_contribution_ell(r1,r2,k,a,pow_ka,nk,na,proj,cosm)
+              base='data/Cl_contribution_ell_'
+              ext='.dat'
+              CALL Cl_contribution_ell(r1,r2,k,a,pow_ka,nk,na,proj,cosm,base,ext)
               IF(imode==42 .OR. imode==43 .OR. imode==63) EXIT
            END IF
 
@@ -3474,12 +3478,13 @@ PROGRAM HMx_driver
      END DO
      CLOSE(7)
 
-  ELSE IF(imode==57 .OR. imode==61 .OR. imode==62) THEN
+  ELSE IF(imode==57 .OR. imode==61 .OR. imode==62 .OR. imode==65) THEN
 
      ! Calculate C(l) by direct integration of the measured 3D BAHAMAS power spectra
      ! 57 - Triad 3
      ! 61 - Triad 4
      ! 62 - Triad 5
+     ! 65 - Triad 5 with contribution to Limber integrals per ell
 
      ! Assigns the cosmological model
      icosmo=4 ! 4 - WMAP9
@@ -3516,7 +3521,7 @@ PROGRAM HMx_driver
         nt=4
      ELSE IF(imode==61) THEN
         nt=5
-     ELSE IF(imode==62) THEN
+     ELSE IF(imode==62 .OR. imode==65) THEN
         nt=6
      ELSE
         STOP 'HMX_DRIVER: Error, imode specified incorrectly'
@@ -3547,7 +3552,7 @@ PROGRAM HMx_driver
               CALL triad_3_tracers(ii,ix(1),ixx_names(1))
            ELSE IF(imode==61) THEN
               CALL triad_4_tracers(ii,ix(1),ixx_names(1))
-           ELSE IF(imode==62) THEN
+           ELSE IF(imode==62 .OR. imode==65) THEN
               CALL triad_5_tracers(ii,ix(1),ixx_names(1))
            ELSE
               STOP 'HMX_DRIVER: Error, imode specified incorrectly'
@@ -3561,7 +3566,7 @@ PROGRAM HMx_driver
                  CALL triad_3_tracers(jj,ix(2),ixx_names(2))
               ELSE IF(imode==61) THEN
                  CALL triad_4_tracers(jj,ix(2),ixx_names(2))
-              ELSE IF(imode==62) THEN
+              ELSE IF(imode==62 .OR. imode==65) THEN
                  CALL triad_5_tracers(jj,ix(2),ixx_names(2))
               ELSE
                  STOP 'HMX_DRIVER: Error, imode specified incorrectly'
@@ -3574,7 +3579,7 @@ PROGRAM HMx_driver
 
               ! Choose the set of redshifts to use
               na=nz_BAHAMAS
-              CALL BAHAMAS_zs(a,na)
+              CALL BAHAMAS_scale_factors(a,na)
 
               ! Read in power
               DO i=1,na
@@ -3593,6 +3598,25 @@ PROGRAM HMx_driver
 
               IF(add_highz) CALL add_highz_BAHAMAS(k,a,pow_ka,nk,na,cosm)
 
+              IF(imode==65) THEN
+                 IF(ii==1 .AND. jj==1) THEN
+                    base='data/Cl_kk_BAHAMAS_contribution_ell_'
+                    ext='.dat'
+                    CALL Cl_contribution(ix,k,a,pow_ka,nk,na,cosm,base,ext)
+                 ELSE IF (ii==1 .AND. jj==6) THEN
+                    base='data/Cl_ky_BAHAMAS_contribution_ell_'
+                    ext='.dat'
+                    CALL Cl_contribution(ix,k,a,pow_ka,nk,na,cosm,base,ext)
+                 ELSE IF (ii==6 .AND. jj==6) THEN
+                    base='data/Cl_yy_BAHAMAS_contribution_ell_'
+                    ext='.dat'
+                    CALL Cl_contribution(ix,k,a,pow_ka,nk,na,cosm,base,ext)
+                 END IF
+!!$                    base='data/Cl_contribution_ell_'
+!!$                    ext='.dat'
+!!$                 END IF                 
+              END IF
+
               ! Do the cross correlation
               IF(bin_theory) THEN                
                  CALL xpow_pka(ix,all_ell,all_Cl(:,1,2),n_all,k,a,pow_ka,nk,na,cosm)
@@ -3600,11 +3624,6 @@ PROGRAM HMx_driver
               ELSE
                  CALL xpow_pka(ix,ell,Cl(:,1,2),nl,k,a,pow_ka,nk,na,cosm)
               END IF
-
-!!$              IF(ii==1 .AND. jj==6) THEN
-!!$                 WRITE(*,*) 'EXITING PREMATURELY'
-!!$                 STOP
-!!$              END IF
 
               ! Write data
               outfile=TRIM(outbase)//'_'//TRIM(ixx_names(1))//'-'//TRIM(ixx_names(2))//'.dat'
@@ -4372,48 +4391,48 @@ CONTAINS
 
   END SUBROUTINE set_field_for_xpow
   
-  CHARACTER(len=32) FUNCTION BAHAMAS_snapshot(z)
-
-    IMPLICIT NONE
-    REAL, INTENT(IN) :: z
-
-    ! Set the redshift
-    IF(z==0.0) THEN
-       BAHAMAS_snapshot='snap32'
-    ELSE IF(z==0.125) THEN
-       BAHAMAS_snapshot='snap31'
-    ELSE IF(z==0.25) THEN
-       BAHAMAS_snapshot='snap30'
-    ELSE IF(z==0.375) THEN
-       BAHAMAS_snapshot='snap29'
-    ELSE IF(z==0.5) THEN
-       BAHAMAS_snapshot='snap28'
-    ELSE IF(z==0.75) THEN
-       BAHAMAS_snapshot='snap27'
-    ELSE IF(z==1.0) THEN
-       BAHAMAS_snapshot='snap26'
-    ELSE IF(z==1.25) THEN
-       BAHAMAS_snapshot='snap25'
-    ELSE IF(z==1.5) THEN
-       BAHAMAS_snapshot='snap24'
-    ELSE IF(z==1.75) THEN
-       BAHAMAS_snapshot='snap23'
-    ELSE IF(z==2.0) THEN
-       BAHAMAS_snapshot='snap22'
-    ELSE IF(z==2.25) THEN
-       BAHAMAS_snapshot='snap21'
-    ELSE IF(z==2.5) THEN
-       BAHAMAS_snapshot='snap20'
-    ELSE IF(z==2.75) THEN
-       BAHAMAS_snapshot='snap19'
-    ELSE IF(z==3.0) THEN
-       BAHAMAS_snapshot='snap18'
-    ELSE
-       WRITE(*,*) 'BAHAMAS_SNAPSHOT: z', z
-       STOP 'BAHAMAS_SNAPSHOT: Error, redshift specified incorrectly'
-    END IF
-
-  END FUNCTION BAHAMAS_snapshot
+!!$  CHARACTER(len=32) FUNCTION BAHAMAS_snapshot(z)
+!!$
+!!$    IMPLICIT NONE
+!!$    REAL, INTENT(IN) :: z
+!!$
+!!$    ! Set the redshift
+!!$    IF(z==0.0) THEN
+!!$       BAHAMAS_snapshot='snap32'
+!!$    ELSE IF(z==0.125) THEN
+!!$       BAHAMAS_snapshot='snap31'
+!!$    ELSE IF(z==0.25) THEN
+!!$       BAHAMAS_snapshot='snap30'
+!!$    ELSE IF(z==0.375) THEN
+!!$       BAHAMAS_snapshot='snap29'
+!!$    ELSE IF(z==0.5) THEN
+!!$       BAHAMAS_snapshot='snap28'
+!!$    ELSE IF(z==0.75) THEN
+!!$       BAHAMAS_snapshot='snap27'
+!!$    ELSE IF(z==1.0) THEN
+!!$       BAHAMAS_snapshot='snap26'
+!!$    ELSE IF(z==1.25) THEN
+!!$       BAHAMAS_snapshot='snap25'
+!!$    ELSE IF(z==1.5) THEN
+!!$       BAHAMAS_snapshot='snap24'
+!!$    ELSE IF(z==1.75) THEN
+!!$       BAHAMAS_snapshot='snap23'
+!!$    ELSE IF(z==2.0) THEN
+!!$       BAHAMAS_snapshot='snap22'
+!!$    ELSE IF(z==2.25) THEN
+!!$       BAHAMAS_snapshot='snap21'
+!!$    ELSE IF(z==2.5) THEN
+!!$       BAHAMAS_snapshot='snap20'
+!!$    ELSE IF(z==2.75) THEN
+!!$       BAHAMAS_snapshot='snap19'
+!!$    ELSE IF(z==3.0) THEN
+!!$       BAHAMAS_snapshot='snap18'
+!!$    ELSE
+!!$       WRITE(*,*) 'BAHAMAS_SNAPSHOT: z', z
+!!$       STOP 'BAHAMAS_SNAPSHOT: Error, redshift specified incorrectly'
+!!$    END IF
+!!$
+!!$  END FUNCTION BAHAMAS_snapshot
 
   CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,m,z,ip)
 
@@ -4717,53 +4736,53 @@ CONTAINS
     
   END SUBROUTINE bin_theory_ell
 
-  SUBROUTINE BAHAMAS_zs(a,n)
-
-    IMPLICIT NONE
-    REAL, ALLOCATABLE, INTENT(OUT) :: a(:)
-    INTEGER, INTENT(IN) :: n
-
-    IF(ALLOCATED(a)) DEALLOCATE(a)
-    ALLOCATE(a(n))
-
-    IF(n==4) THEN        
-       a(1)=scale_factor_z(2.0)
-       a(2)=scale_factor_z(1.0)
-       a(3)=scale_factor_z(0.5)
-       a(4)=scale_factor_z(0.0)
-    ELSE IF(n==11) THEN
-       a(1)=scale_factor_z(2.0)
-       a(2)=scale_factor_z(1.75)
-       a(3)=scale_factor_z(1.5)
-       a(4)=scale_factor_z(1.25)
-       a(5)=scale_factor_z(1.0)
-       a(6)=scale_factor_z(0.75)
-       a(7)=scale_factor_z(0.5)
-       a(8)=scale_factor_z(0.375)
-       a(9)=scale_factor_z(0.25)
-       a(10)=scale_factor_z(0.125)
-       a(11)=scale_factor_z(0.0)
-    ELSE IF(n==15) THEN
-       a(1)=scale_factor_z(3.0)
-       a(2)=scale_factor_z(2.75)
-       a(3)=scale_factor_z(2.5)
-       a(4)=scale_factor_z(2.25)
-       a(5)=scale_factor_z(2.0)
-       a(6)=scale_factor_z(1.75)
-       a(7)=scale_factor_z(1.5)
-       a(8)=scale_factor_z(1.25)
-       a(9)=scale_factor_z(1.0)
-       a(10)=scale_factor_z(0.75)
-       a(11)=scale_factor_z(0.5)
-       a(12)=scale_factor_z(0.375)
-       a(13)=scale_factor_z(0.25)
-       a(14)=scale_factor_z(0.125)
-       a(15)=scale_factor_z(0.0)
-    ELSE
-       STOP 'BAHAMAS_ZS: Error, nz specified incorrectly'
-    END IF
-
-  END SUBROUTINE BAHAMAS_zs
+!!$  SUBROUTINE BAHAMAS_zs(a,n)
+!!$
+!!$    IMPLICIT NONE
+!!$    REAL, ALLOCATABLE, INTENT(OUT) :: a(:)
+!!$    INTEGER, INTENT(IN) :: n
+!!$
+!!$    IF(ALLOCATED(a)) DEALLOCATE(a)
+!!$    ALLOCATE(a(n))
+!!$
+!!$    IF(n==4) THEN        
+!!$       a(1)=scale_factor_z(2.0)
+!!$       a(2)=scale_factor_z(1.0)
+!!$       a(3)=scale_factor_z(0.5)
+!!$       a(4)=scale_factor_z(0.0)
+!!$    ELSE IF(n==11) THEN
+!!$       a(1)=scale_factor_z(2.0)
+!!$       a(2)=scale_factor_z(1.75)
+!!$       a(3)=scale_factor_z(1.5)
+!!$       a(4)=scale_factor_z(1.25)
+!!$       a(5)=scale_factor_z(1.0)
+!!$       a(6)=scale_factor_z(0.75)
+!!$       a(7)=scale_factor_z(0.5)
+!!$       a(8)=scale_factor_z(0.375)
+!!$       a(9)=scale_factor_z(0.25)
+!!$       a(10)=scale_factor_z(0.125)
+!!$       a(11)=scale_factor_z(0.0)
+!!$    ELSE IF(n==15) THEN
+!!$       a(1)=scale_factor_z(3.0)
+!!$       a(2)=scale_factor_z(2.75)
+!!$       a(3)=scale_factor_z(2.5)
+!!$       a(4)=scale_factor_z(2.25)
+!!$       a(5)=scale_factor_z(2.0)
+!!$       a(6)=scale_factor_z(1.75)
+!!$       a(7)=scale_factor_z(1.5)
+!!$       a(8)=scale_factor_z(1.25)
+!!$       a(9)=scale_factor_z(1.0)
+!!$       a(10)=scale_factor_z(0.75)
+!!$       a(11)=scale_factor_z(0.5)
+!!$       a(12)=scale_factor_z(0.375)
+!!$       a(13)=scale_factor_z(0.25)
+!!$       a(14)=scale_factor_z(0.125)
+!!$       a(15)=scale_factor_z(0.0)
+!!$    ELSE
+!!$       STOP 'BAHAMAS_ZS: Error, nz specified incorrectly'
+!!$    END IF
+!!$
+!!$  END SUBROUTINE BAHAMAS_zs
 
   SUBROUTINE add_highz_BAHAMAS(k,a,pow,nk,na,cosm)
 
