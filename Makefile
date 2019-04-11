@@ -1,10 +1,25 @@
 # Makefile to compile HMx
 
 # Standard HMx flags
-HMX_FFLAGS = -Warray-bounds -fmax-errors=4 -ffpe-trap=invalid,zero,overflow -fimplicit-none -O3 -fdefault-real-8 -fdefault-double-8 -fopenmp -lgfortran -lm
+HMX_FFLAGS = \
+	-Warray-bounds \
+	-fmax-errors=4 \
+	-ffpe-trap=invalid,zero,overflow \
+	-fimplicit-none \
+	-O3 \
+	-fdefault-real-8 \
+	-fdefault-double-8 \
+	-fopenmp \
+	-lgfortran \
+	-lm
 
 # Extra debugging flags
-DEBUG_FLAGS = -Wall -fcheck=all -fbounds-check -fbacktrace -Og
+DEBUG_FLAGS = \
+	-Wall \
+	-fcheck=all \
+	-fbounds-check \
+	-fbacktrace \
+	-Og
 
 ifeq ($(COSMOSIS_SRC_DIR),)
 # No cosmosis
@@ -39,11 +54,12 @@ BIN_DIR = bin
 TEST_DIR = tests
 
 # Objects
-_OBJ = constants.o \
+_OBJ = \
+	constants.o \
 	physics.o \
+	logical_operations.o \
 	random_numbers.o \
 	file_info.o \
-	logical_operations.o \
 	fix_polynomial.o \
 	array_operations.o \
 	table_integer.o \
@@ -56,7 +72,8 @@ _OBJ = constants.o \
 	HMx.o \
 	Limber.o \
 	cosmic_emu_stuff.o \
-	owls.o
+	owls.o \
+	owls_extras.o
 
 # Add prefixes of build directory to objects
 OBJ = $(addprefix $(BUILD_DIR)/,$(_OBJ))
@@ -114,7 +131,7 @@ $(BIN_DIR)/HMx_fitting: $(OBJ) $(SRC_DIR)/HMx_fitting.f90
 	$(make_dirs)
 	$(FC) -o $@ $^ -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
-# Rule to make debugging executable
+# Rule to make fitting debugging executable
 $(BIN_DIR)/HMx_fitting_debug: $(DEBUG_OBJ) $(SRC_DIR)/HMx_fitting.f90
 	@echo "\nBuilding fitting debugging executable.\n"
 	$(FC) -o $@ $^ -J$(DEBUG_BUILD_DIR) $(LDFLAGS) $(FFLAGS)

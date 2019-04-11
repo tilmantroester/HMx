@@ -10,6 +10,7 @@ PROGRAM HMx_driver
   USE special_functions
   USE logical_operations
   USE owls
+  USE owls_extras
 
   ! TODO: Many pow(1,1,nk) could be pow(nk)
   ! TODO: Too many different pow(:,:), pow(:,:,:), pow(:,:,:,:), ...
@@ -30,7 +31,7 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: zs(:), masses(:)
   REAL, ALLOCATABLE :: z_tab(:), HI_frac(:)
   INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx, n_all, l, n_edge
-  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, nfeed
+  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, nfeed, nsim
   INTEGER :: ip(2), ix(2), field(1)
   INTEGER, ALLOCATABLE :: fields(:), ixx(:)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
@@ -60,8 +61,7 @@ PROGRAM HMx_driver
 
   ! Tests
   REAL :: error, error_max
-  INTEGER :: ntests
-  
+  INTEGER :: ntests 
 
   ! Halo-model Parameters
   LOGICAL, PARAMETER :: verbose=.TRUE. ! Verbosity
@@ -193,6 +193,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '63 - Contributions to y-y C(l) integral'
      WRITE(*,*) '64 - CIB 545 GHz'
      WRITE(*,*) '65 - Contributions to Limber integrals from BAHAMAS'
+     WRITE(*,*) '66 - Direct integration of measured 3D BAHAMAS spectra: Triad 5 but larger ell range'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -3478,13 +3479,14 @@ PROGRAM HMx_driver
      END DO
      CLOSE(7)
 
-  ELSE IF(imode==57 .OR. imode==61 .OR. imode==62 .OR. imode==65) THEN
+  ELSE IF(imode==57 .OR. imode==61 .OR. imode==62 .OR. imode==65 .OR. imode==66) THEN
 
      ! Calculate C(l) by direct integration of the measured 3D BAHAMAS power spectra
      ! 57 - Triad 3
      ! 61 - Triad 4
      ! 62 - Triad 5
      ! 65 - Triad 5 with contribution to Limber integrals per ell
+     ! 66 - Triad 5 but with extended ell range
 
      ! Assigns the cosmological model
      icosmo=4 ! 4 - WMAP9
@@ -3499,19 +3501,34 @@ PROGRAM HMx_driver
      ! Set the mesh size used for the measured P(k)
      mesh=mesh_BAHAMAS
 
-     ! Triad 3 ell values
-     CALL triad_ell(ell,nl)
+     IF(imode==57 .OR. imode==61 .OR. imode==62 .OR. imode==65) THEN
+        ! Triad 3 ell values
+        CALL triad_ell(ell,nl)
+     ELSE IF(imode==66) THEN
+        ! Another ell range
+        lmin=1e2
+        lmax=1e4
+        nl=128
+        CALL fill_array(log(lmin),log(lmax),ell,nl)
+        ell=exp(ell)
+     ELSE 
+        STOP 'HMx_DRIVER: Error, something went wrong setting ell range'
+     END IF
      ALLOCATE(Cl(nl,2,2))
 
-     ! Triad 3 ell bin-edge values
-     CALL triad_ell_edges(ell_edge,n_edge)
+     IF(bin_theory) THEN
 
-     ! Get range for all ell
-     lmin=ell_edge(1)
-     lmax=ell_edge(nl+1)
-     n_all=NINT(lmax-lmin+1)
-     CALL fill_array(lmin,lmax,all_ell,n_all)
-     ALLOCATE(all_Cl(n_all,2,2))
+        ! Triad 3,4,5 ell bin-edge values
+        CALL triad_ell_edges(ell_edge,n_edge)
+
+        ! Get range for all ell
+        lmin=ell_edge(1)
+        lmax=ell_edge(nl+1)
+        n_all=NINT(lmax-lmin+1)
+        CALL fill_array(lmin,lmax,all_ell,n_all)
+        ALLOCATE(all_Cl(n_all,2,2))
+
+     END IF
      
      ! Allocate array for cross-correlation names
      ALLOCATE(ixx_names(2))
@@ -3521,14 +3538,15 @@ PROGRAM HMx_driver
         nt=4
      ELSE IF(imode==61) THEN
         nt=5
-     ELSE IF(imode==62 .OR. imode==65) THEN
+     ELSE IF(imode==62 .OR. imode==65 .OR. imode==66) THEN
         nt=6
      ELSE
         STOP 'HMX_DRIVER: Error, imode specified incorrectly'
      END IF
 
      ! Loop over BAHAMAS models
-     DO j=1,3
+     nsim=5
+     DO j=1,nsim
 
         ! Set BAHAMAS models
         IF(j==1) THEN
@@ -3540,6 +3558,12 @@ PROGRAM HMx_driver
         ELSE IF(j==3) THEN
            name='AGN_8p0_nu0'
            outbase='data/triad_Cl_direct_AGN-hi'
+        ELSE IF(j==4) THEN
+           name='AGN_TUNED_nu0_v2'
+           outbase='data/triad_Cl_direct_AGN_v2'
+        ELSE IF(j==5) THEN
+           name='AGN_TUNED_nu0_v3'
+           outbase='data/triad_Cl_direct_AGN_v3'
         ELSE
            STOP 'HMx_DRIVER: Error, feedback senario not supported'
         END IF
@@ -3552,7 +3576,7 @@ PROGRAM HMx_driver
               CALL triad_3_tracers(ii,ix(1),ixx_names(1))
            ELSE IF(imode==61) THEN
               CALL triad_4_tracers(ii,ix(1),ixx_names(1))
-           ELSE IF(imode==62 .OR. imode==65) THEN
+           ELSE IF(imode==62 .OR. imode==65 .OR. imode==66) THEN
               CALL triad_5_tracers(ii,ix(1),ixx_names(1))
            ELSE
               STOP 'HMX_DRIVER: Error, imode specified incorrectly'
@@ -3566,7 +3590,7 @@ PROGRAM HMx_driver
                  CALL triad_3_tracers(jj,ix(2),ixx_names(2))
               ELSE IF(imode==61) THEN
                  CALL triad_4_tracers(jj,ix(2),ixx_names(2))
-              ELSE IF(imode==62 .OR. imode==65) THEN
+              ELSE IF(imode==62 .OR. imode==65 .OR. imode==66) THEN
                  CALL triad_5_tracers(jj,ix(2),ixx_names(2))
               ELSE
                  STOP 'HMX_DRIVER: Error, imode specified incorrectly'
@@ -3599,22 +3623,22 @@ PROGRAM HMx_driver
               IF(add_highz) CALL add_highz_BAHAMAS(k,a,pow_ka,nk,na,cosm)
 
               IF(imode==65) THEN
-                 IF(ii==1 .AND. jj==1) THEN
+                 IF(name=='AGN_TUNED_nu0' .AND. ixx_names(1)=='gal_z0.1-0.9' .AND. ixx_names(2)=='gal_z0.1-0.9') THEN
                     base='data/Cl_kk_BAHAMAS_contribution_ell_'
                     ext='.dat'
                     CALL Cl_contribution(ix,k,a,pow_ka,nk,na,cosm,base,ext)
-                 ELSE IF (ii==1 .AND. jj==6) THEN
+                 ELSE IF(name=='AGN_TUNED_nu0' .AND. ixx_names(1)=='gal_z0.1-0.9' .AND. ixx_names(2)=='y') THEN
                     base='data/Cl_ky_BAHAMAS_contribution_ell_'
                     ext='.dat'
                     CALL Cl_contribution(ix,k,a,pow_ka,nk,na,cosm,base,ext)
-                 ELSE IF (ii==6 .AND. jj==6) THEN
+                 ELSE IF(name=='AGN_TUNED_nu0' .AND. ixx_names(1)=='y' .AND. ixx_names(2)=='y') THEN
                     base='data/Cl_yy_BAHAMAS_contribution_ell_'
                     ext='.dat'
                     CALL Cl_contribution(ix,k,a,pow_ka,nk,na,cosm,base,ext)
-                 END IF
-!!$                    base='data/Cl_contribution_ell_'
-!!$                    ext='.dat'
-!!$                 END IF                 
+                 ELSE
+                    DEALLOCATE(pow_ka)
+                    CYCLE
+                 END IF                
               END IF
 
               ! Do the cross correlation
@@ -4433,234 +4457,235 @@ CONTAINS
 !!$    END IF
 !!$
 !!$  END FUNCTION BAHAMAS_snapshot
-
-  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,m,z,ip)
-
-    IMPLICIT NONE
-    CHARACTER(len=*), INTENT(IN) :: model
-    INTEGER, INTENT(IN) :: m
-    REAL, INTENT(IN) :: z
-    INTEGER, INTENT(IN) :: ip(2)
-    CHARACTER(len=64) :: dir
-    CHARACTER(len=32) :: snap, field(2), f1, f2, mesh
-    LOGICAL :: lexist
-    INTEGER :: j
-    INTEGER, PARAMETER :: computer=1
-
-     ! Directory containing everything
-    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/'!M1536'
-    IF(computer==2) dir='/home/amead/BAHAMAS/power/'!M1536'
-
-    ! Convert the mesh size to a string and append to directory
-    WRITE(mesh,*) m
-    dir=TRIM(dir)//'M'//trim(adjustl(mesh))
-
-    snap=BAHAMAS_snapshot(z)
-
-    ! Set the fields
-    DO j=1,2
-       IF(ip(j)==field_matter) THEN
-          field(j)='all'
-       ELSE IF(ip(j)==field_cdm) THEN
-          field(j)='dm'
-       ELSE IF(ip(j)==field_gas) THEN
-          field(j)='gas'
-       ELSE IF(ip(j)==field_star) THEN
-          field(j)='stars'
-       ELSE IF(ip(j)==field_electron_pressure) THEN
-          field(j)='epressure'
-       ELSE
-          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Field number', j
-          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Halo type', ip(j)
-          STOP 'BAHAMAS_POWER_FILE_NAME: Error, ip specified incorrectly'
-       END IF
-    END DO
-
-    DO j=1,2
-
-       IF(j==1) THEN
-          f1=field(1)
-          f2=field(2)
-       ELSE IF(j==2) THEN
-          f1=field(2)
-          f2=field(1)
-       ELSE
-          STOP 'BAHAMAS_POWER_FILE_NAME: Error, something fucked up'
-       END IF
-
-       ! File name
-       BAHAMAS_power_file_name=trim(dir)//'/'//trim(model)//'_L400N1024_WMAP9_'//trim(snap)//'_'//trim(f1)//'_'//trim(f2)//'_power.dat'
-
-       ! Check it exists
-       INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
-
-       IF(lexist) THEN
-          EXIT
-       ELSE IF(j==2) THEN
-          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', trim(BAHAMAS_power_file_name)
-          STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
-       END IF
-
-    END DO
-
-  END FUNCTION BAHAMAS_power_file_name
-
-  SUBROUTINE read_BAHAMAS_power(k,Pk,nk,z,name,mesh,field,cosm,kmin,kmax,cut_nyquist,subtract_shot,response,verbose)
-
-    IMPLICIT NONE
-    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
-    REAL, ALLOCATABLE, INTENT(OUT) :: Pk(:)
-    INTEGER, INTENT(OUT) :: nk
-    REAL, INTENT(IN) :: z
-    CHARACTER(len=*), INTENT(IN) :: name
-    INTEGER, INTENT(IN) :: mesh
-    INTEGER, INTENT(IN) :: field(2)
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax
-    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist
-    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot
-    LOGICAL, OPTIONAL, INTENT(IN) :: response
-    LOGICAL, OPTIONAL, INTENT(IN) :: verbose    
-    REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
-    CHARACTER(len=256) :: infile, dmonly
-
-    INTEGER, PARAMETER :: field_all_matter(2)=field_matter
-    REAL, PARAMETER :: mmin=1e7
-    REAL, PARAMETER :: mmax=1e17
-
-    IF(present_and_correct(response)) THEN
-       dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',mesh,z,field_all_matter)
-    END IF
-    infile=BAHAMAS_power_file_name(name,mesh,z,field)
-
-    IF(present_and_correct(response)) THEN
-       CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-    END IF
-    CALL read_simulation_power_spectrum(k,Pk,nk,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-    IF(present_and_correct(response)) Pk=Pk/Pk_DM
-
-    IF(present_and_correct(response)) THEN
-       ALLOCATE(Pk_HMcode(nk))
-       CALL calculate_HMcode_a(k,scale_factor_z(z),Pk_HMcode,nk,cosm)
-       Pk=Pk*Pk_HMcode
-    END IF
-    
-  END SUBROUTINE read_BAHAMAS_power
-
-   SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-
-    IMPLICIT NONE
-    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:) ! Output simulation k and power
-    INTEGER, INTENT(OUT) :: n ! Number of output k values
-    CHARACTER(len=*), INTENT(IN) :: infile ! Input file location
-    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax ! Minimum and maximum k values to cut at
-    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
-    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot ! Logical to subtract shot noise or not
-    LOGICAL, OPTIONAL, INTENT(IN) :: verbose ! Logical verbose
-    INTEGER :: i, j, m
-    REAL :: shot, kbig
-    LOGICAL :: lexist
-
-    ! Deallocate arrays if they are already allocated
-    IF(ALLOCATED(k))  DEALLOCATE(k)
-    IF(ALLOCATED(Pk)) DEALLOCATE(Pk)
-
-    ! Check file exists
-    INQUIRE(file=infile,exist=lexist)
-    IF(.NOT. lexist) THEN
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
-       STOP 'READ_SIMULATION_POWER_SPECTRUM: File does not exist'
-    END IF
-
-    ! Get file length and allocate arrays for output
-    n=file_length(infile,verbose=.FALSE.)
-    ALLOCATE(k(n),Pk(n))
-
-    ! Write to screen
-    IF(present_and_correct(verbose)) THEN
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Initial nk:', n
-    END IF
-
-    ! Read in data from file
-    OPEN(9,file=infile,status='old')
-    DO i=1,n
-       READ(9,*) k(i), Pk(i), shot
-       IF(present_and_correct(subtract_shot)) Pk(i)=Pk(i)-shot
-    END DO
-    CLOSE(9)
-
-    ! Write to screen
-    IF(present_and_correct(verbose)) THEN
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: kmin [h/Mpc]:', k(1)
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: kmax [h/Mpc]:', k(n)
-    END IF
-    
-    IF(present_and_correct(cut_nyquist)) THEN
-       ! Find position in array of half-Nyquist
-       kbig=k(n)
-       DO i=1,n
-          IF(k(i)>kbig/2.) EXIT
-       END DO
-       ! Cut arrays down to half-Nyquist
-       CALL amputate(k,n,i)
-       CALL amputate(Pk,n,i)
-       n=i
-       ! Write to screen
-       IF(present_and_correct(verbose)) THEN
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmax [h/Mpc]:', k(n)
-       END IF
-    END IF
-
-    IF(PRESENT(kmin)) THEN
-       j=0
-       DO i=1,n-1
-          IF(k(i)<kmin .AND. k(i+1)>kmin) THEN
-             j=i
-          END IF
-       END DO
-       IF(j .NE. 0) THEN
-          CALL amputate_general(k,n,m,j,n)
-          CALL amputate_general(Pk,n,m,j,n)
-          n=m
-       END IF
-       IF(present_and_correct(verbose)) THEN
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmin'
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmin [h/Mpc]:', k(1)
-       END IF
-    END IF
-
-    IF(PRESENT(kmax)) THEN
-       j=n
-       DO i=1,n-1
-          IF(k(i)<kmax .AND. k(i+1)>kmax) THEN
-             j=i
-          END IF
-       END DO
-       IF(j .NE. n) THEN
-          CALL amputate_general(k,n,m,1,j)
-          CALL amputate_general(Pk,n,m,1,j)
-          n=m
-       END IF
-       IF(present_and_correct(verbose)) THEN
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmax'
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmax [h/Mpc]:', k(n)
-       END IF
-    END IF
-
-    ! Write to screen
-    IF(present_and_correct(verbose)) THEN
-       !DO i=1,n
-       !   WRITE(*,*) k(i), Pk(i)
-       !END DO
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Final nk:', n
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
-       WRITE(*,*)
-    END IF
-
-  END SUBROUTINE read_simulation_power_spectrum
+!!$
+!!$  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,m,z,ip)
+!!$
+!!$    IMPLICIT NONE
+!!$    CHARACTER(len=*), INTENT(IN) :: model
+!!$    INTEGER, INTENT(IN) :: m
+!!$    REAL, INTENT(IN) :: z
+!!$    INTEGER, INTENT(IN) :: ip(2)
+!!$    CHARACTER(len=64) :: dir
+!!$    CHARACTER(len=32) :: snap, field(2), f1, f2, mesh
+!!$    LOGICAL :: lexist
+!!$    INTEGER :: j
+!!$    INTEGER, PARAMETER :: computer=1
+!!$
+!!$     ! Directory containing everything
+!!$    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/'!M1536'
+!!$    IF(computer==2) dir='/home/amead/BAHAMAS/power/'!M1536'
+!!$
+!!$    ! Convert the mesh size to a string and append to directory
+!!$    WRITE(mesh,*) m
+!!$    dir=TRIM(dir)//'M'//trim(adjustl(mesh))
+!!$
+!!$    snap=BAHAMAS_snapshot(z)
+!!$
+!!$    ! Set the fields
+!!$    DO j=1,2
+!!$       IF(ip(j)==field_matter) THEN
+!!$          field(j)='all'
+!!$       ELSE IF(ip(j)==field_cdm) THEN
+!!$          field(j)='dm'
+!!$       ELSE IF(ip(j)==field_gas) THEN
+!!$          field(j)='gas'
+!!$       ELSE IF(ip(j)==field_star) THEN
+!!$          field(j)='stars'
+!!$       ELSE IF(ip(j)==field_electron_pressure) THEN
+!!$          field(j)='epressure'
+!!$       ELSE
+!!$          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Field number', j
+!!$          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Halo type', ip(j)
+!!$          STOP 'BAHAMAS_POWER_FILE_NAME: Error, ip specified incorrectly'
+!!$       END IF
+!!$    END DO
+!!$
+!!$    DO j=1,2
+!!$
+!!$       IF(j==1) THEN
+!!$          f1=field(1)
+!!$          f2=field(2)
+!!$       ELSE IF(j==2) THEN
+!!$          f1=field(2)
+!!$          f2=field(1)
+!!$       ELSE
+!!$          STOP 'BAHAMAS_POWER_FILE_NAME: Error, something fucked up'
+!!$       END IF
+!!$
+!!$       ! File name
+!!$       BAHAMAS_power_file_name=trim(dir)//'/'//trim(model)//'_L400N1024_WMAP9_'//trim(snap)//'_'//trim(f1)//'_'//trim(f2)//'_power.dat'
+!!$
+!!$       ! Check it exists
+!!$       INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
+!!$
+!!$       IF(lexist) THEN
+!!$          EXIT
+!!$       ELSE IF(j==2) THEN
+!!$          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', trim(BAHAMAS_power_file_name)
+!!$          STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
+!!$       END IF
+!!$
+!!$    END DO
+!!$
+!!$  END FUNCTION BAHAMAS_power_file_name
+!!$
+!!$  SUBROUTINE read_BAHAMAS_power(k,Pk,nk,z,name,mesh,field,cosm,kmin,kmax,cut_nyquist,subtract_shot,response,verbose)
+!!$
+!!$    IMPLICIT NONE
+!!$    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
+!!$    REAL, ALLOCATABLE, INTENT(OUT) :: Pk(:)
+!!$    INTEGER, INTENT(OUT) :: nk
+!!$    REAL, INTENT(IN) :: z
+!!$    CHARACTER(len=*), INTENT(IN) :: name
+!!$    INTEGER, INTENT(IN) :: mesh
+!!$    INTEGER, INTENT(IN) :: field(2)
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: response
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: verbose    
+!!$    REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
+!!$    CHARACTER(len=256) :: infile, dmonly
+!!$    INTEGER :: i
+!!$
+!!$    INTEGER, PARAMETER :: field_all_matter(2)=field_matter
+!!$    REAL, PARAMETER :: mmin=1e7
+!!$    REAL, PARAMETER :: mmax=1e17
+!!$
+!!$    IF(present_and_correct(response)) THEN
+!!$       dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',mesh,z,field_all_matter)
+!!$    END IF
+!!$    infile=BAHAMAS_power_file_name(name,mesh,z,field)
+!!$
+!!$    IF(present_and_correct(response)) THEN
+!!$       CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+!!$    END IF
+!!$    CALL read_simulation_power_spectrum(k,Pk,nk,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+!!$    IF(present_and_correct(response)) Pk=Pk/Pk_DM
+!!$
+!!$    IF(present_and_correct(response)) THEN
+!!$       ALLOCATE(Pk_HMcode(nk))
+!!$       CALL calculate_HMcode_a(k,scale_factor_z(z),Pk_HMcode,nk,cosm)
+!!$       Pk=Pk*Pk_HMcode
+!!$    END IF
+!!$    
+!!$  END SUBROUTINE read_BAHAMAS_power
+!!$
+!!$   SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+!!$
+!!$    IMPLICIT NONE
+!!$    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:) ! Output simulation k and power
+!!$    INTEGER, INTENT(OUT) :: n ! Number of output k values
+!!$    CHARACTER(len=*), INTENT(IN) :: infile ! Input file location
+!!$    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax ! Minimum and maximum k values to cut at
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot ! Logical to subtract shot noise or not
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: verbose ! Logical verbose
+!!$    INTEGER :: i, j, m
+!!$    REAL :: shot, kbig
+!!$    LOGICAL :: lexist
+!!$
+!!$    ! Deallocate arrays if they are already allocated
+!!$    IF(ALLOCATED(k))  DEALLOCATE(k)
+!!$    IF(ALLOCATED(Pk)) DEALLOCATE(Pk)
+!!$
+!!$    ! Check file exists
+!!$    INQUIRE(file=infile,exist=lexist)
+!!$    IF(.NOT. lexist) THEN
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
+!!$       STOP 'READ_SIMULATION_POWER_SPECTRUM: File does not exist'
+!!$    END IF
+!!$
+!!$    ! Get file length and allocate arrays for output
+!!$    n=file_length(infile,verbose=.FALSE.)
+!!$    ALLOCATE(k(n),Pk(n))
+!!$
+!!$    ! Write to screen
+!!$    IF(present_and_correct(verbose)) THEN
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Initial nk:', n
+!!$    END IF
+!!$
+!!$    ! Read in data from file
+!!$    OPEN(9,file=infile,status='old')
+!!$    DO i=1,n
+!!$       READ(9,*) k(i), Pk(i), shot
+!!$       IF(present_and_correct(subtract_shot)) Pk(i)=Pk(i)-shot
+!!$    END DO
+!!$    CLOSE(9)
+!!$
+!!$    ! Write to screen
+!!$    IF(present_and_correct(verbose)) THEN
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: kmin [h/Mpc]:', k(1)
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: kmax [h/Mpc]:', k(n)
+!!$    END IF
+!!$    
+!!$    IF(present_and_correct(cut_nyquist)) THEN
+!!$       ! Find position in array of half-Nyquist
+!!$       kbig=k(n)
+!!$       DO i=1,n
+!!$          IF(k(i)>kbig/2.) EXIT
+!!$       END DO
+!!$       ! Cut arrays down to half-Nyquist
+!!$       CALL amputate(k,n,i)
+!!$       CALL amputate(Pk,n,i)
+!!$       n=i
+!!$       ! Write to screen
+!!$       IF(present_and_correct(verbose)) THEN
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmax [h/Mpc]:', k(n)
+!!$       END IF
+!!$    END IF
+!!$
+!!$    IF(PRESENT(kmin)) THEN
+!!$       j=0
+!!$       DO i=1,n-1
+!!$          IF(k(i)<kmin .AND. k(i+1)>kmin) THEN
+!!$             j=i
+!!$          END IF
+!!$       END DO
+!!$       IF(j .NE. 0) THEN
+!!$          CALL amputate_general(k,n,m,j,n)
+!!$          CALL amputate_general(Pk,n,m,j,n)
+!!$          n=m
+!!$       END IF
+!!$       IF(present_and_correct(verbose)) THEN
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmin'
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmin [h/Mpc]:', k(1)
+!!$       END IF
+!!$    END IF
+!!$
+!!$    IF(PRESENT(kmax)) THEN
+!!$       j=n
+!!$       DO i=1,n-1
+!!$          IF(k(i)<kmax .AND. k(i+1)>kmax) THEN
+!!$             j=i
+!!$          END IF
+!!$       END DO
+!!$       IF(j .NE. n) THEN
+!!$          CALL amputate_general(k,n,m,1,j)
+!!$          CALL amputate_general(Pk,n,m,1,j)
+!!$          n=m
+!!$       END IF
+!!$       IF(present_and_correct(verbose)) THEN
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmax'
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: New kmax [h/Mpc]:', k(n)
+!!$       END IF
+!!$    END IF
+!!$
+!!$    ! Write to screen
+!!$    IF(present_and_correct(verbose)) THEN
+!!$       !DO i=1,n
+!!$       !   WRITE(*,*) k(i), Pk(i)
+!!$       !END DO
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Final nk:', n
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
+!!$       WRITE(*,*)
+!!$    END IF
+!!$
+!!$  END SUBROUTINE read_simulation_power_spectrum
 
   SUBROUTINE triad_ell(ell,nl)
 

@@ -96,11 +96,10 @@ set log y
 set ylabel plab
 set format y '10^{%T}'
 
-col(i,ni,j,nj,k,nk,l,nl)=nj*nk*nl*(i-1)+nk*nl*(j-1)+nl*(k-1)+l
-
-plot for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:3 w p lc col(i,ncos,j,nz,j1,nf,j2,nf) dt 1 lw 2 noti 'BAHAMAS',\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:2 w l lc 0                            dt j lw 2 noti 'HMx',\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:2 w l lc col(i,ncos,j,nz,j1,nf,j2,nf) dt j lw 2 noti 'HMx'
+plot for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:3 w p lc j1 dt 1 lw 2 noti 'BAHAMAS',\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:2 w l lc 0  dt 1 lw 2 noti 'HMx',\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:2 w l lc j1 dt 1 lw 2 noti 'HMx',\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:2 w l lc j2 dt 2 lw 2 noti
 
 set xlabel klab
 set format x
@@ -115,8 +114,9 @@ plot 1 w l lt -1 noti,\
      1.05 w l lc -1 dt 2 noti,\
      0.99 w l lc -1 dt 2 noti,\
      1.01 w l lc -1 dt 2 noti,\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:($2/$3) w l lc 0                            dt j lw 2 noti,\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:($2/$3) w l lc col(i,ncos,j,nz,j1,nf,j2,nf) dt j lw 2 noti
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:($2/$3) w l lc 0  dt j lw 2 noti,\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:($2/$3) w l lc j1 dt 1 lw 2 noti,\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:($2/$3) w l lc j2 dt 2 lw 2 noti
 
 unset multiplot
 

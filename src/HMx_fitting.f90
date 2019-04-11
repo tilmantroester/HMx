@@ -6,6 +6,8 @@ PROGRAM HMx_fitting
   USE string_operations
   USE random_numbers
   USE special_functions
+  USE owls
+  USE owls_extras
 
   IMPLICIT NONE
   INTEGER :: im
@@ -30,45 +32,6 @@ PROGRAM HMx_fitting
   LOGICAL :: verbose2
   INTEGER :: out
 
-!!$  ! Fitting parameters
-!!$  INTEGER, PARAMETER :: param_alpha=1
-!!$  INTEGER, PARAMETER :: param_eps=2
-!!$  INTEGER, PARAMETER :: param_gamma=3
-!!$  INTEGER, PARAMETER :: param_M0=4
-!!$  INTEGER, PARAMETER :: param_Astar=5
-!!$  INTEGER, PARAMETER :: param_Twhim=6
-!!$  INTEGER, PARAMETER :: param_cstar=7
-!!$  INTEGER, PARAMETER :: param_fcold=8
-!!$  INTEGER, PARAMETER :: param_mstar=9
-!!$  INTEGER, PARAMETER :: param_sstar=10
-!!$  INTEGER, PARAMETER :: param_alphap=11
-!!$  INTEGER, PARAMETER :: param_Gammap=12
-!!$  INTEGER, PARAMETER :: param_cstarp=13
-!!$  INTEGER, PARAMETER :: param_fhot=14
-!!$  INTEGER, PARAMETER :: param_alphaz=15
-!!$  INTEGER, PARAMETER :: param_Gammaz=16
-!!$  INTEGER, PARAMETER :: param_M0z=17
-!!$  INTEGER, PARAMETER :: param_Astarz=18
-!!$  INTEGER, PARAMETER :: param_Twhimz=19
-!!$  INTEGER, PARAMETER :: param_eta=20
-!!$  INTEGER, PARAMETER :: param_HMcode_Dv0=21
-!!$  INTEGER, PARAMETER :: param_HMcode_Dvp=22
-!!$  INTEGER, PARAMETER :: param_HMcode_dc0=23
-!!$  INTEGER, PARAMETER :: param_HMcode_dcp=24
-!!$  INTEGER, PARAMETER :: param_HMcode_eta0=25
-!!$  INTEGER, PARAMETER :: param_HMcode_eta1=26
-!!$  INTEGER, PARAMETER :: param_HMcode_f0=27
-!!$  INTEGER, PARAMETER :: param_HMcode_fp=28
-!!$  INTEGER, PARAMETER :: param_HMcode_kstar=29
-!!$  INTEGER, PARAMETER :: param_HMcode_As=30
-!!$  INTEGER, PARAMETER :: param_HMcode_alpha0=31
-!!$  INTEGER, PARAMETER :: param_HMcode_alpha1=32
-!!$  INTEGER, PARAMETER :: param_epsz=33
-!!$  INTEGER, PARAMETER :: param_beta=34
-!!$  INTEGER, PARAMETER :: param_betap=35
-!!$  INTEGER, PARAMETER :: param_betaz=36
-!!$  INTEGER, PARAMETER :: param_n=36
-
   ! Halo model calculation parameters
   REAL, PARAMETER :: mmin=mmin_HMx ! Minimum halo mass for the calculation
   REAL, PARAMETER :: mmax=mmax_HMx ! Maximum halo mass for the calculation
@@ -78,16 +41,24 @@ PROGRAM HMx_fitting
   LOGICAL, PARAMETER :: random_start=.FALSE. ! Start from a random point within the prior range
   LOGICAL, PARAMETER :: mcmc=.TRUE.          ! Accept worse figure of merit with some probability
   INTEGER, PARAMETER :: computer=1           ! Which computer are you on?
-  REAL, PARAMETER :: tmax_default=10000.*60  ! Default maximum time for run, should not be huge
+  REAL, PARAMETER :: tmax_default=10000.*60. ! Default maximum time for run, should not be huge
   REAL, PARAMETER :: delta_default=1e-3      ! Default accuracy
   LOGICAL, PARAMETER :: set_ranges=.TRUE.    ! Set the parameter ranges or not
 
   ! k cuts for the BAHAMAS power spectra
-  REAL, PARAMETER :: kmin_BAHAMAS=0.15
-  REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.
-  REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.
-  REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.
-  REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.
+  REAL, PARAMETER :: kmin_default=1e-4       ! Minimum wavenumber to read in [h/Mpc]
+  REAL, PARAMETER :: kmax_default=1e2        ! Minimum wavenumber to read in [h/Mpc]
+  REAL, PARAMETER :: kmin_BAHAMAS=0.03       ! Minimum wavenumber to use [h/Mpc]
+  !REAL, PARAMETER :: kmin_BAHAMAS=0.15       ! Minimum wavenumber to use [h/Mpc]
+  REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.   ! Maximum wavenumber to use [h/Mpc] at z=0.0
+  REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.    ! Maximum wavenumber to use [h/Mpc] at z=0.5
+  REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.    ! Maximum wavenumber to use [h/Mpc] at z=1.0
+  REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.    ! Maximum wavenumber to use [h/Mpc] at z=2.0
+  REAL, PARAMETER :: z_default=0.            ! Default z to fit if not specified
+  INTEGER, PARAMETER :: mesh=1024            ! BAHAMAS mesh size power to use
+  LOGICAL, PARAMETER :: cut_nyquist=.TRUE.   ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
+  LOGICAL, PARAMETER :: subtract_shot=.TRUE. ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
+  LOGICAL, PARAMETER :: response=.FALSE.     ! Should I treat the BAHAMAS P(k) as HMcode response?
 
   ! Read in starting option
   CALL get_command_argument(1,mode)
@@ -122,7 +93,10 @@ PROGRAM HMx_fitting
      WRITE(*,*) '23 - Hydro: all z; everything but pressure-pressure, including epsz'
      WRITE(*,*) '24 - Hydro: all z; everything but pressure-pressure, no response for pressure'
      WRITE(*,*) '25 - Hydro: all z; everything but pressure-pressure, including beta'
-     READ(*,*) im
+     WRITE(*,*) '26 - Hydro: fixed z; dark matter'
+     WRITE(*,*) '27 - Hydro: fixed z; matter, basic parameters'
+     WRITE(*,*) '28 - Hydro: fixed z; everything, basic parameters'
+     READ(*,*) im 
      WRITE(*,*)
   END IF
 
@@ -197,13 +171,13 @@ PROGRAM HMx_fitting
      ncos=1 
 
      ! Set the number of different fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21 .OR. im==23 .OR. im==24 .OR. im==25) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21 .OR. im==23 .OR. im==24 .OR. im==25 .OR. im==28) THEN
         nf=5   
-     ELSE IF(im==12 .OR. im==13 .OR. im==19) THEN
+     ELSE IF(im==12 .OR. im==13 .OR. im==19 .OR. im==26) THEN
         nf=1
      ELSE IF(im==14) THEN
         nf=2
-     ELSE IF(im==15 .OR. im==22) THEN
+     ELSE IF(im==15 .OR. im==22 .OR. im==27) THEN
         nf=4
      ELSE
         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
@@ -233,7 +207,7 @@ PROGRAM HMx_fitting
      ! Hydro simulations
      IF(name=='') name='AGN_TUNED_nu0'
      
-     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN
+     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16 .OR. im==26 .OR. im==27 .OR. im==28) THEN
         nz=1
      ELSE IF(im==17 .OR. im==18 .OR. im==19 .OR. im==20 .OR. im==21 .OR. im==22 .OR. im==23 .OR. im==24 .OR. im==25) THEN
         nz=4
@@ -244,9 +218,9 @@ PROGRAM HMx_fitting
      ALLOCATE(z(nz))
 
      ! Set the redshifts
-     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16) THEN        
+     IF(im==11 .OR. im==12 .OR. im==13 .OR. im==14 .OR. im==15 .OR. im==16  .OR. im==26 .OR. im==27 .OR. im==28) THEN        
         IF((zin)=='') THEN
-           z(1)=0.0 
+           z(1)=z_default
         ELSE
            READ(zin,*) z(1)
         END IF        
@@ -260,7 +234,7 @@ PROGRAM HMx_fitting
      END IF
 
      ! Set the fields
-     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21 .OR. im==23 .OR. im==24 .OR. im==25) THEN
+     IF(im==11 .OR. im==16 .OR. im==17 .OR. im==18 .OR. im==20 .OR. im==21 .OR. im==23 .OR. im==24 .OR. im==25 .OR. im==28) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
@@ -273,11 +247,13 @@ PROGRAM HMx_fitting
      ELSE IF(im==14) THEN
         fields(1)=field_gas
         fields(2)=field_star
-     ELSE IF(im==15 .OR. im==22) THEN
+     ELSE IF(im==15 .OR. im==22 .OR. im==27) THEN
         fields(1)=field_matter
         fields(2)=field_cdm
         fields(3)=field_gas
         fields(4)=field_star
+     ELSE IF(im==26) THEN
+        fields(1)=field_cdm
      END IF
      
   ELSE
@@ -343,7 +319,9 @@ PROGRAM HMx_fitting
               ELSE IF(im>=11) THEN
                  ip(1)=fields(j1)
                  ip(2)=fields(j2)
-                 CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i))!,kmin,kmax)
+                 !CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,ip,cosm(i))!,kmin,kmax)
+                 CALL read_BAHAMAS_power(k_sim,pow_sim,nk,z(j),name,mesh,ip,cosm(i),&
+                      kmin_default,kmax_default,cut_nyquist,subtract_shot,response,verbose=.TRUE.)
               ELSE
                  STOP 'HMx_FITTING: Error, something went wrong reading data'
               END IF
@@ -512,6 +490,11 @@ PROGRAM HMx_fitting
         p_set(param_fcold)=.TRUE.
         p_set(param_Gammap)=.TRUE.
 
+     ELSE IF(im==26) THEN
+
+        ! CDM
+        p_set(param_eps)=.TRUE.
+
      ELSE IF(im==13) THEN
 
         ! stars
@@ -548,6 +531,24 @@ PROGRAM HMx_fitting
         p_set(param_Gammap)=.TRUE.
         p_set(param_cstarp)=.TRUE.
 
+     ELSE IF(im==27) THEN
+
+        ! 27 - matter (basic parameters)
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Astar)=.TRUE.
+
+     ELSE IF(im==28) THEN
+
+        ! 28 - everything (basic parameters)
+        p_set(param_alpha)=.TRUE.
+        p_set(param_eps)=.TRUE.
+        p_set(param_Gamma)=.TRUE.
+        p_set(param_M0)=.TRUE.
+        p_set(param_Astar)=.TRUE.
+        p_set(param_Twhim)=.TRUE.
+
      ELSE IF(im==21) THEN
 
         ! redshift dependent everything minus pressure-pressure
@@ -568,7 +569,7 @@ PROGRAM HMx_fitting
 
      ELSE IF(im==22) THEN
         
-        ! mattter
+        ! matter
         p_set(param_eps)=.TRUE.
         p_set(param_Gamma)=.TRUE.
         p_set(param_M0)=.TRUE.
@@ -1119,220 +1120,221 @@ CONTAINS
 
   END SUBROUTINE set_parameter_ranges
 
-  SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-
-    IMPLICIT NONE
-    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:) ! Output simulation k and power
-    INTEGER, INTENT(OUT) :: n ! Number of output k values
-    CHARACTER(len=*), INTENT(IN) :: infile ! Input file location
-    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax ! Minimum and maximum k values to cut at
-    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
-    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot ! Logical to subtract shot noise or not
-    LOGICAL, OPTIONAL, INTENT(IN) :: verbose ! Logical verbose
-    INTEGER :: i, i1, i2, m
-    REAL :: shot, kbig
-    LOGICAL :: lexist
-
-    ! Deallocate arrays if they are already allocated
-    IF(ALLOCATED(k))  DEALLOCATE(k)
-    IF(ALLOCATED(Pk)) DEALLOCATE(Pk)
-
-    ! Check file exists
-    INQUIRE(file=infile,exist=lexist)
-    IF(.NOT. lexist) THEN
-       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
-       STOP 'READ_SIMULATION_POWER_SPECTRUM: File does not exist'
-    END IF
-
-    ! Get file length and allocate arrays for output
-    n=file_length(infile,verbose=.FALSE.)
-    ALLOCATE(k(n),Pk(n))
-
-    ! Write to screen
-    IF(PRESENT(verbose)) THEN
-       IF(verbose) THEN
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: nk:', nk
-       END IF
-    END IF
-
-    ! Read in data from file
-    OPEN(9,file=infile,status='old')
-    DO i=1,n
-       READ(9,*) k(i), Pk(i), shot
-       IF(PRESENT(subtract_shot)) THEN
-          IF(subtract_shot) Pk(i)=Pk(i)-shot
-       END IF
-    END DO
-    CLOSE(9)
-
-    IF(PRESENT(cut_nyquist)) THEN
-       IF(cut_nyquist) THEN
-
-          ! Find position in array of half-Nyquist
-          kbig=k(n)
-          DO i=1,n
-             IF(k(i)>kbig/2.) EXIT
-          END DO
-
-          ! Cut arrays down to half-Nyquist
-          CALL amputate(k,n,i)
-          CALL amputate(Pk,n,i)
-          n=i
-
-          ! Write to screen
-          IF(PRESENT(verbose)) THEN
-             IF(verbose) THEN
-                WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
-             END IF
-          END IF
-
-       END IF
-    END IF
-
-    IF(PRESENT(kmin) .AND. PRESENT(kmax)) THEN
-
-       i1=0
-       i2=0
-       DO i=1,n-1
-          IF(k(i)<kmin .AND. k(i+1)>kmin) THEN
-             i1=i
-          END IF
-          IF(k(i)<kmax .AND. k(i+1)>kmax) THEN
-             i2=i+1
-          END IF
-       END DO
-
-       IF(i1==0 .OR. i2==0) THEN
-          STOP 'READ_SIMULATION_POWER_SPECTRUM: Error, something went wrong with kmin, kmax'
-       END IF
-
-       CALL amputate_general(k,n,m,i1,i2)
-       CALL amputate_general(Pk,n,m,i1,i2)
-       n=m
-
-    END IF
-
-    ! Write to screen
-    IF(PRESENT(verbose)) THEN
-       IF(verbose) THEN
-          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
-          WRITE(*,*)
-       END IF
-    END IF
-
-  END SUBROUTINE read_simulation_power_spectrum
-
-  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
-
-    IMPLICIT NONE
-    CHARACTER(len=*), INTENT(IN) :: model
-    REAL, INTENT(IN) :: z
-    INTEGER, INTENT(IN) :: ip(2)
-    CHARACTER(len=64) :: dir
-    CHARACTER(len=32) :: snap, field(2), f1, f2
-    LOGICAL :: lexist
-    INTEGER :: j
-
-    ! Directory containing everything
-    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/M1536'
-    IF(computer==2) dir='/home/amead/BAHAMAS/power/M1536'
-
-    ! Set the redshift
-    IF(z==0.0) THEN
-       snap='snap32'
-    ELSE IF(z==0.5) THEN
-       snap='snap28'
-    ELSE IF(z==1.0) THEN
-       snap='snap26'
-    ELSE IF(z==2.0) THEN
-       snap='snap22'
-    ELSE
-       STOP 'BAHAMAS_POWER_FILE_NAME: Error, redshift specified incorrectly'
-    END IF
-
-    ! Set the fields
-    DO j=1,2
-       IF(ip(j)==field_matter) THEN
-          field(j)='all'
-       ELSE IF(ip(j)==field_cdm) THEN
-          field(j)='dm'
-       ELSE IF(ip(j)==field_gas) THEN
-          field(j)='gas'
-       ELSE IF(ip(j)==field_star) THEN
-          field(j)='stars'
-       ELSE IF(ip(j)==field_electron_pressure) THEN
-          field(j)='epressure'
-       ELSE
-          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Field number', j
-          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Halo type', ip(j)
-          STOP 'BAHAMAS_POWER_FILE_NAME: Error, ip specified incorrectly'
-       END IF
-    END DO
-
-    DO j=1,2
-
-       IF(j==1) THEN
-          f1=field(1)
-          f2=field(2)
-       ELSE IF(j==2) THEN
-          f1=field(2)
-          f2=field(1)
-       ELSE
-          STOP 'BAHAMAS_POWER_FILE_NAME: Error, something fucked up'
-       END IF
-
-       ! File name
-       BAHAMAS_power_file_name=trim(dir)//'/'//trim(model)//'_L400N1024_WMAP9_'//trim(snap)//'_'//trim(f1)//'_'//trim(f2)//'_power.dat'
-
-       ! Check it exists
-       INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
-
-       IF(lexist) THEN
-          EXIT
-       ELSE IF(j==2) THEN
-          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', trim(BAHAMAS_power_file_name)
-          STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
-       END IF
-
-    END DO
-
-  END FUNCTION BAHAMAS_power_file_name
-
-  SUBROUTINE read_BAHAMAS_power(k,Pk,nk,z,name,field,cosm,kmin,kmax)
-
-    IMPLICIT NONE
-    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
-    REAL, ALLOCATABLE, INTENT(OUT) :: Pk(:)
-    INTEGER, INTENT(OUT) :: nk
-    REAL, INTENT(IN) :: z
-    CHARACTER(len=*), INTENT(IN) :: name
-    INTEGER, INTENT(IN) :: field(2)
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax
-    REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
-    CHARACTER(len=256) :: infile, dmonly
-
-    INTEGER, PARAMETER :: field_all_matter(2)=field_matter
-    REAL, PARAMETER :: mmin=1e7
-    REAL, PARAMETER :: mmax=1e17
-    LOGICAL, PARAMETER :: cut_nyquist=.FALSE.
-    LOGICAL, PARAMETER :: subtract_shot=.TRUE.
-    LOGICAL, PARAMETER :: verbose=.TRUE.
-
-    dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',z,field_all_matter)
-    infile=BAHAMAS_power_file_name(name,z,field)
-
-    CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-    CALL read_simulation_power_spectrum(k,Pk,   nk,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
-    Pk=Pk/Pk_DM
-
-    ALLOCATE(Pk_HMcode(nk))
-    CALL calculate_HMcode_a(k,scale_factor_z(z),Pk_HMcode,nk,cosm)
-    Pk=Pk*Pk_HMcode
-
-  END SUBROUTINE read_BAHAMAS_power
+!!$  SUBROUTINE read_simulation_power_spectrum(k,Pk,n,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+!!$
+!!$    IMPLICIT NONE
+!!$    REAL, ALLOCATABLE, INTENT(OUT) :: k(:), Pk(:) ! Output simulation k and power
+!!$    INTEGER, INTENT(OUT) :: n ! Number of output k values
+!!$    CHARACTER(len=*), INTENT(IN) :: infile ! Input file location
+!!$    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax ! Minimum and maximum k values to cut at
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot ! Logical to subtract shot noise or not
+!!$    LOGICAL, OPTIONAL, INTENT(IN) :: verbose ! Logical verbose
+!!$    INTEGER :: i, i1, i2, m
+!!$    REAL :: shot, kbig
+!!$    LOGICAL :: lexist
+!!$
+!!$    ! Deallocate arrays if they are already allocated
+!!$    IF(ALLOCATED(k))  DEALLOCATE(k)
+!!$    IF(ALLOCATED(Pk)) DEALLOCATE(Pk)
+!!$
+!!$    ! Check file exists
+!!$    INQUIRE(file=infile,exist=lexist)
+!!$    IF(.NOT. lexist) THEN
+!!$       WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
+!!$       STOP 'READ_SIMULATION_POWER_SPECTRUM: File does not exist'
+!!$    END IF
+!!$
+!!$    ! Get file length and allocate arrays for output
+!!$    n=file_length(infile,verbose=.FALSE.)
+!!$    ALLOCATE(k(n),Pk(n))
+!!$
+!!$    ! Write to screen
+!!$    IF(PRESENT(verbose)) THEN
+!!$       IF(verbose) THEN
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Reading in data'
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: File: ', trim(infile)
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: nk:', nk
+!!$       END IF
+!!$    END IF
+!!$
+!!$    ! Read in data from file
+!!$    OPEN(9,file=infile,status='old')
+!!$    DO i=1,n
+!!$       READ(9,*) k(i), Pk(i), shot
+!!$       IF(PRESENT(subtract_shot)) THEN
+!!$          IF(subtract_shot) Pk(i)=Pk(i)-shot
+!!$       END IF
+!!$    END DO
+!!$    CLOSE(9)
+!!$
+!!$    IF(PRESENT(cut_nyquist)) THEN
+!!$       IF(cut_nyquist) THEN
+!!$
+!!$          ! Find position in array of half-Nyquist
+!!$          kbig=k(n)
+!!$          DO i=1,n
+!!$             IF(k(i)>kbig/2.) EXIT
+!!$          END DO
+!!$
+!!$          ! Cut arrays down to half-Nyquist
+!!$          CALL amputate(k,n,i)
+!!$          CALL amputate(Pk,n,i)
+!!$          n=i
+!!$
+!!$          ! Write to screen
+!!$          IF(PRESENT(verbose)) THEN
+!!$             IF(verbose) THEN
+!!$                WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to Nyquist frequency'
+!!$             END IF
+!!$          END IF
+!!$
+!!$       END IF
+!!$    END IF
+!!$
+!!$    IF(PRESENT(kmin) .AND. PRESENT(kmax)) THEN
+!!$
+!!$       i1=0
+!!$       i2=0
+!!$       DO i=1,n-1
+!!$          IF(k(i)<kmin .AND. k(i+1)>kmin) THEN
+!!$             i1=i
+!!$          END IF
+!!$          IF(k(i)<kmax .AND. k(i+1)>kmax) THEN
+!!$             i2=i+1
+!!$          END IF
+!!$       END DO
+!!$
+!!$       IF(i1==0 .OR. i2==0) THEN
+!!$          STOP 'READ_SIMULATION_POWER_SPECTRUM: Error, something went wrong with kmin, kmax'
+!!$       END IF
+!!$
+!!$       CALL amputate_general(k,n,m,i1,i2)
+!!$       CALL amputate_general(Pk,n,m,i1,i2)
+!!$       n=m
+!!$
+!!$    END IF
+!!$
+!!$    ! Write to screen
+!!$    IF(PRESENT(verbose)) THEN
+!!$       IF(verbose) THEN
+!!$          WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Done'
+!!$          WRITE(*,*)
+!!$       END IF
+!!$    END IF
+!!$
+!!$  END SUBROUTINE read_simulation_power_spectrum
+!!$
+!!$  CHARACTER(len=256) FUNCTION BAHAMAS_power_file_name(model,z,ip)
+!!$
+!!$    IMPLICIT NONE
+!!$    CHARACTER(len=*), INTENT(IN) :: model
+!!$    REAL, INTENT(IN) :: z
+!!$    INTEGER, INTENT(IN) :: ip(2)
+!!$    CHARACTER(len=64) :: dir
+!!$    CHARACTER(len=32) :: snap, field(2), f1, f2
+!!$    LOGICAL :: lexist
+!!$    INTEGER :: j
+!!$
+!!$    ! Directory containing everything
+!!$    IF(computer==1) dir='/Users/Mead/Physics/BAHAMAS/power/M1024'
+!!$    IF(computer==2) dir='/home/amead/BAHAMAS/power/M1024'
+!!$
+!!$    ! Set the redshift
+!!$    IF(z==0.0) THEN
+!!$       snap='snap32'
+!!$    ELSE IF(z==0.5) THEN
+!!$       snap='snap28'
+!!$    ELSE IF(z==1.0) THEN
+!!$       snap='snap26'
+!!$    ELSE IF(z==2.0) THEN
+!!$       snap='snap22'
+!!$    ELSE
+!!$       STOP 'BAHAMAS_POWER_FILE_NAME: Error, redshift specified incorrectly'
+!!$    END IF
+!!$
+!!$    ! Set the fields
+!!$    DO j=1,2
+!!$       IF(ip(j)==field_matter) THEN
+!!$          field(j)='all'
+!!$       ELSE IF(ip(j)==field_cdm) THEN
+!!$          field(j)='dm'
+!!$       ELSE IF(ip(j)==field_gas) THEN
+!!$          field(j)='gas'
+!!$       ELSE IF(ip(j)==field_star) THEN
+!!$          field(j)='stars'
+!!$       ELSE IF(ip(j)==field_electron_pressure) THEN
+!!$          field(j)='epressure'
+!!$       ELSE
+!!$          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Field number', j
+!!$          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: Halo type', ip(j)
+!!$          STOP 'BAHAMAS_POWER_FILE_NAME: Error, ip specified incorrectly'
+!!$       END IF
+!!$    END DO
+!!$
+!!$    DO j=1,2
+!!$
+!!$       IF(j==1) THEN
+!!$          f1=field(1)
+!!$          f2=field(2)
+!!$       ELSE IF(j==2) THEN
+!!$          f1=field(2)
+!!$          f2=field(1)
+!!$       ELSE
+!!$          STOP 'BAHAMAS_POWER_FILE_NAME: Error, something fucked up'
+!!$       END IF
+!!$
+!!$       ! File name
+!!$       BAHAMAS_power_file_name=trim(dir)//'/'//trim(model)//'_L400N1024_WMAP9_'//trim(snap)//'_'//trim(f1)//'_'//trim(f2)//'_power.dat'
+!!$
+!!$       ! Check it exists
+!!$       INQUIRE(file=BAHAMAS_power_file_name,exist=lexist)
+!!$
+!!$       IF(lexist) THEN
+!!$          EXIT
+!!$       ELSE IF(j==2) THEN
+!!$          WRITE(*,*) 'BAHAMAS_POWER_FILE_NAME: ', trim(BAHAMAS_power_file_name)
+!!$          STOP 'BAHAMAS_POWER_FILE_NAME: Error, file does not exist'
+!!$       END IF
+!!$
+!!$    END DO
+!!$
+!!$  END FUNCTION BAHAMAS_power_file_name
+!!$
+!!$  SUBROUTINE read_BAHAMAS_power(k,Pk,nk,z,name,field,cosm,kmin,kmax)
+!!$
+!!$    USE cosmology
+!!$    IMPLICIT NONE
+!!$    REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
+!!$    REAL, ALLOCATABLE, INTENT(OUT) :: Pk(:)
+!!$    INTEGER, INTENT(OUT) :: nk
+!!$    REAL, INTENT(IN) :: z
+!!$    CHARACTER(len=*), INTENT(IN) :: name
+!!$    INTEGER, INTENT(IN) :: field(2)
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$    REAL, OPTIONAL, INTENT(IN) :: kmin, kmax
+!!$    REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
+!!$    CHARACTER(len=256) :: infile, dmonly
+!!$
+!!$    INTEGER, PARAMETER :: field_all_matter(2)=field_matter
+!!$    REAL, PARAMETER :: mmin=1e7
+!!$    REAL, PARAMETER :: mmax=1e17
+!!$    LOGICAL, PARAMETER :: cut_nyquist=.FALSE.
+!!$    LOGICAL, PARAMETER :: subtract_shot=.TRUE.
+!!$    LOGICAL, PARAMETER :: verbose=.TRUE.
+!!$
+!!$    dmonly=BAHAMAS_power_file_name('DMONLY_2fluid_nu0',z,field_all_matter)
+!!$    infile=BAHAMAS_power_file_name(name,z,field)
+!!$
+!!$    CALL read_simulation_power_spectrum(k,Pk_DM,nk,dmonly,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+!!$    CALL read_simulation_power_spectrum(k,Pk,   nk,infile,kmin,kmax,cut_nyquist,subtract_shot,verbose)
+!!$    Pk=Pk/Pk_DM
+!!$
+!!$    ALLOCATE(Pk_HMcode(nk))
+!!$    CALL calculate_HMcode_a(k,scale_factor_z(z),Pk_HMcode,nk,cosm)
+!!$    Pk=Pk*Pk_HMcode
+!!$
+!!$  END SUBROUTINE read_BAHAMAS_power
 
   SUBROUTINE write_fitting_power(base,k,pow_hm,pow_si,ncos,nf,nk,na)
 

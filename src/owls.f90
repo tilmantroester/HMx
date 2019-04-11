@@ -5,16 +5,19 @@ MODULE owls
   IMPLICIT NONE
 
   ! BAHAMAS simulation parameters
-  REAL, PARAMETER :: fh=0.752 ! Hydrogen mass fraction
-  REAL, PARAMETER :: mup=0.61 ! Mean particle mass relative to proton
-  REAL, PARAMETER :: Xeh=1.17  ! Number of electrons per hydrogen (X_{e/H} in my notation)
-  REAL, PARAMETER :: Xih=1.08  ! Number of ions per hydrogen (X_{i/H}; note that all gas particles are either electrons or ions)
-  REAL, PARAMETER :: mfac=1e10 ! Mass conversion factor to get Msun/h
+  REAL, PARAMETER :: fh=0.752      ! Hydrogen mass fraction
+  REAL, PARAMETER :: mup=0.61      ! Mean particle mass relative to proton
+  REAL, PARAMETER :: Xeh=1.17      ! Number of electrons per hydrogen (X_{e/H} in my notation)
+  REAL, PARAMETER :: Xih=1.08      ! Number of ions per hydrogen (X_{i/H}; all gas particles are either electrons or ions)
+  REAL, PARAMETER :: mfac=1e10     ! Mass conversion factor to get Msun/h
   REAL, PARAMETER :: eV_erg=eV*1e7 ! eV in ergs
+
+  ! BAHAMAS derived parameters
   REAL, PARAMETER :: mue=mup*(Xeh+Xih)/Xeh ! Mean particle mass per electron relative to proton
 
-  LOGICAL, PARAMETER :: apply_nh_cut=.TRUE. ! Apply a cut in hydrogen density
-  REAL, PARAMETER :: nh_cut=0.1 ! Cut in the hydrogen number density [#/cm^3] gas denser than this is not ionised
+  ! Cuts to remove neutral gas
+  LOGICAL, PARAMETER :: apply_nh_cut=.TRUE. ! Apply a cut in hydrogen density?
+  REAL, PARAMETER :: nh_cut=0.1             ! Cut in the hydrogen number density [#/cm^3] gas denser than this is not ionised
   
 CONTAINS
 
@@ -28,9 +31,9 @@ CONTAINS
     LOGICAL :: lexist
 
     ! Open the file using stream
+    WRITE(*,*) 'READ_MCCARTHY: Reading in binary file: ', trim(infile)
     INQUIRE(file=infile, exist=lexist)
     IF(.NOT. lexist) STOP 'READ_MCCARTHY: Error, input file does not exist'
-    WRITE(*,*) 'READ_MCCARTHY: Reading in binary file: ', trim(infile)
     OPEN(7,file=infile,form='unformatted',access='stream',status='old')
     READ(7) n
     CLOSE(7)
@@ -91,12 +94,11 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN) :: infile   ! Input file name
     REAL, ALLOCATABLE :: nh(:), ep(:)
     LOGICAL :: lexist   
-    REAL :: mue
     
     ! Read in the binary file
-    INQUIRE(file=infile, exist=lexist)
-    IF(.NOT. lexist) STOP 'READ_MCCARTHY: Error, input file does not exist'
     WRITE(*,*) 'READ_MCCARTHY_GAS: Reading in binary file: ', trim(infile)
+    INQUIRE(file=infile, exist=lexist)
+    IF(.NOT. lexist) STOP 'READ_MCCARTHY: Error, input file does not exist'    
     OPEN(7,file=infile,form='unformatted',access='stream',status='old')
     READ(7) n
     CLOSE(7)
@@ -115,20 +117,17 @@ CONTAINS
     READ(7) nh ! physical hydrogen number density for the partcle in [/cm^3]
     CLOSE(7)
 
-    ! Convert masses into Solar masses
-    m=m*mfac
+    ! Convert particle masses
+    m=m*mfac ! [Msun/h]
 
     ! Write information to the screen
     WRITE(*,*) 'READ_MCCARTHY_GAS: Calculating kT from physical electron pressure'
-    WRITE(*,*) 'READ_MCCARTHY_GAS: Note that the electron pressure is *not* comoving'
+    WRITE(*,*) 'READ_MCCARTHY_GAS: Note that the electron pressure calcuated here is *not* comoving'
     WRITE(*,*) 'READ_MCCARTHY_GAS: Using numbers appropriate for BAHAMAS'
     WRITE(*,*) 'READ_MCCARTHY_GAS: Hydrogen mass fraction: f_H, Y_H:', fh
     WRITE(*,*) 'READ_MCCARTHY_GAS: Mean particle mass: mu_p [m_p]:', mup
     WRITE(*,*) 'READ_MCCARTHY_GAS: Number of electrons per hydrogen: X_e/X_H:', Xeh
     WRITE(*,*) 'READ_MCCARTHY_GAS: Number of ions per hydrogen: X_i/X_H:', Xih
-
-    ! Calculate and write the 'particle mass per free electron: mu_e'
-    !mue=mup*(Xe+Xi)/Xe
     WRITE(*,*) 'READ_MCCARTHY_GAS: Mean particle mass per electron: mu_e [m_p]:', mue
 
     ! Convert the physical hydrogen number density into a physical particle mass density [mp/cm^3]
@@ -141,8 +140,6 @@ CONTAINS
     ! This is the temperature of gas particles (equal for all species)
     ! Temperature is neither comoving nor physical
     ALLOCATE(kT(n))
-    !kT=((Xe+Xi)/Xe)*(ep/nh)*mu*fh
-    !kT=(ep/nh)*mue*fh
     kT=(ep/rho)*mue
     kT=kT/eV_erg ! Convert internal energy from erg to eV    
     DEALLOCATE(ep) ! Deallocate the physical electron pressure array   
@@ -150,7 +147,7 @@ CONTAINS
     ! Write information to the screen
     WRITE(*,*) 'READ_MCCARTHY_GAS: Minimum particle mass [Msun/h]:', minval(m)
     WRITE(*,*) 'READ_MCCARTHY_GAS: Maximum particle mass [Msun/h]:', maxval(m)
-    WRITE(*,*) 'READ_MCCARTHY_GAS: Total particle mass [Msun/h]:', sum(m)
+    WRITE(*,*) 'READ_MCCARTHY_GAS: Total mass of all particles [Msun/h]:', sum(m)
     WRITE(*,*) 'READ_MCCARTHY_GAS: Minimum particle x coordinate [Mpc/h]:', minval(x(1,:))
     WRITE(*,*) 'READ_MCCARTHY_GAS: Maximum particle x coordinate [Mpc/h]:', maxval(x(1,:))
     WRITE(*,*) 'READ_MCCARTHY_GAS: Minimum particle y coordinate [Mpc/h]:', minval(x(2,:))
@@ -179,9 +176,9 @@ CONTAINS
     INTEGER, INTENT(IN) :: n     ! total number of particles
     REAL, INTENT(IN) :: L        ! box size [Mpc/h]
     REAL, INTENT(IN) :: h        ! Hubble parameter (necessary because pressure will be in eV/cm^3 without h factors) 
-    REAL :: mue, V
+    REAL :: V
     DOUBLE PRECISION :: units, kT_dble(n)
-    INTEGER :: i
+    INTEGER, PARAMETER :: scheme=3
 
     ! Exclude gas that is sufficiently dense to not be ionised and be forming stars
     IF(apply_nh_cut) CALL exclude_nh(nh_cut,kT,rho,n)
@@ -190,34 +187,57 @@ CONTAINS
     WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: Using numbers appropriate for BAHAMAS'
     WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: Note that this is COMOVING'
     WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: Y_H:', fh
-    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: mu_p:', mup
-    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: Xe/h:', Xeh
-    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: Xi/h:', Xih
-
-    !mue=mup*(Xe+Xi)/Xe
-    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: mu_e:', mue
+    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: mu_p [mp]:', mup
+    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: X_e/X_H:', Xeh
+    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: X_i/X_H:', Xih
+    WRITE(*,*) 'CONVERT_KT_TO_ELECTRON_PRESSURE: mu_e [mp]:', mue
 
     ! Use double precision because all the constants are dreadful 
     kT_dble=kT ! [eV]
-    
-    ! Convert to particle internal energy that can be mapped to grid
-    !kT_dble=kT_dble*(m/mu)*Xe/(Xe+Xi) ! [eV*Msun]
-    kT_dble=kT_dble*(m/mue) ! [eV*Msun]
 
-    ! Comoving volume
-    V=(L/h)**3 ! [(Mpc)^3]
+    IF(scheme==1 .OR. scheme==2) THEN
 
-    ! This is now comoving electron pressure
-    kT_dble=kT_dble/V ! [Msun*eV/Mpc^3]
+       ! Convert to particle internal energy that can be mapped to grid
+       IF(scheme==1) THEN
+          kT_dble=kT_dble*(m/mue) ! [eV*Msun/h] BUG: I think there should be a factor of h here due to Msun/h units
+       ELSE IF(scheme==2) THEN
+          kT_dble=kT_dble*(m/(h*mue)) ! [eV*Msun]
+       ELSE
+          STOP 'CONVERT_KT_TO_ELECTRON_PRESSURE: Error, scheme specified incorrectly'
+       END IF
 
-    ! Convert units of comoving electron pressure
-    ! Note that there are no h factors here
-    units=msun
-    units=units/mp ! Divide out proton mass here [eV/Mpc^3]
-    units=units/(Mpc/0.01)
-    units=units/(Mpc/0.01)
-    units=units/(Mpc/0.01)
-    kT_dble=kT_dble*units ! [eV/cm^3]
+       ! Comoving volume
+       V=(L/h)**3 ! [(Mpc)^3]
+
+       ! This is now comoving electron pressure
+       kT_dble=kT_dble/V ! [eV*Msun/Mpc^3]
+
+       ! Convert units of comoving electron pressure
+       ! Note that there are no h factors here
+       units=msun             ! [kg]
+       units=units/mp         ! Divide out proton mass here [dimensionless]
+       units=units/(Mpc/0.01) ! Necessary to do this in stages due to overflow [kg/cm^1]
+       units=units/(Mpc/0.01) ! Necessary to do this in stages due to overflow [kg/cm^2]
+       units=units/(Mpc/0.01) ! Necessary to do this in stages due to overflow [kg/cm^3]
+       kT_dble=kT_dble*units  ! [eV/cm^3]
+
+    ELSE IF(scheme==3) THEN
+
+       ! Comoving volume
+       V=L**3 ! [(Mpc)^3]
+
+       ! Big blob of units (see notes)
+       units=(Msun*(h**2)*(0.01)**3)
+       units=units/Mpc
+       units=units/Mpc
+       units=units/Mpc
+
+       ! Final quantity
+       kT_dble=units*(m/(mue*mp))*kT_dble/V ! [eV/cm^3]
+
+    ELSE
+       STOP 'CONVERT_KT_TO_ELECTRON_PRESSURE: Error, scheme specified incorrectly'
+    END IF
 
     ! Go back to single precision
     kT=real(kT_dble) ! [eV/cm^3]
@@ -276,39 +296,41 @@ CONTAINS
 
   CHARACTER(len=32) FUNCTION BAHAMAS_snapshot(z)
 
+    USE logical_operations
     IMPLICIT NONE
     REAL, INTENT(IN) :: z
+    REAL, PARAMETER :: eps=1e-3
 
     ! Set the redshift
-    IF(z==0.0) THEN
+    IF(requal(z,0.0,eps)) THEN
        BAHAMAS_snapshot='snap32'
-    ELSE IF(z==0.125) THEN
+    ELSE IF(requal(z,0.125,eps)) THEN
        BAHAMAS_snapshot='snap31'
-    ELSE IF(z==0.25) THEN
+    ELSE IF(requal(z,0.25,eps)) THEN
        BAHAMAS_snapshot='snap30'
-    ELSE IF(z==0.375) THEN
+    ELSE IF(requal(z,0.375,eps)) THEN
        BAHAMAS_snapshot='snap29'
-    ELSE IF(z==0.5) THEN
+    ELSE IF(requal(z,0.5,eps)) THEN
        BAHAMAS_snapshot='snap28'
-    ELSE IF(z==0.75) THEN
+    ELSE IF(requal(z,0.75,eps)) THEN
        BAHAMAS_snapshot='snap27'
-    ELSE IF(z==1.0) THEN
+    ELSE IF(requal(z,1.0,eps)) THEN
        BAHAMAS_snapshot='snap26'
-    ELSE IF(z==1.25) THEN
+    ELSE IF(requal(z,1.25,eps)) THEN
        BAHAMAS_snapshot='snap25'
-    ELSE IF(z==1.5) THEN
+    ELSE IF(requal(z,1.5,eps)) THEN
        BAHAMAS_snapshot='snap24'
-    ELSE IF(z==1.75) THEN
+    ELSE IF(requal(z,1.75,eps)) THEN
        BAHAMAS_snapshot='snap23'
-    ELSE IF(z==2.0) THEN
+    ELSE IF(requal(z,2.0,eps)) THEN
        BAHAMAS_snapshot='snap22'
-    ELSE IF(z==2.25) THEN
+    ELSE IF(requal(z,2.25,eps)) THEN
        BAHAMAS_snapshot='snap21'
-    ELSE IF(z==2.5) THEN
+    ELSE IF(requal(z,2.5,eps)) THEN
        BAHAMAS_snapshot='snap20'
-    ELSE IF(z==2.75) THEN
+    ELSE IF(requal(z,2.75,eps)) THEN
        BAHAMAS_snapshot='snap19'
-    ELSE IF(z==3.0) THEN
+    ELSE IF(requal(z,3.0,eps)) THEN
        BAHAMAS_snapshot='snap18'
     ELSE
        WRITE(*,*) 'BAHAMAS_SNAPSHOT: z', z
@@ -317,7 +339,7 @@ CONTAINS
 
   END FUNCTION BAHAMAS_snapshot
 
-  SUBROUTINE BAHAMAS_zs(a,n)
+  SUBROUTINE BAHAMAS_scale_factors(a,n)
 
     USE cosmology_functions
     IMPLICIT NONE
@@ -364,6 +386,6 @@ CONTAINS
        STOP 'BAHAMAS_ZS: Error, nz specified incorrectly'
     END IF
 
-  END SUBROUTINE BAHAMAS_zs
+  END SUBROUTINE BAHAMAS_scale_factors
 
 END MODULE owls

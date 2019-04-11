@@ -203,7 +203,7 @@ icol_few[2]=6
 # Fractions to multiply pressure spectra by
 array fac[2]
 fac[1]=1.
-fac[2]=1e3
+fac[2]=1e3 # Units of pressure become [keV/cm^3]
 
 # Write to screen
 print 'Pressure field multiplied by: ', fac[2]

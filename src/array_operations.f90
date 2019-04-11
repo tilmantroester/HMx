@@ -16,7 +16,67 @@ MODULE array_operations
 !!$     MODULE PROCEDURE progression_log_double
 !!$  END INTERFACE progression_log
 
+  INTERFACE add_to_array
+     MODULE PROCEDURE add_to_array_2D
+     MODULE PROCEDURE add_to_array_3D
+  END INTERFACE add_to_array
+
+  INTERFACE splay
+     PROCEDURE splay_2D
+     PROCEDURE splay_3D
+  END INTERFACE splay
+
 CONTAINS
+
+  SUBROUTINE add_to_array_2D(a,m,v,i)
+
+    ! Add value 'v' to array 'a' at location 'i' in array
+    ! If 'i' is outside the array range then this routine does nothing
+    IMPLICIT NONE
+    REAL, INTENT(INOUT) :: a(m,m)
+    INTEGER, INTENT(IN) :: m
+    REAL, INTENT(IN) :: v
+    INTEGER, INTENT(IN) :: i(2)
+    INTEGER :: j
+    LOGICAL :: bin
+    INTEGER, PARAMETER :: dim=2
+
+    bin=.TRUE.
+    DO j=1,dim
+       IF(i(j)<1 .OR. i(j)>m) THEN
+          bin=.FALSE.
+          EXIT
+       END IF
+    END DO
+
+    IF(bin) a(i(1),i(2))=a(i(1),i(2))+v
+    
+  END SUBROUTINE add_to_array_2D
+
+   SUBROUTINE add_to_array_3D(a,m,v,i)
+
+    ! Add value 'v' to array 'a' at location 'i' in array
+    ! If 'i' is outside the array range then this routine does nothing
+    IMPLICIT NONE
+    REAL, INTENT(INOUT) :: a(m,m,m)
+    INTEGER, INTENT(IN) :: m
+    REAL, INTENT(IN) :: v
+    INTEGER, INTENT(IN) :: i(3)
+    INTEGER :: j
+    LOGICAL :: bin
+    INTEGER, PARAMETER :: dim=3
+
+    bin=.TRUE.
+    DO j=1,dim
+       IF(i(j)<1 .OR. i(j)>m) THEN
+          bin=.FALSE.
+          EXIT
+       END IF
+    END DO
+
+    IF(bin) a(i(1),i(2),i(3))=a(i(1),i(2),i(3))+v
+    
+  END SUBROUTINE add_to_array_3D
 
   INTEGER FUNCTION array_position(x,a,n)
 
@@ -228,11 +288,33 @@ CONTAINS
 
   END SUBROUTINE reverse
 
-  FUNCTION splay(a,n1,n2,n3)
+  FUNCTION splay_2D(a,n1,n2)
 
     ! This splays out a 3d array 'a' into a 1d array 'b' of the same size (n1*n2*n3)
     IMPLICIT NONE
-    REAL :: splay(n1*n2*n3)
+    REAL :: splay_2D(n1*n2)
+    REAL, INTENT(IN) :: a(n1,n2)
+    INTEGER, INTENT(IN) :: n1, n2
+    INTEGER :: i, j, ii
+
+    ! Set sum integer to zero
+    ii=0
+
+    DO j=1,n2
+       DO i=1,n1
+          ii=ii+1
+          splay_2D(ii)=a(i,j)
+       END DO
+    END DO
+
+  END FUNCTION splay_2D
+
+  FUNCTION splay_3D(a,n1,n2,n3)
+
+    ! This splays out a 3d array 'a' into a 1d array 'b' of the same size (n1*n2*n3)
+    ! TODO: Should i, j, k order of loops be reversed?
+    IMPLICIT NONE
+    REAL :: splay_3D(n1*n2*n3)
     REAL, INTENT(IN) :: a(n1,n2,n3)
     INTEGER, INTENT(IN) :: n1, n2, n3
     INTEGER :: i, j, k, ii
@@ -244,12 +326,12 @@ CONTAINS
        DO j=1,n2
           DO k=1,n3             
              ii=ii+1
-             splay(ii)=a(i,j,k)
+             splay_3D(ii)=a(i,j,k)
           END DO
        END DO
     END DO
 
-  END FUNCTION splay
+  END FUNCTION splay_3D
 
   SUBROUTINE binning(a,a1,a2,n,b,c,ilog)
 
