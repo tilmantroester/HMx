@@ -106,8 +106,8 @@ print ''
 #}
 
 # Simulation P(k) mesh-size options
-if(!exists('mesh')){mesh=1536}
-if(iplot==8){mesh=1536}
+if(!exists('mesh')){mesh=1024}
+if(iplot==8){mesh=1024}
 print 'Mesh size: mesh: ', mesh
 print ''
 

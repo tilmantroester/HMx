@@ -42,6 +42,7 @@ plot 1 w l lt -1 noti,\
      1-dy w l dt 2 lc -1 noti,\
      1+ddy w l dt 2 lc -1 noti,\
      1-ddy w l dt 2 lc -1 noti,\
+     for [i=1:words(tests)] NaN lc -1 lw 2 dt i ti word(tests,i),\
      for [i=1:words(tests)] for [j=1:na] '<paste '.bench(word(tests,i)).' '.power(word(tests,i)).'' \
      u 1:(column(1+j)/column(2+j+na)):(real(j-1)/real(na-1)) w l lw 2 lc palette dt i noti
 

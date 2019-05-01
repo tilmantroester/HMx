@@ -8,6 +8,12 @@ if(print==1) {set term post enh col font ',12'; set output 'emulator.eps'}
 # Initial white space
 print ''
 
+if(!exists('imode')) {imode=1}
+print 'imode = 1: No error blob'
+print 'imode = 2: Error blob'
+print 'imode = ', imode
+print ''
+
 file(n,z)=sprintf('data/cosmo%d_z%d.dat',n,z)
 
 # Number of redshifts
@@ -44,6 +50,18 @@ ylab=0.90
 # Final white space
 print ''
 
+# Error blob function
+error_positive(k,A,b,knl,n)=1.+A*(1./(1.+(k/(b*knl))**(-2*n)))
+error_negative(k,A,b,knl,n)=2.-error_positive(k,A,b,knl,n)
+
+# Array of non-linear wave numbers at z = 0, 0.5, 1, 2
+# These were calculated from the 'boring' LCDM cosmology
+array knl[4]
+knl[1]=0.400 # z=0.0
+knl[2]=0.690 # z=0.5
+knl[3]=1.206 # z=1.0
+knl[4]=3.446 # z=2.0
+
 set multiplot layout 4,2
 
 do for [i=1:2]{
@@ -65,10 +83,23 @@ if(j==4){set tmargin at screen y2-3.*dy; set bmargin at screen y2-4.*dy; set lab
 set xlabel ''; set format x ''
 if(j==4){set xlabel 'k / h Mpc^{-1}'; set format x}
 
+if(imode==1){
 plot 1 w l lt -1 noti,\
      1.+ddy w l lc -1 dt 2 noti,\
      1.-ddy w l lc -1 dt 2 noti,\
      for [icos=0:ncos] file(icos,j) u 1:(column(c)/$4) w l noti
+}
+
+if(imode==2) {
+if(i==1) {A=0.04; b=0.1; n=1}
+if(i==2) {A=0.08; b=0.1; n=1}
+plot 1 w l lt -1 noti,\
+     1.+ddy w l lc -1 dt 2 noti,\
+     1.-ddy w l lc -1 dt 2 noti,\
+     for [icos=0:ncos] file(icos,j) u 1:(column(c)/$4) w l noti,\
+     error_positive(x,A,b,knl[j],n) w l lw 3 lc -1 noti,\
+     error_negative(x,A,b,knl[j],n) w l lw 3 lc -1 noti
+}
 
 unset label
 
@@ -77,3 +108,5 @@ unset label
 }
 
 unset multiplot
+
+show output
