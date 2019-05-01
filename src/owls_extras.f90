@@ -184,8 +184,8 @@ CONTAINS
           IF(k(i)>kbig/2.) EXIT
        END DO
        ! Cut arrays down to half-Nyquist
-       CALL amputate(k,n,i)
-       CALL amputate(Pk,n,i)
+       CALL amputate_array(k,n,1,i)
+       CALL amputate_array(Pk,n,1,i)
        n=i
        ! Write to screen
        IF(present_and_correct(verbose)) THEN
@@ -202,9 +202,9 @@ CONTAINS
           END IF
        END DO
        IF(j .NE. 0) THEN
-          CALL amputate_general(k,n,m,j,n)
-          CALL amputate_general(Pk,n,m,j,n)
-          n=m
+          CALL amputate_array(k,n,j,n)
+          CALL amputate_array(Pk,n,j,n)
+          n=n-j+1
        END IF
        IF(present_and_correct(verbose)) THEN
           WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmin'
@@ -220,9 +220,10 @@ CONTAINS
           END IF
        END DO
        IF(j .NE. n) THEN
-          CALL amputate_general(k,n,m,1,j)
-          CALL amputate_general(Pk,n,m,1,j)
-          n=m
+          CALL amputate_array(k,n,1,j)
+          CALL amputate_array(Pk,n,1,j)
+          !n=m
+          n=j
        END IF
        IF(present_and_correct(verbose)) THEN
           WRITE(*,*) 'READ_SIMULATION_POWER_SPECTRUM: Trimmed to new kmax'

@@ -31,12 +31,11 @@ PROGRAM HMx_driver
   REAL, ALLOCATABLE :: zs(:), masses(:)
   REAL, ALLOCATABLE :: z_tab(:), HI_frac(:)
   INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx, n_all, l, n_edge
-  INTEGER :: n, nl, nz, nth, nnz, m, ipa, npa, ncos, ncore, nfeed, nsim
+  INTEGER :: n, nl, nz, nth, nnz, m, ipa, ncos, ncore, nfeed, nsim
   INTEGER :: ip(2), ix(2), field(1)
   INTEGER, ALLOCATABLE :: fields(:), ixx(:)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
   REAL :: rcore_min, rcore_max
-  REAL :: weight, weight_total
   REAL :: z, z1, z2, r1, r2, a1, a2
   TYPE(cosmology) :: cosm
   TYPE(cosmology), ALLOCATABLE :: cosms(:)
@@ -44,10 +43,10 @@ PROGRAM HMx_driver
   TYPE(halomod), ALLOCATABLE :: hmods(:)
   TYPE(projection) :: proj(2), pro
   CHARACTER(len=256) :: infile, outfile, base, mid, ext, dir, name, fname, inbase, outbase, inext, outext
-  CHARACTER(len=256) :: mode, halomodel, cosmo, benchmark, tracer1, tracer2
+  CHARACTER(len=256) :: mode, halomodel, cosmo
   CHARACTER(len=256), ALLOCATABLE :: ixx_names(:)
   INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest
-  INTEGER :: imin, imax, mesh, iz
+  INTEGER :: imin, imax, mesh
   REAL :: sig8min, sig8max
   REAL :: mass, m1, m2, nu, numin, numax, mf
   REAL :: c, rmin, rmax, rv, rs, p1, p2, cmin, cmax, cbar
@@ -61,7 +60,6 @@ PROGRAM HMx_driver
 
   ! Tests
   REAL :: error, error_max
-  INTEGER :: ntests 
 
   ! Halo-model Parameters
   LOGICAL, PARAMETER :: verbose=.TRUE. ! Verbosity
@@ -193,7 +191,9 @@ PROGRAM HMx_driver
      WRITE(*,*) '63 - Contributions to y-y C(l) integral'
      WRITE(*,*) '64 - CIB 545 GHz'
      WRITE(*,*) '65 - Contributions to Limber integrals from BAHAMAS'
-     WRITE(*,*) '66 - Direct integration of measured 3D BAHAMAS spectra: Triad 5 but larger ell range'
+     WRITE(*,*) '66 - Direct integration of measured 3D BAHAMAS spectra: Triad 5 but larger ell range'   
+     WRITE(*,*) '67 - Voids'
+     WRITE(*,*) '68 - Non-linear halo bias comparison'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -201,7 +201,7 @@ PROGRAM HMx_driver
           
   IF(imode==0) THEN
 
-     ! Calculate halo model at one z
+     ! 0 - Calculate halo model at a single z
 
      ! Set number of k points and k range (log spaced)
      nk=128
@@ -242,6 +242,108 @@ PROGRAM HMx_driver
         END DO
         CLOSE(8)
      END IF
+
+  ELSE IF(imode==67) THEN
+
+     ! 67 - Calculate void halo model at one z
+
+     ! Set number of k points and k range (log spaced)
+     nk=128
+     kmin=1e-3
+     kmax=1e2
+     CALL fill_array(log(kmin),log(kmax),k,nk)
+     k=exp(k)
+
+     ! Assigns the cosmological model
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Sets the redshift
+     z=0.0
+
+     ! Initiliasation for the halomodel calcualtion
+     CALL assign_halomod(ihm,hmod,verbose)
+     CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
+     CALL print_halomod(hmod,cosm,verbose)
+
+     ! Allocate arrays
+     ALLOCATE(powd_li(nk),powd_2h(nk),powd_1h(nk),powd_hm(nk))
+
+     ! Do the halo-model calculation
+     field=field_dmonly
+     CALL calculate_HMx_a(field,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
+
+     ! Write out the results
+     outfile='data/power.dat'
+     CALL write_power(k,powd_li,powd_2h,powd_1h,powd_hm,nk,outfile,verbose)
+
+     ! Write the one-void term if necessary
+     IF(hmod%voids) THEN
+        OPEN(8,file='data/power_1void.dat')
+        DO i=1,nk     
+           WRITE(8,*) k(i), p_1void(k(i),hmod)
+        END DO
+        CLOSE(8)
+     END IF
+
+  ELSE IF(imode==68) THEN
+
+     ! 68 - Non-linear halo bias model
+
+     ! Assigns the cosmological model
+     icosmo=200 ! Frankenemu M000
+     CALL assign_cosmology(icosmo,cosm,verbose)
+     CALL init_cosmology(cosm)
+     CALL print_cosmology(cosm)
+
+     ! Set the redshift
+     z=0.0
+
+     ! Get the emulator power
+     CALL read_FrankenEmu_power(k,pow_sim,nk,z,cosm,rebin=.FALSE.)
+     outfile='data/power_emu.dat'
+     OPEN(7,file=outfile)
+     DO i=1,nk
+        WRITE(7,*) k(i), pow_sim(i)
+     END DO
+     CLOSE(7)
+
+     ! Loop over two different halo-model calculations
+     DO j=1,2
+
+        ! Set the halo model and output file
+        IF(j==1) THEN
+           ihm=3  ! Standard halo model
+           !ihm=42 ! M200c and Tinker
+           outfile='data/power.dat'
+        ELSE IF(j==2) THEN
+           ihm=48 ! Non-linear bias
+           !ihm=24 ! Non-linear bias with M200c and Tinker         
+           outfile='data/power_bnl.dat'
+        ELSE
+           STOP 'HMX_DRIVER: Error, something went wrong in 68'
+        END IF
+
+        ! Initiliasation for the halomodel calcualtion
+        CALL assign_halomod(ihm,hmod,verbose)
+        CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
+        CALL print_halomod(hmod,cosm,verbose)
+
+        ! Allocate arrays
+        ALLOCATE(powd_li(nk),powd_2h(nk),powd_1h(nk),powd_hm(nk))
+
+        ! Do the halo-model calculation
+        field=field_dmonly
+        CALL calculate_HMx_a(field,1,k,nk,powd_li,powd_2h,powd_1h,powd_hm,hmod,cosm,verbose,response=.FALSE.)
+
+        ! Write out the results
+        CALL write_power(k,powd_li,powd_2h,powd_1h,powd_hm,nk,outfile,verbose)
+
+        ! Deallocate arrays
+        DEALLOCATE(powd_li,powd_2h,powd_1h,powd_hm)
+
+     END DO
 
   ELSE IF(imode==1) THEN
 
@@ -898,7 +1000,8 @@ PROGRAM HMx_driver
      zmax=2.0
 
      ! Loop forever
-     DO ii=1,50
+     n=50
+     DO ii=1,n
 
         z=random_uniform(zmin,zmax)
 
@@ -1088,7 +1191,7 @@ PROGRAM HMx_driver
      IF(imode==47) THEN
         lmin=2.
         lmax=10000.
-        nl=lmax-lmin+1
+        nl=nint(lmax)-nint(lmin)+1
         CALL fill_array(lmin,lmax,ell,nl)
      ELSE
         lmin=1e0
@@ -2879,6 +2982,8 @@ PROGRAM HMx_driver
      zmax=4.
      nz=101
 
+     mass=1e14 ! Mass to write out for [Msun/h]
+
      DO j=1,3
         
         IF(j==1) THEN
@@ -2895,7 +3000,7 @@ PROGRAM HMx_driver
         OPEN(7,file=outfile)
         DO i=1,nz
            hmod%z=progression(zmin,zmax,i,nz)
-           WRITE(7,*) hmod%z, HMx_alpha(1e14,hmod), HMx_eps(hmod), HMx_Gamma(1e14,hmod), HMx_M0(hmod), HMx_Astar(hmod), HMx_Twhim(hmod)
+           WRITE(7,*) hmod%z, HMx_alpha(mass,hmod), HMx_eps(hmod), HMx_Gamma(mass,hmod), HMx_M0(hmod), HMx_Astar(mass,hmod), HMx_Twhim(hmod)
         END DO
         CLOSE(7)
         
@@ -3620,7 +3725,7 @@ PROGRAM HMx_driver
                  pow_ka(:,i)=pow_sim
               END DO
 
-              IF(add_highz) CALL add_highz_BAHAMAS(k,a,pow_ka,nk,na,cosm)
+              IF(add_highz) CALL add_highz_BAHAMAS(a,pow_ka,nk,na,cosm)
 
               IF(imode==65) THEN
                  IF(name=='AGN_TUNED_nu0' .AND. ixx_names(1)=='gal_z0.1-0.9' .AND. ixx_names(2)=='gal_z0.1-0.9') THEN
@@ -3764,9 +3869,9 @@ PROGRAM HMx_driver
      END DO
      
      ! l range
-     lmin=2
-     lmax=10000
-     nl=lmax-lmin+1 ! Get all ell  
+     lmin=2.
+     lmax=10000.
+     nl=nint(lmax)-nint(lmin)+1 ! Get all ell  
      CALL fill_array(lmin,lmax,ell,nl)
      ALLOCATE(Cl_bm(nl))
 
@@ -4809,17 +4914,16 @@ CONTAINS
 !!$
 !!$  END SUBROUTINE BAHAMAS_zs
 
-  SUBROUTINE add_highz_BAHAMAS(k,a,pow,nk,na,cosm)
+  SUBROUTINE add_highz_BAHAMAS(a,pow,nk,na,cosm)
 
     IMPLICIT NONE
-    REAL, INTENT(IN) :: k(nk)
     REAL, ALLOCATABLE, INTENT(INOUT) :: a(:)
     REAL, ALLOCATABLE, INTENT(INOUT) :: pow(:,:)
     INTEGER, INTENT(IN) :: nk
     INTEGER, INTENT(INOUT) :: na
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: a_save(na), pow_save(nk,na), a_new
-    INTEGER :: i, j
+    REAL :: a_save(na), pow_save(nk,na)
+    INTEGER :: j
     REAL, PARAMETER :: z_new=3.
     
     ! Save the original a and P(k,a) arrays
