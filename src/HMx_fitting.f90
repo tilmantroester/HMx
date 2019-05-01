@@ -1544,7 +1544,7 @@ CONTAINS
     INTEGER, PARAMETER :: nm=32         ! Number of parameter sigmas to check
     REAL, PARAMETER :: eps=2.0          ! Tolerated error in fom difference when setting range if doing finesse
     LOGICAL, PARAMETER :: check=.FALSE. ! Do we check eps?
-    LOGICAL, PARAMETER :: debug=.TRUE. ! Debug?
+    LOGICAL, PARAMETER :: debug=.FALSE. ! Debug?
     INTEGER, PARAMETER :: iorder=1      ! Order for interpolation to find correct dfom (cubic causes issues with non-monotonic)
 
     IF(verbose) THEN
