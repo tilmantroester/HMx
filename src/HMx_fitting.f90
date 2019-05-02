@@ -1539,9 +1539,9 @@ CONTAINS
     REAL :: original, perturbed, sigma, ratio
     REAL, ALLOCATABLE :: perturbation(:,:)
 
-    REAL, PARAMETER :: mult_min=1e-6    ! Multiple minimum (What fraction of the way to the max to we start trying?)
+    REAL, PARAMETER :: mult_min=1e-3    ! Multiple minimum (What fraction of the way to the max to we start trying?)
     REAL, PARAMETER :: mult_max=1.      ! Multiple maximum (really should be set to unity)
-    INTEGER, PARAMETER :: nm=32         ! Number of parameter sigmas to check
+    INTEGER, PARAMETER :: nm=16         ! Number of parameter sigmas to check
     REAL, PARAMETER :: eps=2.0          ! Tolerated error in fom difference when setting range if doing finesse
     LOGICAL, PARAMETER :: check=.FALSE. ! Do we check eps?
     LOGICAL, PARAMETER :: debug=.TRUE. ! Debug?
