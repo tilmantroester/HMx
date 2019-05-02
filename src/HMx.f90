@@ -320,7 +320,7 @@ CONTAINS
     INTEGER :: i
 
     ! Names of pre-defined halo models
-    INTEGER, PARAMETER :: nhalomod=48 ! Total number of pre-defined halo-model types (TODO: this is stupid)
+    INTEGER, PARAMETER :: nhalomod=49 ! Total number of pre-defined halo-model types (TODO: this is stupid)
     CHARACTER(len=256):: names(nhalomod)    
     names(1)='HMcode (Mead et al. 2016)'
     names(2)='Basic halo-model (Two-halo term is linear)'
@@ -370,6 +370,7 @@ CONTAINS
     names(46)='Isothermal beta model for gas'
     names(47)='Isothermal beta model for gas in response'
     names(48)='Non-linear halo bias for standard model'
+    names(49)='Non-linear halo bias with Tinker but virial haloes'
 
     IF(verbose) WRITE(*,*) 'ASSIGN_HALOMOD: Assigning halo model'
 
@@ -1154,7 +1155,13 @@ CONTAINS
        hmod%response=1
     ELSE IF(ihm==48) THEN
        ! Non-linear halo bias for standard halo model
-       hmod%ibias=3 ! Non-linear halo bias
+       hmod%ibias=3   ! Non-linear halo bias
+       hmod%i1hdamp=3 ! One-halo damping like k^4
+       hmod%ikstar=2  ! One-halo damping via k* from Mead et al. (2015)
+    ELSE IF(ihm==49) THEN
+       ! Non-linear halo bias and Tinker mass function for virial mass haloes
+       hmod%imf=3     ! Tinker mass function and bias
+       hmod%ibias=3   ! Non-linear halo bias
        hmod%i1hdamp=3 ! One-halo damping like k^4
        hmod%ikstar=2  ! One-halo damping via k* from Mead et al. (2015)
     ELSE

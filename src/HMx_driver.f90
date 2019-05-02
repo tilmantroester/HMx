@@ -314,12 +314,14 @@ PROGRAM HMx_driver
 
         ! Set the halo model and output file
         IF(j==1) THEN
-           ihm=3  ! Standard halo model
-           !ihm=42 ! M200c and Tinker
+           !ihm=42 ! Standard halo model with M200c and Tinker
+           !ihm=3  ! Standard halo model with Mv and Sheth-Torman
+           ihm=23 ! Standard halo model with Mv and Tinker
            outfile='data/power.dat'
-        ELSE IF(j==2) THEN
-           ihm=48 ! Non-linear bias
-           !ihm=24 ! Non-linear bias with M200c and Tinker         
+        ELSE IF(j==2) THEN        
+           !ihm=24 ! Non-linear bias with M200c and Tinker
+           !ihm=48 ! Non-linear bias with Mv and Sheth-Torman
+           ihm=49 ! Non-linear bias with Mv and Tinker
            outfile='data/power_bnl.dat'
         ELSE
            STOP 'HMX_DRIVER: Error, something went wrong in 68'

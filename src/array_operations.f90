@@ -26,6 +26,11 @@ MODULE array_operations
      PROCEDURE splay_3D
   END INTERFACE splay
 
+  INTERFACE write_array_list
+     PROCEDURE write_array_list_real
+     PROCEDURE write_array_list_int
+  END INTERFACE write_array_list
+
 CONTAINS
 
   LOGICAL FUNCTION within_array(x,a,n)
@@ -408,7 +413,7 @@ CONTAINS
     
   END SUBROUTINE remove_repeated_two_array_elements
 
-  SUBROUTINE write_array_list(a,n)
+  SUBROUTINE write_array_list_real(a,n)
 
     IMPLICIT NONE
     REAL, INTENT(IN) :: a(n)
@@ -422,7 +427,23 @@ CONTAINS
     WRITE(*,*) 'WRITE_ARRAY_LIST: Done'
     WRITE(*,*)
 
-  END SUBROUTINE write_array_list
+  END SUBROUTINE write_array_list_real
+
+  SUBROUTINE write_array_list_int(a,n)
+
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: a(n)
+    INTEGER, INTENT(IN) :: n
+    INTEGER :: i
+
+    WRITE(*,*) 'WRITE_ARRAY_LIST: Writing array'
+    DO i=1,n
+       WRITE(*,*) 'WRITE_ARRAY_LIST:', i, a(i)
+    END DO
+    WRITE(*,*) 'WRITE_ARRAY_LIST: Done'
+    WRITE(*,*)
+
+  END SUBROUTINE write_array_list_int
 
   FUNCTION splay_2D(a,n1,n2)
 

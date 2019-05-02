@@ -1968,8 +1968,11 @@ CONTAINS
           STOP 'HMx_FITTING: Error, output fucked up badly'
        END IF
 
+       WRITE(out,*) 'HMx_FITTING: Maximum time [mins]:', tmax
+       WRITE(out,*) 'HMx_FITTING: Accuracy parameter:', delta
+       WRITE(out,*) 'HMx_FITTING: Requested number of attempts:', nchain
        WRITE(out,*) 'HMx_FITTING: Best location:', i_bst
-       WRITE(out,*) 'HMx_FITTING: Total attempts:', i_tot
+       WRITE(out,*) 'HMx_FITTING: Total attempts:', i_tot       
        WRITE(out,*) 'HMx_FITTING: Accepted steps:', i_acc
        WRITE(out,*) 'HMx_FITTING: Fraction accepted steps:', REAL(i_acc)/REAL(i_tot)
        WRITE(out,*) 'HMx_FITTING: Better steps:', i_bet
