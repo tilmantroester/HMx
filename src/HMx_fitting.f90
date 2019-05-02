@@ -1041,7 +1041,7 @@ CONTAINS
           fit%set(param_M0)=.TRUE.
           fit%set(param_M0z)=.TRUE.
           fit%set(param_Astar)=.TRUE. ! Needed because it governs how much overall gas there is
-          fit%set(param_Astarz)=.TRUE.
+          !fit%set(param_Astarz)=.TRUE. ! Does not produce a large enough change in fit
 
           !! !!
 
@@ -1544,7 +1544,7 @@ CONTAINS
     INTEGER, PARAMETER :: nm=32         ! Number of parameter sigmas to check
     REAL, PARAMETER :: eps=2.0          ! Tolerated error in fom difference when setting range if doing finesse
     LOGICAL, PARAMETER :: check=.FALSE. ! Do we check eps?
-    LOGICAL, PARAMETER :: debug=.FALSE. ! Debug?
+    LOGICAL, PARAMETER :: debug=.TRUE. ! Debug?
     INTEGER, PARAMETER :: iorder=1      ! Order for interpolation to find correct dfom (cubic causes issues with non-monotonic)
 
     IF(verbose) THEN
