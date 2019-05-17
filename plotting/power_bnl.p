@@ -34,9 +34,12 @@ plot emu u 1:2 w p lc -1 pt 7 lw 3 ti 'Emulator',\
 set xlabel 'k / h Mpc^{-1}'
 set format x
 
+rmin=0.6
+rmax=1.1
 unset log y
 set format y
-set yrange [*:*]
+#set yrange [*:*]
+set yrange [rmin:rmax]
 
 plot 1 w l lt -1 noti,\
      '<paste '.hmo.' '.emu.'' u 1:(column(5)/column(5+2)) w l lc 1 lw 3 noti,\

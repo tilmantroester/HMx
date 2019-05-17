@@ -98,7 +98,6 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(IN) :: verbose    
     REAL, ALLOCATABLE :: Pk_DM(:), Pk_HMcode(:)
     CHARACTER(len=256) :: infile, dmonly
-    INTEGER :: i
 
     INTEGER, PARAMETER :: field_all_matter(2)=field_matter
     REAL, PARAMETER :: mmin=1e7
@@ -137,7 +136,7 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(IN) :: cut_nyquist ! Logical to cut Nyquist or not
     LOGICAL, OPTIONAL, INTENT(IN) :: subtract_shot ! Logical to subtract shot noise or not
     LOGICAL, OPTIONAL, INTENT(IN) :: verbose ! Logical verbose
-    INTEGER :: i, j, m
+    INTEGER :: i, j
     REAL :: shot, kbig
     LOGICAL :: lexist
 

@@ -29,6 +29,7 @@ backup/
 old/
 winint/
 fitting/
+fitting_consus/
 CCL/
 
 # Tests
