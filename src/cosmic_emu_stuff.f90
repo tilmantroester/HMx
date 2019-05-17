@@ -28,8 +28,6 @@ CONTAINS
     REAL, PARAMETER :: eps_h=3e-3
 
     ! Remove previous parameter and power file
-    !CALL SYSTEM('rm emu_params.txt')
-    !CALL SYSTEM('rm emu_power.dat')
     CALL SYSTEM('rm '//trim(params))
     CALL SYSTEM('rm '//trim(output))
 
@@ -39,7 +37,6 @@ CONTAINS
     CLOSE(7)
 
     ! Run emu
-    !CALL SYSTEM('/Users/Mead/Physics/CosmicEmu/emu.exe emu_params.txt')! > /dev/null')
     CALL SYSTEM(trim(exe)//' '//trim(params))! > /dev/null')
 
     ! Get length of emu file

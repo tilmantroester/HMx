@@ -62,13 +62,7 @@ MODULE HMx
   PUBLIC :: mass_function
   PUBLIC :: multiplicity_function
   PUBLIC :: halo_bias
-  !PUBLIC :: b_ps     ! TODO: Private
-  !PUBLIC :: b_st     ! TODO: Private
-  !PUBLIC :: b_Tinker ! TODO: Private
-  !PUBLIC :: g_ps     ! TODO: Private
-  !PUBLIC :: g_st     ! TODO: Private  
-  !PUBLIC :: g_Tinker ! TODO: Private
-
+  
   ! HMx functions
   PUBLIC :: HMx_alpha
   PUBLIC :: HMx_beta
@@ -270,7 +264,7 @@ MODULE HMx
 
   ! Minimum fraction before haloes are treated as delta functions (dangerous)
   ! TODO: Hydro tests passed if 1e-4, but I worry a bit, also it was a fairly minor speed up (25%)
-  ! TODO: Also, not obvious that a constant frac_min is corret because some species have low abundance but we ususally care about perturbations to this abundance
+  ! TODO: Also, not obvious that a constant frac_min is correct because some species have low abundance but we ususally care about perturbations to this abundance
   REAL, PARAMETER :: frac_min=0.
 
   ! Halo types
@@ -411,9 +405,9 @@ CONTAINS
     names(39)='HMx: AGN tuned'
     names(40)='HMx: AGN 8.0'
     names(41)='Put some galaxy mass in the halo/satellites'
-    names(42)='Tinker with M200c'
+    names(42)='Tinker mass function and bias; M200c'
     names(43)='Standard halo-model (Seljak 2000) in matter response'
-    names(44)='Tinker with M200'
+    names(44)='Tinker mass function and bias; M200'
     names(45)='No stars'
     names(46)='Isothermal beta model for gas'
     names(47)='Isothermal beta model for gas in response'
