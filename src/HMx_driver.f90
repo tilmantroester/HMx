@@ -1,5 +1,6 @@
 PROGRAM HMx_driver
 
+  USE constants
   USE HMx
   USE Limber
   USE file_info
@@ -11,7 +12,10 @@ PROGRAM HMx_driver
   USE logical_operations
   USE owls
   USE owls_extras
-
+  USE interpolate
+  USE cosmology_functions
+  USE array_operations
+  
   ! TODO: Many pow(1,1,nk) could be pow(nk)
   ! TODO: Too many different pow(:,:), pow(:,:,:), pow(:,:,:,:), ...
   ! TODO: Maybe could use pow1(:), pow2(:,:), ...
@@ -221,7 +225,7 @@ PROGRAM HMx_driver
      CALL print_cosmology(cosm)
 
      ! Sets the redshift
-     z=0.0
+     z=1.0 
 
      ! Initiliasation for the halomodel calcualtion
      CALL assign_halomod(ihm,hmod,verbose)
@@ -1081,7 +1085,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '======================================================='
      WRITE(*,*)
 
-     ! Set the ell range and fill ell array
+     ! Set the ell range and fill l array
      IF(imode==47) THEN
         lmin=2.
         lmax=10000.
@@ -2682,13 +2686,15 @@ PROGRAM HMx_driver
      ! Comparison with FrankenEmu or Mira Titan
 
      ! Number of cosmological models (+1)
-     IF(imode==28 .OR. imode==30) n=37 ! FrankenEmu
-     IF(imode==27 .OR. imode==29) n=10 ! Mira Titan
-     IF(imode==70 .OR. imode==71) n=37 ! CosmicEmu
+     IF(imode==28 .OR. imode==30) n=37 ! Franken Emu
+     IF(imode==27 .OR. imode==29) n=11 ! Mira Titan
+     IF(imode==70 .OR. imode==71) n=37 ! Cosmic Emu
 
      ! Set number of redshifts
-     IF(imode==28 .OR. imode==30 .OR. imode==27 .OR. imode==29) THEN
-        nz=4 ! FrankenEmu and Mira Titan
+     IF(imode==28 .OR. imode==30) THEN
+        nz=6 ! Franken Emu 
+     ELSE IF(imode==27 .OR. imode==29) THEN
+        nz=4 ! Mira Titan
      ELSE IF(imode==70 .OR. imode==71) THEN
         nz=3 ! Cosmic Emu
      ELSE
@@ -2700,14 +2706,22 @@ PROGRAM HMx_driver
      ALLOCATE(zs(nz),a(nz))
 
      ! Set redshifts
-     IF(imode==28 .OR. imode==30 .OR. imode==27 .OR. imode==29) THEN
-        ! Franken Emu and Mira Titan
+     IF(imode==28 .OR. imode==30) THEN
+        ! Franken Emu (z up to 4)
+        zs(1)=0.0
+        zs(2)=0.5
+        zs(3)=1.0
+        zs(4)=2.0
+        zs(5)=3.0
+        zs(6)=4.0
+     ELSE IF(imode==27 .OR. imode==29) THEN
+        ! Mira Titan (z up to 2)
         zs(1)=0.0
         zs(2)=0.5
         zs(3)=1.0
         zs(4)=2.0
      ELSE IF(imode==70 .OR. imode==71) THEN
-        ! Cosmic Emu
+        ! Cosmic Emu (z up to 1)
         zs(1)=0.0
         zs(2)=0.5
         zs(3)=1.0
@@ -2754,19 +2768,19 @@ PROGRAM HMx_driver
         DO j=1,nz
 
            IF(imode==27 .OR. imode==29) THEN
-              CALL read_Mira_Titan_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
+              CALL get_Mira_Titan_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
            ELSE IF(imode==28 .OR. imode==30) THEN
-              CALL read_Franken_Emu_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
+              CALL get_Franken_Emu_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
            ELSE IF(imode==70 .OR. imode==71) THEN
-              CALL read_Cosmic_Emu_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
+              CALL get_Cosmic_Emu_power(k_sim,pow_sim,nk,zs(j),cosm,rebin=.FALSE.)
            ELSE
               STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
            END IF
 
            ALLOCATE(pow_li(nk),pow_2h(1,1,nk),pow_1h(1,1,nk),pow_hm(1,1,nk))
 
-           CALL init_halomod(mmin,mmax,a(j),hmod,cosm,verbose=.FALSE.)
-           CALL print_halomod(hmod,cosm,verbose=.FALSE.)
+           CALL init_halomod(mmin,mmax,a(j),hmod,cosm,verbose=.TRUE.)
+           CALL print_halomod(hmod,cosm,verbose=.TRUE.)
            field=field_dmonly
            CALL calculate_HMx_a(field,1,k_sim,nk,pow_li,pow_2h,pow_1h,pow_hm,hmod,cosm,verbose=.FALSE.,response=.FALSE.)
 
@@ -3858,7 +3872,7 @@ PROGRAM HMx_driver
      z=0.0
 
      ! Get the emulator power
-     CALL read_Franken_Emu_power(k,pow_sim,nk,z,cosm,rebin=.FALSE.)
+     CALL get_Franken_Emu_power(k,pow_sim,nk,z,cosm,rebin=.FALSE.)
      outfile='data/power_emu.dat'
      OPEN(7,file=outfile)
      DO i=1,nk
@@ -4605,7 +4619,7 @@ CONTAINS
     ! Write to screen
     IF(verbose) THEN
        WRITE(*,*) 'XPOW: Cross-correlation information'
-       WRITE(*,*) 'XPOW: Number of tracers:', nt
+       WRITE(*,*) 'XPOW: Number of tracers:', nx
        WRITE(*,*) 'XPOW: P(k) minimum k [h/Mpc]:', REAL(kmin_xpow)
        WRITE(*,*) 'XPOW: P(k) maximum k [h/Mpc]:', REAL(kmax_xpow)
        WRITE(*,*) 'XPOW: Number of k:', nk

@@ -61,9 +61,6 @@ set yrange [1.-dy:1+dy]
 xlab=0.05
 ylab=0.90
 
-# Final white space
-print ''
-
 # Error blob function
 error_positive(k,A,b,knl,n)=1.+A*(1./(1.+(k/(b*knl))**(-2*n)))
 error_negative(k,A,b,knl,n)=2.-error_positive(k,A,b,knl,n)
@@ -92,10 +89,13 @@ unset title
 if(i==1 && j==1){set title 'HMcode' offset 0,-0.8}
 if(i==2 && j==1){set title 'HALOFIT' offset 0,-0.8}
 
-if(j==1){set label 'z = 0.0' at graph xlab,ylab}
-if(j==2){set label 'z = 0.5' at graph xlab,ylab}
-if(j==3){set label 'z = 1.0' at graph xlab,ylab}
-if(j==4){set label 'z = 2.0' at graph xlab,ylab}
+if(j==1) {zlab='z = 0.0'}
+if(j==2) {zlab='z = 0.5'}
+if(j==3) {zlab='z = 1.0'}
+if(j==4) {zlab='z = 2.0'}
+if(j==5) {zlab='z = 3.0'}
+if(j==6) {zlab='z = 4.0'}
+if(i==1) {set label zlab at graph xlab,ylab}
 
 set xlabel ''; set format x ''
 if(j==nz){set xlabel klab; set format x}
@@ -118,7 +118,7 @@ plot 1 w l lt -1 noti,\
      error_negative(x,A,b,knl[j],n) w l lw 3 lc -1 noti
 }
 
-unset label
+if(i==1) {unset label}
 
 }
 

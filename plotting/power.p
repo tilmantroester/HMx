@@ -46,21 +46,17 @@ if(imode==2 || imode==4) set key top left
 
 #Now do the actual plotting
 if(imode==1 || imode==2){
-plot power u 1:($2/(fac*$1**p)) w l lc -1       dt 1 lw 3 ti 'Linear',\
-     power u 1:($3/(fac*$1**p)) w l lc rgb col  dt 2 lw 3 ti '2-halo',\
-     power u 1:($4/(fac*$1**p)) w l lc rgb col  dt 3 lw 3 ti '1-halo',\
-     power u 1:($5/(fac*$1**p)) w l lc rgb col  dt 1 lw 3 ti 'Total'
+plot power u 1:($2/(fac*$1**p)) w l lc -1 dt 2 lw 5 ti 'Linear',\
+     power u 1:($3/(fac*$1**p)) w l lc  7 dt 1 lw 4 ti '2-halo',\
+     power u 1:($4/(fac*$1**p)) w l lc  6 dt 1 lw 4 ti '1-halo',\
+     power u 1:($5/(fac*$1**p)) w l lc -1 dt 1 lw 4 ti 'Total'
 }
 
 #Now do the actual plotting
 if(imode==3 || imode==4){
-plot power u 1:($2/(fac*$1**p)) w l lc -1       dt 1 lw 3 ti 'Linear',\
-     power u 1:($5/(fac*$1**p)) w l lc rgb col  dt 1 lw 3 ti 'Non-linear'
+plot power u 1:($2/(fac*$1**p)) w l lc -1 dt 2 lw 4 ti 'Linear',\
+     power u 1:($5/(fac*$1**p)) w l lc  7 dt 1 lw 4 ti 'Non-linear'
 }
 
 show output
 unset output
-
-
-
-

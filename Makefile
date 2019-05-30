@@ -68,6 +68,7 @@ _OBJ = \
 	solve_equations.o \
 	string_operations.o \
 	calculus_table.o \
+	CAMB_stuff.o \
 	cosmology_functions.o \
 	HMx.o \
 	Limber.o \

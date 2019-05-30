@@ -3,9 +3,82 @@ MODULE cosmology_functions
   USE interpolate
   USE constants
   USE file_info
+  USE array_operations
 
   IMPLICIT NONE
 
+  PRIVATE
+
+  ! Type
+  PUBLIC :: cosmology
+
+  ! Basic routines
+  PUBLIC :: assign_cosmology
+  PUBLIC :: init_cosmology
+  PUBLIC :: print_cosmology
+
+  ! Scale factor and z
+  PUBLIC :: scale_factor_z
+  PUBLIC :: redshift_r
+  PUBLIC :: redshift_a
+  PUBLIC :: scale_factor_r
+
+  ! Friedmann
+  PUBLIC :: Hubble2
+  PUBLIC :: Omega_m
+  PUBLIC :: Omega_r
+  PUBLIC :: Omega_v
+  PUBLIC :: Omega_w
+  PUBLIC :: Omega
+  PUBLIC :: w_de
+  PUBLIC :: w_de_total
+  PUBLIC :: w_eff
+
+  ! Distances and times
+  PUBLIC :: f_k
+  PUBLIC :: fdash_k
+  PUBLIC :: comoving_distance
+  PUBLIC :: physical_distance
+  PUBLIC :: comoving_particle_horizon
+  PUBLIC :: physical_particle_horizon
+  PUBLIC :: comoving_angular_distance
+  PUBLIC :: physical_angular_distance
+  PUBLIC :: luminosity_distance  
+  PUBLIC :: cosmic_time
+  PUBLIC :: look_back_time
+
+  ! Densities
+  PUBLIC :: comoving_critical_density
+  PUBLIC :: comoving_matter_density
+  PUBLIC :: physical_critical_density
+  PUBLIC :: physical_matter_density
+
+  ! Linear growth
+  PUBLIC :: ungrow
+  PUBLIC :: grow
+  PUBLIC :: grow_CPT
+  PUBLIC :: grow_Linder
+  PUBLIC :: growth_rate
+  PUBlIC :: growth_rate_Linder
+  PUBLIC :: acc_growth
+
+  ! Spherical collapse
+  PUBLIC :: Dv_BryanNorman
+  PUBLIC :: Dv_Mead
+  PUBLIC :: Dv_Spherical
+  PUBLIC :: dc_NakamuraSuto
+  PUBLIC :: dc_Mead
+  PUBLIC :: dc_Spherical
+
+  ! Power and correlation
+  PUBLIC :: p_lin
+  PUBLIC :: sigma
+  PUBLIC :: sigmaV
+  PUBLIC :: xi_lin
+
+  ! Halofit
+  PUBLIC :: calculate_halofit_a
+  
   INTERFACE integrate_cosm
      MODULE PROCEDURE integrate1_cosm
      MODULE PROCEDURE integrate2_cosm
@@ -13,35 +86,60 @@ MODULE cosmology_functions
   END INTERFACE integrate_cosm
 
   ! Contains cosmological parameters that only need to be calculated once
-  TYPE cosmology     
-     REAL :: Om_m, Om_b, Om_v, Om_w, m_nu, h, n, sig8, w, wa, inv_m_wdm, YH ! Primary parameters
-     REAL :: Om_m_pow, Om_b_pow, h_pow
-     REAL :: A, z_CMB, T_CMB, neff, Gamma ! Less primary parameters
-     REAL :: Om, k, Om_k, Om_c, Om_r, Om_v_mod, Om_nu, age, horizon ! Derived parameters
-     REAL :: mue, mup ! Derived thermal parameters
-     REAL :: a1, a2, ns, ws, am, dm, wm ! DE parameters     
-     REAL :: Om_ws, as, a1n, a2n ! Derived DE parameters
-     REAL :: Lbox, kbox ! Box size
-     INTEGER :: iw, itk ! Switches
+  TYPE cosmology
+
+     ! Primary parameters
+     CHARACTER(len=256) :: name ! Name for cosmological model
+     REAL :: Om_m, Om_b, Om_v, Om_w, m_nu(3)      ! Primary parameters
+     REAL :: h, n, sig8, w, wa, inv_m_wdm, YH     ! Primary parameters
+     REAL :: a1, a2, ns, ws, am, dm, wm           ! DE parameters      
+     REAL :: z_CMB, T_CMB, neff                   ! Less primary parameters
+     REAL :: Om_m_pow, Om_b_pow, Om_nu_pow, h_pow ! Cosmological parameters used for P(k) if different from background
+
+     ! Derived parameters
+     REAL :: A                           ! Power spectrum normalisation
+     REAL :: Gamma                       ! Power spectrum shape parameter for DEFW
+     REAL :: Om, k, Om_k, Om_c, Om_r     ! Derived Omegas
+     REAL :: Om_v_mod                    ! Modified Omega_v to maintain flatness when adding radiation
+     REAL :: Om_nu, f_nu, omega_nu       ! Neutrino stuff
+     INTEGER :: N_massive_nu             ! Neutrino stuff
+     REAL :: omega_m, omega_b, omega_c   ! Physical densities
+     REAL :: Om_c_pow                    ! Cosmological parameters used for P(k) if different from background
+     REAL :: age, horizon                ! Derived distance/time
+     REAL :: mue, mup, YHe               ! Derived thermal parameters        
+     REAL :: Om_ws, as, a1n, a2n         ! Derived DE parameters
+     REAL :: gnorm                       ! Growth-factor normalisation
+
+     ! Box size
+     REAL :: Lbox, kbox
      LOGICAL :: box
+
+     ! Switches
+     INTEGER :: iw, itk 
+     LOGICAL :: power_Omegas, derive_gas_numbers
+     
+     ! Look-up tables
      REAL, ALLOCATABLE :: log_sigma(:), log_r_sigma(:) ! Arrays for sigma(R)
      REAL, ALLOCATABLE :: log_a_growth(:), log_growth(:), growth_rate(:), log_acc_growth(:) ! Arrays for growth
-     REAL, ALLOCATABLE :: r(:), a_r(:) ! Arrays for distance
-     REAL, ALLOCATABLE :: log_plin(:), log_k_plin(:) ! Arrays for input linear P(k)
-     REAL, ALLOCATABLE :: log_a_dcDv(:), dc(:), Dv(:) ! Arrays for spherical-collapse parameters
-     INTEGER :: n_sigma, n_growth, n_r, n_plin, n_dcDv ! Array entries
-     REAL :: gnorm ! Growth-factor normalisation
-     CHARACTER(len=256) :: name ! Name for cosmological model
-     LOGICAL :: has_distance, has_growth, has_sigma, has_spherical, has_power
+     REAL, ALLOCATABLE :: log_p(:), log_a_p(:)         ! Arrays for distance (particle horizon)
+     REAL, ALLOCATABLE :: log_t(:), log_a_t(:)         ! Arrays for time
+     REAL, ALLOCATABLE :: log_plin(:), log_k_plin(:)   ! Arrays for input linear P(k)
+     REAL, ALLOCATABLE :: log_a_dcDv(:), dc(:), Dv(:)  ! Arrays for spherical-collapse parameters
+     INTEGER :: n_sigma, n_growth, n_p, n_t, n_plin, n_dcDv ! Array entries     
+     LOGICAL :: has_distance, has_growth, has_sigma, has_spherical, has_power, has_time
+
+     ! Have normalisations and initialisations been done?
      LOGICAL :: is_init, is_normalised
-     LOGICAL :: tcdm, derive_gas_numbers
+
+     ! Verbose
      LOGICAL :: verbose
+     
   END TYPE cosmology
 
   ! Global parameters
-  REAL, PARAMETER :: acc_cosm=1e-4 !Accuacy for the cosmological integrations
+  REAL, PARAMETER :: acc_cosm=1e-4 ! Global accuacy for the cosmological integrations
 
-  ! sigma(R) integration
+  ! sigma(R)
   REAL, PARAMETER :: alpha_sigma=3.    ! I have made no attempt to optimise this number, nor tried alpha(R)
   REAL, PARAMETER :: sigma_out=10.     ! How far out to go in 1/R units for sigma^2 split integral
   INTEGER, PARAMETER :: nsig=128       ! Number of entries for sigma(R) tables
@@ -49,8 +147,37 @@ MODULE cosmology_functions
   REAL, PARAMETER :: rmax_sigma=1e3    ! Maximum r value (NB. sigma(R) needs to be power-law above)
   REAL, PARAMETER :: Rsplit_sigma=1e-2 ! R value at which to split between the integration methods
 
-  ! sigmaV(R) integration
+  ! sigma_v(R)
   REAL, PARAMETER :: alpha_sigmaV=3.
+
+  ! Distance
+  REAL, PARAMETER :: amin_distance=1e-4 ! Minimum scale factor in look-up table
+  REAL, PARAMETER :: amax_distance=1.   ! Maximum scale factor in look-up table
+  INTEGER, PARAMETER :: n_distance=128  ! Number of scale factor entries in look-up table
+  REAL, PARAMETER :: atay_distance=1e-5 ! Below this do a Taylor expansion to avoid divergence
+
+  ! Time
+  REAL, PARAMETER :: amin_time=1e-4 ! Minimum scale factor in look-up table
+  REAL, PARAMETER :: amax_time=1.   ! Maximum scale factor in look-up table
+  INTEGER, PARAMETER :: n_time=128  ! Number of scale factor entries in look-up table
+  REAL, PARAMETER :: atay_time=1e-5 ! Below this do a Taylor expansion to avoid divergence
+
+  ! Growth
+  REAL, PARAMETER :: ainit_growth=1e-3 ! Starting value for integratiton (should start | Omega_m(a)=1)
+  REAL, PARAMETER :: amax_growth=1.    ! Finishing value for integratiton (should be a=1)
+  INTEGER, PARAMETER :: n_growth=128   ! Number of entries for growth tables  
+
+  ! Spherical collapse
+  REAL, PARAMETER :: amax_spherical=2.     ! Maximum scale factor to consider
+  REAL, PARAMETER :: dmin_spherical=1e-7   ! Minimum starting value for perturbation
+  REAL, PARAMETER :: dmax_spherical=1e-3   ! Maximum starting value for perturbation
+  INTEGER, PARAMETER :: m_spherical=128    ! Number of collapse scale-factors to try to calculate
+  INTEGER, PARAMETER :: n_spherical=100000 ! Number of points for ODE calculations
+  REAL, PARAMETER :: dinf_spherical=1e8    ! Value considered to be 'infinite' for the perturbation
+
+  ! Power
+  REAL, PARAMETER :: kmin_plin=0.  ! Power below this wavenumber is set to zero [h/Mpc]
+  REAL, PARAMETER :: kmax_plin=1e8 ! Power above this wavenumber is set to zero [h/Mpc]
 
 CONTAINS
 
@@ -235,12 +362,15 @@ CONTAINS
              ! Do nothing
           ELSE IF(i>=200 .AND. i<=237) THEN
              ! Do nothing
+          ELSE IF(i>=300 .AND. i<=337) THEN
+             ! Do nothing
           ELSE IF(names(i) .NE. '') THEN
              WRITE(*,*) i, '- ', trim(names(i))
           END IF
        END DO
        WRITE(*,*) ' 100 -> 136 - Mira Titan M000 -> M036'
-       WRITE(*,*) ' 200 -> 237 - Cosmic Emu M000 -> M037'
+       WRITE(*,*) ' 200 -> 237 - Franken Emu M000 -> M037'
+       WRITE(*,*) ' 300 -> 337 - Cosmic Emu M000 -> M037'
        READ(*,*) icosmo
        WRITE(*,*) '==========================================='
     END IF
@@ -288,11 +418,12 @@ CONTAINS
     cosm%is_init=.FALSE.
     cosm%is_normalised=.FALSE.
 
-    ! TCDM options
+    ! Omegas for power spectrum if different from background cosmological parameters
     cosm%Om_m_pow=0.
     cosm%Om_b_pow=0.
+    cosm%Om_nu_pow=0.
     cosm%h_pow=0.
-    cosm%tcdm=.FALSE.
+    cosm%power_Omegas=.FALSE.
 
     ! Gas options
     cosm%derive_gas_numbers=.TRUE.
@@ -338,13 +469,15 @@ CONTAINS
        !  6 - Einstein-de Sitter (SCDM)
        ! 15 - Einstein-de Sitter (TCDM)
        IF(icosmo==15) THEN
-          cosm%tcdm=.TRUE.
+          cosm%power_Omegas=.TRUE.
           cosm%Om_m_pow=cosm%Om_m
           cosm%Om_b_pow=cosm%Om_b
+          cosm%Om_nu_pow=cosm%Om_nu
           cosm%h_pow=cosm%h
        END IF
        cosm%Om_m=1.
-       cosm%Om_v=0.       
+       cosm%Om_v=0.
+       cosm%m_nu=0.
     ELSE IF(icosmo==7) THEN
        ! IDE I
        cosm%iw=5
@@ -564,11 +697,11 @@ CONTAINS
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Xs, f1, f2
     REAL :: rho_g, Om_g_h2
+    INTEGER :: i
     REAL, PARAMETER :: small=1e-5 ! Some small number for writing curvature things
-    REAL, PARAMETER :: neutrino_constant=94.1 ! Number that appears in neutrino formula [eV]
-    REAL, PARAMETER :: neff_contribution=0.227 ! Contribution to Omega_r per n_eff'
+    REAL, PARAMETER :: neff_constant=(7./8.)*(4./11.)**(4./3.)
 
-    ! Set all 'has' to false
+    ! Set all 'has/is' to false
     cosm%has_distance=.FALSE.
     cosm%has_growth=.FALSE.
     cosm%has_sigma=.FALSE.
@@ -582,36 +715,43 @@ CONTAINS
     IF(cosm%verbose) WRITE(*,*) 'INIT_COSMOLOGY: Calcuating radiation density'
 
     ! Calculate radiation density
-    rho_g=(4.*SBconst*cosm%T_CMB**4/c_light**3) ! Photon physcial density from CMB temperature
-    Om_g_h2=rho_g*(8.*pi*bigG/3.)/H0**2 ! Photon cosmological density
-    cosm%Om_r=Om_g_h2*(1.+neff_contribution*cosm%neff)/cosm%h**2 ! Radiation density by including neutrinos
+    rho_g=(4.*SBconst*cosm%T_CMB**4/c_light**3) ! Photon physical density at z=0 from CMB temperature [kg/m^3]
+    Om_g_h2=rho_g*(8.*pi*bigG/3.)/H0**2 ! Photon cosmological density (TODO: Use constants?)
+    cosm%Om_r=Om_g_h2*(1.+neff_constant*cosm%neff)/cosm%h**2 ! Radiation density including neutrinos
 
     ! Information about how radiation density is calculated
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_r:', cosm%Om_r  
-       WRITE(*,*) 'INIT_COSMOLOGY: Altering vacuum density to account for radiation'
+       WRITE(*,*) 'INIT_COSMOLOGY: Altering vacuum density to account for radiation and maintain flatness'
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_v prior to change:', cosm%Om_v
     END IF
 
     ! Correction to vacuum density in order for radiation to maintain flatness
-    cosm%Om_v_mod=cosm%Om_v-cosm%Om_r    
-
-    ! Information about how vacuum is changed to enforece flatness
+    cosm%Om_v_mod=cosm%Om_v-cosm%Om_r
     If(cosm%verbose) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_v post change:', cosm%Om_v_mod
        WRITE(*,*) 'INIT_COSMOLOGY: Calculating derived parameters'
     END IF
 
     ! Massive neutrinos
-    IF(cosm%m_nu .NE. 0.) STOP 'INIT_COSMOLOGY: Error, massive neutrinos not supported yet'
-    cosm%Om_nu=cosm%m_nu/(neutrino_constant*cosm%h**2)
+    cosm%N_massive_nu=0
+    DO i=1,3
+       !IF(cosm%m_nu(i) .NE. 0.) STOP 'INIT_COSMOLOGY: Error, massive neutrinos not supported yet'
+       IF(cosm%m_nu(i) .NE. 0) cosm%N_massive_nu=cosm%N_massive_nu+1 ! Count massive neutrinos
+    END DO
+    cosm%Om_nu=sum(cosm%m_nu)/(neutrino_constant*cosm%h**2)
+    cosm%f_nu=cosm%Om_nu/cosm%Om_m
+    IF(cosm%verbose) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: Number of massive nu:', cosm%N_massive_nu
+       WRITE(*,*) 'INIT_COSMOLOGY: Omega_nu:', cosm%Om_nu
+       WRITE(*,*) 'INIT_COSMOLOGY: f_nu:', cosm%f_nu
+    END IF
 
     ! Derived cosmological parameters    
     cosm%Om_c=cosm%Om_m-cosm%Om_b-cosm%Om_nu
     cosm%Om=cosm%Om_m+cosm%Om_v_mod+cosm%Om_r+cosm%Om_w
     cosm%Om_k=1.-cosm%Om
     cosm%k=(cosm%Om-1.)/(Hdist**2)
-
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: Omega_c:', cosm%Om_c
        WRITE(*,*) 'INIT_COSMOLOGY: Omega:', cosm%Om
@@ -622,15 +762,43 @@ CONTAINS
        END IF
     END IF
 
+    ! Physical density parameters
+    cosm%omega_m=cosm%Om_m*cosm%h**2   ! Physical matter density
+    cosm%omega_b=cosm%Om_b*cosm%h**2   ! Physical baryon density
+    cosm%omega_c=cosm%Om_c*cosm%h**2   ! Physical CDM density
+    cosm%omega_nu=cosm%Om_nu*cosm%h**2 ! Physical neutrino density
+
+    ! Write physical densities to screen
+    IF(cosm%verbose) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: omega_m:', cosm%omega_m
+       WRITE(*,*) 'INIT_COSMOLOGY: omega_b:', cosm%omega_b
+       WRITE(*,*) 'INIT_COSMOLOGY: omega_c:', cosm%omega_c
+       WRITE(*,*) 'INIT_COSMOLOGY: omega_nu:', cosm%omega_nu 
+    END IF
+
+    ! Using different background Omegas compared to power Omegas
+    IF(cosm%power_Omegas) THEN
+       cosm%Om_c_pow=cosm%Om_m_pow-cosm%Om_b_pow
+    ELSE
+       cosm%Om_c_pow=0.
+    END IF
+
     ! Gas parameters
     IF(cosm%derive_gas_numbers) THEN
        cosm%mup=4./(5.*cosm%YH+3.) ! Mean mass per gas particle divided by proton mass (~0.588 if fH=0.76, gas is ionised and H and He only; 0.61 in BAHAMAS)
        cosm%mue=2./(1.+cosm%YH)    ! Mean mass per gas electron divided by proton mass (~1.136 if fH=0.76, gas is ionised and H and He only; 1.17 in BAHAMAS)
+       cosm%YHe=1.-cosm%YH
     END IF
 
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: mu_p:', cosm%mup
        WRITE(*,*) 'INIT_COSMOLOGY: mu_e:', cosm%mue
+    END IF
+
+    ! Gamma for DEFW
+    cosm%Gamma=cosm%Om_m*cosm%h
+    IF(cosm%verbose) THEN
+       WRITE(*,*) 'INIT_COSMOLOGY: Gamma:', cosm%Gamma
     END IF
     
     cosm%is_init=.TRUE.
@@ -652,7 +820,7 @@ CONTAINS
        ! Top and bottom of fraction
        f1=cosm%a1n*(2.*Xs-(1.+cosm%a1n))
        f2=(1.+cosm%a1n)-2.*Xs*cosm%a1n
-       cosm%a2n=f1/f2 !Finally! a2
+       cosm%a2n=f1/f2 ! Finally! a2
        !IF(a2<a1) a2=a1
     ELSE IF(cosm%iw==7) THEN
        ! Scale-factor at which Om_w(a*) is most important
@@ -666,8 +834,15 @@ CONTAINS
 
     ! Ensure deallocate distances
     cosm%has_distance=.FALSE.
-    IF(ALLOCATED(cosm%r))   DEALLOCATE(cosm%r)
-    IF(ALLOCATED(cosm%a_r)) DEALLOCATE(cosm%a_r)
+    IF(ALLOCATED(cosm%log_p))   DEALLOCATE(cosm%log_p)
+    IF(ALLOCATED(cosm%log_a_p)) DEALLOCATE(cosm%log_a_p)
+    cosm%horizon=0.
+
+    ! Ensure deallocate time
+    cosm%has_time=.FALSE.
+    IF(ALLOCATED(cosm%log_t))   DEALLOCATE(cosm%log_t)
+    IF(ALLOCATED(cosm%log_a_t)) DEALLOCATE(cosm%log_a_t)
+    cosm%age=0.
 
     ! Ensure deallocate growth
     cosm%has_growth=.FALSE.
@@ -675,12 +850,14 @@ CONTAINS
     IF(ALLOCATED(cosm%log_growth))      DEALLOCATE(cosm%log_growth)
     IF(ALLOCATED(cosm%growth_rate))     DEALLOCATE(cosm%growth_rate)
     IF(ALLOCATED(cosm%log_acc_growth))  DEALLOCATE(cosm%log_acc_growth)
+    cosm%gnorm=0.
 
     ! Ensure deallocate sigma
     cosm%has_sigma=.FALSE.
     IF(ALLOCATED(cosm%log_r_sigma)) DEALLOCATE(cosm%log_r_sigma)
     IF(ALLOCATED(cosm%log_sigma))   DEALLOCATE(cosm%log_sigma)
 
+    ! Switch for power?
     IF(cosm%itk==1) THEN
        ! Default to use internal linear P(k) from Eisenstein & Hu
        cosm%has_power=.FALSE.
@@ -700,6 +877,7 @@ CONTAINS
     IF(ALLOCATED(cosm%dc))         DEALLOCATE(cosm%dc)
     IF(ALLOCATED(cosm%Dv))         DEALLOCATE(cosm%Dv)
 
+    ! Write finishing message to screen
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_COSMOLOGY: Done'
        WRITE(*,*)
@@ -730,19 +908,26 @@ CONTAINS
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'z_CMB:', cosm%z_CMB
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'n_eff:', cosm%neff
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Y_H:', cosm%YH
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'm_nu 1 [eV]:', cosm%m_nu(1)
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'm_nu 2 [eV]:', cosm%m_nu(2)
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'm_nu 3 [eV]:', cosm%m_nu(3)
        IF(cosm%box) WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'L_box [Mpc/h]:', cosm%Lbox
        IF(cosm%inv_m_wdm .NE. 0.) THEN
           WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'm_wdm [keV]:', 1./cosm%inv_m_wdm
        END IF
        WRITE(*,*) '===================================='
        WRITE(*,*) 'COSMOLOGY: Derived parameters'
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'omega_m:', cosm%Om_m*cosm%h**2
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'omega_b:', cosm%Om_b*cosm%h**2
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'omega_m:', cosm%omega_m
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'omega_c:', cosm%omega_c
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'omega_b:', cosm%omega_b
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'omega_nu:', cosm%omega_nu
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_r:', cosm%Om_r
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega:', cosm%Om
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_c:', cosm%Om_c
-       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%Om_k
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_nu:', cosm%Om_nu
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'f_nu:', cosm%f_nu
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_v'':', cosm%Om_v_mod
+       WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'Omega_k:', cosm%Om_k
        WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k [Mpc/h]^-2:', cosm%k
        IF(abs(cosm%k)>small) THEN
           WRITE(*,fmt='(A11,A15,F11.5)') 'COSMOLOGY:', 'k_rad [Mpc/h]:', 1./sqrt(abs(cosm%k))
@@ -995,11 +1180,11 @@ CONTAINS
 
   END SUBROUTINE normalise_power
 
-  FUNCTION comoving_critical_density(a,cosm)
+  REAL FUNCTION comoving_critical_density(a,cosm)
 
-    ! Comoving critical density in (Msun/h) / (Mpc/h)^3
+    ! Comoving critical density [(Msun/h) / (Mpc/h)^3]
+    ! Constant in the past, increases like a^3 in the future
     IMPLICIT NONE
-    REAL :: comoving_critical_density
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -1007,11 +1192,11 @@ CONTAINS
 
   END FUNCTION comoving_critical_density
 
-  FUNCTION physical_critical_density(a,cosm)
+  REAL FUNCTION physical_critical_density(a,cosm)
 
-    ! Physical critical density in (Msun/h) / (Mpc/h)^3
+    ! Physical critical density [(Msun/h) / (Mpc/h)^3]
+    ! Tends to a constant in the future, behaves like a^-3 in the past
     IMPLICIT NONE
-    REAL :: physical_critical_density
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -1019,23 +1204,22 @@ CONTAINS
 
   END FUNCTION physical_critical_density
 
-  FUNCTION comoving_matter_density(cosm)
+  REAL FUNCTION comoving_matter_density(cosm)
 
-    ! Comoving matter density in (Msun/h) / (Mpc/h)^3
-    ! Not a function of redshift!
+    ! Comoving matter density [(Msun/h) / (Mpc/h)^3]
+    ! Not a function of redshift, constant value throughout time
     IMPLICIT NONE
-    REAL :: comoving_matter_density
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     comoving_matter_density=critical_density*cosm%Om_m
 
   END FUNCTION comoving_matter_density
 
-  FUNCTION physical_matter_density(a,cosm)
+  REAL FUNCTION physical_matter_density(a,cosm)
 
-    ! Physical matter density in (Msun/h) / (Mpc/h)^3
+    ! Physical matter density [(Msun/h) / (Mpc/h)^3]
+    ! Proportional to a^-3 always
     IMPLICIT NONE
-    REAL :: physical_matter_density
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -1043,23 +1227,21 @@ CONTAINS
 
   END FUNCTION physical_matter_density
 
-  FUNCTION Hubble2(a,cosm)
+  REAL FUNCTION Hubble2(a,cosm)
 
     ! Calculates Hubble^2 in units such that H^2(z=0)=1.
     IMPLICIT NONE
-    REAL :: Hubble2
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%is_init .EQV. .FALSE.) STOP 'HUBBLE2: Error, cosmology is not initialised'
-    Hubble2=cosm%Om_m*a**(-3)+cosm%Om_nu*a**(-3)+cosm%Om_r*a**(-4)+cosm%Om_v_mod+cosm%Om_w*X_de(a,cosm)+(1.-cosm%om)*a**(-2)
+    Hubble2=cosm%Om_m*a**(-3)+cosm%Om_r*a**(-4)+cosm%Om_v_mod+cosm%Om_w*X_de(a,cosm)+(1.-cosm%om)*a**(-2)
 
   END FUNCTION Hubble2
 
-  FUNCTION Hubble2_norad(a,cosm)
+  REAL FUNCTION Hubble2_norad(a,cosm)
 
     IMPLICIT NONE
-    REAL :: Hubble2_norad
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -1067,39 +1249,22 @@ CONTAINS
     
   END FUNCTION Hubble2_norad
 
-  FUNCTION Hubble2a4_highz(cosm)
-
-    ! Calculates Hubble^2a^4 in units such that H^2(z=0)=1.
-    ! This is only valid at high z, when only radiation is important
-    ! Makes some assumptions that DE is *not* important at high z
-    ! Need to worry if Omega_de is scaling anything like a^-4 (e.g., kinetic dominated a^-6)
-    IMPLICIT NONE
-    REAL :: Hubble2a4_highz
-    TYPE(cosmology), INTENT(INOUT) :: cosm
-
-    IF(cosm%is_init .EQV. .FALSE.) STOP 'HUBBLE2A4_HIGHZ: Error, cosmology is not initialised'
-    Hubble2a4_highz=cosm%Om_r
-
-  END FUNCTION Hubble2a4_highz
-
-  FUNCTION AH(a,cosm)
+  REAL FUNCTION AH(a,cosm)
 
     ! \ddot{a}/a
     IMPLICIT NONE
-    REAL :: AH
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
     IF(cosm%is_init .EQV. .FALSE.) STOP 'AH: Error, cosmology is not initialised'
-    AH=cosm%Om_m*a**(-3)+cosm%Om_nu*a**(-3)+2.*cosm%Om_r*a**(-4)-2.*cosm%Om_v_mod+cosm%Om_w*(1.+3.*w_de(a,cosm))*X_de(a,cosm)
+    AH=cosm%Om_m*a**(-3)+2.*cosm%Om_r*a**(-4)-2.*cosm%Om_v_mod+cosm%Om_w*(1.+3.*w_de(a,cosm))*X_de(a,cosm)
     AH=-AH/2.
 
   END FUNCTION AH
 
-  FUNCTION AH_norad(a,cosm)
+  REAL FUNCTION AH_norad(a,cosm)
 
     IMPLICIT NONE
-    REAL :: AH_norad
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -1377,32 +1542,36 @@ CONTAINS
 
   REAL FUNCTION scale_factor_r(r,cosm)
 
-    ! The redshift corresponding to comoving distance r
+    ! The scale factor corresponding to comoving distance 'r'
     IMPLICIT NONE
     REAL, INTENT(IN) :: r
+    REAL :: p
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    IF(cosm%has_distance .EQV. .FALSE.) CALL init_distances(cosm)
-    scale_factor_r=find(r,cosm%r,cosm%a_r,cosm%n_r,3,3,2)
+    IF(cosm%has_distance .EQV. .FALSE.) CALL init_distance(cosm)
+    IF(r==0.) THEN
+       scale_factor_r=1.
+    ELSE
+       p=cosm%horizon-r
+       scale_factor_r=exp(find(log(p),cosm%log_p,cosm%log_a_p,cosm%n_p,3,3,2))
+    END IF
 
   END FUNCTION scale_factor_r
 
   REAL FUNCTION redshift_r(r,cosm)
 
-    ! The redshift corresponding to comoving distance r
+    ! The redshift corresponding to comoving distance 'r'
     IMPLICIT NONE
-    REAL, INTENT(IN) :: r
+    REAL, INTENT(IN) :: r ! Comoving distance [Mpc/h]
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    !IF(cosm%has_distance .EQV. .FALSE.) CALL init_distances(cosm)
-    !redshift_r=redshift_a(find(r,cosm%r,cosm%a_r,cosm%n_r,3,3,2))
     redshift_r=redshift_a(scale_factor_r(r,cosm))
 
   END FUNCTION redshift_r
 
   REAL FUNCTION f_k(r,cosm)
 
-    ! Curvature function
+    ! Curvature function, also comoving angular-diameter distance [Mpc/h]
     IMPLICIT NONE
     REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -1421,7 +1590,7 @@ CONTAINS
 
   REAL FUNCTION fdash_k(r,cosm)
 
-    ! Derivative of curvature function
+    ! Derivative of curvature function df_k(r)/dr
     IMPLICIT NONE
     REAL, INTENT(IN) :: r
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -1438,38 +1607,47 @@ CONTAINS
 
   END FUNCTION fdash_k
 
-  REAL FUNCTION distance_integrand(a,cosm)
+  REAL FUNCTION comoving_particle_horizon(a,cosm)
 
-    ! The integrand for the cosmic-distance calculation
+    ! The particle horizon at scale factor 'a' [Mpc/h]
     IMPLICIT NONE
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    REAL, PARAMETER :: amin=1e-5
+    IF(cosm%has_distance .EQV. .FALSE.) CALL init_distance(cosm)
 
-    IF(a<amin) THEN
-       distance_integrand=Hdist/sqrt(Hubble2a4_highz(cosm))
-    ELSE
-       distance_integrand=Hdist/(sqrt(Hubble2(a,cosm))*a**2)
+    IF(a==0.) THEN
+       comoving_particle_horizon=0.
+    ELSE IF(a>1.) THEN
+       WRITE(*,*) 'COMOVING_PARTICLE_HORIZON: a:', a
+       STOP 'COMOVING_PARTICLE_HORIZON: Error, tried to calculate particle horizon in the future'
+    ELSE       
+       comoving_particle_horizon=exp(find(log(a),cosm%log_a_p,cosm%log_p,cosm%n_p,3,3,2))
     END IF
 
-  END FUNCTION distance_integrand
+  END FUNCTION comoving_particle_horizon
+
+  REAL FUNCTION physical_particle_horizon(a,cosm)
+
+    ! The physical distance to a galaxy at scale-factor a
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: a
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+
+    physical_particle_horizon=comoving_particle_horizon(a,cosm)*a
+
+  END FUNCTION physical_particle_horizon
 
   REAL FUNCTION comoving_distance(a,cosm)
 
-    ! The comoving distance to a galaxy at scale-factor a
-    ! TODO: Include low-z approximation?
+    ! The comoving distance to a galaxy at scale-factor 'a' [Mpc/h]
     IMPLICIT NONE
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: p
 
-    IF(a>1.) THEN
-       WRITE(*,*) 'COMOVING_DISTANCE: a:', a
-       STOP 'COMOVING_DISTANCE: Error, tried to calculate distance in the future'
-    ELSE
-       IF(cosm%has_distance .EQV. .FALSE.) CALL init_distances(cosm)
-       comoving_distance=find(a,cosm%a_r,cosm%r,cosm%n_r,3,3,2)
-    END IF
+    p=comoving_particle_horizon(a,cosm) ! Ensures that init_distance is run
+    comoving_distance=cosm%horizon-p
 
   END FUNCTION comoving_distance
 
@@ -1486,7 +1664,7 @@ CONTAINS
 
   REAL FUNCTION physical_angular_distance(a,cosm)
 
-    ! The physical angular-diameter distance to a galaxy at scale-factor a
+    ! The physical angular-diameter distance to a galaxy at scale-factor a [Mpc/h]
     IMPLICIT NONE
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -1497,7 +1675,7 @@ CONTAINS
 
   REAL FUNCTION comoving_angular_distance(a,cosm)
 
-    ! The comoving angular-diameter distance to a galaxy at scale-factor a
+    ! The comoving angular-diameter distance to a galaxy at scale-factor a [Mpc/h]
     ! Some people call this the 'effective distance'
     IMPLICIT NONE
     REAL, INTENT(IN) :: a
@@ -1509,7 +1687,7 @@ CONTAINS
 
   REAL FUNCTION luminosity_distance(a,cosm)
 
-    ! The (physical) luminosity distance to a galaxy at scale-factor a
+    ! The (physical) luminosity distance to a galaxy at scale-factor a [Mpc/h]
     IMPLICIT NONE
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
@@ -1518,43 +1696,51 @@ CONTAINS
 
   END FUNCTION luminosity_distance
 
-  SUBROUTINE init_distances(cosm)
+  SUBROUTINE init_distance(cosm)
 
-    ! Fill up tables of a vs. r(a) (comoving distance)
+    ! Fill up tables of a vs. r(a) (comoving particle horizon)
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
-    REAL :: zmax, amin, amax
+    REAL :: zmin, zmax, amin, amax, a, b, r
     INTEGER :: i
+    INTEGER, PARAMETER :: iorder=3
 
-    INTEGER, PARAMETER :: nr=128
-    REAL, PARAMETER :: zmin=0.
+    ! Get from PARAMETERS
+    amin=amin_distance
+    amax=amax_distance
+    cosm%n_p=n_distance
 
-    zmax=cosm%z_CMB
-    amin=scale_factor_z(zmax)
-    amax=scale_factor_z(zmin)
+    ! Calculate redshifts
+    zmin=redshift_a(amax)
+    zmax=redshift_a(amin)
     IF(cosm%verbose) THEN
-       WRITE(*,*) 'INIT_DISTANCE: Redshift range for r(z) tables'
+       WRITE(*,*) 'INIT_DISTANCE: Redshift range for distance tables'
        WRITE(*,*) 'INIT_DISTANCE: minimum z:', real(zmin)
        WRITE(*,*) 'INIT_DISTANCE: maximum z:', real(zmax)
        WRITE(*,*) 'INIT_DISTANCE: minimum a:', real(amin)
        WRITE(*,*) 'INIT_DISTANCE: maximum a:', real(amax)
     END IF
-    cosm%n_r=nr
-    CALL fill_array(amin,amax,cosm%a_r,cosm%n_r)
-    IF(ALLOCATED(cosm%r)) DEALLOCATE(cosm%r)
-    ALLOCATE(cosm%r(cosm%n_r))
 
-    ! Now do the r(z) calculation
-    DO i=1,cosm%n_r
-       cosm%r(i)=integrate_cosm(cosm%a_r(i),1.,distance_integrand,cosm,acc_cosm,3)
+    ! Fill array of 'a' in log space
+    CALL fill_array(log(amin),log(amax),cosm%log_a_p,cosm%n_p)
+    IF(ALLOCATED(cosm%log_p)) DEALLOCATE(cosm%log_p)
+    ALLOCATE(cosm%log_p(cosm%n_p))
+
+    ! Now do the r(a) calculation
+    DO i=1,cosm%n_p
+       a=exp(cosm%log_a_p(i))
+       b=sqrt(a) ! Parameter to make the integrand not diverge for small values (a=b^2)
+       r=integrate_cosm(0.,b,distance_integrand,cosm,acc_cosm,iorder)
+       cosm%log_p(i)=log(r)
     END DO
     IF(cosm%verbose) THEN
-       WRITE(*,*) 'INIT_DISTANCE: minimum r [Mpc/h]:', real(cosm%r(cosm%n_r))
-       WRITE(*,*) 'INIT_DISTANCE: maximum r [Mpc/h]:', real(cosm%r(1))
+       WRITE(*,*) 'INIT_DISTANCE: minimum r [Mpc/h]:', real(exp(cosm%log_p(1)))
+       WRITE(*,*) 'INIT_DISTANCE: maximum r [Mpc/h]:', real(exp(cosm%log_p(cosm%n_p)))
     END IF
 
     ! Find the horizon distance in your cosmology
-    cosm%horizon=integrate_cosm(0.,1.,distance_integrand,cosm,acc_cosm,3)
+    ! exp(log) ensures the value is the same as what comes out of the (log) look-up tables
+    cosm%horizon=exp(log(integrate_cosm(0.,1.,distance_integrand,cosm,acc_cosm,iorder))) 
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_DISTANCE: Horizon distance [Mpc/h]:', real(cosm%horizon)
        WRITE(*,*) 'INIT_DISTANCE: Done'
@@ -1563,55 +1749,146 @@ CONTAINS
 
     cosm%has_distance=.TRUE.
 
-  END SUBROUTINE init_distances
+  END SUBROUTINE init_distance
 
-  FUNCTION age_of_universe(cosm)
+  REAL FUNCTION distance_integrand(b,cosm)
 
-    ! The total age of the universe
+    ! The integrand for the cosmic-distance calculation [Mpc/h]
+    ! Cast in terms of b=sqrt(a) to remove integrand divergence at a=0
+    ! This means that the integrand is 2b/H(a)a^2, rather than 1/H(a)a^2
     IMPLICIT NONE
-    REAL :: age_of_universe
+    REAL, INTENT(IN) :: b
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: a
 
-    age_of_universe=cosmic_time(1.,cosm)
+    ! Relation beween a and b
+    a=b**2
 
-  END FUNCTION age_of_universe
+    IF(a<atay_distance) THEN
+       IF(cosm%Om_r==0.) THEN
+          distance_integrand=2.*Hdist/sqrt(cosm%Om_m)
+       ELSE
+          distance_integrand=2.*Hdist*b*(1.-0.5*(cosm%Om_m/cosm%Om_r)*b**2)/sqrt(cosm%Om_r)
+       END IF
+    ELSE
+       distance_integrand=2.*Hdist*b/(sqrt(Hubble2(a,cosm))*a**2)
+    END IF
 
-  FUNCTION cosmic_time(a,cosm)
+  END FUNCTION distance_integrand
 
-    ! The age of the universe at scale-factor 'a'
+!!$  REAL FUNCTION age_of_universe(cosm)
+!!$
+!!$    ! The total age of the universe [Gyr/h]
+!!$    IMPLICIT NONE
+!!$    TYPE(cosmology), INTENT(INOUT) :: cosm
+!!$
+!!$    !age_of_universe=cosmic_time(1.,cosm)
+!!$    age_of_universe=cosm%age
+!!$
+!!$  END FUNCTION age_of_universe
+
+  REAL FUNCTION cosmic_time(a,cosm)
+
+    ! The age of the universe at scale-factor 'a' [Gyr/h]
+    ! TODO: Look-up table for t(a)?
     IMPLICIT NONE
-    REAL :: cosmic_time
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    cosmic_time=integrate_cosm(0.,a,time_integrand,cosm,acc_cosm,3)
+    IF(.NOT. cosm%has_time) CALL init_time(cosm)
+
+    !cosmic_time=integrate_cosm(0.,a,time_integrand,cosm,acc_cosm,3)
+    IF(a==0.) THEN
+       cosmic_time=0.
+    ELSE
+       cosmic_time=exp(find(log(a),cosm%log_a_t,cosm%log_t,cosm%n_p,3,3,2))
+    END IF
 
   END FUNCTION cosmic_time
 
-  FUNCTION look_back_time(a,cosm)
+  REAL FUNCTION look_back_time(a,cosm)
 
-    ! The time in the past that photons at scale-factor 'a' were emitted
+    ! The time in the past that photons at scale-factor 'a' were emitted [Gyr/h]
     IMPLICIT NONE
-    REAL :: look_back_time
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: t
 
-    look_back_time=integrate_cosm(a,1.,time_integrand,cosm,acc_cosm,3)
+    !look_back_time=integrate_cosm(a,1.,time_integrand,cosm,acc_cosm,3)
+    t=cosmic_time(a,cosm) ! Ensures that init_time is run
+    look_back_time=cosm%age-t
 
   END FUNCTION look_back_time
 
-  FUNCTION time_integrand(a,cosm)
+  SUBROUTINE init_time(cosm)
 
-    ! The integrand for the cosmic-distance calculation
+    ! Fill up tables of a vs. r(a) (comoving particle horizon)
     IMPLICIT NONE
-    REAL :: time_integrand
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: zmin, zmax, amin, amax, a, t
+    INTEGER :: i
+    INTEGER, PARAMETER :: iorder=3
+
+    ! Get from PARAMETERS
+    amin=amin_time
+    amax=amax_time
+    cosm%n_t=n_time
+
+    ! Calculate redshifts
+    zmin=redshift_a(amax)
+    zmax=redshift_a(amin)
+    IF(cosm%verbose) THEN
+       WRITE(*,*) 'INIT_TIME: Redshift range for time tables'
+       WRITE(*,*) 'INIT_TIME: minimum z:', real(zmin)
+       WRITE(*,*) 'INIT_TIME: maximum z:', real(zmax)
+       WRITE(*,*) 'INIT_TIME: minimum a:', real(amin)
+       WRITE(*,*) 'INIT_TIME: maximum a:', real(amax)
+    END IF
+
+    ! Fill array of 'a' in log space
+    CALL fill_array(log(amin),log(amax),cosm%log_a_t,cosm%n_t)
+    IF(ALLOCATED(cosm%log_t)) DEALLOCATE(cosm%log_t)
+    ALLOCATE(cosm%log_t(cosm%n_t))
+
+    ! Now do the r(a) calculation
+    DO i=1,cosm%n_t
+       a=exp(cosm%log_a_t(i))
+       t=integrate_cosm(0.,a,time_integrand,cosm,acc_cosm,iorder)
+       cosm%log_t(i)=log(t)
+    END DO
+    IF(cosm%verbose) THEN
+       WRITE(*,*) 'INIT_TIME: minimum t [Gyr/h]:', real(exp(cosm%log_t(1)))
+       WRITE(*,*) 'INIT_TIME: maximum t [Gyr/h]:', real(exp(cosm%log_t(cosm%n_t)))
+    END IF
+
+    ! Find the horizon distance in your cosmology
+    ! exp(log) ensures the value is the same as what comes out of the (log) look-up tables
+    cosm%age=exp(log(integrate_cosm(0.,1.,time_integrand,cosm,acc_cosm,iorder))) 
+    IF(cosm%verbose) THEN
+       WRITE(*,*) 'INIT_TIME: Age [Gyr/h]:', real(cosm%age)
+       WRITE(*,*) 'INIT_TIME: Done'
+       WRITE(*,*)
+    END IF
+
+    cosm%has_time=.TRUE.
+
+  END SUBROUTINE init_time
+
+  REAL FUNCTION time_integrand(a,cosm)
+
+    ! The integrand for the cosmic-distance calculation [Gyr/h]
+    ! This is 1/H(a)*a
+    IMPLICIT NONE
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    REAL, PARAMETER :: amin=1e-5
-
-    IF(a<amin) THEN
-       time_integrand=a*Htime/sqrt(Hubble2a4_highz(cosm))
+    IF(a<atay_time) THEN
+       ! Taylor expansions
+       IF(cosm%Om_r==0.) THEN
+          time_integrand=Htime*sqrt(a/cosm%Om_m)
+       ELSE
+          time_integrand=Htime*a*(1.-0.5*cosm%Om_m*a/cosm%Om_r)/sqrt(cosm%Om_r)
+       END IF
     ELSE
        time_integrand=Htime/(a*sqrt(Hubble2(a,cosm)))
     END IF
@@ -1681,13 +1958,13 @@ CONTAINS
     REAL :: Om_m, Om_b, h, Omh2, Obh2
 
     ! Define some useful variables
-    IF(cosm%tcdm) THEN
+    IF(cosm%power_Omegas) THEN
        Om_m=cosm%Om_m_pow
        Om_b=cosm%Om_b_pow
        h=cosm%h_pow
     ELSE
        Om_m=cosm%Om_m
-       Om_b=cosm%Om_b
+       Om_b=cosm%Om_b 
        h=cosm%h
     END IF
 
@@ -1767,11 +2044,66 @@ CONTAINS
     m_wdm=1./cosm%inv_m_wdm
 
     alpha=0.074*0.7*m_wdm**(-1.15) ! alpha from equation (5), units Mpc/h
-    mu=1.12 ! mu from equation (4), dimensionless
+    mu=1.12                        ! mu from equation (4), dimensionless
 
     Tk_wdm=(1.+(alpha*k)**(2.*mu))**(-5./mu) ! Equation (2)
     
   END FUNCTION Tk_WDM
+
+  REAL FUNCTION Tcb_Tcbnu_ratio(k,z,cosm)
+
+    ! Calculates the ratio of T(k) for cold vs. all matter
+    ! Uses approximations in Eisenstein & Hu (1999; arXiv 9710252)
+    ! Note that this assumes that there are exactly 3 species of neutrinos with
+    ! Nnu<=3 of these being massive, and with the mass split evenly between the number of massive species.
+    IMPLICIT NONE
+    REAL, INTENT(IN) :: k
+    REAL, INTENT(IN) :: z
+    TYPE(cosmology), INTENT(INOUT) :: cosm
+    REAL :: D, Dcb, Dcbnu, pcb, zeq, q, yfs
+    REAL :: BigT    
+
+    IF(cosm%f_nu==0.) THEN
+
+        Tcb_Tcbnu_ratio=1.
+
+    ELSE
+
+        ! Growth exponent under the assumption that neutrinos are completely unclustered (equation 11)
+        pcb=(5.-sqrt(1.+24.*(1.-cosm%f_nu)))/4.
+
+        ! Theta for temperature (BigT=T/2.7 K)
+        BigT=cosm%T_CMB/2.7
+
+        ! The matter-radiation equality redshift
+        zeq=(2.5e4)*cosm%om_m*(cosm%h**2.)*(BigT**(-4.))
+
+        ! The growth function normalised such that D=(1.+z_eq)/(1+z) at early times (when Omega_m \approx 1)
+        ! For my purpose (just the ratio) seems to work better using the EdS growth function result, \propto a .
+        ! In any case, can't use grow at the moment because that is normalised by default.
+        D=(1.+zeq)/(1.+z)
+
+        ! Wave number relative to the horizon scale at equality (equation 5)
+        ! Extra factor of h becauase all my k are in units of h/Mpc
+        q=k*cosm%h*BigT**2./(cosm%om_m*cosm%h**2.)
+
+        ! Free streaming scale (equation 14)
+        ! Note that Eisenstein & Hu (1999) only consider the case of 3 neutrinos
+        ! with Nnu of these being massve with the mass split evenly between Nnu species.
+        yfs=17.2*cosm%f_nu*(1.+0.488*cosm%f_nu**(-7./6.))*(cosm%N_massive_nu*q/cosm%f_nu)**2.
+
+        ! These are (almost) the scale-dependent growth functions for each component in Eisenstein & Hu (1999)
+        ! Some part is missing, but this cancels when they are divided by each other, which is all I need them for.
+        ! Equations (12) and (13)
+        Dcb=(1.+(D/(1.+yfs))**0.7)**(pcb/0.7)
+        Dcbnu=((1.-cosm%f_nu)**(0.7/pcb)+(D/(1.+yfs))**0.7)**(pcb/0.7)
+
+        ! Finally, the ratio
+        Tcb_Tcbnu_ratio=Dcb/Dcbnu
+
+    END IF
+
+    END FUNCTION Tcb_Tcbnu_ratio
 
   RECURSIVE FUNCTION p_lin(k,a,cosm)
 
@@ -1782,9 +2114,6 @@ CONTAINS
     REAL, INTENT (IN) :: k, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    REAL, PARAMETER :: kmin=0.
-    REAL, PARAMETER :: kmax=1e8
-
     ! Using init_power seems to provide no significant speed improvements to HMx
     !IF(cosm%has_power .EQV. .FALSE.) CALL init_power(cosm)
 
@@ -1794,11 +2123,11 @@ CONTAINS
       CALL normalise_power(cosm)
     END IF
 
-    IF(k<=kmin) THEN
+    IF(k<=kmin_plin) THEN
        ! If p_lin happens to be foolishly called for 0 mode
        ! This call should never happen, but may in integrals
        p_lin=0.
-    ELSE IF(k>kmax) THEN
+    ELSE IF(k>kmax_plin) THEN
        ! Avoids some issues if p_lin is called for very (absurdly) high k values
        ! For some reason crashes can occur if this is the case
        p_lin=0.
@@ -1894,7 +2223,7 @@ CONTAINS
     DO i=1,nsig
 
        ! Equally spaced r in log
-       r=progression_log(rmin_sigma,rmax_sigma,i,nsig)
+       r=exp(progression(log(rmin_sigma),log(rmax_sigma),i,nsig))
 
        sigma=sigma_integral(r,a,cosm)
 
@@ -2052,10 +2381,9 @@ CONTAINS
     
   END FUNCTION t_sigma_integrand
 
-  FUNCTION sigmaV(R,a,cosm)
+  REAL FUNCTION sigmaV(R,a,cosm)
 
     IMPLICIT NONE
-    REAL :: sigmaV
     REAL, INTENT(IN) :: R, a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL, PARAMETER :: tmin=0.
@@ -2068,13 +2396,12 @@ CONTAINS
 
   END FUNCTION sigmaV
 
-  FUNCTION sigmaV2_integrand(t,R,a,cosm)
+  REAL FUNCTION sigmaV2_integrand(t,R,a,cosm)
 
     ! This is the integrand for the velocity dispersion integral
     ! TODO: Optimize alpha(R); not really a problem when only called for R = 0, 100 Mpc/h
     USE special_functions
     IMPLICIT NONE
-    REAL :: sigmaV2_integrand
     REAL, INTENT(IN) :: t, a, R
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: k, kR, w_hat, alpha
@@ -2098,11 +2425,10 @@ CONTAINS
 
   END FUNCTION sigmaV2_integrand
 
-  FUNCTION grow(a,cosm)
+  REAL FUNCTION grow(a,cosm)
 
     ! Scale-independent growth function | normalised g(z=0)=1
     IMPLICIT NONE
-    REAL :: grow
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -2115,11 +2441,10 @@ CONTAINS
 
   END FUNCTION grow
 
-  FUNCTION ungrow(a,cosm)
+  REAL FUNCTION ungrow(a,cosm)
 
     ! Unnormalised growth function
     IMPLICIT NONE
-    REAL :: ungrow
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
    
@@ -2127,11 +2452,10 @@ CONTAINS
 
   END FUNCTION ungrow
 
-  FUNCTION growth_rate(a,cosm)
+  REAL FUNCTION growth_rate(a,cosm)
 
     ! Growth rate: dln(g) / dln(a)
     IMPLICIT NONE
-    REAL :: growth_rate
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -2140,11 +2464,10 @@ CONTAINS
 
   END FUNCTION growth_rate
 
-  FUNCTION acc_growth(a,cosm)
+  REAL FUNCTION acc_growth(a,cosm)
 
     ! Accumulated growth function: int_0^a g(a)/a da
     IMPLICIT NONE
-    REAL :: acc_growth
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
@@ -2153,11 +2476,10 @@ CONTAINS
 
   END FUNCTION acc_growth
 
-  FUNCTION growth_rate_Linder(a,cosm)
+  REAL FUNCTION growth_rate_Linder(a,cosm)
 
     ! Approximation for the growth rate from Linder xxxx.xxxx
     IMPLICIT NONE
-    REAL :: growth_rate_Linder
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: gam
@@ -2174,35 +2496,32 @@ CONTAINS
     
   END FUNCTION growth_rate_Linder
 
-  FUNCTION growth_Linder_integrand(a,cosm)
+  REAL FUNCTION grow_Linder_integrand(a,cosm)
 
     ! Integrand for the approximate growth integral using Linder approximate growth rate
     IMPLICIT NONE
-    REAL :: growth_Linder_integrand
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    growth_Linder_integrand=growth_rate_Linder(a,cosm)/a
+    grow_Linder_integrand=growth_rate_Linder(a,cosm)/a
 
-  END FUNCTION growth_Linder_integrand
+  END FUNCTION grow_Linder_integrand
 
-  FUNCTION growth_Linder(a,cosm)
+  REAL FUNCTION grow_Linder(a,cosm)
 
     ! Calculate the growth function from the Linder growth rate via integration
     IMPLICIT NONE
-    REAL :: growth_Linder
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
 
-    growth_Linder=exp(-integrate_cosm(a,1.,growth_Linder_integrand,cosm,acc_cosm,3))
+    grow_Linder=exp(-integrate_cosm(a,1.,grow_Linder_integrand,cosm,acc_cosm,3))
     
-  END FUNCTION growth_Linder
+  END FUNCTION grow_Linder
 
-  FUNCTION growth_CPT(a,cosm)
+  REAL FUNCTION grow_CPT(a,cosm)
 
     ! Carrol, Press & Turner (1992) approximation to growth function (good to 5%)
     IMPLICIT NONE
-    REAL :: growth_CPT
     REAL, INTENT(IN) :: a
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: Om_mz, Om_vz, Om_m, Om_v
@@ -2214,15 +2533,14 @@ CONTAINS
     Om_v=cosm%Om_v_mod+cosm%Om_w
 
     ! Now call CPT twice, second time to normalise it
-    growth_CPT=CPT(a,Om_mz,Om_vz)/CPT(1.,Om_m,Om_v)
+    grow_CPT=CPT(a,Om_mz,Om_vz)/CPT(1.,Om_m,Om_v)
 
-  END FUNCTION growth_CPT
+  END FUNCTION grow_CPT
 
-  FUNCTION CPT(a,Om_m,Om_v)
+  REAL FUNCTION CPT(a,Om_m,Om_v)
 
     ! The CPT growth function approximation from 1992
     IMPLICIT NONE
-    REAL :: CPT
     REAL, INTENT(IN) :: a, Om_m, Om_v
 
     CPT=a*Om_m/((Om_m**(4./7.))-Om_v+(1.+Om_m/2.)*(1.+Om_v/70.))
@@ -2241,28 +2559,24 @@ CONTAINS
     REAL :: a
     REAL, ALLOCATABLE :: d_tab(:), v_tab(:), a_tab(:)
     REAL :: dinit, vinit
-    REAL :: g0, f0, bigG0
-
-    REAL, PARAMETER :: ainit=1e-3 ! Starting value for integratiton (should start  | Omega_m(a)=1 for EdS growing mode)
-    REAL, PARAMETER :: amax=1. ! Finishing value for integratiton (should be a=1. unless considering models in the future)
-    INTEGER, PARAMETER :: n=128 !Number of entries for growth tables    
+    REAL :: g0, f0, bigG0   
 
     !! First do growth factor and growth rate !!
     
     ! These set the initial conditions to be the Omega_m(a)=1 growing mode
-    dinit=ainit
+    dinit=ainit_growth
     vinit=1.
 
     ! Write some useful information to the screen
     IF(cosm%verbose) THEN
        WRITE(*,*) 'INIT_GROWTH: Solving growth equation'
-       WRITE(*,*) 'INIT_GROWTH: Minimum scale factor:', ainit
-       WRITE(*,*) 'INIT_GROWTH: Maximum scale factor:', amax
-       WRITE(*,*) 'INIT_GROWTH: Number of points for look-up tables:', n
+       WRITE(*,*) 'INIT_GROWTH: Minimum scale factor:', ainit_growth
+       WRITE(*,*) 'INIT_GROWTH: Maximum scale factor:', amax_growth
+       WRITE(*,*) 'INIT_GROWTH: Number of points for look-up tables:', n_growth
     END IF
 
     ! Solve the ODE
-    CALL ODE_adaptive_cosmology(d_tab,v_tab,0.,a_tab,cosm,ainit,amax,dinit,vinit,fd,fv,acc_cosm,3,.FALSE.)
+    CALL ODE_adaptive_cosmology(d_tab,v_tab,0.,a_tab,cosm,ainit_growth,amax_growth,dinit,vinit,fd,fv,acc_cosm,3,.FALSE.)
     IF(cosm%verbose) WRITE(*,*) 'INIT_GROWTH: ODE done'
     na=SIZE(a_tab)
 
@@ -2279,13 +2593,15 @@ CONTAINS
     IF(ALLOCATED(cosm%log_growth))      DEALLOCATE(cosm%log_growth)
     IF(ALLOCATED(cosm%growth_rate))     DEALLOCATE(cosm%growth_rate)
     IF(ALLOCATED(cosm%log_acc_growth))  DEALLOCATE(cosm%log_acc_growth)
-    cosm%n_growth=n
+    cosm%n_growth=n_growth
 
     ! This downsamples the tables that come out of the ODE solver (which can be a bit long)
     ! Could use some table-interpolation routine here to save time
-    ALLOCATE(cosm%log_a_growth(n),cosm%log_growth(n),cosm%growth_rate(n))
-    DO i=1,n
-       a=progression(ainit,amax,i,n)
+    ALLOCATE(cosm%log_a_growth(n_growth))
+    ALLOCATE(cosm%log_growth(n_growth))
+    ALLOCATE(cosm%growth_rate(n_growth))
+    DO i=1,n_growth
+       a=progression(ainit_growth,amax_growth,i,n_growth)
        cosm%log_a_growth(i)=a
        cosm%log_growth(i)=exp(find(log(a),log(a_tab),log(d_tab),na,3,3,2))
        cosm%growth_rate(i)=find(log(a),log(a_tab),v_tab,na,3,3,2)
@@ -2296,17 +2612,17 @@ CONTAINS
     !! Table integration to calculate G(a)=int_0^a g(a')/a' da' !!
 
     ! Allocate array
-    ALLOCATE(cosm%log_acc_growth(n))
+    ALLOCATE(cosm%log_acc_growth(n_growth))
 
     ! Set to zero, because I have an x=x+y thing later on
     cosm%log_acc_growth=0.
     
     ! Do the integral up to table position i, which fills the accumulated growth table
-    DO i=1,n
+    DO i=1,n_growth
 
        ! Do the integral using the arrays
        IF(i>1) THEN
-          cosm%log_acc_growth(i)=integrate_table(cosm%log_a_growth,cosm%gnorm*cosm%log_growth/cosm%log_a_growth,n,1,i,3)
+          cosm%log_acc_growth(i)=integrate_table(cosm%log_a_growth,cosm%gnorm*cosm%log_growth/cosm%log_a_growth,n_growth,1,i,3)
        END IF
        
        ! Then add on the section that is missing from the beginning
@@ -2319,9 +2635,9 @@ CONTAINS
 
     ! Write stuff about growth parameter at a=1 to the screen    
     IF(cosm%verbose) THEN
-       f0=find(1.,cosm%log_a_growth,cosm%growth_rate,n,3,3,2)
-       g0=find(1.,cosm%log_a_growth,cosm%log_growth,n,3,3,2)
-       bigG0=find(1.,cosm%log_a_growth,cosm%log_acc_growth,n,3,3,2)      
+       f0=find(1.,cosm%log_a_growth,cosm%growth_rate,n_growth,3,3,2)
+       g0=find(1.,cosm%log_a_growth,cosm%log_growth,n_growth,3,3,2)
+       bigG0=find(1.,cosm%log_a_growth,cosm%log_acc_growth,n_growth,3,3,2)      
        WRITE(*,*) 'INIT_GROWTH: normalised growth at z=0:', g0
        WRITE(*,*) 'INIT_GROWTH: growth rate at z=0:', f0
        WRITE(*,*) 'INIT_GROWTH: integrated growth at z=0:', bigG0
@@ -2444,11 +2760,11 @@ CONTAINS
 
     ! delta_c fitting function from Mead (2017)
     IMPLICIT NONE
-    REAL, INTENT(IN) :: a !scale factor
+    REAL, INTENT(IN) :: a ! scale factor
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: lg, bG, Om_m
 
-    ! See Appendix A of Mead (2016) for naming convention
+    ! See Appendix A of Mead (2017) for naming convention
     REAL, PARAMETER :: p10=-0.0069
     REAL, PARAMETER :: p11=-0.0208
     REAL, PARAMETER :: p12=0.0312
@@ -2547,6 +2863,7 @@ CONTAINS
 
   SUBROUTINE init_spherical_collapse(cosm)
 
+    USE table_integer
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     REAL :: dinit, ainit, vinit, ac, dc
@@ -2554,14 +2871,10 @@ CONTAINS
     REAL, ALLOCATABLE :: d(:), a(:), v(:)
     REAL, ALLOCATABLE :: dnl(:), vnl(:), rnl(:)
     REAL, ALLOCATABLE :: a_coll(:), r_coll(:)
-    INTEGER :: i, j, k, k2   
+    INTEGER :: i, j, k, k2, n, m
 
-    REAL, PARAMETER :: amax=2. !Maximum scale factor to consider
-    REAL, PARAMETER :: dmin=1e-7 !Minimum starting value for perturbation
-    REAL, PARAMETER :: dmax=1e-3 !Maximum starting value for perturbation
-    INTEGER, PARAMETER :: m=128 !Number of collapse scale-factors to try to calculate (you usually get fewer)
-    INTEGER, PARAMETER :: n=100000 !Number of points for ODE calculations (larger than ~1e5 to capture final stages of collapse)
-    LOGICAL, PARAMETER :: verbose=.FALSE.
+    n=n_spherical ! Number of points in integration
+    m=m_spherical ! Number of scale factors to try and calculate (usually you get fewer)
 
     IF(cosm%verbose) WRITE(*,*) 'SPHERICAL_COLLAPSE: Doing integration'
 
@@ -2569,33 +2882,36 @@ CONTAINS
     IF(ALLOCATED(cosm%log_a_dcDv)) DEALLOCATE(cosm%log_a_dcDv)
     IF(ALLOCATED(cosm%dc))         DEALLOCATE(cosm%dc)
     IF(ALLOCATED(cosm%Dv))         DEALLOCATE(cosm%Dv)
-    ALLOCATE(cosm%log_a_dcDv(m),cosm%dc(m),cosm%Dv(m))
+    ALLOCATE(cosm%log_a_dcDv(m))
+    ALLOCATE(cosm%dc(m))
+    ALLOCATE(cosm%Dv(m))
     cosm%log_a_dcDv=0.
     cosm%dc=0.
     cosm%Dv=0.
 
     IF(cosm%verbose) THEN
-       WRITE(*,*) 'SPHERICAL_COLLAPSE: delta min', dmin
-       WRITE(*,*) 'SPHERICAL_COLLAPSE: delta max', dmax
+       WRITE(*,*) 'SPHERICAL_COLLAPSE: delta min', dmin_spherical
+       WRITE(*,*) 'SPHERICAL_COLLAPSE: delta max', dmax_spherical
        WRITE(*,*) 'SPHERICAL_COLLAPSE: number of collapse points attempted', m
     END IF
 
     ! BCs for integration. Note ainit=dinit means that collapse should occur around a=1 for dmin
     ! amax should be slightly greater than 1 to ensure at least a few points for a>0.9 (i.e not to miss out a=1)    
-    ainit=dmin
-    vinit=1.*(dmin/ainit) ! vinit=1 is EdS growing mode solution
+    ainit=dmin_spherical
+    vinit=1.*(dmin_spherical/ainit) ! vinit=1 is EdS growing mode solution
 
     ! Now loop over all initial density fluctuations
-    DO j=1,m       
-
+    DO j=1,m
+       
        ! log range of initial delta
-       dinit=progression_log(dmin,dmax,j,m)
+       !dinit=progression_log(dmin,dmax,j,m)
+       dinit=exp(progression(log(dmin_spherical),log(dmax_spherical),j,m))
 
        ! Do both with the same a1 and a2 and using the same number of time steps
        ! This means that arrays a, and anl will be identical, which simplifies calculation
-       CALL ODE_spherical(dnl,vnl,0.,a,cosm,ainit,amax,dinit,vinit,fd,fvnl,n,3,.TRUE.)
+       CALL ODE_spherical(dnl,vnl,0.,a,cosm,ainit,amax_spherical,dinit,vinit,fd,fvnl,n,3,.TRUE.)
        DEALLOCATE(a)
-       CALL ODE_spherical(d,v,0.,a,cosm,ainit,amax,dinit,vinit,fd,fv,n,3,.TRUE.)
+       CALL ODE_spherical(d,v,0.,a,cosm,ainit,amax_spherical,dinit,vinit,fd,fv,n,3,.TRUE.)
 
        ! If this condition is met then collapse occured some time a<amax
        IF(dnl(n)==0.) THEN
@@ -2649,7 +2965,8 @@ CONTAINS
           rv=rmax/2.
 
           ! Need to assign new arrays for the collapse branch of r such that it is monotonic
-          k2=int_split(d_rmax,dnl,k)
+          !k2=int_split(d_rmax,dnl,k)
+          k2=select_table_integer(d_rmax,dnl,k,imeth=3)
 
           ! Allocate collapse branch arrays
           ALLOCATE(a_coll(k-k2+1),r_coll(k-k2+1))
@@ -2694,7 +3011,7 @@ CONTAINS
     CALL reverse_array(cosm%dc,m)
     CALL reverse_array(cosm%Dv,m)
 
-    IF(verbose) THEN
+    IF(cosm%verbose) THEN
        WRITE(*,*) '===================================='
        WRITE(*,*) 'Point  scalefactor  delta_c  Delta_v'
        WRITE(*,*) '===================================='
@@ -2745,7 +3062,6 @@ CONTAINS
     LOGICAL, INTENT(IN) :: ilog     
     DOUBLE PRECISION, ALLOCATABLE :: x8(:), v8(:), t8(:)
     INTEGER :: i
-    REAL, PARAMETER :: dinf=1e8 ! Value considered to be 'infinite' for the perturbation
 
     ! imeth sets ODE solving method
     ! imeth = 1: Crude method
@@ -2797,7 +3113,7 @@ CONTAINS
        CALL ODE_advance_cosmology(x8(i),x8(i+1),v8(i),v8(i+1),t8(i),t8(i+1),fx,fv,imeth,kk,cosm)
        
        ! Needed to escape from the ODE solver when the perturbation is ~collapsed
-       IF(x8(i+1)>dinf) EXIT
+       IF(x8(i+1)>dinf_spherical) EXIT
        
     END DO
 
@@ -2824,7 +3140,6 @@ CONTAINS
     LOGICAL, INTENT(IN) :: ilog
     DOUBLE PRECISION, ALLOCATABLE :: x8(:), t8(:), v8(:), xh(:), th(:), vh(:)      
     INTEGER :: i, j, n, k, np, ifail, kn
-
     INTEGER, PARAMETER :: jmax=30
     INTEGER, PARAMETER :: ninit=100
 
@@ -3023,7 +3338,6 @@ CONTAINS
     REAL :: x, dx
     REAL :: f1, f2, fx
     DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
@@ -3126,7 +3440,6 @@ CONTAINS
     REAL :: x, dx
     REAL :: f1, f2, fx
     DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
@@ -3231,7 +3544,6 @@ CONTAINS
     REAL :: x, dx
     REAL :: f1, f2, fx
     DOUBLE PRECISION :: sum_n, sum_2n, sum_new, sum_old
-
     INTEGER, PARAMETER :: jmin=5
     INTEGER, PARAMETER :: jmax=30
 
@@ -3322,64 +3634,124 @@ CONTAINS
 
   SUBROUTINE get_CAMB_power(z,non_linear,halofit_version,cosm)
 
+    ! TODO: Add neutrinos
+    ! TODO: Rearrange to match CAMB input file examples
+    USE CAMB_stuff
     IMPLICIT NONE
     TYPE(cosmology), INTENT(INOUT) :: cosm
     INTEGER, INTENT(IN) :: halofit_version
     LOGICAL,INTENT(IN) :: non_linear
     REAL, INTENT(IN) :: z
     REAL, ALLOCATABLE :: k(:), Pk(:)
-    INTEGER :: i, n
-    REAL :: Om_c, Om_b, Om_w, h
-    
-    CHARACTER(len=256), PARAMETER :: camb=trim('/Users/Mead/Physics/CAMB/camb')
-    CHARACTER(len=256), PARAMETER :: matterpower=trim('/Users/Mead/Physics/CAMB_files/tmp/temp_matterpower.dat')
+    INTEGER :: n
+    REAL :: Om_c, Om_b, Om_nu, h, ombh2, omch2, omnuh2
+    CHARACTER(len=256), PARAMETER :: camb='camb'
+    CHARACTER(len=256), PARAMETER :: dir='/Users/Mead/Physics/CAMB_files/tmp/'
+    CHARACTER(len=256), PARAMETER :: root=trim(dir)//'temp'
+    CHARACTER(len=256), PARAMETER :: matterpower=trim(root)//'_matterpower.dat'
+    CHARACTER(len=256), PARAMETER :: transfer=trim(root)//'_transfer_out.dat'
+    CHARACTER(len=256), PARAMETER :: params=trim(root)//'_params.ini'
 
-    ! Needs to be changed to accomodate neutrino masses and degeneracy structure
-    ! Talk to Alex Hall about this
+    ! Check for massive neutrinos
+    IF(cosm%Om_nu .NE. 0.) THEN
+       STOP 'GET_CAMB_POWER: Error, massive neutrinos not supported yet'
+    END IF
 
-    IF(cosm%tcdm) THEN
-       Om_c=cosm%Om_m_pow-cosm%Om_b_pow
+    ! Set the cosmological parameters for CAMB
+    IF(cosm%power_Omegas) THEN
+       Om_c=cosm%Om_c_pow
        Om_b=cosm%Om_b_pow
-       Om_w=1.-cosm%Om_m_pow
+       Om_nu=cosm%Om_nu_pow
        h=cosm%h_pow
     ELSE
        Om_c=cosm%Om_c
        Om_b=cosm%Om_b
-       Om_w=cosm%Om_w
+       Om_nu=cosm%Om_nu       
        h=cosm%h
     END IF
 
-    IF(cosm%Om_v .NE. 0.) STOP 'GET_CAMB_POWER: Error, Omega_v not zero, should set Omega_w'
+    ! Physical density parameters that CAMB requires
+    ombh2=Om_b*h**2
+    omch2=Om_c*h**2
+    omnuh2=Om_nu*h**2
 
-    OPEN(7,file='/Users/Mead/Physics/CAMB_files/tmp/params.ini',status='replace')
-    WRITE(7,*) 'output_root = /Users/Mead/Physics/CAMB_files/tmp/temp'
+    !IF(cosm%Om_v .NE. 0.) STOP 'GET_CAMB_POWER: Error, Omega_v not zero, should set Omega_w'
+
+    CALL SYSTEM('rm '//trim(params))
+    OPEN(7,file=params,status='replace')
+    WRITE(7,*) 'output_root = ', trim(root)
+
+    ! Things to get
     WRITE(7,*) 'get_scalar_cls = F'
     WRITE(7,*) 'get_vector_cls = F'
     WRITE(7,*) 'get_tensor_cls = F'
-    WRITE(7,*) 'COBE_normalize = F'
-    WRITE(7,*) 'CMB_outputscale = 7.4311e12'
     WRITE(7,*) 'get_transfer = T'
+
+    ! Lensing
+    WRITE(7,*) 'do_lensing = F'
+    
     IF(non_linear) THEN
        WRITE(7,*) 'do_nonlinear = 1'
     ELSE
        WRITE(7,*) 'do_nonlinear = 0'
-    END IF
+    END IF    
     WRITE(7,*) 'halofit_version =', halofit_version
+    
+    ! Standard cosmological parameters
+    WRITE(7,*) 'ombh2 =', ombh2
+    WRITE(7,*) 'omch2 =', omch2
+    WRITE(7,*) 'omnuh2 =', omnuh2
+    WRITE(7,*) 'omk = ', cosm%Om_k
+    WRITE(7,*) 'hubble =', 100.*h
+
+    ! Dark energy
+    WRITE(7,*) 'dark_energy_model = ppf'
     WRITE(7,*) 'w =', cosm%w
     WRITE(7,*) 'wa =', cosm%wa
     WRITE(7,*) 'cs2_lam = 1'
-    WRITE(7,*) 'hubble =', 100.*h
-    WRITE(7,*) 'use_physical = F'
-    WRITE(7,*) 'omega_baryon =', Om_b
-    WRITE(7,*) 'omega_cdm =', Om_c
-    WRITE(7,*) 'omega_lambda =', Om_w
-    WRITE(7,*) 'omega_neutrino =', cosm%Om_nu
-    WRITE(7,*) 'temp_cmb = 2.7255'
-    WRITE(7,*) 'helium_fraction = 0.24'
-    WRITE(7,*) 'massless_neutrinos = 0'
-    WRITE(7,*) 'massive_neutrinos = 3'
-    WRITE(7,*) 'nu_mass_eigenstates = 1'
-    WRITE(7,*) 'nu_mass_fractions ='
+
+    ! CMB temperature and Helium fraction
+    WRITE(7,*) 'temp_cmb = ', cosm%T_CMB
+    WRITE(7,*) 'helium_fraction = ', cosm%YHe
+
+    ! Neutrinos
+    WRITE(7,*) 'massless_neutrinos = ', cosm%neff
+    WRITE(7,*) 'massive_neutrinos = ', cosm%N_massive_nu
+    WRITE(7,*) 'nu_mass_eigenstates = 0'
+    WRITE(7,*) 'share_delta_neff = T'
+    WRITE(7,*) 'nu_mass_fractions = 0'
+    WRITE(7,*) 'nu_mass_degeneracies ='
+
+    ! Primoridial power spectrum properties
+    WRITE(7,*) 'initial_power_num = 1'
+    WRITE(7,*) 'scalar_spectral_index(1) =', cosm%n
+    WRITE(7,*) 'scalar_nrun(1) = 0'
+    WRITE(7,*) 'scalar_amp(1) =', cosm%A
+    WRITE(7,*) 'pivot_scalar = 0.05'
+    WRITE(7,*) 'pivot_tensor = 0.05'
+
+    ! Reionisation
+    WRITE(7,*) 'reionization = T'
+    WRITE(7,*) 're_use_optical_depth = T'
+    WRITE(7,*) 're_optical_depth = 0.09'
+    WRITE(7,*) 're_delta_redshift = 1.5'
+    WRITE(7,*) 're_ionization_frac = -1'
+    
+    ! RECFAST
+    WRITE(7,*) 'recombination_model = Recfast'
+    WRITE(7,*) 'RECFAST_fudge = 1.14'
+    WRITE(7,*) 'RECFAST_fudge_He = 0.86'
+    WRITE(7,*) 'RECFAST_Heswitch = 6'
+    WRITE(7,*) 'RECFAST_Hswitch = T'
+
+    ! Adiabatic/isocurvature etc.
+    WRITE(7,*) 'initial_condition = 1' ! 1 - Adiabatic initial condtions
+
+    ! ?
+    WRITE(7,*) 'COBE_normalize = F'
+    WRITE(7,*) 'CMB_outputscale = 7.4311e12'
+
+    ! Power spectrum requirements
     WRITE(7,*) 'transfer_high_precision = F'
     WRITE(7,*) 'transfer_kmax = 10'
     WRITE(7,*) 'transfer_k_per_logint = 0'
@@ -3387,69 +3759,62 @@ CONTAINS
     WRITE(7,*) 'transfer_interp_matterpower = T'
     WRITE(7,*) 'transfer_power_var = 7'
     WRITE(7,*) 'transfer_redshift(1) =', z
-    WRITE(7,*) 'transfer_filename(1) = transfer_out.dat'
-    WRITE(7,*) 'transfer_matterpower(1) = matterpower.dat'
-    WRITE(7,*) 'reionization = T'
-    WRITE(7,*) 're_use_optical_depth = T'
-    WRITE(7,*) 're_optical_depth = 0.09'
-    WRITE(7,*) 're_delta_redshift = 1.5'
-    WRITE(7,*) 're_ionization_frac = -1'
-    WRITE(7,*) 'pivot_scalar = 0.05'
-    WRITE(7,*) 'pivot_tensor = 0.05'
-    WRITE(7,*) 'initial_power_num = 1'
-    WRITE(7,*) 'scalar_spectral_index(1) =', cosm%n
-    WRITE(7,*) 'scalar_nrun(1) = 0'
-    WRITE(7,*) 'scalar_amp(1) =', cosm%A
-    WRITE(7,*) 'RECFAST_fudge_He = 0.86'
-    WRITE(7,*) 'RECFAST_Heswitch = 6'
-    WRITE(7,*) 'RECFAST_Hswitch = T'
-    WRITE(7,*) 'RECFAST_fudge = 1.14'
+    WRITE(7,*) 'transfer_filename(1) = transfer_out.dat'   ! TODO: Parameter
+    WRITE(7,*) 'transfer_matterpower(1) = matterpower.dat' ! TODO: Parameter
+
+    ! Bispectra
     WRITE(7,*) 'do_lensing_bispectrum = F'
     WRITE(7,*) 'do_primordial_bispectrum = F'
-    WRITE(7,*) 'initial_condition = 1'
+
+    ! Verbosity
+    WRITE(7,*) 'feedback_level = 1'
+
+    ! Print out a comment describing file headers
+    WRITE(7,*) 'output_file_headers = T'
+
+    ! Write out derived parameters
+    WRITE(7,*) 'derived_parameters = T'
+
+    ! ?
+    WRITE(7,*) 'massive_nu_approx = 1'
+
+    ! Accuracy parameters for polarization and reionization
     WRITE(7,*) 'accurate_polarization = T'
     WRITE(7,*) 'accurate_reionization = T'
+
+    WRITE(7,*) 'lensing_method = 1'
     WRITE(7,*) 'accurate_BB = F'
-    WRITE(7,*) 'do_late_rad_truncation = T'
+
+    ! ?
     WRITE(7,*) 'do_tensor_neutrinos = T'
-    WRITE(7,*) 'feedback_level = 1'
-    WRITE(7,*) 'massive_nu_approx = 1'
+
+    ! ?
+    WRITE(7,*) 'do_late_rad_truncation = T'
+
+    ! OMP threads
     WRITE(7,*) 'number_of_threads = 4'
+
+    ! Accuracy parameters
     WRITE(7,*) 'accuracy_boost = 1'
     WRITE(7,*) 'l_accuracy_boost = 1'
-    WRITE(7,*) 'high_accuracy_default = T'
-    WRITE(7,*) 'use_spline_template =  T'
+    !WRITE(7,*) 'high_accuracy_default = T' ! Removed in CAMB v1
+    !WRITE(7,*) 'use_spline_template =  T'  ! Removed in CAMB v1
     WRITE(7,*) 'l_sample_boost = 1'
     CLOSE(7)
 
+    ! Remove old files and run CAMB
     IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Running CAMB (note weird problems with this function in library)'
-    CALL SYSTEM('rm /Users/Mead/Physics/CAMB_files/tmp/temp_transfer_out.dat')
-    CALL SYSTEM('rm /Users/Mead/Physics/CAMB_files/tmp/temp_matterpower.dat')
+    CALL SYSTEM('rm '//trim(transfer))
+    CALL SYSTEM('rm '//trim(matterpower))
     IF(cosm%verbose) THEN
-       CALL SYSTEM('/Users/Mead/Physics/CAMB/camb /Users/Mead/Physics/CAMB_files/tmp/params.ini > /dev/null')
+       CALL SYSTEM(trim(camb)//' '//trim(params)//' > /dev/null')
     ELSE
-       CALL SYSTEM('/Users/Mead/Physics/CAMB/camb /Users/Mead/Physics/CAMB_files/tmp/params.ini')
+       CALL SYSTEM(trim(camb)//' '//trim(params))
     END IF
     IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: CAMB run complete'
 
-    ! Read in the now-generated CAMB linear spectra
-    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Reading in CAMB data'
-    n=file_length(matterpower,.FALSE.)-1
-    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Number of entries:', n
-    ALLOCATE(k(n),Pk(n))
-    OPEN(7,file=matterpower)
-    DO i=0,n
-       IF(i==0) THEN
-          READ(7,*)
-       ELSE
-          READ(7,*) k(i), Pk(i)
-       END IF
-    END DO
-    CLOSE(7)
-    IF(cosm%verbose) WRITE(*,*) 'GET_CAMB_POWER: Data done'    
-
-    ! Convert from P(k) -> Delta^2(k)
-    Pk=Pk*(k**3)*4.*pi/twopi**3
+    ! Read in the power spectrum that has been generated
+    CALL read_CAMB_Pk(k,Pk,n,matterpower)
 
     ! Add to cosm arrays and convert to log
     IF(ALLOCATED(cosm%log_k_plin)) DEALLOCATE(cosm%log_k_plin)
@@ -3924,7 +4289,6 @@ CONTAINS
     REAL, PARAMETER :: w_min=-1.3
     REAL, PARAMETER :: w_max=-0.7
 
-    ! Implement this
     REAL, PARAMETER :: wa_min=-1.73
     REAL, PARAMETER :: wa_max=1.28
 
@@ -3940,7 +4304,7 @@ CONTAINS
     cosm%Om_b=om_b/cosm%h**2
 
     om_nu=random_uniform(om_nu_min,om_nu_max)
-    cosm%m_nu=94.1*om_nu
+    cosm%m_nu=neutrino_constant*om_nu/3. ! Split equally over 3 mass eigenstates
     cosm%m_nu=0.
 
     ! Enforce flatness, ensure Omega_w is used for dark energy, Omega_v = 0
@@ -4345,7 +4709,7 @@ CONTAINS
 
     cosm%Om_m=om_m/cosm%h**2
     cosm%Om_b=om_b/cosm%h**2
-    cosm%m_nu=94.1*om_nu
+    cosm%m_nu=neutrino_constant*om_nu/3. ! Split equally over three mass eigenstates
     cosm%Om_w=1.-cosm%Om_m
         
   END SUBROUTINE Mira_Titan_node_cosmology
