@@ -2563,6 +2563,7 @@ PROGRAM HMx_driver
         END DO
      END DO
 
+     WRITE(*,*) 'HMx_DRIVER: Limber tests should take ~22s to run'
      IF(ifail) THEN
         WRITE(*,*) 'HMx_DRIVER: Limber tests failed'
      ELSE
