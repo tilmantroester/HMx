@@ -203,6 +203,7 @@ PROGRAM HMx_driver
      WRITE(*,*) '69 - Matter, halo power spectra with non-linear bias'
      WRITE(*,*) '70 - Comparison with Cosmic Emu nodes'
      WRITE(*,*) '71 - Comparison with random Cosmic Emu cosmology'
+     WRITE(*,*) '72 - Run halo model over lots of random cosmological parameters'
      READ(*,*) imode
      WRITE(*,*) '============================'
      WRITE(*,*)
@@ -859,9 +860,10 @@ PROGRAM HMx_driver
 
      END DO
 
-  ELSE IF(imode==4) THEN
+  ELSE IF(imode==4 .OR. imode==72) THEN
 
-     ! Random baryon parameters
+     !  4 - Random baryon parameters
+     ! 72 - Random cosmological parameters
 
      ! Set the random number generator
      CALL RNG_set(iseed)
@@ -874,24 +876,39 @@ PROGRAM HMx_driver
      k=exp(k)
 
      ! Set the number of fields
-     nf=5
+     IF(imode==4) THEN
+        nf=5
+     ELSE IF(imode==72) THEN
+        nf=1
+     ELSE
+        STOP 'HMx_DRIVER: Error with random cosmology'
+     END IF
+
+     ! Allocate field array
      ALLOCATE(fields(nf))
-     fields(1)=field_matter
-     fields(2)=field_cdm
-     fields(3)=field_gas
-     fields(4)=field_star
-     fields(5)=field_electron_pressure
+
+     ! Set field types
+     IF(imode==4) THEN
+        fields(1)=field_matter
+        fields(2)=field_cdm
+        fields(3)=field_gas
+        fields(4)=field_star
+        fields(5)=field_electron_pressure
+     ELSE IF(imode==72) THEN
+        fields=field_dmonly
+     ELSE
+        STOP 'HMx_DRIVER: Error with random cosmology'
+     END IF
 
      ! Allocate arrays for power
      ALLOCATE(pow_li(nk),pow_2h(nf,nf,nk),pow_1h(nf,nf,nk),pow_hm(nf,nf,nk))
 
-     ! Assigns the cosmological model
-     CALL assign_cosmology(icosmo,cosm,verbose)
-     CALL init_cosmology(cosm)
-     CALL print_cosmology(cosm)
-
-     ! Assign the default halo model
-     CALL assign_halomod(ihm,hmod,verbose)
+     ! Set the cosmological model
+     IF(imode==72) THEN
+        CALL RNG_set(seed=0)
+        !icosmo=39 ! 39 - Random cosmology
+        icosmo=40 ! Random CAMB cosmology
+     END IF     
 
      ! Set redshift range
      zmin=0.0
@@ -901,10 +918,21 @@ PROGRAM HMx_driver
      n=50
      DO ii=1,n
 
+        ! Set the cosmological model
+        IF((imode==4 .AND. ii==1) .OR. imode==72) THEN
+           CALL assign_cosmology(icosmo,cosm,verbose)
+           CALL init_cosmology(cosm)
+           CALL print_cosmology(cosm)
+        END IF
+
+        ! Random redshift in a range
         z=random_uniform(zmin,zmax)
 
-        ! Initiliasation for the halomodel calcualtion        
-        CALL random_baryon_parameters(hmod)
+        ! Initiliasation for the halomodel calcualtion
+        CALL assign_halomod(ihm,hmod,verbose)
+        IF(imode==4) THEN
+           CALL random_baryon_parameters(hmod)
+        END IF
         CALL init_halomod(mmin,mmax,scale_factor_z(z),hmod,cosm,verbose)
         CALL print_halomod(hmod,cosm,verbose)
 
@@ -926,6 +954,7 @@ PROGRAM HMx_driver
            END DO
         END DO
 
+        WRITE(*,*) 'HMx_DRIVER: Done:', ii
         WRITE(*,*)
 
      END DO
@@ -2687,7 +2716,7 @@ PROGRAM HMx_driver
 
      ! Number of cosmological models (+1)
      IF(imode==28 .OR. imode==30) n=37 ! Franken Emu
-     IF(imode==27 .OR. imode==29) n=11 ! Mira Titan
+     IF(imode==27 .OR. imode==29) n=36 ! Mira Titan
      IF(imode==70 .OR. imode==71) n=37 ! Cosmic Emu
 
      ! Set number of redshifts
@@ -2699,6 +2728,11 @@ PROGRAM HMx_driver
         nz=3 ! Cosmic Emu
      ELSE
         STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
+     END IF
+
+     ! Set the random number generator for the random cosmologies
+     IF(imode==30 .OR. imode==29 .OR. imode==71) THEN
+        CALL RNG_set(seed=0)
      END IF
 
      ! Allocate arrays
