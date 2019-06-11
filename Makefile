@@ -41,6 +41,9 @@ SRC_DIR = src
 # Build directory
 BUILD_DIR = build
 
+# Module directory
+MOD_DIR =  /Users/Mead/Physics/library
+
 # Debug build directory
 DEBUG_BUILD_DIR = debug_build
 
@@ -68,7 +71,7 @@ _OBJ = \
 	solve_equations.o \
 	string_operations.o \
 	calculus_table.o \
-	CAMB_stuff.o \
+	camb_stuff.o \
 	cosmology_functions.o \
 	HMx.o \
 	Limber.o \
@@ -101,7 +104,8 @@ fitting_debug: FFLAGS += $(DEBUG_FLAGS)
 fitting_debug: $(BIN_DIR)/HMx_fitting_debug
 
 # Rule to make object files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.f90
+#$(BUILD_DIR)/%.o: $(SRC_DIR)/%.f90
+$(BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
 	$(make_dirs)
 	$(FC) -c -o $@ $< -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
@@ -112,7 +116,8 @@ $(BIN_DIR)/HMx: $(OBJ) $(SRC_DIR)/HMx_driver.f90
 	$(FC) -o $@ $^ -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
 # Rule to make debugging objects
-$(DEBUG_BUILD_DIR)/%.o: $(SRC_DIR)/%.f90
+#$(DEBUG_BUILD_DIR)/%.o: $(SRC_DIR)/%.f90
+$(DEBUG_BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
 	$(make_dirs)
 	$(FC) -c -o $@ $< -J$(DEBUG_BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
