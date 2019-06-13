@@ -89,6 +89,11 @@ rmax=1.5
 rlab='P_{uv,mod}(k) / P_{uv,sim}(k)'
 
 # Scale factor for plot
+# a = 1.00109
+# a = 0.68215
+# a = 0.59103
+# a = 0.49990
+# a = 0.25690
 if(!exists('a')) {a=1.00109}
 print 'Scale factor: a: ', a
 print ''

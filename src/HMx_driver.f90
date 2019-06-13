@@ -39,7 +39,7 @@ PROGRAM HMx_driver
   INTEGER :: ip(2), ix(2), field(1)
   INTEGER, ALLOCATABLE :: fields(:), ixx(:)
   REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
-  REAL :: rcore_min, rcore_max
+  REAL :: rcore_min, rcore_max, lmax_xi
   REAL :: z, z1, z2, r1, r2, a1, a2, nu1, nu2, B_NL, I_NL
   TYPE(cosmology) :: cosm
   TYPE(cosmology), ALLOCATABLE :: cosms(:)
@@ -1133,12 +1133,21 @@ PROGRAM HMx_driver
      ALLOCATE(Cl(2,2,nl))
 
      ! Set the angular arrays in degrees and allocate arrays for theta and xi(theta)
-     thmin=0.01
-     thmax=10.
+     thmin=0.01 ! Minium theta [deg]
+     thmax=10.  ! Maxium theta [deg]
      nth=128
      CALL fill_array(log(thmin),log(thmax),theta,nth)
      theta=exp(theta)
      ALLOCATE(xi(3,nth))
+
+     lmax_xi=1e5
+
+     WRITE(*,*) 'HMx_DRIVER: Correlation function stuff'
+     WRITE(*,*) 'HMx_DRIVER: Minium theta [deg]:', thmin
+     WRITE(*,*) 'HMx_DRIVER: Minium theta [deg]:', thmax
+     WRITE(*,*) 'HMx_DRIVER: Number of theta:', nth
+     WRITE(*,*) 'HMx_DRIVER: lmax for xi:', lmax_xi
+     WRITE(*,*)
 
      ! Output directory
      dir='data/'
@@ -1193,8 +1202,8 @@ PROGRAM HMx_driver
         WRITE(*,*) 'HMx_DRIVER: Computing C(l)'
         WRITE(*,*) 'HMx_DRIVER: r min [Mpc/h]:', r1
         WRITE(*,*) 'HMx_DRIVER: r max [Mpc/h]:', r2
-        WRITE(*,*) 'HMx_DRIVER: ell min:', REAL(ell(1))
-        WRITE(*,*) 'HMx_DRIVER: ell max:', REAL(ell(nl))
+        WRITE(*,*) 'HMx_DRIVER: ell min for C(l):', REAL(ell(1))
+        WRITE(*,*) 'HMx_DRIVER: ell max for C(l):', REAL(ell(nl))
         WRITE(*,*) 'HMx_DRIVER: number of ell:', nl
         WRITE(*,*) 'HMx_DRIVER: lower limit of Limber integral [Mpc/h]:', REAL(r1)
         WRITE(*,*) 'HMx_DRIVER: upper limit of Limber integral [Mpc/h]:', REAL(r2)
@@ -1271,7 +1280,7 @@ PROGRAM HMx_driver
               WRITE(*,*) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
               ! Actually calculate the xi(theta)
-              CALL calculate_angular_xi(theta,xi,nth,ell,Cl,nl,NINT(lmax))
+              CALL calculate_angular_xi(theta,xi,nth,ell,Cl(1,2,:),nl,NINT(lmax_xi))
               CALL write_angular_xi(theta,xi,nth,outfile)
 
            END IF
