@@ -42,7 +42,7 @@ SRC_DIR = src
 BUILD_DIR = build
 
 # Module directory
-MOD_DIR =  /Users/Mead/Physics/library
+MOD_DIR = /Users/Mead/Physics/library/src
 
 # Debug build directory
 DEBUG_BUILD_DIR = debug_build
@@ -73,8 +73,8 @@ _OBJ = \
 	calculus_table.o \
 	camb_stuff.o \
 	cosmology_functions.o \
-	HMx.o \
-	Limber.o \
+	hmx.o \
+	limber.o \
 	cosmic_emu_stuff.o \
 	owls.o \
 	owls_extras.o
