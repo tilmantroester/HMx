@@ -50,7 +50,7 @@ PROGRAM HMx_driver
    CHARACTER(len=256) :: mode, halomodel, cosmo
    CHARACTER(len=256), ALLOCATABLE :: ixx_names(:), bases(:)
    INTEGER :: imode, icosmo, iowl, ihm, irho, itest, jtest, nhm
-   INTEGER :: imin, imax, mesh
+   INTEGER :: imin, imax, mesh, nb
    REAL :: sig8min, sig8max
    REAL :: mass, m1, m2, nu, numin, numax, mf
    REAL :: c, rmin, rmax, rv, rs, p1, p2, cmin, cmax, cbar
@@ -58,7 +58,7 @@ PROGRAM HMx_driver
    CHARACTER(len=1) :: crap
    LOGICAL :: verbose2
    INTEGER :: ia1, ia2
-   INTEGER, ALLOCATABLE :: bins(:)
+   INTEGER, ALLOCATABLE :: bins(:), ibessel(:)
 
    ! Baryon stuff
    REAL :: param_min, param_max, param, param_neat
@@ -1138,7 +1138,11 @@ PROGRAM HMx_driver
       nth = 128
       CALL fill_array(log(thmin), log(thmax), theta, nth)
       theta = exp(theta)
-      ALLOCATE (xi(3, nth))
+      nb=3 ! Number of correlation functions to compute
+      ALLOCATE (xi(nb, nth), ibessel(nb))
+      ibessel(1) = 0 ! J0 (xi plus for lensing)
+      ibessel(2) = 2 ! J2 (standard angular correlation function)
+      ibessel(3) = 4 ! J4 (xi minus for lensing)
 
       lmax_xi = 1e5
 
@@ -1280,8 +1284,8 @@ PROGRAM HMx_driver
                WRITE (*, *) 'HMx_DRIVER: Output: ', TRIM(outfile)
 
                ! Actually calculate the xi(theta)
-               CALL calculate_angular_xi(theta, xi, nth, ell, Cl(1, 2, :), nl, NINT(lmax_xi))
-               CALL write_angular_xi(theta, xi, nth, outfile)
+               CALL calculate_angular_xi(ibessel, nb, theta, xi, nth, ell, Cl(1, 2, :), nl, NINT(lmax_xi))
+               CALL write_angular_xi(theta, xi, nb, nth, outfile)
 
             END IF
 

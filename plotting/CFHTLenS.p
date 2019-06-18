@@ -60,7 +60,7 @@ set xtics nomirror
 #Set x2 axis for arcminutes
 set log x2
 set format x2
-set x2range [thmin*arcmin:thmax*arcmin]
+set x2range [th_min*arcmin:th_max*arcmin]
 set x2label '{/Symbol q} [arcminutes]'
 set x2tics
 
