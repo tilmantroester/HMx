@@ -9,7 +9,7 @@ HMX_FFLAGS = \
 	-O3 \
 	-fdefault-real-8 \
 	-fdefault-double-8 \
-	-fopenmp \
+	-fopenmp# \
 	-lgfortran \
 	-lm
 
@@ -60,11 +60,11 @@ TEST_DIR = tests
 _OBJ = \
 	constants.o \
 	physics.o \
-	logical_operations.o \
-	random_numbers.o \
-	file_info.o \
 	fix_polynomial.o \
 	array_operations.o \
+	logical_operations.o \
+	file_info.o \
+	random_numbers.o \
 	table_integer.o \
 	special_functions.o \
 	interpolate.o \
@@ -77,13 +77,14 @@ _OBJ = \
 	limber.o \
 	cosmic_emu_stuff.o \
 	owls.o \
-	owls_extras.o
+	owls_extras.o \
+	multidark_stuff.o
 
 # Add prefixes of build directory to objects
 OBJ = $(addprefix $(BUILD_DIR)/,$(_OBJ))
 DEBUG_OBJ = $(addprefix $(DEBUG_BUILD_DIR)/,$(_OBJ))
 
-# ?
+# Make directories if they do not exist
 make_dirs = @mkdir -p $(@D)
 
 # Standard rules

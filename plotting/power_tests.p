@@ -1,6 +1,8 @@
 unset multiplot
 reset
 
+load '/Users/Mead/Physics/library/gnuplot/mead.p'
+
 set term aqua dashed dl 1 size 1000,800 font ',16'
 
 bench(name)=sprintf('benchmarks/power_HMcode_%s.txt',name)
@@ -22,12 +24,16 @@ set log x
 dy=1e-2
 ddy=1e-3
 
+zmin=0.
+zmax=4.
+nz=16
+
+set cbrange [zmin:zmax]
+set cblabel 'z'
 set palette defined (1 'red', 2 'pink', 3 'grey')
-unset colorbox
+set colorbox
 
 if(itest==1 || itest==3){
-
-na=16
 
 tests="'Mead' 'basic' 'standard'"
 
@@ -43,8 +49,8 @@ plot 1 w l lt -1 noti,\
      1+ddy w l dt 2 lc -1 noti,\
      1-ddy w l dt 2 lc -1 noti,\
      for [i=1:words(tests)] NaN lc -1 lw 2 dt i ti word(tests,i),\
-     for [i=1:words(tests)] for [j=1:na] '<paste '.bench(word(tests,i)).' '.power(word(tests,i)).'' \
-     u 1:(column(1+j)/column(2+j+na)):(real(j-1)/real(na-1)) w l lw 2 lc palette dt i noti
+     for [i=1:words(tests)] for [j=1:nz] '<paste '.bench(word(tests,i)).' '.power(word(tests,i)).'' \
+     u 1:(column(1+j)/column(2+j+nz)):(progression(zmin,zmax,j,nz)) w l lw 2 lc palette dt i noti
 
 }
 
@@ -53,8 +59,6 @@ if(itest==3){
 set log y
 set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
-
-na=16
 
 set multiplot layout words(tests),1 margins 0.1,0.98,0.1,0.98 spacing 0,0
 
@@ -65,8 +69,8 @@ if(i==words(tests)){set format x; set xlabel klab}
 
 set label 'test '.i.'' at graph 0.05,0.9
 
-plot for [j=1:na] bench(word(tests,i)) u 1:(column(1+j)):(real(j-1)/real(na-1)) w l lw 2 lc -1 noti,\
-     for [j=1:na] power(word(tests,i)) u 1:(column(1+j)):(real(j-1)/real(na-1)) w l lw 2 lc palette noti
+plot for [j=1:nz] bench(word(tests,i)) u 1:(column(1+j)):(progression(zmin,zmax,j,nz)) w l lw 2 lc -1 noti,\
+     for [j=1:nz] power(word(tests,i)) u 1:(column(1+j)):(progression(zmin,zmax,j,nz)) w l lw 2 lc palette noti
 
 unset label
 

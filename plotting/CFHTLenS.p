@@ -32,7 +32,7 @@ xim_lab='{/Symbol x}_-'
 arcmin=60.
 
 # Offset for xi plus and minus
-offset=0.95
+offset=0.975
 
 # Theta range
 th_min=0.01
@@ -78,9 +78,9 @@ plot NaN w l lw 3 lc rgb xip_col dt 1 ti xip_lab,\
      NaN w l lw 3 lc -1 dt 4 ti 'Linear',\
      for [i=1:words(types)] xi(word(types,i)) u 1:2 w l lw 3 lc rgb xip_col dt 5-i noti,\
      for [i=1:words(types)] xi(word(types,i)) u 1:4 w l lw 3 lc rgb xim_col dt 5-i noti,\
-     data u ($1/arcmin):2 w p ps 1.5 pt 7 lc rgb 'black' ti 'CFHTLenS {/Symbol x}_+',\
-     data u ($1/arcmin):2:(sqrt($3)) w errorbars ps 0 lt 1 lc rgb 'black' noti,\
-     data u (offset*$1/arcmin):4 w p ps 1.5 pt 7 lc rgb 'dark-grey' ti 'CFHTLenS {/Symbol x}_-',\
+     data u ($1/arcmin/offset):2 w p ps 1. pt 7 lc rgb 'black' ti 'CFHTLenS {/Symbol x}_+',\
+     data u ($1/arcmin/offset):2:(sqrt($3)) w errorbars ps 0 lt 1 lc rgb 'black' noti,\
+     data u (offset*$1/arcmin):4 w p ps 1. pt 7 lc rgb 'dark-grey' ti 'CFHTLenS {/Symbol x}_-',\
      data u (offset*$1/arcmin):4:(sqrt($5)) w errorbars ps 0 lt 1 lc rgb 'dark-grey' noti
 
 }

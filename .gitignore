@@ -52,3 +52,6 @@ EMU0.txt
 xstar.dat
 emu_power.dat
 emu_params.txt
+
+# Fortran language server config
+.fortls

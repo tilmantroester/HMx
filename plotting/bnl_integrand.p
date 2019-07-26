@@ -1,7 +1,12 @@
 reset
 
+# Load my library
+load '/Users/Mead/Physics/library/gnuplot/mead.p'
+
+# Initial white space
 print ''
 
+# Terminal options
 if(!exists('print')) {print=0}
 print 'print = 0: aqua'
 print 'print = 1: eps'
@@ -10,14 +15,17 @@ if(print==1) {set term post enh col font ',8' size 10,6; set output 'bnl.eps'}
 print 'print = ', print
 print ''
 
+# Heat-map options
 set size square
 set view map
 
+# File locations
 infile(k)=sprintf('data/bnl_k%1.1f.dat',k)
 
+# Choose what to plot
 if(!exists('imode')) {imode=1}
 print 'imode = 1 - Plot B_NL'
-print 'imode = 2 - Plot integrand'
+print 'imode = 2 - Plot I_NL (integrand)'
 print 'imode = 3 - Plot both'
 print 'imode = ', imode
 print ''
@@ -30,6 +38,7 @@ print 'iplot = ', iplot
 print ''
 }
 
+# Legend
 lab_bnl='B^{NL}({/Symbol n}_1,{/Symbol n}_2,k,z)'
 lab_Inl='I^{NL}_{mm}(k,z) integrand'
 #lab_Inl='g({/Symbol n}_1)g({/Symbol n}_2)b({/Symbol n}_1)b({/Symbol n}_2)B_{NL}({/Symbol n}_1,{/Symbol n}_2,k)'
@@ -45,9 +54,11 @@ set yrange[numin:numax]
 set xlabel '{/Symbol n}_1'
 set ylabel '{/Symbol n}_2'
 
+# Colorbar options
 set cblabel lab
+set palette defined ( 0 "blue", 1 "white", 2 "red" )
 #set cbrange [cbmin:cbmax]
-ds=0.2
+#ds=0.2
 
 # Title for plots
 tits(k)=sprintf('k = %1.1f h/Mpc', k)
@@ -82,6 +93,11 @@ if(i==9) {k=0.9}
 
 set title tits(k)
 splot infile(k) u 1:2:(column(c)) with image noti
+print 'Minimum data value: ', GPVAL_Z_MIN
+print 'Maximum data value: ', GPVAL_Z_MAX
+dc=max(abs(GPVAL_Z_MIN),GPVAL_Z_MAX)
+set cbrange [-dc:dc]
+replot
 
 }
 

@@ -16,27 +16,37 @@ if(print==2) {set term pdfcairo font ',14' ps .25 size 10.24,10.24; set encoding
 print 'print = ', print
 print ''
 
-# File paths
-power(sim,m,a,bin1,bin2)=sprintf('/Users/Mead/Physics/data/%s/power/M%d/halo_%1.5f_bin%d_bin%d_power.dat',sim,m,a,bin1,bin2)
-hmod(a,bin1,bin2,opt)=sprintf('data/power_a%1.5f_hh_%d%d_%s.dat',a,bin1,bin2,opt)
+# Input file paths
+power(sim,m,cat,snap,bin1,bin2)=sprintf('/Users/Mead/Physics/%s/data/power/M%d/%s_%d_bin%d_bin%d_power.dat',sim,m,cat,snap,bin1,bin2)
+hmod(snap,bin1,bin2,opt)=sprintf('data/power_%d_hh_%d%d_%s.dat',snap,bin1,bin2,opt)
 
+# Output file paths
 if(print==1) {set output 'Multidark_halo_power.eps'}
 if(print==2) {set output 'Multidark_halo_power.pdf'}
 
-if(!exists('mesh')) {mesh=512}
-print 'Simulation mesh size: mesh: ', mesh
-print ''
-
+# Choose simulation
 if(!exists('sim')) {sim='Multidark'}
 print 'Simulation: sim: ', sim
 print ''
 
+# Mesh size
+if(!exists('mesh')) {mesh=512}
+print 'Simulation mesh size: mesh: ', mesh
+print ''
+
+# Catalogue
+print 'Set catalogue: BDMV or rockstar'
+if(!exists('cat')) {cat='rockstar'}
+print 'cat = ', cat
+print ''
+
 # k axis
-kmin=7e-3
+kmin=5e-3
 kmax=2e0
 klab='k / h Mpc^{-1}'
 set log x
 set xrange [kmin:kmax]
+#set xrange [*:*]
 set xlabel klab
 
 # Displacement factor for residuals plots
@@ -86,22 +96,19 @@ c2=6
 # Axis stuff for residual
 rmin=0.5
 rmax=1.5
+#rmin=0.
+#rmax=2.
 rlab='P_{uv,mod}(k) / P_{uv,sim}(k)'
 
-# Scale factor for plot
-# a = 1.00109
-# a = 0.68215
-# a = 0.59103
-# a = 0.49990
-# a = 0.25690
-if(!exists('a')) {a=1.00109}
-print 'Scale factor: a: ', a
+# Snapshot
+if(!exists('snap')) {snap=85}
+print 'Snapshot: snap = ', snap
 print ''
 
 set key bottom right
 
-print 'Example simulation file: ', power(sim,mesh,a,1,1)
-print 'Example halo-model filed: ', hmod(a,1,1,'standard')
+print 'Example simulation file: ', power(sim,mesh,cat,snap,1,1)
+print 'Example halo-model filed: ', hmod(snap,1,1,'standard')
 print ''
 
 if(!exists('nf')) {nf=4}
@@ -167,13 +174,13 @@ set ylabel ''; set format y ''
 }
 
 # Do the plotting
-plot power(sim,mesh,a,b1,b2) u 1:($2/$1**pow):($5/$1**pow) w e pt 7 ps .5 lw 2 lc -1 ti 'Multidark',\
-     hmod(a,b1,b2,'standard')  u 1:($2/$1**pow) w l lw 3 lc -1 dt 1 ti 'Linear theory',\
-     hmod(a,b1,b2,'standard')  u 1:($3/$1**pow) w l lw 3 lc c1 dt 2 noti 'Two-halo term',\
-     hmod(a,b1,b2,'standard')  u 1:($4/$1**pow) w l lw 3 lc c1 dt 3 noti 'One-halo term',\
-     hmod(a,b1,b2,'standard')  u 1:($5/$1**pow) w l lw 3 lc c1 dt 1 ti 'Standard halo model',\
-     hmod(a,b1,b2,'bnl')       u 1:($3/$1**pow) w l lw 3 lc c2 dt 2 noti,\
-     hmod(a,b1,b2,'bnl')       u 1:($5/$1**pow) w l lw 3 lc c2 dt 1 ti 'Non-linear bias halo model'
+plot power(sim,mesh,cat,snap,b1,b2)   u 1:($2/$1**pow):($5/$1**pow) w e pt 7 ps .5 lw 2 lc -1 ti 'Multidark',\
+     hmod(snap,b1,b2,'standard')      u 1:($2/$1**pow) w l lw 3 lc -1 dt 1 ti 'Linear theory',\
+     hmod(snap,b1,b2,'standard')      u 1:($3/$1**pow) w l lw 3 lc c1 dt 2 noti 'Two-halo term',\
+     hmod(snap,b1,b2,'standard')      u 1:($4/$1**pow) w l lw 3 lc c1 dt 3 noti 'One-halo term',\
+     hmod(snap,b1,b2,'standard')      u 1:($5/$1**pow) w l lw 3 lc c1 dt 1 ti 'Standard halo model',\
+     hmod(snap,b1,b2,'bnl')           u 1:($3/$1**pow) w l lw 3 lc c2 dt 2 noti,\
+     hmod(snap,b1,b2,'bnl')           u 1:($5/$1**pow) w l lw 3 lc c2 dt 1 ti 'Non-linear bias halo model'
 
 }
 
@@ -210,8 +217,8 @@ set ylabel ''
 b1=b[j]; type1=type[j]
 b2=b[i-2]; type2=type[i-2]
 
-print 'i = ', i, '; j = ', j, '; bin1 = ', b1, '; type 1 = ', type1
-print 'i = ', i, '; j = ', j, '; bin2 = ', b2, '; type 2 = ', type2
+print 'snap = ', snap, '; cat = ', cat, '; i = ', i, '; j = ', j, '; bin1 = ', b1, '; type 1 = ', type1
+print 'snap = ', snap, '; cat = ', cat, '; i = ', i, '; j = ', j, '; bin2 = ', b2, '; type 2 = ', type2
 print ''
 
 set label 'u = '.type1.'' at graph 0.94,0.9 right
@@ -219,8 +226,8 @@ set label 'v = '.type2.'' at graph 0.94,0.8 right
 
 # Do the plotting
 plot 1 w l lt -1 noti,\
-     '<paste '.hmod(a,b1,b2,'standard').' '.power(sim,mesh,a,b1,b2).'' u ($1/disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c1 ti 'Standard halo model',\
-     '<paste '.hmod(a,b1,b2,'bnl').' '.power(sim,mesh,a,b1,b2).''      u ($1*disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c2 ti 'Non-linear bias model'
+     '<paste '.hmod(snap,b1,b2,'standard').' '.power(sim,mesh,cat,snap,b1,b2).'' u ($1/disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c1 ti 'Standard halo model',\
+     '<paste '.hmod(snap,b1,b2,'bnl').'      '.power(sim,mesh,cat,snap,b1,b2).'' u ($1*disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c2 ti 'Non-linear bias model'
 
 }
 
@@ -234,8 +241,6 @@ unset label
 }
 
 unset multiplot
-
-print 'Scale factor: a: ', a
 
 show output
 unset output

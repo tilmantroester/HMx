@@ -53,7 +53,7 @@ print 'Plotting this number of cosmolgies: ncos: ', ncos
 print ''
 
 # Residual range
-dy=0.34
+dy=0.22
 ddy=0.05
 set yrange [1.-dy:1+dy]
 

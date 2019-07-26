@@ -1,0 +1,9 @@
+{
+    "version": "2.0.0",
+    "name": "debug",
+    "command": "make",
+    "args": [
+        "debug"
+    ],
+    "cwd": "${workspaceRoot}"
+}
