@@ -55,3 +55,6 @@ emu_params.txt
 
 # Fortran language server config
 .fortls
+
+# VScode
+.vscode

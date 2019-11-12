@@ -2,7 +2,7 @@
 
 # Standard HMx flags
 HMX_FFLAGS = \
-	-Warray-bounds \
+	-fcheck=all \
 	-fmax-errors=4 \
 	-ffpe-trap=invalid,zero,overflow \
 	-fimplicit-none \
@@ -10,6 +10,7 @@ HMX_FFLAGS = \
 	-fdefault-real-8 \
 	-fdefault-double-8 \
 	-fopenmp# \
+	-Warray-bounds \
 	-lgfortran \
 	-lm
 

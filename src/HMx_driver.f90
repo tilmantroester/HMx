@@ -4201,8 +4201,8 @@ CONTAINS
       REAL, PARAMETER :: amin = 1./3.
       REAL, PARAMETER :: amax = 1.0
       INTEGER, PARAMETER :: na = 16
-      CHARACTER(len=256), PARAMETER :: outfile_HMx='data/power_HMcode_HMx.dat'
-      CHARACTER(len=256), PARAMETER :: outfile_CAMB='data/power_HMcode_CAMB.dat'
+      CHARACTER(len=256), PARAMETER :: outfile_HMx = 'data/power_HMcode_HMx.dat'
+      CHARACTER(len=256), PARAMETER :: outfile_CAMB = 'data/power_HMcode_CAMB.dat'
       REAL, PARAMETER :: k_crap = 0.1      ! Wavenumber for first run to prevent function write [h/Mpc]
       REAL, PARAMETER :: a_crap = 1.0      ! Scale factor for first run to prevent function write
       REAL, PARAMETER :: eps = 0.01        ! Fractional error tolerance for the test 
@@ -4211,7 +4211,7 @@ CONTAINS
       REAL, PARAMETER :: amin_test = 1./3. ! Minimum scale factor for test
       REAL, PARAMETER :: amax_test = 1.    ! Maximum scale factor for test
       INTEGER, PARAMETER :: iseed = 0      ! Seed for random number generator for tests
-      INTEGER, PARAMETER :: ntest = 1    ! Number of tests to run
+      INTEGER, PARAMETER :: ntest = 100    ! Number of tests to run
       LOGICAL, PARAMETER :: verbose_test = .FALSE.
       LOGICAL, PARAMETER :: stop_on_fail = .TRUE.
 
