@@ -3,10 +3,10 @@ reset
 print ''
 
 print 'Choose terminal'
-print 'print = 0: aqua'
+print 'print = 0: qt'
 print 'print = 1: eps'
 if(!exists('print')) {print=0}
-if(print == 0) {set term aqua dashed}
+if(print == 0) {set term qt dashed}
 if(print == 1) {set term post enh col; set output 'HMF_amplitude.eps'}
 print 'print = ', print
 print ''

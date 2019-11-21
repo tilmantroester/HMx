@@ -2,7 +2,7 @@ unset multiplot
 reset
 
 if(!exists('print')){print=0}
-if(print==0){set term aqua; sun='sun'}
+if(print==0){set term qt; sun='sun'}
 
 print ''
 

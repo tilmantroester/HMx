@@ -1,7 +1,7 @@
 unset multiplot
 reset
 
-set term aqua dashed dl 1
+set term qt dashed dl 1
 
 benc(f1,f2)=sprintf('benchmarks/cl_%s_%s.txt',f1,f2)
 data(f1,f2)=sprintf('data/cl_%s_%s.dat',f1,f2)

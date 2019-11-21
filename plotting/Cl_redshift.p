@@ -2,7 +2,7 @@ reset
 
 cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
-if(print==0){set term aqua}
+if(print==0){set term qt}
 if(print==1){set term post enh col sol fontfile cmmi; set output 'Cl_redshift.eps'}
 
 cl(z1,z2)=sprintf('data/redshift_%i_%i_cl_hm.dat',z1,z2)

@@ -6,7 +6,7 @@ cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
 # Print options
 if(!exists('print')){print=0}
-if(print==0){set term aqua; ell='l'}
+if(print==0){set term qt; ell='l'}
 if(print==1){set term post enh col fontfile cmmi; set output 'CMB_lensing.eps'; ell='{/cmmi10 \140}'}
 
 # File paths

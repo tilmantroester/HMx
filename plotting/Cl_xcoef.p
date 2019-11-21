@@ -4,7 +4,7 @@ unset multiplot
 cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
 if(!exists('print')){print=0}
-if(print==0){set term aqua; ell='l'}
+if(print==0){set term qt; ell='l'}
 if(print==1){set term post enh col fontfile cmmi; ell='{/cmmi10 \140}'; set output 'xcoef.eps'}
 
 Cl_11='data/cl_first.dat'

@@ -8,9 +8,9 @@ print ''
 
 # Terminal options
 if(!exists('print')) {print=0}
-print 'print = 0: aqua'
+print 'print = 0: qt'
 print 'print = 1: eps'
-if(print==0) {set term aqua font ',8' size 1000,600}
+if(print==0) {set term qt font ',8' size 1000,600}
 if(print==1) {set term post enh col font ',8' size 10,6; set output 'bnl.eps'}
 print 'print = ', print
 print ''

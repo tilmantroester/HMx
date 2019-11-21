@@ -1,7 +1,7 @@
 reset
 
 if(!exists('print')) {print=0}
-if(print==0) {set term aqua dashed}
+if(print==0) {set term qt dashed}
 
 #This gnuplot script plots the output file 'power.dat' that is spat out of HMcode.
 #Simply load up gnuplot (type gnuplot in the terminal) and then type "gnuplot>load 'plot.p'"

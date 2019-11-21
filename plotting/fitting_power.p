@@ -2,7 +2,7 @@ unset multiplot
 reset
 
 if(!exists('print')){print=0}
-if(print==0) {set term aqua dashed font ',8' dl 1}
+if(print==0) {set term qt dashed font ',8' dl 1}
 if(print==1) {set term post enh col font ',12'; set output 'fitting_power.eps'}
 if(print==2) {set term qt}
 

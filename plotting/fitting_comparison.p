@@ -3,7 +3,7 @@ reset
 
 # Set terminal
 if(!exists('print')) {print=0}
-if(print==0) {set term aqua dashed dl 1 font ',10'}
+if(print==0) {set term qt dashed dl 1 font ',10'}
 if(print==1) {set term post enh col font ',9'}
 
 # File

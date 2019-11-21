@@ -3,7 +3,7 @@ reset
 cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
 if(!exists('print')){print=0}
-if(print==0){set term aqua dashed; ell='l'}
+if(print==0){set term qt dashed; ell='l'}
 if(print==1){set term post enh col fontfile cmmi font ',12'; set output 'cosmoSIS_triad_comparisons.eps'; ell='{/cmmi10 \140}'}
 
 hmx(f1,f2)=sprintf('data/triad_Cl_AGN_%s-%s.dat',f1,f2)

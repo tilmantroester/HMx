@@ -1,7 +1,7 @@
 reset
 unset multiplot
 
-set term aqua size 1000,1000
+set term qt size 1000,1000
 
 # Initial white space
 print ''

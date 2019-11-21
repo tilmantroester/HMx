@@ -4,7 +4,7 @@ unset multiplot
 cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 
 if(!exists("print")){print=0}
-if(print==0){set term aqua dashed font ',14'; ell='l'}
+if(print==0){set term qt dashed font ',14'; ell='l'}
 if(print==1){set term post enh col fontfile cmmi; set output 'Cl.eps'; ell='{/cmmi10 \140}'}
 
 #Files to plot

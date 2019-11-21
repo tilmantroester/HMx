@@ -3,7 +3,7 @@ reset
 cmmi='/Users/Mead/Fonts/cmmi10.pfb'
 cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
-if(print==0){set term aqua; ell='l'; msun='M'}
+if(print==0){set term qt; ell='l'; msun='M'}
 if(print==1){set term post enh col sol fontfile cmmi fontfile cmsy; set output 'Cl_mass.eps'; ell='{/cmmi10 \140}'; msun='{/cmsy10 \014}'}
 
 cl(m1,m2)=sprintf('data/mass_%i_%i_cl_hm.dat',m1,m2)

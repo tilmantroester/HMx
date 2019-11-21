@@ -3,7 +3,7 @@ reset
 
 load '/Users/Mead/Physics/library/gnuplot/mead.p'
 
-set term aqua dashed dl 1 size 1000,800 font ',16'
+set term qt dashed dl 1 size 1000,800 font ',16'
 
 bench(name)=sprintf('benchmarks/power_HMcode_%s.txt',name)
 power(name)=sprintf('data/power_HMx_%s_hm.dat',name)

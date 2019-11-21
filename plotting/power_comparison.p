@@ -2,7 +2,7 @@ unset multiplot
 reset
 
 if(!exists('print')){print=0}
-if(print==0){set term aqua dashed}
+if(print==0){set term qt dashed}
 if(print==1){set term post enh col sol; set output 'power_comparison.eps'}
 
 kmin=1e-3

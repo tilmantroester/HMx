@@ -1,7 +1,7 @@
 reset
 
 if(!exists('print')) {print=0}
-if(print==0) {set term aqua}
+if(print==0) {set term qt}
 
 set size square
 

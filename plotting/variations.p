@@ -6,7 +6,7 @@ cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
 # Terminal information
 if(!exists("print")){print=0}
-if(print==0){set term aqua dashed font ',10' size 800,900; sun='sun'}
+if(print==0){set term qt dashed font ',10' size 800,900; sun='sun'}
 if(print==1){set term post enh col dashed dl 1 fontfile cmsy font ',7' size 8,9; sun='{/cmsy10 \014}'}
 
 # Initial white space

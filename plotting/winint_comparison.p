@@ -1,7 +1,7 @@
 unset multiplot
 reset
 
-set term aqua dashed
+set term qt dashed
 
 n=13    # Number of methods
 ibase=4 # Base-line method (should be best)

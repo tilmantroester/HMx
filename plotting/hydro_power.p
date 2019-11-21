@@ -3,7 +3,7 @@ reset
 
 # Terminal options
 if(!exists('print')){print=0}
-if(print==0) {set term aqua dashed dl 1 size 1000,800}
+if(print==0) {set term qt dashed dl 1 size 1000,800}
 if(print==1) {set term post enh col dashed dl .5 font ',10'}
 
 # Initial white space
@@ -616,7 +616,7 @@ plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
 
 if(iplot==8 || iplot==10){
 
-if(print==0){set term aqua dashed size 1200,800}
+if(print==0){set term qt dashed size 1200,800}
 
 if(print==1){
 #outfile(name,z)=sprintf('%s_z%1.1f_power.eps',name,z)
@@ -706,7 +706,7 @@ print 'Note that k ranges mus align here!'
 print ''
 
 # Terminal commands
-if(print==0){set term aqua dashed size 1200,800}
+if(print==0){set term qt dashed size 1200,800}
 if(print==1){set term post enh col dashed; set output 'response_ratio.eps'}
 
 # Label position

@@ -2,7 +2,7 @@ unset multiplot
 reset
 
 if(!exists('print')){print=0}
-if(print==0) set term aqua
+if(print==0) set term qt
 if(print==1) set term post enh col; set output 'kernels.eps'
 
 k1='data/kernel1.dat'

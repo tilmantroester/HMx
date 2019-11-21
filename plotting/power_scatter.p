@@ -1,7 +1,7 @@
 reset
 
 if(!exists('print')){print=0}
-if(print==0) {set term aqua dashed}
+if(print==0) {set term qt dashed}
 if(print==1) {set term post enh col; set output 'power_scatter.eps'}
 
 pow_norm='data/power_hm.dat'
