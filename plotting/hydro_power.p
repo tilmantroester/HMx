@@ -330,9 +330,9 @@ outfile='paper/suppression.eps'
 set output outfile
 }
 
-kmin=0.011
-kmax=9.9
-set xrange [kmin:kmax]
+#kmin=0.011
+#kmax=20.
+#set xrange [kmin:kmax]
 
 rmin=0.76
 rmax=1.06
