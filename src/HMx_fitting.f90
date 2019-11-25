@@ -38,11 +38,11 @@ PROGRAM HMx_fitting
    LOGICAL :: resp_BAHAMAS
 
    ! Halo model calculation parameters
-   REAL, PARAMETER :: mmin = mmin_HMx ! Minimum halo mass for the calculation
-   REAL, PARAMETER :: mmax = mmax_HMx ! Maximum halo mass for the calculation
+   !REAL, PARAMETER :: mmin = mmin_HMx ! Minimum halo mass for the calculation
+   !REAL, PARAMETER :: mmax = mmax_HMx ! Maximum halo mass for the calculation
 
    INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
-   !INTEGER, PARAMETER :: m=100                ! Re-evaluate range every 'm' points
+   !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
    INTEGER, PARAMETER :: seed = 0               ! Random-number seed
    LOGICAL, PARAMETER :: random_start = .FALSE. ! Start from a random point within the prior range
    LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
@@ -210,7 +210,8 @@ PROGRAM HMx_fitting
    CALL init_halomods(imode, hmod, ncos)
 
    ! Print one halo model out to check it looks sensible
-   CALL init_halomod(mmin, mmax, scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
+   !CALL init_halomod(mmin, mmax, scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
+   CALL init_halomod(scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
    CALL print_halomod(hmod(1), cosm(1), verbose=.TRUE.)
 
    ! Read in the simulation power spectra
@@ -360,6 +361,13 @@ CONTAINS
       fit%maximum(param_ibeta) = 2.
       fit%log(param_ibeta) = .FALSE.
 
+      fit%name(param_gbeta) = 'gas_beta'
+      fit%original(param_gbeta) = 0.6 ! Standard value from ihm=3
+      fit%sigma(param_gbeta) = 0.01
+      fit%minimum(param_gbeta) = 0.01
+      fit%maximum(param_gbeta) = 0.99
+      fit%log(param_gbeta) = .FALSE.
+
       !! !!
 
       !! Hydro - M indices !!
@@ -490,6 +498,13 @@ CONTAINS
       fit%minimum(param_ibetaz) = -1.
       fit%maximum(param_ibetaz) = 1.
       fit%log(param_ibetaz) = .FALSE.
+
+      fit%name(param_gbetaz) = 'gas_beta_z_pow'
+      fit%original(param_gbetaz) = 0.0 ! Standard value from ihm=3
+      fit%sigma(param_gbetaz) = 0.01
+      fit%minimum(param_gbetaz) = -1.
+      fit%maximum(param_gbetaz) = 1.
+      fit%log(param_gbetaz) = .FALSE.
 
       !!
 
@@ -1023,6 +1038,7 @@ CONTAINS
             fit%set(param_Gammap) = .TRUE.
             fit%set(param_M0) = .TRUE.
             fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
+            fit%set(param_gbeta) = .TRUE. ! Test
 
          ELSE IF (im == 11) THEN
 
@@ -1058,10 +1074,10 @@ CONTAINS
             fit%set(param_Astar) = .TRUE.
             fit%set(param_cstar) = .TRUE.
             fit%set(param_Mstar) = .TRUE.
-            !fit%set(param_sstar)=.TRUE.  ! Does not provide a significant improvement
-            !fit%set(param_Astarp)=.TRUE. ! Does not provide a significant improvement
-            !fit%set(param_cstarp)=.TRUE. ! Does not provide a significant improvement
-            !fit%set(param_eta)=.TRUE.    ! Does not provide a significant improvement
+            !fit%set(param_sstar) = .TRUE.  ! Does not provide a significant improvement
+            !fit%set(param_Astarp) = .TRUE. ! Does not provide a significant improvement
+            !fit%set(param_cstarp) = .TRUE. ! Does not provide a significant improvement
+            !fit%set(param_eta) = .TRUE.    ! Does not provide a significant improvement
 
             ! None of the commented-out parameters provide a significant improvement
             ! Main problem seems to be model fitting poorly at transition region at high z
@@ -1340,14 +1356,15 @@ CONTAINS
 
                   ! Read in power spectra
                   IF (im == 1 .OR. im == 3) THEN
-                     CALL read_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im == 2 .OR. im == 4) THEN
-                     CALL read_FrankenEmu_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im >= 11) THEN
                      ip(1) = fields(j1)
                      ip(2) = fields(j2)
                      CALL read_BAHAMAS_power(k_sim, pow_sim, nk, z(j), name, mesh, ip, cosm(i), &
-                                             kmin_default, kmax_default, cut_nyquist, subtract_shot, response=resp_BAHAMAS, verbose=verbose_BAHAMAS)
+                                             kmin_default, kmax_default, cut_nyquist, subtract_shot, &
+                                             response=resp_BAHAMAS, verbose=verbose_BAHAMAS)
                   ELSE
                      STOP 'READ_SIMULATION_POWER_SPECTRA: Error, something went wrong reading data'
                   END IF
@@ -1417,6 +1434,7 @@ CONTAINS
       IF (fit%set(param_fhot)) hmod%fhot = p_out(param_fhot)
       IF (fit%set(param_eta)) hmod%eta = p_out(param_eta)
       IF (fit%set(param_ibeta)) hmod%ibeta = p_out(param_ibeta)
+      IF (fit%set(param_gbeta)) hmod%gbeta = p_out(param_gbeta)
 
       ! Hydro - mass indices
       IF (fit%set(param_alphap)) hmod%alphap = p_out(param_alphap)
@@ -1437,6 +1455,7 @@ CONTAINS
       IF (fit%set(param_mstarz)) hmod%mstarz = p_out(param_mstarz)
       IF (fit%set(param_Twhimz)) hmod%Twhimz = p_out(param_Twhimz)
       IF (fit%set(param_ibetaz)) hmod%ibetaz = p_out(param_ibetaz)
+      IF (fit%set(param_gbetaz)) hmod%gbetaz = p_out(param_gbetaz)
 
    END SUBROUTINE set_HMx_parameters
 
@@ -1482,7 +1501,7 @@ CONTAINS
          DO iz = 1, nz
 
             ! Initialise the halo-model calculation
-            CALL init_halomod(mmin, mmax, scale_factor_z(z(iz)), hmod(icos), cosm(icos), verbose=.FALSE.)
+            CALL init_halomod(scale_factor_z(z(iz)), hmod(icos), cosm(icos), verbose=.FALSE.)
             CALL print_halomod(hmod(icos), cosm(icos), verbose=.FALSE.)
 
             ! Calculate the halo-model power spectrum
@@ -1512,6 +1531,7 @@ CONTAINS
    SUBROUTINE set_parameter_sigma(p_original, np, delta, fields, nf, k, nk, z, nz, pow_sim, weight, fit, hmod, cosm, ncos, verbose)
 
       USE interpolate
+      USE array_operations
 
       ! Calculates the sigma to jump parameters by
       IMPLICIT NONE
@@ -1544,7 +1564,7 @@ CONTAINS
       INTEGER, PARAMETER :: nm = 16         ! Number of parameter sigmas to check
       REAL, PARAMETER :: eps = 2.0          ! Tolerated error in fom difference when setting range if doing finesse
       LOGICAL, PARAMETER :: check = .FALSE. ! Do we check eps?
-      LOGICAL, PARAMETER :: debug = .TRUE. ! Debug?
+      LOGICAL, PARAMETER :: debug = .FALSE. ! Debug?
       INTEGER, PARAMETER :: iorder = 1      ! Order for interpolation to find correct dfom (cubic causes issues with non-monotonic)
 
       IF (verbose) THEN
@@ -1662,7 +1682,7 @@ CONTAINS
 
                   ! Use find to interpolate to get the sigma that results in the correct dfom
                   fit%sigma(i) = exp(find(log(delta), log(abs(dfom_unique)), log(abs(sigmas_unique)), nnm, &
-                                          iorder=iorder, ifind=3, imeth=2))
+                                          iorder=iorder, ifind=3, iinterp=2))
 
                   ! Deallocate arrays for unique figure of merit and sigma values
                   DEALLOCATE (dfom_unique, sigmas_unique)
@@ -1720,7 +1740,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: nf
       INTEGER, INTENT(IN) :: nk
       INTEGER, INTENT(IN) :: nz
-      REAL :: pow_hmcode(nk), a(nz)
+      REAL :: pow_hmcode(nk, nz), a(nz)
       CHARACTER(len=256) :: outfile, outbit
       CHARACTER(len=10) :: uscore, nothing, mid, ext
       INTEGER :: icos, iz, i1, i2, ik
@@ -1738,8 +1758,8 @@ CONTAINS
 
       ! Loop over everything
       DO icos = 1, ncos
+         CALL calculate_HMcode(k, a, pow_HMcode, nk, nz, cosm(icos))
          DO iz = 1, nz
-            CALL calculate_HMcode_a(k, a(iz), pow_hmcode, nk, cosm(icos))
             DO i1 = 1, nf
                DO i2 = i1, nf
                   outbit = number_file(base, icos, uscore)
@@ -1748,7 +1768,7 @@ CONTAINS
                   WRITE (*, *) 'WRITE_FITTING_POWER: Outfile: ', trim(outfile)
                   OPEN (7, file=outfile)
                   DO ik = 1, nk
-                     WRITE (7, *) k(ik), pow_mod(icos, i1, i2, ik, iz), pow_sim(icos, i1, i2, ik, iz), pow_hmcode(ik)
+                     WRITE (7, *) k(ik), pow_mod(icos, i1, i2, ik, iz), pow_sim(icos, i1, i2, ik, iz), pow_hmcode(ik, iz)
                   END DO
                   CLOSE (7)
                   WRITE (*, *) 'WRITE_FITTING_POWER: Done'
