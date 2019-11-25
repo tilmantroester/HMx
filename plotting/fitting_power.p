@@ -70,11 +70,11 @@ print 'Example data file: ', data(base,'best',1,1,1,1)
 print ''
 }
 
-#off=1.5
-#kmin=0.01/off
-#kmax=10.*off
-#set xrange [kmin:kmax]
-set xrange [*:*]
+off=1.5
+kmin=0.01/off
+kmax=10.*off
+set xrange [kmin:kmax]
+#set xrange [*:*]
 set log x
 
 top=0.98
@@ -99,9 +99,9 @@ set ylabel plab
 set format y '10^{%T}'
 
 plot for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:3 w p lc j1 dt 1 lw 2 ti 'BAHAMAS',\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:2 w l lc 0  dt 1 lw 2 ti 'HMx',\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'orig',i,j1,j2,j) u 1:2 w l lc 0  dt 1 lw 2 ti 'Original HMx',\
      for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:4 w l lc -1 dt 1 lw 2 ti 'HMcode',\
-     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:2 w l lc j1 dt 1 lw 2 ti 'HMx',\
+     for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:2 w l lc j1 dt 1 lw 2 ti 'Best HMx',\
      for [i=1:ncos] for [j=1:nz] for [j1=1:nf] for [j2=j1:nf] data(base,'best',i,j1,j2,j) u 1:2 w l lc j2 dt 2 lw 2 noti
 
 set xlabel klab
