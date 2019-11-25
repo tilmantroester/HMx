@@ -263,12 +263,6 @@ PROGRAM HMx_driver
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
-      ! Set the scale factor and range (linearly spaced)
-      !na=16
-      !amin=0.2
-      !amax=1.0
-      !CALL fill_array(amin,amax,a,na)
-
       ! Set the number of redshifts and range (linearly spaced) and convert z -> a
       zmin = 0.
       zmax = 4.
@@ -2052,7 +2046,7 @@ PROGRAM HMx_driver
             ! Write out halo mass fraction information
             base = 'data/mass_fractions_param_'
             outfile = number_file2(base, ipa, mid, i, ext)
-            CALL write_mass_fractions(hmod, cosm, outfile)
+            CALL write_halo_fractions(hmod, cosm, outfile)
 
             CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
 
@@ -4302,6 +4296,7 @@ CONTAINS
    SUBROUTINE non_linear_halo_bias_integrand()
 
       ! Non-linear halo bias integrand
+      USE table_integer
       IMPLICIT NONE
       REAL, ALLOCATABLE :: k(:), nu(:)
       REAL :: nu1, nu2, rv1, rv2, B_NL, I_NL
@@ -4319,6 +4314,8 @@ CONTAINS
       REAL, PARAMETER :: numin = 0.
       REAL, PARAMETER :: numax = 3.
       INTEGER, PARAMETER :: nnu = 100
+      INTEGER, PARAMETER :: ifind=ifind_split
+      INTEGER, PARAMETER :: iinterp=iinterp_Lagrange
 
       ! Set cosmology
       !icosmo=37
@@ -4370,8 +4367,8 @@ CONTAINS
             DO j = 1, nnu
                nu1 = nu_tab(i)
                nu2 = nu_tab(j)
-               rv1 = exp(find(nu1, hmod%nu, log(hmod%rv), hmod%n, iorder=3, ifind=3, imeth=2))
-               rv2 = exp(find(nu2, hmod%nu, log(hmod%rv), hmod%n, iorder=3, ifind=3, imeth=2))
+               rv1 = exp(find(nu1, hmod%nu, log(hmod%rv), hmod%n, iorder=3, ifind=ifind, iinterp=iinterp))
+               rv2 = exp(find(nu2, hmod%nu, log(hmod%rv), hmod%n, iorder=3, ifind=ifind, iinterp=iinterp))
                B_NL = BNL(k(ik), nu1, nu2, rv1, rv2, hmod) ! Needed because otherwise function writes
                I_NL = B_NL*g_nu(nu1, hmod)*b_nu(nu1, hmod)*g_nu(nu2, hmod)*b_nu(nu2, hmod)
                WRITE (7, *) nu1, nu2, B_NL, I_NL
