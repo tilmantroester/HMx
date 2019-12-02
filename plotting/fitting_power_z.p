@@ -8,6 +8,7 @@ if(print==1) {set term post enh col sol font ',10'}
 # Initial white space
 print ''
 
+# String functions
 fname(base,z,n,m,best,f1,f2)=sprintf('%s_z%4.3f_n%i_m%i_c1_%s_cos1_%i%i_z1.dat',base,z,n,m,best,f1,f2)
 sim(f1,f2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_L400N1024_WMAP9_snap32_%s_%s_power.dat',mod,f1,f2)
 outfile(m,imode)=sprintf('fitting_m%d_type%d.eps',m,imode)
@@ -38,7 +39,10 @@ if(!exists('nf')) {nf=1}
 print 'Number of fields: nf: ', nf
 print ''
 
+kmin=0.01
+kmax=10.
 set log x
+set xrange[kmin:kmax]
 
 if(imode==1){
 unset log y

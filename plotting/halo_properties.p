@@ -6,6 +6,7 @@ unset multiplot
 cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 
 #Terminal command
+if(!exists('print')){print=0}
 if(print==0){set term qt; sun='sun'}
 if(print==1){set term post enh col fontfile cmsy; set output 'halo_properties.eps'; sun='{/cmsy10 \014}'}
 
