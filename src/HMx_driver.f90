@@ -35,13 +35,13 @@ PROGRAM HMx_driver
    REAL, ALLOCATABLE :: all_ell(:), all_Cl(:, :, :)
    REAL, ALLOCATABLE :: zs(:), masses(:)
    REAL, ALLOCATABLE :: z_tab(:), HI_frac(:), nu_tab(:)
-   INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx, n_all, l, n_edge, ik
-   INTEGER :: n, nl, nz, nth, nnz, m, ipa, ncos, ncore, nfeed, nsim, nnu
+   INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx, n_all, l, n_edge
+   INTEGER :: n, nl, nz, nth, nnz, m, ipa, ncos, ncore, nfeed, nsim
    INTEGER :: ip(2), ix(2), field(1)
    INTEGER, ALLOCATABLE :: fields(:), ixx(:), snaps(:)
    REAL :: kmin, kmax, amin, amax, lmin, lmax, thmin, thmax, zmin, zmax
    REAL :: rcore_min, rcore_max, lmax_xi
-   REAL :: z, z1, z2, r1, r2, a1, a2, nu1, nu2, B_NL, I_NL
+   REAL :: z, z1, z2, r1, r2, a1, a2
    TYPE(cosmology) :: cosm
    TYPE(cosmology), ALLOCATABLE :: cosms(:)
    TYPE(halomod) :: hmod
@@ -55,7 +55,7 @@ PROGRAM HMx_driver
    REAL :: sig8min, sig8max
    REAL :: mass, m1, m2, nu, numin, numax, mf
    REAL :: c, rmin, rmax, rv, rs, p1, p2, cmin, cmax, cbar
-   REAL :: spam, mmin_bnl, mmax_bnl
+   REAL :: spam
    CHARACTER(len=1) :: crap
    LOGICAL :: verbose2
    INTEGER :: ia1, ia2
@@ -4298,7 +4298,7 @@ CONTAINS
       ! Non-linear halo bias integrand
       USE table_integer
       IMPLICIT NONE
-      REAL, ALLOCATABLE :: k(:), nu(:)
+      REAL, ALLOCATABLE :: k(:)
       REAL :: nu1, nu2, rv1, rv2, B_NL, I_NL
       INTEGER :: i, j, ik
       CHARACTER(len=256) :: outfile
