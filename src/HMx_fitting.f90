@@ -9,232 +9,236 @@ PROGRAM HMx_fitting
    USE owls
    USE owls_extras
 
-   IMPLICIT NONE
-
    TYPE fitting
-      REAL, ALLOCATABLE :: minimum(:)            ! Minimum value this parameter is allowed to take
-      REAL, ALLOCATABLE :: maximum(:)            ! Maximum value this parameter is allowed to take
-      REAL, ALLOCATABLE :: original(:)           ! Starting value for this parameter
-      REAL, ALLOCATABLE :: sigma(:)              ! Sigma of jump size for this parameter
-      REAL, ALLOCATABLE :: best(:)               ! Best-fitting value for this parameter
-      LOGICAL, ALLOCATABLE :: set(:)             ! Should this parameter be fitted?
-      LOGICAL, ALLOCATABLE :: log(:)             ! Should this parameter be fitted in log?
-      LOGICAL, ALLOCATABLE :: cov(:)             ! Should we determine the jump size for this parameter?
-      CHARACTER(len=256), ALLOCATABLE :: name(:) ! Name of this parameter
-      INTEGER :: n                               ! Number of parameters
-   END TYPE fitting
+         REAL, ALLOCATABLE :: minimum(:)            ! Minimum value this parameter is allowed to take
+         REAL, ALLOCATABLE :: maximum(:)            ! Maximum value this parameter is allowed to take
+         REAL, ALLOCATABLE :: original(:)           ! Starting value for this parameter
+         REAL, ALLOCATABLE :: sigma(:)              ! Sigma of jump size for this parameter
+         REAL, ALLOCATABLE :: best(:)               ! Best-fitting value for this parameter
+         LOGICAL, ALLOCATABLE :: set(:)             ! Should this parameter be fitted?
+         LOGICAL, ALLOCATABLE :: log(:)             ! Should this parameter be fitted in log?
+         LOGICAL, ALLOCATABLE :: cov(:)             ! Should we determine the jump size for this parameter?
+         CHARACTER(len=256), ALLOCATABLE :: name(:) ! Name of this parameter
+         INTEGER :: n                               ! Number of parameters
+      END TYPE fitting
 
-   INTEGER :: imode
-   INTEGER :: ncos, nfields, nz, nk
-   REAL, ALLOCATABLE :: k(:), z(:), pow(:, :, :, :, :), weight(:, :, :, :, :)
-   INTEGER, ALLOCATABLE :: fields(:)
-   TYPE(fitting) :: fit
-   TYPE(halomod), ALLOCATABLE :: hmod(:)
-   TYPE(cosmology), ALLOCATABLE :: cosm(:)
-   CHARACTER(len=256) :: name, base, mode, zin, outbase, numchain, maxtime, accuracy, response
-   REAL :: delta
-   REAL :: tmax
-   INTEGER :: nchain
-   LOGICAL :: resp_BAHAMAS
+      INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
+      !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
+      INTEGER, PARAMETER :: seed = 0               ! Random-number seed
+      LOGICAL, PARAMETER :: random_start = .FALSE. ! Start from a random point within the prior range
+      LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
+      INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
+      LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
 
-   ! Halo model calculation parameters
-   !REAL, PARAMETER :: mmin = mmin_HMx ! Minimum halo mass for the calculation
-   !REAL, PARAMETER :: mmax = mmax_HMx ! Maximum halo mass for the calculation
+      ! k cuts for the BAHAMAS power spectra
+      REAL, PARAMETER :: kmin_default = 1e-4       ! Minimum wavenumber to read in [h/Mpc]
+      REAL, PARAMETER :: kmax_default = 1e2        ! Minimum wavenumber to read in [h/Mpc]
+      REAL, PARAMETER :: kmin_BAHAMAS = 0.03       ! Minimum wavenumber to use [h/Mpc]
+      !REAL, PARAMETER :: kmin_BAHAMAS=0.15       ! Minimum wavenumber to use [h/Mpc]
+      !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.   ! Maximum wavenumber to use [h/Mpc] at z=0.0
+      !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.    ! Maximum wavenumber to use [h/Mpc] at z=0.5
+      !REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.    ! Maximum wavenumber to use [h/Mpc] at z=1.0
+      !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.    ! Maximum wavenumber to use [h/Mpc] at z=2.0
+      REAL, PARAMETER :: kmax_BAHAMAS = 10.        ! Maximum wavenumber to us [h/Mpc]
+      REAL, PARAMETER :: z_default = 0.0           ! Default z to fit if not specified
+      INTEGER, PARAMETER :: mesh = 1024            ! BAHAMAS mesh size power to use
+      LOGICAL, PARAMETER :: cut_nyquist = .TRUE.   ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
+      LOGICAL, PARAMETER :: subtract_shot = .TRUE. ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
+      LOGICAL, PARAMETER :: response_default = .TRUE.                   ! Should I treat the BAHAMAS P(k) as HMcode response?
+      CHARACTER(len=256), PARAMETER :: outbase_default = 'fitting/test' ! Default output file
 
-   INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
-   !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
-   INTEGER, PARAMETER :: seed = 0               ! Random-number seed
-   LOGICAL, PARAMETER :: random_start = .FALSE. ! Start from a random point within the prior range
-   LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
-   INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
-   LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
-
-   ! k cuts for the BAHAMAS power spectra
-   REAL, PARAMETER :: kmin_default = 1e-4       ! Minimum wavenumber to read in [h/Mpc]
-   REAL, PARAMETER :: kmax_default = 1e2        ! Minimum wavenumber to read in [h/Mpc]
-   REAL, PARAMETER :: kmin_BAHAMAS = 0.03       ! Minimum wavenumber to use [h/Mpc]
-   !REAL, PARAMETER :: kmin_BAHAMAS=0.15       ! Minimum wavenumber to use [h/Mpc]
-   !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.   ! Maximum wavenumber to use [h/Mpc] at z=0.0
-   !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.    ! Maximum wavenumber to use [h/Mpc] at z=0.5
-   !REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.    ! Maximum wavenumber to use [h/Mpc] at z=1.0
-   !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.    ! Maximum wavenumber to use [h/Mpc] at z=2.0
-   REAL, PARAMETER :: kmax_BAHAMAS = 10.        ! Maximum wavenumber to us [h/Mpc]
-   REAL, PARAMETER :: z_default = 0.0           ! Default z to fit if not specified
-   INTEGER, PARAMETER :: mesh = 1024            ! BAHAMAS mesh size power to use
-   LOGICAL, PARAMETER :: cut_nyquist = .TRUE.   ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
-   LOGICAL, PARAMETER :: subtract_shot = .TRUE. ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
-   LOGICAL, PARAMETER :: response_default = .TRUE.                   ! Should I treat the BAHAMAS P(k) as HMcode response?
-   CHARACTER(len=256), PARAMETER :: outbase_default = 'fitting/test' ! Default output file
-
-   ! Read in starting option for which parameter fitting to run
-   CALL get_command_argument(1, mode)
-   IF (mode == '') THEN
-      imode = -1
-   ELSE
-      READ (mode, *) imode
-   END IF
-
-   ! Decide what to do
-   IF (imode == -1) THEN
-      WRITE (*, *)
-      WRITE (*, *) 'HMx_FITTING: Choose what to do'
-      WRITE (*, *) '=============================='
-      WRITE (*, *) ' 1 - Mira Titan nodes'
-      WRITE (*, *) ' 2 - FrankenEmu nodes'
-      WRITE (*, *) ' 3 - Random Mira Titan'
-      WRITE (*, *) ' 4 - Random FrankenEmu'
-      WRITE (*, *) '11 - Hydro: fixed z; final parameters; gas (isothermal)'
-      WRITE (*, *) '12 - Hydro: fixed z; final parameters; pressure (isothermal)'
-      WRITE (*, *) '13 - Hydro: fixed z; final parameters; matter and pressure (no pressure-pressure; isothermal)'
-      WRITE (*, *) '14 - Hydro: fixed z; final parameters; matter (isothermal)'
-      WRITE (*, *) '15 - Hydro: fixed z; final parameters; CDM, gas, stars'
-      WRITE (*, *) '16 - Hydro: fixed z; final parameters; matter, CDM, gas, stars'
-      WRITE (*, *) '17 - N/A'
-      WRITE (*, *) '18 - N/A'
-      WRITE (*, *) '19 - N/A'
-      WRITE (*, *) '20 - Hydro: fixed z; final parameters; matter and pressure (no pressure-pressure)'
-      WRITE (*, *) '21 - Hydro: extended z; final parameters; matter and pressure (no pressure-pressure)'
-      WRITE (*, *) '22 - N/A'
-      WRITE (*, *) '23 - N/A'
-      WRITE (*, *) '24 - N/A'
-      WRITE (*, *) '25 - N/A'
-      WRITE (*, *) '26 - Hydro: fixed z; basic parameters; CDM'
-      WRITE (*, *) '27 - Hydro: fixed z; basic parameters; matter, CDM, gas, stars'
-      WRITE (*, *) '28 - Hydro: fixed z; basic parameters; matter, CDM, gas, stars, pressure (no pressure-pressure)'
-      WRITE (*, *) '29 - Hydro: fixed z; basic parameters; matter'
-      WRITE (*, *) '30 - Hydro: fixed z; basic parameters; pressure'
-      WRITE (*, *) '31 - Hydro: fixed z; basic parameters; stars'
-      WRITE (*, *) '32 - Hydro: fixed z; basic parameters; gas'
-      WRITE (*, *) '33 - Hydro: fixed z; final parameters; CDM'
-      WRITE (*, *) '34 - Hydro: fixed z; final parameters; gas'
-      WRITE (*, *) '35 - Hydro: fixed z; final parameters; stars'
-      WRITE (*, *) '36 - Hydro: fixed z; final parameters; pressure'
-      WRITE (*, *) '37 - Hydro: fixed z; final parameters; CDM, gas, stars'
-      WRITE (*, *) '38 - Hydro: fixed z; final parameters; matter, CDM, gas, stars'
-      WRITE (*, *) '39 - Hydro: fixed z; final parameters; matter'
-      WRITE (*, *) '40 - Hydro: fixed z; final parameters; matter, CDM, gas, stars, pressure (no pressure-pressure)'
-      WRITE (*, *) '41 - Hydro: extended z; final parameters; CDM'
-      WRITE (*, *) '42 - Hydro: extended z; final parameters; gas'
-      WRITE (*, *) '43 - Hydro: extended z; final parameters; stars'
-      WRITE (*, *) '44 - Hydro: extended z; final parameters; matter'
-      WRITE (*, *) '45 - Hydro: extended z; final parameters; CDM, gas, stars'
-      WRITE (*, *) '46 - Hydro: extended z; final parameters; matter, CDM, gas, stars'
-      READ (*, *) imode
-      WRITE (*, *)
-   END IF
-
-   ! Read in chain length
-   CALL get_command_argument(2, numchain)
-   IF (numchain == '') THEN
-      WRITE (*, *) 'HMx_FITTING: Specify points in fitting chain'
-      READ (*, *) nchain
-      WRITE (*, *)
-   ELSE
-      READ (numchain, *) nchain
-   END IF
-
-   ! Read in maximum time [mins]
-   CALL get_command_argument(3, maxtime)
-   IF (maxtime == '') THEN
-      !tmax=tmax_default
-      WRITE (*, *) 'HMx_FITTING: Specify maximum time [min]:'
-      READ (*, *) tmax
-      WRITE (*, *)
-   ELSE
-      READ (maxtime, *) tmax
-   END IF
-
-   ! Accuracy
-   CALL get_command_argument(4, accuracy)
-   IF (accuracy == '') THEN
-      !delta=delta_default
-      WRITE (*, *) 'HMx_FITTING: Specify fitting accuracy:'
-      READ (*, *) delta
-      WRITE (*, *)
-   ELSE
-      READ (accuracy, *) delta
-   END IF
-
-   ! Read in outfile
-   CALL get_command_argument(5, outbase)
-   IF (outbase == '') outbase = outbase_default
-
-   ! Read in BAHAMAS simulation name
-   CALL get_command_argument(6, name)
-
-   ! Read in response logical that determines if we fit the BAHAMAS response or not
-   CALL get_command_argument(7, response)
-   IF (response == '') THEN
-      resp_BAHAMAS = response_default
-   ELSE IF (response == 'TRUE') THEN
-      resp_BAHAMAS = .TRUE.
-   ELSE IF (response == 'FALSE') THEN
-      resp_BAHAMAS = .FALSE.
-   ELSE
-      STOP 'HMx_FITTING: Error, response logical specified incorrectly (TRUE or FALSE)'
-   END IF
-
-   ! Read in BAHAMAS simulation redshift if doing fixed z
-   CALL get_command_argument(8, zin)
-
-   ! Set the random-number generator
-   CALL RNG_set(seed)
-
-   ! Initial white space
-   WRITE (*, *)
-
-   ! Write useful info to screen
-   WRITE (*, *) 'HMx_FITTING: Fitting routine'
-   WRITE (*, *) 'HMx_FITTING: Mode:', imode
-   WRITE (*, *) 'HMx_FITTING: Number of points in chain:', nchain
-   WRITE (*, *) 'HMx_FITTING: Maximum run time [mins]:', tmax
-   WRITE (*, *) 'HMx_FITTING: Maximum run time [hours]:', tmax/60.
-   WRITE (*, *) 'HMx_FITTING: Accuracy:', delta
-   WRITE (*, *) 'HMx_FITTING: Output file base: ', TRIM(outbase)
-   WRITE (*, *) 'HMx_FITTING: Random number seed:', seed
-   WRITE (*, *) 'HMx_FITTING: Random start:', random_start
-   WRITE (*, *) 'HMx_FITTING: MCMC mode:', mcmc
-   !WRITE(*,*) 'HMx_FITTING: Re-evaluate covariance:', m
-   WRITE (*, *)
-
-   ! Set the cosmological models
-   CALL init_cosmologies(imode, cosm, ncos)
-
-   ! Set the fields
-   CALL init_fields(imode, fields, nfields)
-
-   ! Set the redshifts
-   CALL init_redshifts(imode, z, nz)
-
-   ! Set the halo models
-   CALL init_halomods(imode, hmod, ncos)
-
-   ! Print one halo model out to check it looks sensible
-   !CALL init_halomod(mmin, mmax, scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
-   CALL init_halomod(scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
-   CALL print_halomod(hmod(1), cosm(1), verbose=.TRUE.)
-
-   ! Read in the simulation power spectra
-   CALL read_simulation_power_spectra(imode, k, nk, pow, cosm, ncos, z, nz, fields, nfields)
-
-   ! Set the weights
-   CALL init_weights(imode, weight, ncos, nfields, nk, nz)
-
-   ! Set the initial parameter values, ranges, names, etc.
-   CALL init_parameters(fit)
-
-   ! Set the parameters that will be varied
-   CALL init_mode(imode, fit)
-
-   ! Do the actual fitting algorithm
-   CALL actual_fitting(fit%original, fit%n, delta, tmax, nchain, k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos)
+   CALL main()
 
 CONTAINS
 
-   SUBROUTINE init_parameters(fit)
+   SUBROUTINE main()
+
+      IMPLICIT NONE
+
+      INTEGER :: imode
+      INTEGER :: ncos, nfields, nz, nk
+      REAL, ALLOCATABLE :: k(:), z(:), pow(:, :, :, :, :), weight(:, :, :, :, :)
+      INTEGER, ALLOCATABLE :: fields(:)
+      TYPE(fitting) :: fit
+      TYPE(halomod), ALLOCATABLE :: hmod(:)
+      TYPE(cosmology), ALLOCATABLE :: cosm(:)
+      CHARACTER(len=256) :: name, base, mode, zin, outbase, numchain, maxtime, accuracy, response
+      REAL :: delta
+      REAL :: tmax
+      INTEGER :: nchain
+      LOGICAL :: resp_BAHAMAS
+
+      ! Read in starting option for which parameter fitting to run
+      CALL get_command_argument(1, mode)
+      IF (mode == '') THEN
+         imode = -1
+      ELSE
+         READ (mode, *) imode
+      END IF
+
+      ! Decide what to do
+      IF (imode == -1) THEN
+         WRITE (*, *)
+         WRITE (*, *) 'HMx_FITTING: Choose what to do'
+         WRITE (*, *) '=============================='
+         WRITE (*, *) ' 1 - Mira Titan nodes'
+         WRITE (*, *) ' 2 - FrankenEmu nodes'
+         WRITE (*, *) ' 3 - Random Mira Titan'
+         WRITE (*, *) ' 4 - Random FrankenEmu'
+         WRITE (*, *) '11 - Hydro: fixed z; final parameters; gas (isothermal)'
+         WRITE (*, *) '12 - Hydro: fixed z; final parameters; pressure (isothermal)'
+         WRITE (*, *) '13 - Hydro: fixed z; final parameters; matter and pressure (no pressure-pressure; isothermal)'
+         WRITE (*, *) '14 - Hydro: fixed z; final parameters; matter (isothermal)'
+         WRITE (*, *) '15 - Hydro: fixed z; final parameters; CDM, gas, stars'
+         WRITE (*, *) '16 - Hydro: fixed z; final parameters; matter, CDM, gas, stars'
+         WRITE (*, *) '17 - N/A'
+         WRITE (*, *) '18 - N/A'
+         WRITE (*, *) '19 - N/A'
+         WRITE (*, *) '20 - Hydro: fixed z; final parameters; matter and pressure (no pressure-pressure)'
+         WRITE (*, *) '21 - Hydro: extended z; final parameters; matter and pressure (no pressure-pressure)'
+         WRITE (*, *) '22 - N/A'
+         WRITE (*, *) '23 - N/A'
+         WRITE (*, *) '24 - N/A'
+         WRITE (*, *) '25 - N/A'
+         WRITE (*, *) '26 - Hydro: fixed z; basic parameters; CDM'
+         WRITE (*, *) '27 - Hydro: fixed z; basic parameters; matter, CDM, gas, stars'
+         WRITE (*, *) '28 - Hydro: fixed z; basic parameters; matter, CDM, gas, stars, pressure (no pressure-pressure)'
+         WRITE (*, *) '29 - Hydro: fixed z; basic parameters; matter'
+         WRITE (*, *) '30 - Hydro: fixed z; basic parameters; pressure'
+         WRITE (*, *) '31 - Hydro: fixed z; basic parameters; stars'
+         WRITE (*, *) '32 - Hydro: fixed z; basic parameters; gas'
+         WRITE (*, *) '33 - Hydro: fixed z; final parameters; CDM'
+         WRITE (*, *) '34 - Hydro: fixed z; final parameters; gas'
+         WRITE (*, *) '35 - Hydro: fixed z; final parameters; stars'
+         WRITE (*, *) '36 - Hydro: fixed z; final parameters; pressure'
+         WRITE (*, *) '37 - Hydro: fixed z; final parameters; CDM, gas, stars'
+         WRITE (*, *) '38 - Hydro: fixed z; final parameters; matter, CDM, gas, stars'
+         WRITE (*, *) '39 - Hydro: fixed z; final parameters; matter'
+         WRITE (*, *) '40 - Hydro: fixed z; final parameters; matter, CDM, gas, stars, pressure (no pressure-pressure)'
+         WRITE (*, *) '41 - Hydro: extended z; final parameters; CDM'
+         WRITE (*, *) '42 - Hydro: extended z; final parameters; gas'
+         WRITE (*, *) '43 - Hydro: extended z; final parameters; stars'
+         WRITE (*, *) '44 - Hydro: extended z; final parameters; matter'
+         WRITE (*, *) '45 - Hydro: extended z; final parameters; CDM, gas, stars'
+         WRITE (*, *) '46 - Hydro: extended z; final parameters; matter, CDM, gas, stars'
+         READ (*, *) imode
+         WRITE (*, *)
+      END IF
+
+      ! Read in chain length
+      CALL get_command_argument(2, numchain)
+      IF (numchain == '') THEN
+         WRITE (*, *) 'HMx_FITTING: Specify points in fitting chain'
+         READ (*, *) nchain
+         WRITE (*, *)
+      ELSE
+         READ (numchain, *) nchain
+      END IF
+
+      ! Read in maximum time [mins]
+      CALL get_command_argument(3, maxtime)
+      IF (maxtime == '') THEN
+         !tmax=tmax_default
+         WRITE (*, *) 'HMx_FITTING: Specify maximum time [min]:'
+         READ (*, *) tmax
+         WRITE (*, *)
+      ELSE
+         READ (maxtime, *) tmax
+      END IF
+
+      ! Accuracy
+      CALL get_command_argument(4, accuracy)
+      IF (accuracy == '') THEN
+         !delta=delta_default
+         WRITE (*, *) 'HMx_FITTING: Specify fitting accuracy:'
+         READ (*, *) delta
+         WRITE (*, *)
+      ELSE
+         READ (accuracy, *) delta
+      END IF
+
+      ! Read in outfile
+      CALL get_command_argument(5, outbase)
+      IF (outbase == '') outbase = outbase_default
+
+      ! Read in BAHAMAS simulation name
+      CALL get_command_argument(6, name)
+
+      ! Read in response logical that determines if we fit the BAHAMAS response or not
+      CALL get_command_argument(7, response)
+      IF (response == '') THEN
+         resp_BAHAMAS = response_default
+      ELSE IF (response == 'TRUE') THEN
+         resp_BAHAMAS = .TRUE.
+      ELSE IF (response == 'FALSE') THEN
+         resp_BAHAMAS = .FALSE.
+      ELSE
+         STOP 'HMx_FITTING: Error, response logical specified incorrectly (TRUE or FALSE)'
+      END IF
+
+      ! Read in BAHAMAS simulation redshift if doing fixed z
+      CALL get_command_argument(8, zin)
+
+      ! Set the random-number generator
+      CALL RNG_set(seed)
+
+      ! Initial white space
+      WRITE (*, *)
+
+      ! Write useful info to screen
+      WRITE (*, *) 'HMx_FITTING: Fitting routine'
+      WRITE (*, *) 'HMx_FITTING: Mode:', imode
+      WRITE (*, *) 'HMx_FITTING: Number of points in chain:', nchain
+      WRITE (*, *) 'HMx_FITTING: Maximum run time [mins]:', tmax
+      WRITE (*, *) 'HMx_FITTING: Maximum run time [hours]:', tmax/60.
+      WRITE (*, *) 'HMx_FITTING: Accuracy:', delta
+      WRITE (*, *) 'HMx_FITTING: Output file base: ', TRIM(outbase)
+      WRITE (*, *) 'HMx_FITTING: Random number seed:', seed
+      WRITE (*, *) 'HMx_FITTING: Random start:', random_start
+      WRITE (*, *) 'HMx_FITTING: MCMC mode:', mcmc
+      !WRITE(*,*) 'HMx_FITTING: Re-evaluate covariance:', m
+      WRITE (*, *)
+
+      ! Set the cosmological models
+      CALL init_cosmologies(imode, cosm, ncos)
+
+      ! Set the fields
+      CALL init_fields(imode, fields, nfields)
+
+      ! Set the redshifts
+      CALL init_redshifts(imode, name, zin, z, nz)
+
+      ! Set the halo models
+      CALL init_halomods(imode, hmod, ncos)
+
+      ! Print one halo model out to check it looks sensible
+      !CALL init_halomod(mmin, mmax, scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
+      CALL init_halomod(scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
+      CALL print_halomod(hmod(1), cosm(1), verbose=.TRUE.)
+
+      ! Read in the simulation power spectra
+      CALL read_simulation_power_spectra(imode, name, k, nk, pow, cosm, ncos, z, nz, fields, nfields, resp_BAHAMAS)
+
+      ! Set the weights
+      CALL init_weights(imode, weight, ncos, nfields, k, nk, nz)
+
+      ! Set the initial parameter values, ranges, names, etc.
+      CALL init_parameters(z, nz, fit)
+
+      ! Set the parameters that will be varied
+      CALL init_mode(imode, fit)
+
+      ! Do the actual fitting algorithm
+      CALL MCMC_fitting(fit%original, fit%n, delta, tmax, nchain, k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
+
+   END SUBROUTINE
+
+   SUBROUTINE init_parameters(z, nz, fit)
 
       ! Assigns values to parameter name, original value, sigma, minimum and maximuim values and logexp
       IMPLICIT NONE
+      REAL, INTENT(IN) :: z(:)
+      INTEGER, INTENT(IN) :: nz
       TYPE(fitting), INTENT(INOUT) :: fit
       INTEGER, PARAMETER ::  n = param_n
       INTEGER :: i
@@ -808,11 +812,13 @@ CONTAINS
 
    END SUBROUTINE init_fields
 
-   SUBROUTINE init_redshifts(im, z, nz)
+   SUBROUTINE init_redshifts(im, name, zin, z, nz)
 
       ! Set the redshifts to fit over depending on imode
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
+      CHARACTER(len=*), INTENT(INOUT) :: name
+      CHARACTER(len=*), INTENT(IN) :: zin
       REAL, ALLOCATABLE, INTENT(OUT) :: z(:)
       INTEGER, INTENT(OUT) :: nz
 
@@ -906,8 +912,8 @@ CONTAINS
       ELSE IF (im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. &
                im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
                im == 40 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
-         !ihm=3  ! 3 - Standard halo-model
-         ihm = 20 ! 20 - Standard halo model in response
+         ihm=3  ! 3 - Standard halo-model
+         !ihm = 20 ! 20 - Standard halo model in response
       ELSE IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
          ihm = 47 ! Isothermal beta model in response
       END IF
@@ -922,7 +928,7 @@ CONTAINS
 
    END SUBROUTINE init_halomods
 
-   SUBROUTINE init_weights(im, weight, ncos, nf, nk, nz)
+   SUBROUTINE init_weights(im, weight, ncos, nf, k, nk, nz)
 
       ! Set the weights depending on the mode selected by the user
       ! This allows the user to exclude some scales, redshifts, fields combinations etc. etc.
@@ -931,6 +937,7 @@ CONTAINS
       REAL, ALLOCATABLE, INTENT(OUT) :: weight(:, :, :, :, :)
       INTEGER, INTENT(IN) :: ncos
       INTEGER, INTENT(IN) :: nf
+      REAL, INTENT(IN) :: k(nk)
       INTEGER, INTENT(IN) :: nk
       INTEGER, INTENT(IN) :: nz
       REAL :: kmin, kmax
@@ -1038,7 +1045,7 @@ CONTAINS
             fit%set(param_Gammap) = .TRUE.
             fit%set(param_M0) = .TRUE.
             fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
-            fit%set(param_gbeta) = .TRUE. ! Test
+            !fit%set(param_gbeta) = .TRUE. ! Test
 
          ELSE IF (im == 11) THEN
 
@@ -1325,11 +1332,12 @@ CONTAINS
 
    END SUBROUTINE init_mode
 
-   SUBROUTINE read_simulation_power_spectra(im, k, nk, pow, cosm, ncos, z, nz, fields, nf)
+   SUBROUTINE read_simulation_power_spectra(im, name, k, nk, pow, cosm, ncos, z, nz, fields, nf, response)
 
       ! Read in the simulation P(k) data that is to be fitted
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
+      CHARACTER(len=*), INTENT(IN) :: name
       REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
       INTEGER, INTENT(OUT) :: nk
       REAL, ALLOCATABLE, INTENT(OUT) :: pow(:, :, :, :, :)
@@ -1339,6 +1347,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: nz
       INTEGER, INTENT(IN) :: fields(nf)
       INTEGER, INTENT(IN) :: nf
+      LOGICAL, INTENT(IN) :: response
       INTEGER :: i, j, j1, j2
       INTEGER :: ip(2)
       REAL, ALLOCATABLE :: k_sim(:), pow_sim(:)
@@ -1364,7 +1373,7 @@ CONTAINS
                      ip(2) = fields(j2)
                      CALL read_BAHAMAS_power(k_sim, pow_sim, nk, z(j), name, mesh, ip, cosm(i), &
                                              kmin_default, kmax_default, cut_nyquist, subtract_shot, &
-                                             response=resp_BAHAMAS, verbose=verbose_BAHAMAS)
+                                             response=response, verbose=verbose_BAHAMAS)
                   ELSE
                      STOP 'READ_SIMULATION_POWER_SPECTRA: Error, something went wrong reading data'
                   END IF
@@ -1483,11 +1492,11 @@ CONTAINS
       INTEGER, INTENT(IN) :: ncos                  ! Number of cosmological models being compared
       INTEGER :: icos, iz, if1, if2, ik
       REAL :: pow_li(ncos, nk, nz), pow_2h(ncos, nf, nf, nk, nz), pow_1h(ncos, nf, nf, nk, nz)
-      REAL :: neff
+      REAL :: n_eff
 
       ! Set this counting output variable to zero
       fom = 0.
-      neff = 0.
+      n_eff = 0.
 
       ! Set this to zero too, for the banter
       pow_mod = 0.
@@ -1514,7 +1523,7 @@ CONTAINS
                DO if2 = if1, nf
                   DO ik = 1, nk
                      fom = fom+weight(icos, if1, if2, ik, iz)*(pow_mod(icos, if1, if2, ik, iz)/pow_sim(icos, if1, if2, ik, iz)-1.)**2
-                     neff = neff+weight(icos, if1, if2, ik, iz)
+                     n_eff = n_eff+weight(icos, if1, if2, ik, iz)
                   END DO
                END DO
             END DO
@@ -1524,7 +1533,7 @@ CONTAINS
       END DO
 
       ! Calculate the final figure-of-merit by dividing by the effective number of data points and sqrt
-      fom = sqrt(fom/neff)
+      fom = sqrt(fom/n_eff)
 
    END SUBROUTINE fom_multiple
 
@@ -1727,7 +1736,7 @@ CONTAINS
 
    END SUBROUTINE set_parameter_sigma
 
-   SUBROUTINE write_fitting_power(base, k, z, pow_mod, pow_sim, ncos, nf, nk, nz)
+   SUBROUTINE write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
 
       ! Write fitting data to disk
       IMPLICIT NONE
@@ -1736,6 +1745,7 @@ CONTAINS
       REAL, INTENT(IN) :: z(nz)
       REAL, INTENT(IN) :: pow_mod(ncos, nf, nf, nk, nz)
       REAL, INTENT(IN) :: pow_sim(ncos, nf, nf, nk, nz)
+      TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
       INTEGER, INTENT(IN) :: ncos
       INTEGER, INTENT(IN) :: nf
       INTEGER, INTENT(IN) :: nk
@@ -1796,7 +1806,7 @@ CONTAINS
 
    END SUBROUTINE write_model
 
-   SUBROUTINE actual_fitting(p_start, np, delta, tmax, nchain, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos)
+   SUBROUTINE MCMC_fitting(p_start, np, delta, tmax, nchain, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos, outbase)
 
       ! Does the actual fitting of parameters
       ! TODO: Clean this up, this is the least clean of all the routines here
@@ -1817,17 +1827,18 @@ CONTAINS
       TYPE(fitting), INTENT(INOUT) :: fit
       TYPE(halomod), INTENT(INOUT) :: hmod(ncos)
       TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
+      CHARACTER(len=*), INTENT(IN) :: outbase
       INTEGER, INTENT(IN) :: ncos
       INTEGER :: i, j, l
       REAL :: p_new(fit%n), p_old(fit%n)
       REAL :: fom_old, fom_new, fom_bst, fom_ori
-      REAL :: original, best, maximum, minimum
+      REAL :: original, best, min, max
       INTEGER :: i_bet, i_wor, i_acc, i_fai, i_tot, i_bst
       INTEGER :: out
       REAL :: t1, t2
       LOGICAL :: accept
       REAL, ALLOCATABLE :: pow_mod(:, :, :, :, :)
-      CHARACTER(len=256) :: outfile
+      CHARACTER(len=256) :: outfile, base
       LOGICAL :: verbose
 
       ! Fix these
@@ -1908,7 +1919,7 @@ CONTAINS
 
             ! Write out the original data
             base = trim(outbase)//'_orig_cos'
-            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, ncos, nf, nk, nz)
+            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
 
             accept = .TRUE.
 
@@ -1922,7 +1933,7 @@ CONTAINS
 
             ! Output the best-fitting model
             base = trim(outbase)//'_best_cos'
-            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, ncos, nf, nk, nz)
+            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
 
             accept = .TRUE.
             EXIT
@@ -2015,16 +2026,16 @@ CONTAINS
                   ! If the parameter is explored in log space then you need to do this
                   original = 10.**fit%original(i)
                   best = 10.**fit%best(i)
-                  minimum = 10.**fit%minimum(i)
-                  maximum = 10.**fit%maximum(i)
+                  min = 10.**fit%minimum(i)
+                  max = 10.**fit%maximum(i)
                ELSE
                   ! Otherwise do nothing
                   original = fit%original(i)
                   best = fit%best(i)
-                  minimum = fit%minimum(i)
-                  maximum = fit%maximum(i)
+                  min = fit%minimum(i)
+                  max = fit%maximum(i)
                END IF
-               WRITE (out, fmt='(I10,A15,4F14.7)') i, trim(fit%name(i)), original, best, minimum, maximum
+               WRITE (out, fmt='(I10,A15,4F14.7)') i, trim(fit%name(i)), original, best, min, max
             END IF
          END DO
          WRITE (out, *) '================================================================================'
@@ -2040,6 +2051,6 @@ CONTAINS
 !!$       CALL write_model(fit%best,np,fit,hmod(i),cosm(i))
 !!$    END DO
 
-   END SUBROUTINE actual_fitting
+   END SUBROUTINE MCMC_fitting
 
 END PROGRAM HMx_fitting
