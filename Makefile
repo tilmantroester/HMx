@@ -61,6 +61,7 @@ TEST_DIR = tests
 _OBJ = \
 	constants.o \
 	physics.o \
+	sorting.o \
 	fix_polynomial.o \
 	array_operations.o \
 	logical_operations.o \
@@ -72,6 +73,7 @@ _OBJ = \
 	solve_equations.o \
 	string_operations.o \
 	calculus_table.o \
+	statistics.o \
 	camb_stuff.o \
 	cosmology_functions.o \
 	hmx.o \

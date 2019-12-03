@@ -19,7 +19,7 @@ PROGRAM HMx_fitting
          LOGICAL, ALLOCATABLE :: log(:)             ! Should this parameter be fitted in log?
          LOGICAL, ALLOCATABLE :: cov(:)             ! Should we determine the jump size for this parameter?
          CHARACTER(len=256), ALLOCATABLE :: name(:) ! Name of this parameter
-         INTEGER :: n                               ! Number of parameters
+         INTEGER :: n                               ! Total number of parameters
       END TYPE fitting
 
       INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
@@ -34,11 +34,11 @@ PROGRAM HMx_fitting
       REAL, PARAMETER :: kmin_default = 1e-4       ! Minimum wavenumber to read in [h/Mpc]
       REAL, PARAMETER :: kmax_default = 1e2        ! Minimum wavenumber to read in [h/Mpc]
       REAL, PARAMETER :: kmin_BAHAMAS = 0.03       ! Minimum wavenumber to use [h/Mpc]
-      !REAL, PARAMETER :: kmin_BAHAMAS=0.15       ! Minimum wavenumber to use [h/Mpc]
-      !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.   ! Maximum wavenumber to use [h/Mpc] at z=0.0
-      !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.    ! Maximum wavenumber to use [h/Mpc] at z=0.5
-      !REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.    ! Maximum wavenumber to use [h/Mpc] at z=1.0
-      !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.    ! Maximum wavenumber to use [h/Mpc] at z=2.0
+      !REAL, PARAMETER :: kmin_BAHAMAS=0.15         ! Minimum wavenumber to use [h/Mpc]
+      !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.     ! Maximum wavenumber to use [h/Mpc] at z=0.0
+      !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.      ! Maximum wavenumber to use [h/Mpc] at z=0.5
+      !REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.      ! Maximum wavenumber to use [h/Mpc] at z=1.0
+      !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.      ! Maximum wavenumber to use [h/Mpc] at z=2.0
       REAL, PARAMETER :: kmax_BAHAMAS = 10.        ! Maximum wavenumber to us [h/Mpc]
       REAL, PARAMETER :: z_default = 0.0           ! Default z to fit if not specified
       INTEGER, PARAMETER :: mesh = 1024            ! BAHAMAS mesh size power to use
@@ -67,6 +67,7 @@ CONTAINS
       REAL :: tmax
       INTEGER :: nchain
       LOGICAL :: resp_BAHAMAS
+      INTEGER, PARAMETER :: ifit = 2
 
       ! Read in starting option for which parameter fitting to run
       CALL get_command_argument(1, mode)
@@ -229,9 +230,408 @@ CONTAINS
       CALL init_mode(imode, fit)
 
       ! Do the actual fitting algorithm
-      CALL MCMC_fitting(fit%original, fit%n, delta, tmax, nchain, k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
+      IF(ifit == 1) THEN
+         CALL MCMC_fitting(delta, tmax, nchain, &
+            k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
+      ELSE IF(ifit == 2) THEN
+         CALL Nelder_Mead_fitting(delta, tmax, &
+            k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
+      ELSE
+         STOP 'ERROR, ifit specified incorrectly'
+      END IF
 
-   END SUBROUTINE
+   END SUBROUTINE main
+
+   SUBROUTINE MCMC_fitting(delta, tmax, nchain, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos, outbase)
+
+      ! Does the actual fitting of parameters
+      ! TODO: Clean this up, this is the least clean of all the routines here
+      IMPLICIT NONE
+      REAL, INTENT(IN) :: delta         ! Accuracy parameter
+      REAL, INTENT(IN) :: tmax          ! Maximum time the fitting can run for [mins]
+      INTEGER, INTENT(IN) :: nchain     ! Number of independent chains
+      REAL, INTENT(IN) :: k(nk)         ! Array of k values
+      INTEGER, INTENT(IN) :: nk         ! Number of k values
+      REAL, INTENT(IN) :: z(nz)         ! Array of z values
+      INTEGER, INTENT(IN) :: nz         ! Number of z values
+      INTEGER, INTENT(IN) :: fields(nf) ! Fields
+      INTEGER, INTENT(IN) :: nf         ! Number of fields
+      REAL, INTENT(IN) :: weight(ncos, nf, nf, nk, nz)  ! Weight for each k-z-field point
+      REAL, INTENT(IN) :: pow_sim(ncos, nf, nf, nk, nz) ! Power for each k-z-field point
+      TYPE(fitting), INTENT(INOUT) :: fit          ! Fitting structure
+      TYPE(halomod), INTENT(INOUT) :: hmod(ncos)   ! Halomodel structure
+      TYPE(cosmology), INTENT(INOUT) :: cosm(ncos) ! Cosmology structure
+      INTEGER, INTENT(IN) :: ncos                  ! Number of cosmologies
+      CHARACTER(len=*), INTENT(IN) :: outbase      ! Base for output files
+      INTEGER :: i, j, l, np
+      REAL :: p_start(fit%n), p_new(fit%n), p_old(fit%n)
+      REAL :: fom_old, fom_new, fom_bst, fom_ori
+      REAL :: original, best, min, max
+      INTEGER :: i_bet, i_wor, i_acc, i_fai, i_tot, i_bst
+      INTEGER :: out
+      REAL :: t1, t2
+      LOGICAL :: accept
+      REAL, ALLOCATABLE :: pow_mod(:, :, :, :, :)
+      CHARACTER(len=256) :: outfile, base
+      LOGICAL :: verbose
+      INTEGER, PARAMETER :: out_screen = 6
+      INTEGER, PARAMETER :: out_file = 77
+
+      ! Fix the starting value of the parameters to the 'new' and 'old' values to make sure they are initialised
+      p_start = fit%original
+      np = fit%n
+      p_new = p_start
+      p_old = p_start
+
+      ! Set the best figures-of-merit to some huge value
+      fom_old = HUGE(fom_old)
+      fom_new = HUGE(fom_new)
+      fom_bst = HUGE(fom_bst)
+
+      ! Loop over number of runs
+      WRITE (*, *) 'MCMC_FITTING: Starting fitting'
+      WRITE (*, *) 'MCMC_FITTING: Number of points in chain:', nchain
+      WRITE (*, *)
+
+      ! Set counting variables to zero
+      i_bet = 0
+      i_wor = 0
+      i_acc = 0
+      i_fai = 0
+      i_tot = 0
+
+      ! Get the starting time
+      CALL cpu_time(t1)
+      CALL cpu_time(t2)
+
+      ! Allocate arrays for halo-model power
+      ALLOCATE (pow_mod(ncos, nf, nf, nk, nz))
+
+      ! Do the chain
+      DO l = 1, nchain+1
+
+         IF (l == 1 .OR. mod(l, m) == 0) THEN
+            IF (l == 1) THEN
+               verbose = .TRUE.
+            ELSE
+               verbose = .TRUE.
+            END IF
+            IF (set_ranges) THEN
+               CALL set_parameter_sigma(p_old, np, delta, fields, nf, k, nk, z, nz, pow_sim, weight, fit, hmod, cosm, ncos, verbose)
+            END IF
+            IF (l == 1) THEN
+               outfile = trim(outbase)//'_chain.dat'
+               OPEN (10, file=outfile)
+            END IF
+
+         END IF
+
+         IF (l == 1) THEN
+            ! Do nothing
+         ELSE IF (l == nchain+1 .OR. (t2-t1) > 60.*tmax) THEN
+            ! Set to best-fitting parameters on last go
+            p_new = fit%best
+         ELSE
+            ! Randomly jump parameters
+            DO i = 1, fit%n
+               IF (fit%set(i)) THEN
+                  p_new(i) = random_Gaussian(p_old(i), fit%sigma(i))
+               ELSE
+                  p_new(i) = p_old(i)
+               END IF
+               IF (p_new(i) < fit%minimum(i)) p_new(i) = fit%minimum(i)
+               IF (p_new(i) > fit%maximum(i)) p_new(i) = fit%maximum(i)
+            END DO
+         END IF
+
+         ! Calculate the figure-of-merit
+         CALL fom_multiple(p_new, np, fields, nf, fom_new, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
+
+         ! Write original power spectra to disk
+         IF (l == 1) THEN
+
+            ! Set the original figure-of-merit to the new figure-of-merit
+            fom_old = fom_new
+            fom_ori = fom_new
+            fom_bst = fom_new
+
+            ! Write out the original data
+            base = trim(outbase)//'_orig_cos'
+            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
+
+            accept = .TRUE.
+
+            i_bst = 1
+            i_bet = i_bet+1
+            i_tot = i_tot+1
+
+         ELSE IF (l == nchain+1 .OR. (t2-t1) > 60.*tmax) THEN
+
+            WRITE (*, *)
+
+            ! Output the best-fitting model
+            base = trim(outbase)//'_best_cos'
+            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
+
+            accept = .TRUE.
+            EXIT
+
+         ELSE
+
+            ! Decide on acceptance and add to tallies
+            i_tot = i_tot+1
+            IF (fom_new < fom_bst) THEN
+               ! If fit is the best then always accept...
+               fit%best = p_new
+               i_bst = l
+               fom_bst = fom_new
+               accept = .TRUE.
+               i_bet = i_bet+1
+            ELSE IF (fom_new <= fom_old) THEN
+               ! ...also accept if fom is better than previous...
+               accept = .TRUE.
+               i_bet = i_bet+1
+            ELSE IF (mcmc .AND. (fom_old/fom_new)**(1./delta) > random_uniform(0., 1.)) THEN
+               ! ...otherwise accept poorer fit with some probability...
+               accept = .TRUE.
+               i_wor = i_wor+1
+            ELSE
+               ! ...otherwise, do not accept.
+               accept = .FALSE.
+               i_fai = i_fai+1
+            END IF
+
+         END IF
+
+         IF (l .NE. nchain+1) THEN
+            WRITE (*, fmt='(I10,3F14.7,L3)') l, fom_bst, fom_old, fom_new, accept
+            !WRITE(*,*) l, p_old(param_ibeta), p_new(param_ibeta)
+         END IF
+
+         IF (accept) THEN
+            i_acc = i_acc+1
+            p_old = p_new
+            fom_old = fom_new
+            WRITE (10, *) l, fom_old, (p_old(j), j=1, fit%n)
+         END IF
+
+         CALL cpu_time(t2)
+
+      END DO
+      CLOSE (10)
+      WRITE (*, *) 'MCMC_FITTING: Done'
+      WRITE (*, *)
+
+      ! Write useful information to screen and file
+      DO j = 1, 2
+
+         IF (j == 1) THEN
+            ! For writing to screen
+            out = out_screen
+         ELSE IF (j == 2) THEN
+            ! For writing to file
+            out = out_file
+            outfile = trim(outbase)//'_params.dat'
+            OPEN (out, file=outfile)
+         ELSE
+            STOP 'MCMC_FITTING: Error, output fucked up badly'
+         END IF
+
+         WRITE (out, *) 'MCMC_FITTING: Maximum time [mins]:', tmax
+         WRITE (out, *) 'MCMC_FITTING: Accuracy parameter:', delta
+         WRITE (out, *) 'MCMC_FITTING: Requested number of attempts:', nchain
+         WRITE (out, *) 'MCMC_FITTING: Best location:', i_bst
+         WRITE (out, *) 'MCMC_FITTING: Total attempts:', i_tot
+         WRITE (out, *) 'MCMC_FITTING: Accepted steps:', i_acc
+         WRITE (out, *) 'MCMC_FITTING: Fraction accepted steps:', REAL(i_acc)/REAL(i_tot)
+         WRITE (out, *) 'MCMC_FITTING: Better steps:', i_bet
+         WRITE (out, *) 'MCMC_FITTING: Fraction better steps:', REAL(i_bet)/REAL(i_tot)
+         WRITE (out, *) 'MCMC_FITTING: Accepted worse steps:', i_wor
+         WRITE (out, *) 'MCMC_FITTING: Fraction accepted worse steps:', REAL(i_wor)/REAL(i_tot)
+         WRITE (out, *) 'MCMC_FITTING: Failed steps:', i_fai
+         WRITE (out, *) 'MCMC_FITTING: Fraction failed steps:', REAL(i_fai)/REAL(i_tot)
+         WRITE (out, *) 'MCMC_FITTING: Original figure-of-merit:', fom_ori
+         WRITE (out, *) 'MCMC_FITTING: Final figure-of-merit:', fom_new
+         WRITE (out, *)
+
+         CALL write_best_fitting(fit, out)
+
+         IF (j == 2) THEN
+            CLOSE (out)
+         END IF
+
+      END DO
+
+   END SUBROUTINE MCMC_fitting
+
+   SUBROUTINE Nelder_Mead_fitting(tol, tmax, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos, outbase)
+
+      ! Nelder-Mead simplex for fiding minima of a function
+      ! Coded up using https://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method
+      USE sorting
+      IMPLICIT NONE
+      REAL, INTENT(IN) :: tol           ! Accuracy parameters
+      REAL, INTENT(IN) :: tmax          ! Maximum time it can run for [mins]
+      REAL, INTENT(IN) :: k(nk)         ! Array for wavenumbers [h/Mpc]
+      INTEGER, INTENT(IN) :: nk         ! Number of wavenumbers
+      REAL, INTENT(IN) :: z(nz)         ! Array for redshifts
+      INTEGER, INTENT(IN) :: nz         ! Number of redshifts
+      INTEGER, INTENT(IN) :: fields(nf) ! Array for fields
+      INTEGER, INTENT(IN) :: nf         ! Number of fields
+      REAL, INTENT(IN) :: weight(ncos, nf, nf, nk, nz)  ! Weight for each k-z-field point
+      REAL, INTENT(IN) :: pow_sim(ncos, nf, nf, nk, nz) ! Power for each k-z-field point
+      TYPE(fitting), INTENT(INOUT) :: fit          ! Fitting structure
+      TYPE(halomod), INTENT(INOUT) :: hmod(ncos)   ! Halo model structure
+      TYPE(cosmology), INTENT(INOUT) :: cosm(ncos) ! Cosmology structure
+      INTEGER, INTENT(IN) :: ncos             ! Number of cosmologies
+      CHARACTER(len=*), INTENT(IN) :: outbase ! Base for output files
+      REAL :: fom, p(fit%n)
+      REAL, ALLOCATABLE :: x(:), dx(:)
+      INTEGER :: n, np
+      CHARACTER(len=256) :: operation, nstring, base, outfile
+      REAL :: pow_mod(ncos, nf, nf, nk, nz)
+      REAL, ALLOCATABLE :: xx(:, :), ff(:)
+      REAL, ALLOCATABLE :: xo(:), xr(:), xe(:), xc(:)
+      REAL :: fo, fr, fe, fc
+      INTEGER :: i, j, ii
+      INTEGER :: unit_number
+
+      ! Parameters
+      INTEGER, PARAMETER :: isort_Nelder_Mead = isort_bubble
+      REAL, PARAMETER :: alpha = 1.  ! Reflection coefficient (alpha > 0; standard alpha = 1)
+      REAL, PARAMETER :: gamma = 2.  ! Expansion coefficient (gamma > 1; standard gamma = 2)
+      REAL, PARAMETER :: rhoma = 0.5   ! Contraction coefficient (0 < rho < 0.5; standard rho = 0.5)
+      REAL, PARAMETER :: sigma = 0.5 ! Shrink coefficient (standard sigma = 0.5)
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      INTEGER, PARAMETER :: screen_unit_number = 6
+      INTEGER, PARAMETER :: file_unit_number = 77
+
+      p = fit%original
+      np = fit%n
+
+      CALL init_Nelder_Mead(x, dx, n, p, np, fit)
+      ALLOCATE(xx(n+1, n), ff(n+1), xo(n), xr(n), xe(n), xc(n))
+
+      ! Set initial test points
+      DO i = 1, n+1
+         DO j = 1, n
+            xx(i, j) = x(j)
+            IF(i == j+1) xx(i, j) = xx(i, j)+dx(j)
+         END DO
+      END DO
+
+      ! Evaluate function at initial points
+      DO i = 1, n+1
+         CALL map_x_to_p(xx(i,:), n, p, np, fit)
+         CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
+         IF(i == 1) THEN
+            ! Write out the original data
+            base = trim(outbase)//'_orig_cos'
+            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
+         END IF
+         ff(i) = fom
+      END DO
+
+      ii = 0
+      operation = 'Starting'
+      WRITE(nstring,*) n+1
+      DO
+
+         ! Increment counter
+         ii = ii+1
+
+         ! Sort the points from best to worst
+         CALL Nelder_Mead_sort(xx, ff, n)
+
+         IF(verbose) WRITE(*, '(A16,I10,'//trim(nstring)//'F15.7)') TRIM(operation), ii, ff(1), (xx(1, i), i = 1, n)
+
+         ! Decide on convergence
+         IF(Nelder_Mead_termination(ff, n, tol)) THEN
+            DO i = 1, n
+               x(i) = xx(1, i)
+            END DO
+            EXIT
+         END IF
+
+         ! Calculate centroid of 1...n (not n+1; the worst point)
+         xo = Nelder_Mead_centroid(xx, n)
+
+         ! Calculate the reflected point of n+1 about the centroid
+         xr = xo+alpha*(xo-xx(n+1, :))
+         CALL map_x_to_p(xr, n, p, np, fit)
+         CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
+         fr = fom
+
+         IF (fr < ff(1)) THEN
+            ! If the reflected point is the best so far then calculate the expanded point 
+            xe = xo+gamma*(xr-xo)
+            CALL map_x_to_p(xe, n, p, np, fit)
+            CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
+            fe = fom
+            IF(fe < fr) THEN
+               ! Keep the expansed point if it is better than the reflected ...
+               operation = 'Expanding'
+               xx(n+1, :) = xe
+               ff(n+1) = fe
+            ELSE
+               ! ... otherwise keep the reflected.
+               operation = 'Reflecting'
+               xx(n+1, :) = xr
+               ff(n+1) = fr
+            END IF
+            CYCLE
+         ELSE IF (ff(1) <= fr .AND. fr < ff(n)) THEN
+            ! If the reflected point is not the best but better than the second worst then keep the reflected point
+            operation = 'Reflecting'
+            xx(n+1, :) = xr
+            ff(n+1) = fr
+            CYCLE
+         ELSE
+            ! Here it is certain that the reflected point is worse than the second worst point
+            ! Calculate the contracted point
+            xc = xo+rhoma*(xx(n+1, :)-xo)
+            CALL map_x_to_p(xc, n, p, np, fit)
+            CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
+            fc = fom
+            IF(fc < ff(n+1)) THEN
+               ! Keep the contracted point if it is better than the worst point
+               operation = 'Contracting'
+               xx(n+1, :) = xc
+               ff(n+1) = fc
+               CYCLE
+            ELSE
+               ! The contracted point is worst, and we must shrink
+               ! Calculate the shrinkage for all except the best point
+               DO i = 2, n+1
+                  xx(i, :) = xx(1, :)+sigma*(xx(i, :)-xx(1, :))
+                  CALL map_x_to_p(xx(i,:), n, p, np, fit)
+                  CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
+                  ff(i) = fom
+               END DO
+            END IF
+         END IF
+
+      END DO
+
+      ! Report the minimization point
+      x = xx(1, :)
+
+      CALL map_x_to_p(x, n, fit%best, np, fit)
+      CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
+      ! Write out the original data
+      base = trim(outbase)//'_best_cos'
+      CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
+
+      outfile = trim(outbase)//'_params.dat'
+      OPEN(file_unit_number, file = outfile)
+      DO j = 1, 2
+         IF(j == 1) unit_number = screen_unit_number
+         IF(j == 2) unit_number = file_unit_number
+         CALL write_best_fitting(fit, unit_number)
+      END DO
+      CLOSE(file_unit_number)
+
+   END SUBROUTINE Nelder_Mead_fitting
 
    SUBROUTINE init_parameters(z, nz, fit)
 
@@ -912,8 +1312,8 @@ CONTAINS
       ELSE IF (im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. &
                im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
                im == 40 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
-         ihm=3  ! 3 - Standard halo-model
-         !ihm = 20 ! 20 - Standard halo model in response
+         !ihm=3  ! 3 - Standard halo-model
+         ihm = 20 ! 20 - Standard halo model in response
       ELSE IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
          ihm = 47 ! Isothermal beta model in response
       END IF
@@ -1433,7 +1833,7 @@ CONTAINS
       IF (fit%set(param_beta)) hmod%beta = p_out(param_beta)
       IF (fit%set(param_eps)) hmod%eps = p_out(param_eps)
       IF (fit%set(param_Gamma)) hmod%Gamma = 1.+p_out(param_Gamma)   ! CARE: Funny, internal parameter is Gamma-1
-      IF (fit%set(param_M0)) hmod%M0 = 10.**p_out(param_M0)       ! CARE: Log, internal parameter is log10(M0)
+      IF (fit%set(param_M0)) hmod%M0 = 10.**p_out(param_M0)          ! CARE: Log, internal parameter is log10(M0)
       IF (fit%set(param_Astar)) hmod%Astar = p_out(param_Astar)
       IF (fit%set(param_Twhim)) hmod%Twhim = 10.**p_out(param_Twhim) ! CARE: Log, internal parameter is log10(Twhim)
       IF (fit%set(param_cstar)) hmod%cstar = p_out(param_cstar)
@@ -1806,251 +2206,165 @@ CONTAINS
 
    END SUBROUTINE write_model
 
-   SUBROUTINE MCMC_fitting(p_start, np, delta, tmax, nchain, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos, outbase)
+   SUBROUTINE write_best_fitting(fit, out)
 
-      ! Does the actual fitting of parameters
-      ! TODO: Clean this up, this is the least clean of all the routines here
       IMPLICIT NONE
-      REAL, INTENT(IN) :: p_start(np)
-      INTEGER, INTENT(IN) :: np
-      REAL, INTENT(IN) :: delta
-      REAL, INTENT(IN) :: tmax
-      INTEGER, INTENT(IN) :: nchain
-      REAL, INTENT(IN) :: k(nk)
-      INTEGER, INTENT(IN) :: nk
-      REAL, INTENT(IN) :: z(nz)
-      INTEGER, INTENT(IN) :: nz
-      INTEGER, INTENT(IN) :: fields(nf)
-      INTEGER, INTENT(IN) :: nf
-      REAL, INTENT(IN) :: weight(ncos, nf, nf, nk, nz)
-      REAL, INTENT(IN) :: pow_sim(ncos, nf, nf, nk, nz)
-      TYPE(fitting), INTENT(INOUT) :: fit
-      TYPE(halomod), INTENT(INOUT) :: hmod(ncos)
-      TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
-      CHARACTER(len=*), INTENT(IN) :: outbase
-      INTEGER, INTENT(IN) :: ncos
-      INTEGER :: i, j, l
-      REAL :: p_new(fit%n), p_old(fit%n)
-      REAL :: fom_old, fom_new, fom_bst, fom_ori
+      TYPE(fitting), INTENT(IN) :: fit
+      INTEGER, INTENT(IN) :: out
+      INTEGER :: i
       REAL :: original, best, min, max
-      INTEGER :: i_bet, i_wor, i_acc, i_fai, i_tot, i_bst
-      INTEGER :: out
-      REAL :: t1, t2
-      LOGICAL :: accept
-      REAL, ALLOCATABLE :: pow_mod(:, :, :, :, :)
-      CHARACTER(len=256) :: outfile, base
-      LOGICAL :: verbose
 
-      ! Fix these
-      p_new = p_start
-      p_old = p_start
-
-      ! Set the best figures-of-merit to some huge value
-      fom_old = HUGE(fom_old)
-      fom_new = HUGE(fom_new)
-      fom_bst = HUGE(fom_bst)
-
-      ! Loop over number of runs
-      WRITE (*, *) 'HMx_FITTING: Starting fitting'
-      WRITE (*, *) 'HMx_FITTING: Number of points in chain:', nchain
-      WRITE (*, *)
-
-      ! Set counting variables to zero
-      i_bet = 0
-      i_wor = 0
-      i_acc = 0
-      i_fai = 0
-      i_tot = 0
-
-      ! Get the starting time
-      CALL cpu_time(t1)
-      CALL cpu_time(t2)
-
-      ! Allocate arrays for halo-model power
-      ALLOCATE (pow_mod(ncos, nf, nf, nk, nz))
-
-      ! Do the chain
-      DO l = 1, nchain+1
-
-         IF (l == 1 .OR. mod(l, m) == 0) THEN
-            IF (l == 1) THEN
-               verbose = .TRUE.
+      WRITE (out, *) 'BEST_FITTING: Best-fitting parameters'
+      WRITE (out, *) '================================================================================'
+      WRITE (out, *) 'Parameter           Name      Original          Best       Minimum       Maximum'
+      WRITE (out, *) '================================================================================'
+      DO i = 1, fit%n
+         IF (fit%set(i)) THEN
+            IF (fit%log(i)) THEN
+               ! If the parameter is explored in log space then you need to do this
+               original = 10.**fit%original(i)
+               best = 10.**fit%best(i)
+               min = 10.**fit%minimum(i)
+               max = 10.**fit%maximum(i)
             ELSE
-               verbose = .TRUE.
+               ! Otherwise do nothing
+               original = fit%original(i)
+               best = fit%best(i)
+               min = fit%minimum(i)
+               max = fit%maximum(i)
             END IF
-            IF (set_ranges) THEN
-               CALL set_parameter_sigma(p_old, np, delta, fields, nf, k, nk, z, nz, pow_sim, weight, fit, hmod, cosm, ncos, verbose)
-            END IF
-            IF (l == 1) THEN
-               outfile = trim(outbase)//'_chain.dat'
-               OPEN (10, file=outfile)
-            END IF
-
+            WRITE (out, fmt='(I10,A15,4F14.7)') i, trim(fit%name(i)), original, best, min, max
          END IF
-
-         IF (l == 1) THEN
-            ! Do nothing
-         ELSE IF (l == nchain+1 .OR. (t2-t1) > 60.*tmax) THEN
-            ! Set to best-fitting parameters on last go
-            p_new = fit%best
-         ELSE
-            ! Randomly jump parameters
-            DO i = 1, fit%n
-               IF (fit%set(i)) THEN
-                  p_new(i) = random_Gaussian(p_old(i), fit%sigma(i))
-               ELSE
-                  p_new(i) = p_old(i)
-               END IF
-               IF (p_new(i) < fit%minimum(i)) p_new(i) = fit%minimum(i)
-               IF (p_new(i) > fit%maximum(i)) p_new(i) = fit%maximum(i)
-            END DO
-         END IF
-
-         ! Calculate the figure-of-merit
-         CALL fom_multiple(p_new, np, fields, nf, fom_new, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
-
-         ! Write original power spectra to disk
-         IF (l == 1) THEN
-
-            ! Set the original figure-of-merit to the new figure-of-merit
-            fom_old = fom_new
-            fom_ori = fom_new
-            fom_bst = fom_new
-
-            ! Write out the original data
-            base = trim(outbase)//'_orig_cos'
-            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
-
-            accept = .TRUE.
-
-            i_bst = 1
-            i_bet = i_bet+1
-            i_tot = i_tot+1
-
-         ELSE IF (l == nchain+1 .OR. (t2-t1) > 60.*tmax) THEN
-
-            WRITE (*, *)
-
-            ! Output the best-fitting model
-            base = trim(outbase)//'_best_cos'
-            CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
-
-            accept = .TRUE.
-            EXIT
-
-         ELSE
-
-            ! Decide on acceptance and add to tallies
-            i_tot = i_tot+1
-            IF (fom_new < fom_bst) THEN
-               ! If fit is the best then always accept...
-               fit%best = p_new
-               i_bst = l
-               fom_bst = fom_new
-               accept = .TRUE.
-               i_bet = i_bet+1
-            ELSE IF (fom_new <= fom_old) THEN
-               ! ...also accept if fom is better than previous...
-               accept = .TRUE.
-               i_bet = i_bet+1
-            ELSE IF (mcmc .AND. (fom_old/fom_new)**(1./delta) > random_uniform(0., 1.)) THEN
-               ! ...otherwise accept poorer fit with some probability...
-               accept = .TRUE.
-               i_wor = i_wor+1
-            ELSE
-               ! ...otherwise, do not accept.
-               accept = .FALSE.
-               i_fai = i_fai+1
-            END IF
-
-         END IF
-
-         IF (l .NE. nchain+1) THEN
-            WRITE (*, fmt='(I10,3F14.7,L3)') l, fom_bst, fom_old, fom_new, accept
-            !WRITE(*,*) l, p_old(param_ibeta), p_new(param_ibeta)
-         END IF
-
-         IF (accept) THEN
-            i_acc = i_acc+1
-            p_old = p_new
-            fom_old = fom_new
-            WRITE (10, *) l, fom_old, (p_old(j), j=1, fit%n)
-         END IF
-
-         CALL cpu_time(t2)
-
       END DO
-      CLOSE (10)
-      WRITE (*, *) 'HMx_FITTING: Done'
-      WRITE (*, *)
+      WRITE (out, *) '================================================================================'
+      WRITE (out, *)
 
-      ! Write useful information to screen and file
-      DO j = 1, 2
+   END SUBROUTINE write_best_fitting
 
-         IF (j == 1) THEN
-            ! For writing to screen
-            out = 6
-         ELSE IF (j == 2) THEN
-            ! For writing to file
-            out = 77
-            outfile = trim(outbase)//'_params.dat'
-            OPEN (out, file=outfile)
-         ELSE
-            STOP 'HMx_FITTING: Error, output fucked up badly'
+   SUBROUTINE init_Nelder_Mead(x, dx, nx, p, np, fit)
+
+      IMPLICIT NONE
+      REAL, ALLOCATABLE, INTENT(OUT) :: x(:)
+      REAL, ALLOCATABLE, INTENT(OUT) :: dx(:)
+      INTEGER, INTENT(OUT) :: nx
+      REAL, INTENT(IN) :: p(np)
+      INTEGER, INTENT(IN) :: np
+      TYPE(fitting), INTENT(IN) :: fit
+      INTEGER :: i, ii
+
+      ! Count the number of active parameters
+      nx = count(fit%set)
+
+      ! Allocate arrays
+      ALLOCATE(x(nx), dx(nx))
+
+      ! Fill the active parameter arrays using the total parameter arrays
+      ii = 0
+      DO i = 1, np
+         IF(fit%set(i)) THEN
+            ii = ii+1
+            x(ii) = p(i)
+            dx(ii) = fit%sigma(i)
          END IF
-
-         WRITE (out, *) 'HMx_FITTING: Maximum time [mins]:', tmax
-         WRITE (out, *) 'HMx_FITTING: Accuracy parameter:', delta
-         WRITE (out, *) 'HMx_FITTING: Requested number of attempts:', nchain
-         WRITE (out, *) 'HMx_FITTING: Best location:', i_bst
-         WRITE (out, *) 'HMx_FITTING: Total attempts:', i_tot
-         WRITE (out, *) 'HMx_FITTING: Accepted steps:', i_acc
-         WRITE (out, *) 'HMx_FITTING: Fraction accepted steps:', REAL(i_acc)/REAL(i_tot)
-         WRITE (out, *) 'HMx_FITTING: Better steps:', i_bet
-         WRITE (out, *) 'HMx_FITTING: Fraction better steps:', REAL(i_bet)/REAL(i_tot)
-         WRITE (out, *) 'HMx_FITTING: Accepted worse steps:', i_wor
-         WRITE (out, *) 'HMx_FITTING: Fraction accepted worse steps:', REAL(i_wor)/REAL(i_tot)
-         WRITE (out, *) 'HMx_FITTING: Failed steps:', i_fai
-         WRITE (out, *) 'HMx_FITTING: Fraction failed steps:', REAL(i_fai)/REAL(i_tot)
-         WRITE (out, *) 'HMx_FITTING: Original figure-of-merit:', fom_ori
-         WRITE (out, *) 'HMx_FITTING: Final figure-of-merit:', fom_new
-         WRITE (out, *)
-
-         WRITE (out, *) 'HMx_FITTING: Best-fitting parameters'
-         WRITE (out, *) '================================================================================'
-         WRITE (out, *) 'Parameter           Name      Original          Best       Minimum       Maximum'
-         WRITE (out, *) '================================================================================'
-         DO i = 1, fit%n
-            IF (fit%set(i)) THEN
-               IF (fit%log(i)) THEN
-                  ! If the parameter is explored in log space then you need to do this
-                  original = 10.**fit%original(i)
-                  best = 10.**fit%best(i)
-                  min = 10.**fit%minimum(i)
-                  max = 10.**fit%maximum(i)
-               ELSE
-                  ! Otherwise do nothing
-                  original = fit%original(i)
-                  best = fit%best(i)
-                  min = fit%minimum(i)
-                  max = fit%maximum(i)
-               END IF
-               WRITE (out, fmt='(I10,A15,4F14.7)') i, trim(fit%name(i)), original, best, min, max
-            END IF
-         END DO
-         WRITE (out, *) '================================================================================'
-         WRITE (out, *)
-
-         IF (j == 2) THEN
-            CLOSE (out)
-         END IF
-
       END DO
 
-!!$    DO i=1,ncos
-!!$       CALL write_model(fit%best,np,fit,hmod(i),cosm(i))
-!!$    END DO
+   END SUBROUTINE init_Nelder_Mead
 
-   END SUBROUTINE MCMC_fitting
+   ! SUBROUTINE map_p_to_x(x, nx, p, np, fit)
+
+   !    IMPLICIT NONE
+   !    REAL, INTENT(OUT) :: x(nx)       ! Active parameters
+   !    INTEGER, INTENT(IN) :: nx        ! Number of active parameters
+   !    REAL, INTENT(IN) :: p(np)        ! Parameters
+   !    INTEGER, INTENT(IN) :: np        ! Total number of parameters
+   !    TYPE(fitting), INTENT(IN) :: fit ! Fitting structure
+   !    INTEGER :: i, ii
+
+   !    ii = 0
+   !    DO i = 1, np
+   !       IF(fit%set(i)) THEN
+   !          ii = ii+1
+   !          x(ii) = p(i)
+   !       END IF
+   !    END DO
+
+   ! END SUBROUTINE map_p_to_x
+
+   SUBROUTINE map_x_to_p(x, nx, p, np, fit)
+
+      IMPLICIT NONE
+      REAL, INTENT(IN) :: x(nx)        ! Active parameters
+      INTEGER, INTENT(IN) :: nx        ! Number of active parameters
+      REAL, INTENT(INOUT) :: p(np)     ! Parameters
+      INTEGER, INTENT(IN) :: np        ! Total number of parameters
+      TYPE(fitting), INTENT(IN) :: fit ! Fitting structure
+      INTEGER :: i, ii
+
+      ii = 0
+      DO i = 1, np
+         IF(fit%set(i)) THEN
+            ii = ii+1
+            p(i) = x(ii)
+         END IF
+      END DO
+
+   END SUBROUTINE map_x_to_p
+
+   FUNCTION Nelder_Mead_centroid(x, n)
+
+      ! Calculate the centroid of all points except n+1
+      USE statistics
+      IMPLICIT NONE
+      REAL :: Nelder_Mead_centroid(n)
+      REAL, INTENT(IN) :: x(n+1, n)
+      INTEGER, INTENT(IN) :: n
+      INTEGER :: i
+
+      DO i = 1, n
+         Nelder_Mead_centroid(i) = mean(x(:,i), n)
+      END DO
+
+   END FUNCTION Nelder_Mead_centroid
+
+   SUBROUTINE Nelder_Mead_sort(x, f, n)
+
+      ! Sort the points into order from best to worst
+      USE sorting
+      IMPLICIT NONE
+      REAL, INTENT(INOUT) :: x(n+1, n)
+      REAL, INTENT(INOUT) :: f(n+1)
+      INTEGER, INTENT(IN) :: n
+      INTEGER :: i, j(n+1)
+      INTEGER, PARAMETER :: isort = isort_bubble
+
+      CALL index(f, j, n+1, isort)
+      CALL reindex(f, j, n+1)
+      DO i = 1, n
+         CALL reindex(x(:,i), j, n+1)
+      END DO
+
+   END SUBROUTINE Nelder_Mead_sort
+
+   LOGICAL FUNCTION Nelder_Mead_termination(f, n, tol)
+
+      ! Determine if the minimization has converged
+      USE statistics
+      IMPLICIT NONE
+      REAL, INTENT(IN) :: f(n+1)
+      INTEGER, INTENT(IN) :: n
+      REAL, INTENT(IN) :: tol
+      REAL :: sigma
+
+      ! Calculate the standard deviation of all points
+      sigma = standard_deviation(f, n+1)
+
+      ! Decide on termination
+      IF(sigma <= tol) THEN
+         Nelder_Mead_termination = .TRUE.
+      ELSE
+         Nelder_Mead_termination = .FALSE.
+      END IF
+
+   END FUNCTION Nelder_Mead_termination
 
 END PROGRAM HMx_fitting
