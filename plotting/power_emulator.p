@@ -38,7 +38,7 @@ if(print==1) {set output 'power_emulator_many.eps'}
 
 # k range
 kmin=2e-3
-kmax=9e0
+kmax=12e0
 set log x
 set xrange [kmin:kmax]
 
@@ -53,7 +53,7 @@ print 'Plotting this number of cosmolgies: ncos: ', ncos
 print ''
 
 # Residual range
-dy=0.22
+dy=0.32
 ddy=0.05
 set yrange [1.-dy:1+dy]
 

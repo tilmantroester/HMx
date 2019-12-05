@@ -164,6 +164,7 @@ CONTAINS
 
       ! Read in BAHAMAS simulation name
       CALL get_command_argument(6, name)
+      IF(name == '') name = 'AGN_TUNED_nu0'
 
       ! Read in response logical that determines if we fit the BAHAMAS response or not
       CALL get_command_argument(7, response)
@@ -234,7 +235,7 @@ CONTAINS
          CALL MCMC_fitting(delta, tmax, nchain, &
             k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
       ELSE IF(ifit == 2) THEN
-         CALL Nelder_Mead_fitting(delta, tmax, &
+         CALL Nelder_Mead_fitting(delta, tmax, nchain, &
             k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
       ELSE
          STOP 'ERROR, ifit specified incorrectly'
@@ -464,14 +465,15 @@ CONTAINS
 
    END SUBROUTINE MCMC_fitting
 
-   SUBROUTINE Nelder_Mead_fitting(tol, tmax, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos, outbase)
+   SUBROUTINE Nelder_Mead_fitting(tol, tmax, nmax, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos, outbase)
 
       ! Nelder-Mead simplex for fiding minima of a function
       ! Coded up using https://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method
       USE sorting
       IMPLICIT NONE
       REAL, INTENT(IN) :: tol           ! Accuracy parameters
-      REAL, INTENT(IN) :: tmax          ! Maximum time it can run for [mins]
+      REAL, INTENT(IN) :: tmax          ! Maximum time that can run for [mins]
+      INTEGER, INTENT(IN) :: nmax       ! Maximum number of iterations
       REAL, INTENT(IN) :: k(nk)         ! Array for wavenumbers [h/Mpc]
       INTEGER, INTENT(IN) :: nk         ! Number of wavenumbers
       REAL, INTENT(IN) :: z(nz)         ! Array for redshifts
@@ -495,6 +497,7 @@ CONTAINS
       REAL :: fo, fr, fe, fc
       INTEGER :: i, j, ii
       INTEGER :: unit_number
+      REAL :: t1, t2
 
       ! Parameters
       INTEGER, PARAMETER :: isort_Nelder_Mead = isort_bubble
@@ -506,11 +509,14 @@ CONTAINS
       INTEGER, PARAMETER :: screen_unit_number = 6
       INTEGER, PARAMETER :: file_unit_number = 77
 
+      ! Initilise the algorithm and fill arrays
       p = fit%original
       np = fit%n
-
       CALL init_Nelder_Mead(x, dx, n, p, np, fit)
       ALLOCATE(xx(n+1, n), ff(n+1), xo(n), xr(n), xe(n), xc(n))
+
+      CALL CPU_TIME(t1)
+      CALL CPU_TIME(t2)
 
       ! Set initial test points
       DO i = 1, n+1
@@ -532,6 +538,9 @@ CONTAINS
          ff(i) = fom
       END DO
 
+      p = fit%original
+      np = fit%n
+
       ii = 0
       operation = 'Starting'
       WRITE(nstring,*) n+1
@@ -546,7 +555,8 @@ CONTAINS
          IF(verbose) WRITE(*, '(A16,I10,'//trim(nstring)//'F15.7)') TRIM(operation), ii, ff(1), (xx(1, i), i = 1, n)
 
          ! Decide on convergence
-         IF(Nelder_Mead_termination(ff, n, tol)) THEN
+         CALL CPU_TIME(t2)
+         IF(Nelder_Mead_termination(ff, n, tol) .OR. ii == nmax .OR. (t2-t1) > 60.*tmax) THEN
             DO i = 1, n
                x(i) = xx(1, i)
             END DO
@@ -693,8 +703,9 @@ CONTAINS
       fit%log(param_M0) = .FALSE.
 
       fit%name(param_Astar) = 'A_*'
-      fit%original(param_Astar) = 0.03 ! Standard value from ihm=3
+      !fit%original(param_Astar) = 0.03 ! Standard value from ihm=3
       !fit%original(param_Astar)=0.042
+      fit%original(param_Astar)= 0.03!*(1.+z(1))**(-0.25)
       fit%sigma(param_Astar) = 0.002
       fit%minimum(param_Astar) = 1e-4
       fit%maximum(param_Astar) = 0.2
@@ -1481,10 +1492,10 @@ CONTAINS
             fit%set(param_Astar) = .TRUE.
             fit%set(param_cstar) = .TRUE.
             fit%set(param_Mstar) = .TRUE.
-            !fit%set(param_sstar) = .TRUE.  ! Does not provide a significant improvement
+            fit%set(param_sstar) = .TRUE.  ! Does not provide a significant improvement
             !fit%set(param_Astarp) = .TRUE. ! Does not provide a significant improvement
             !fit%set(param_cstarp) = .TRUE. ! Does not provide a significant improvement
-            !fit%set(param_eta) = .TRUE.    ! Does not provide a significant improvement
+            fit%set(param_eta) = .TRUE.    ! Does not provide a significant improvement
 
             ! None of the commented-out parameters provide a significant improvement
             ! Main problem seems to be model fitting poorly at transition region at high z

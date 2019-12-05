@@ -10,8 +10,8 @@ if(!exists('print')) {print=0}
 print 'print = 0: qt'
 print 'print = 1: eps'
 print 'print = 2: pdf'
-if(print==0) {set term qt dashed font ',10' size 1000,1200; sun='sun'}
-if(print==1) {set term post enh col fontfile cmsy font ',8' size 10,12; sun='{/cmsy10 \014}'}
+if(print==0) {set term qt dashed font ',10'; sun='sun'}
+if(print==1) {set term post enh col fontfile cmsy font ',6'; sun='{/cmsy10 \014}'}
 if(print==2) {set term pdfcairo font ',14' ps .25 size 10.24,10.24; set encoding utf8; sun='☉'}
 print 'print = ', print
 print ''
@@ -107,8 +107,8 @@ print ''
 
 set key bottom right
 
-print 'Example simulation file: ', power(sim,mesh,cat,snap,1,1)
-print 'Example halo-model filed: ', hmod(snap,1,1,'standard')
+print 'Example simulation file: ', power(sim,mesh,cat,snap,0,0)
+print 'Example halo-model filed: ', hmod(snap,0,0,'standard')
 print ''
 
 if(!exists('nf')) {nf=4}
@@ -226,8 +226,10 @@ set label 'v = '.type2.'' at graph 0.94,0.8 right
 
 # Do the plotting
 plot 1 w l lt -1 noti,\
-     '<paste '.hmod(snap,b1,b2,'standard').' '.power(sim,mesh,cat,snap,b1,b2).'' u ($1/disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c1 ti 'Standard halo model',\
-     '<paste '.hmod(snap,b1,b2,'bnl').'      '.power(sim,mesh,cat,snap,b1,b2).'' u ($1*disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c2 ti 'Non-linear bias model'
+     '<paste '.hmod(snap,b1,b2,'standard').' '.power(sim,mesh,cat,snap,b1,b2).'' \
+      u ($1/disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c1 ti 'Standard halo model',\
+     '<paste '.hmod(snap,b1,b2,'bnl').'      '.power(sim,mesh,cat,snap,b1,b2).'' \
+      u ($1*disp):(column(5)/column(5+2)):(column(5+5)/column(5+2)) w e lw 2 pt 7 ps .5 lc c2 ti 'Non-linear bias model'
 
 }
 
@@ -240,7 +242,6 @@ unset label
 }
 }
 
-unset multiplot
+#unset multiplot
 
 show output
-unset output
