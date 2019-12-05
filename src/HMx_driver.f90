@@ -199,12 +199,12 @@ PROGRAM HMx_driver
       WRITE (*, *) '66 - Direct integration of measured 3D BAHAMAS spectra: Triad 5 but larger ell range'
       WRITE (*, *) '67 - Compute matter power using non-linear halo bias'
       WRITE (*, *) '68 - Compute non-linear halo bias integrand'
-      WRITE (*, *) '69 - Matter, halo power spectra with non-linear bias'
+      WRITE (*, *) '69 - Matter, halo power spectra with non-linear bias Multidark comparison'
       WRITE (*, *) '70 - Comparison with Cosmic Emu nodes'
       WRITE (*, *) '71 - Comparison with random Cosmic Emu cosmology'
       WRITE (*, *) '72 - Run halo model over lots of random cosmological parameters'
       WRITE (*, *) '73 - Check halo-mass function amplitude parameter'
-      WRITE (*, *) '74 - Matter, halo power spectra with non-linear bias (low sigma_8)'
+      WRITE (*, *) '74 - Matter, halo power spectra with non-linear bias (low sigma_8) Multidark comparison'
       WRITE (*, *) '75 - Compare HMcode aginst CAMB'
       READ (*, *) imode
       WRITE (*, *) '============================'
@@ -3946,7 +3946,7 @@ PROGRAM HMx_driver
             ihm = 49 ! 49 - Non-linear bias with Mv and Tinker
             outfile = 'data/power_bnl.dat'
          ELSE
-            STOP 'HMX_DRIVER: Error, something went wrong in 68'
+            STOP 'HMX_DRIVER: Error, something went wrong in non-linear bias'
          END IF
 
          ! Initiliasation for the halomodel calcualtion
@@ -4143,9 +4143,9 @@ PROGRAM HMx_driver
 
             ! Initiliasation for the halomodel calcualtion
             CALL assign_halomod(ihm, hmod, verbose)
-            hmod%mmin = 1e12 ! 1e7 is the default, be really careful here
-            hmod%mmin = 1e16 ! 1e17 is the default, be really careful here
-            hmod%n = 512    ! 512 is at least necessary due to thin halo bins (lots of zero points)
+            hmod%mmin = 1e10 ! 1e7 is the default, be really careful here
+            hmod%mmax = 1e16 ! 1e17 is the default, be really careful here
+            hmod%n = 1024    ! 512 is at least necessary due to thin halo bins (lots of zero points)
             CALL init_halomod(a(i), hmod, cosm, verbose)
             CALL print_halomod(hmod, cosm, verbose)
 
