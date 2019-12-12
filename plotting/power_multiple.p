@@ -14,8 +14,13 @@ if(print==0) {set term qt dashed}
 #4 - Full
 print('')
 if(!exists('itype')) {itype=4}
-print('Set power type using *itype*')
+print('Choose what power to print')
+print('itype = 1: Linear')
+print('itype = 2: Two-halo')
+print('itype = 3: One-halo')
+print('itype = 4: Full')
 print('itype = '.itype.'')
+print('')
 
 #File types
 file_li='data/power_linear.dat'
@@ -70,6 +75,7 @@ if(itype==2){file=file_2h; tits='Two-halo power'}
 if(itype==3){file=file_1h; tits='One-halo power'}
 if(itype==4){file=file_hm; tits='Halo-model power'}
 print('File: '.file.'')
+print('')
 print('Title: '.tits.'')
 print('')
 

@@ -17,9 +17,12 @@ print ''
 file(z)=sprintf('data/properies_z%1.1f.dat',z)
 
 #Mass axis
+mmin=1e8
+mmax=1e16
 set log x
 set xlabel 'M / h^{-1} M_{'.sun.'}'
 set format x '10^{%T}'
+set xrange [mmin:mmax]
 
 #Align left and right margins
 set lmargin 10
