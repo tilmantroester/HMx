@@ -240,7 +240,7 @@ PROGRAM HMx_driver
       CALL general_projection(imode, icosmo, ihm)
    ELSE IF (imode == 12 .OR. imode == 44 .OR. imode == 38 .OR. imode == 39 .OR. imode == 55 .OR. imode == 56) THEN
       CALL triad_stuff(imode)
-   ELSE IF(imode == 13) THEN
+   ELSE IF (imode == 13) THEN
       CALL cross_correlation_coefficient()
    ELSE IF (imode == 14 .OR. imode == 33) THEN
       CALL baryon_parameter_variations(imode)
@@ -269,7 +269,7 @@ PROGRAM HMx_driver
    ELSE IF (imode == 31 .OR. imode == 53) THEN
       CALL power_breakdown_halomass()
    ELSE IF (imode == 34) THEN
-     CALL write_HMx_variations()
+      CALL write_HMx_variations()
    ELSE IF (imode == 35) THEN
       CALL halo_cores()
    ELSE IF (imode == 36) THEN
@@ -302,11 +302,11 @@ PROGRAM HMx_driver
       CALL non_linear_halo_bias_integrand()
    ELSE IF (imode == 69 .OR. imode == 74) THEN
       CALL halo_power_multidark()
-   ELSE IF(imode == 73) THEN
+   ELSE IF (imode == 73) THEN
       CALL HMF_amplitude()
-   ELSE IF(imode == 75) THEN
+   ELSE IF (imode == 75) THEN
       CALL compare_HMcode_CAMB(icosmo)
-   ELSE IF(imode == 76) THEN
+   ELSE IF (imode == 76) THEN
       CALL power_single_comparison(icosmo, ihm)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
@@ -318,12 +318,12 @@ CONTAINS
 
       IMPLICIT NONE
       INTEGER, INTENT(INOUT) :: icosmo
-      REAL, ALLOCATABLE :: a(:), k(:), Pk_HMx(:,:), Pk_CAMB(:,:)
-      TYPE(cosmology) :: cosm 
+      REAL, ALLOCATABLE :: a(:), k(:), Pk_HMx(:, :), Pk_CAMB(:, :)
+      TYPE(cosmology) :: cosm
       REAL :: crap, max_error, error
       INTEGER :: i, j, ii, nfail
       LOGICAL :: fail
-      LOGICAL, PARAMETER :: verbose=.TRUE.
+      LOGICAL, PARAMETER :: verbose = .TRUE.
       REAL, PARAMETER :: amin = 1./3.
       REAL, PARAMETER :: amax = 1.0
       INTEGER, PARAMETER :: na = 16
@@ -331,7 +331,7 @@ CONTAINS
       CHARACTER(len=256), PARAMETER :: outfile_CAMB = 'data/power_HMcode_CAMB.dat'
       REAL, PARAMETER :: k_crap = 0.1      ! Wavenumber for first run to prevent function write [h/Mpc]
       REAL, PARAMETER :: a_crap = 1.0      ! Scale factor for first run to prevent function write
-      REAL, PARAMETER :: eps = 0.01        ! Fractional error tolerance for the test 
+      REAL, PARAMETER :: eps = 0.01        ! Fractional error tolerance for the test
       REAL, PARAMETER :: kmin_test = 1e-2  ! Minimum wavenumber for the tests [h/Mpc]
       REAL, PARAMETER :: kmax_test = 1e1   ! Minimum wavenumber for the tests [h/Mpc]
       REAL, PARAMETER :: amin_test = 1./3. ! Minimum scale factor for test
@@ -345,8 +345,8 @@ CONTAINS
       CALL RNG_set(iseed)
 
       ! Loop over individual tests
-      nfail=0
-      DO ii=1,ntest
+      nfail = 0
+      DO ii = 1, ntest
 
          ! Assigns the cosmological model
          CALL assign_cosmology(icosmo, cosm, verbose)
@@ -363,8 +363,8 @@ CONTAINS
          CALL get_CAMB_power(k, a, Pk_CAMB, nk, na, non_linear=.TRUE., halofit_version=5, cosm=cosm)
 
          ! Calculate HMcode power via HMx
-         IF(ALLOCATED(Pk_HMx)) DEALLOCATE(Pk_HMx)
-         ALLOCATE(Pk_HMx(nk,na))
+         IF (ALLOCATED(Pk_HMx)) DEALLOCATE (Pk_HMx)
+         ALLOCATE (Pk_HMx(nk, na))
          CALL calculate_HMcode_CAMB(k, a, Pk_HMx, nk, na, cosm)
 
          ! Write data
@@ -372,56 +372,56 @@ CONTAINS
          CALL write_power_a(k, a, Pk_CAMB, nk, na, outfile_CAMB, verbose=.FALSE.)
 
          ! Now actually do tests
-         fail=.FALSE.
-         max_error=0.
-         DO j=1,na
-            DO i=1,nk
-               error=abs(-1.+Pk_HMx(i,j)/Pk_CAMB(i,j))
-               IF((k(i) >= kmin_test) .AND. (k(i) <= kmax_test) .AND. (a(j) >= amin_test) .AND. (a(j) <= amax_test)) THEN 
-                  IF(error > max_error) max_error = error
-                  IF(error > eps) THEN
-                     IF(verbose_test) THEN
-                        WRITE(*,*) 'COMPARE_HMCODE_CAMB: Test failing'    
-                        WRITE(*,*) 'COMPARE_HMCODE_CAMB: k [h/Mpc]:', k(i)
-                        WRITE(*,*) 'COMPARE_HMCODE_CAMB: a:', a(j)
-                        WRITE(*,*) 'COMPARE_HMCODE_CAMB: Delta^2(k) [HMx]:', Pk_HMx(i,j)
-                        WRITE(*,*) 'COMPARE_HMCODE_CAMB: Delta^2(k) [CAMB]:', Pk_CAMB(i,j)
-                        WRITE(*,*) 'COMPARE_HMCODE_CAMB: Ratio:', Pk_HMx(i,j)/Pk_CAMB(i,j)
-                        WRITE(*,*)
+         fail = .FALSE.
+         max_error = 0.
+         DO j = 1, na
+            DO i = 1, nk
+               error = abs(-1.+Pk_HMx(i, j)/Pk_CAMB(i, j))
+               IF ((k(i) >= kmin_test) .AND. (k(i) <= kmax_test) .AND. (a(j) >= amin_test) .AND. (a(j) <= amax_test)) THEN
+                  IF (error > max_error) max_error = error
+                  IF (error > eps) THEN
+                     IF (verbose_test) THEN
+                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test failing'
+                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: k [h/Mpc]:', k(i)
+                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: a:', a(j)
+                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Delta^2(k) [HMx]:', Pk_HMx(i, j)
+                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Delta^2(k) [CAMB]:', Pk_CAMB(i, j)
+                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Ratio:', Pk_HMx(i, j)/Pk_CAMB(i, j)
+                        WRITE (*, *)
                      END IF
-                     fail=.TRUE.
+                     fail = .TRUE.
                   END IF
                END IF
             END DO
          END DO
 
          ! Write results to screen
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Seed:', iseed
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Test:', ii,  'of', ntest
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Minimum k considered in test [h/Mpc]:', kmin_test
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Maximum k considered in test [h/Mpc]:', kmax_test
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Minimum a considered in test:', amin_test
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Maximum a considered in test:', amax_test
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Maximum error:', max_error
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Tolerance:', eps
-         IF(fail) THEN
-            nfail=nfail+1
-            WRITE(*,*) 'COMPARE_HMCODE_CAMB: Test failed'
-            IF(stop_on_fail) STOP
-         ELSE  
-            WRITE(*,*) 'COMPARE_HMCODE_CAMB: Test passed'
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Seed:', iseed
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test:', ii, 'of', ntest
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Minimum k considered in test [h/Mpc]:', kmin_test
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Maximum k considered in test [h/Mpc]:', kmax_test
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Minimum a considered in test:', amin_test
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Maximum a considered in test:', amax_test
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Maximum error:', max_error
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Tolerance:', eps
+         IF (fail) THEN
+            nfail = nfail+1
+            WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test failed'
+            IF (stop_on_fail) STOP
+         ELSE
+            WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test passed'
          END IF
-         WRITE(*,*)
+         WRITE (*, *)
 
       END DO
 
-      IF(stop_on_fail) THEN
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: All tests passed'
+      IF (stop_on_fail) THEN
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: All tests passed'
       ELSE
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Number of failed tests:', nfail
-         WRITE(*,*) 'COMPARE_HMCODE_CAMB: Total number of tests:', ntest
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Number of failed tests:', nfail
+         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Total number of tests:', ntest
       END IF
-      WRITE(*,*)
+      WRITE (*, *)
 
    END SUBROUTINE compare_HMcode_CAMB
 
@@ -436,7 +436,7 @@ CONTAINS
       CHARACTER(len=256) :: outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
-      LOGICAL, PARAMETER :: verbose=.TRUE.
+      LOGICAL, PARAMETER :: verbose = .TRUE.
       INTEGER :: icosmo = 37    ! 37 - WMAP 5
       INTEGER :: ihm = 49       ! 49 - Non-linear halo bias with Tinker
       REAL, PARAMETER :: z = 0. ! Redshift
@@ -510,22 +510,22 @@ CONTAINS
       REAL, ALLOCATABLE :: k(:), pow_li(:), pow_1h(:), pow_2h(:), pow_hm(:)
       INTEGER :: i
 
-      REAL, PARAMETER :: amp_min=0.1
-      REAL, PARAMETER :: amp_max=2.
-      INTEGER, PARAMETER :: n_amp=16
+      REAL, PARAMETER :: amp_min = 0.1
+      REAL, PARAMETER :: amp_max = 2.
+      INTEGER, PARAMETER :: n_amp = 16
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
-      REAL, PARAMETER :: a=1.
-      INTEGER :: icosmo=1
-      INTEGER :: ihm=3
-      REAL, PARAMETER :: mmin=1e7
-      REAL, PARAMETER :: mmax=1e17
-      INTEGER, PARAMETER :: field(1)=field_dmonly
-      LOGICAL, PARAMETER :: verbose=.TRUE.
-      CHARACTER(len=128), PARAMETER :: outfid='data/power_HMFamp_fid.dat'
-      CHARACTER(len=128), PARAMETER :: fbase='data/power_HMFamp_'
-      CHARACTER(len=128), PARAMETER :: fext='.dat'
+      REAL, PARAMETER :: a = 1.
+      INTEGER :: icosmo = 1
+      INTEGER :: ihm = 3
+      REAL, PARAMETER :: mmin = 1e7
+      REAL, PARAMETER :: mmax = 1e17
+      INTEGER, PARAMETER :: field(1) = field_dmonly
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      CHARACTER(len=128), PARAMETER :: outfid = 'data/power_HMFamp_fid.dat'
+      CHARACTER(len=128), PARAMETER :: fbase = 'data/power_HMFamp_'
+      CHARACTER(len=128), PARAMETER :: fext = '.dat'
 
       ! 0 - Calculate halo model at a single z
 
@@ -541,16 +541,16 @@ CONTAINS
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
-      DO i=0,n_amp
+      DO i = 0, n_amp
 
          ! Initiliasation for the halomodel calcualtion
          CALL assign_halomod(ihm, hmod, verbose)
 
-         IF(i==0) THEN
+         IF (i == 0) THEN
             hmod%Amp_mf = 1.
             outfile = outfid
-         ELSE  
-            hmod%Amp_mf = progression(amp_min,amp_max,i,n)
+         ELSE
+            hmod%Amp_mf = progression(amp_min, amp_max, i, n)
             outfile = number_file(fbase, i, fext)
          END IF
 
@@ -560,7 +560,7 @@ CONTAINS
          ! Do the halo-model calculation
          CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
 
-         ! Write out the results      
+         ! Write out the results
          CALL write_power(k, pow_li, pow_2h, pow_1h, pow_hm, nk, outfile, verbose)
 
       END DO
@@ -1357,10 +1357,10 @@ CONTAINS
       DO i = 1, 2
 
          ! Assigns the cosmological model
-         IF(i == 1) THEN
+         IF (i == 1) THEN
             icosmo_here = icosmo
             outfile = 'data/power.dat'
-         ELSE IF(i == 2) THEN
+         ELSE IF (i == 2) THEN
             icosmo_here = 1
             outfile = 'data/power_baseline.dat'
          ELSE
@@ -1392,7 +1392,7 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), a(:)
-      REAL, ALLOCATABLE :: pow_li(:,:), pow_2h(:,:,:,:), pow_1h(:,:,:,:), pow_hm(:,:,:,:)
+      REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
       INTEGER :: field(1)
       CHARACTER(len=256) :: base
       TYPE(halomod) :: hmod
@@ -1485,7 +1485,7 @@ CONTAINS
       REAL, ALLOCATABLE :: k(:)
       INTEGER :: nf
       INTEGER, ALLOCATABLE :: fields(:)
-      REAL, ALLOCATABLE :: pow_li(:), pow_2h(:,:,:), pow_1h(:,:,:), pow_hm(:,:,:)
+      REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
 
       REAL, PARAMETER :: zmin = 0.
       REAL, PARAMETER :: zmax = 2.
@@ -1661,7 +1661,6 @@ CONTAINS
       REAL, ALLOCATABLE :: k(:)
 
       LOGICAL, PARAMETER :: verbose = .TRUE.
-
 
       IF (imode == 2 .OR. imode == 52) THEN
 
@@ -2218,15 +2217,15 @@ CONTAINS
 
       ! Number of n(z) to check
       DO i = 1, nnz
-         IF (i == 1)  nz = tracer_RCSLenS
-         IF (i == 2)  nz = tracer_CFHTLenS_vanWaerbeke2013
-         IF (i == 3)  nz = tracer_KiDS
-         IF (i == 4)  nz = tracer_KiDS_bin1
-         IF (i == 5)  nz = tracer_KiDS_bin2
-         IF (i == 6)  nz = tracer_KiDS_bin3
-         IF (i == 7)  nz = tracer_KiDS_bin4
-         IF (i == 8)  nz = tracer_KiDS_450
-         IF (i == 9)  nz = tracer_KiDS_450_fat_bin1
+         IF (i == 1) nz = tracer_RCSLenS
+         IF (i == 2) nz = tracer_CFHTLenS_vanWaerbeke2013
+         IF (i == 3) nz = tracer_KiDS
+         IF (i == 4) nz = tracer_KiDS_bin1
+         IF (i == 5) nz = tracer_KiDS_bin2
+         IF (i == 6) nz = tracer_KiDS_bin3
+         IF (i == 7) nz = tracer_KiDS_bin4
+         IF (i == 8) nz = tracer_KiDS_450
+         IF (i == 9) nz = tracer_KiDS_450_fat_bin1
          IF (i == 10) nz = tracer_KiDS_450_fat_bin2
          IF (i == 11) nz = tracer_KiDS_450_highz
          IF (i == 12) nz = tracer_KiDS_450_bin1
@@ -2253,10 +2252,8 @@ CONTAINS
       IMPLICIT NONE
       REAL, ALLOCATABLE :: k(:), a(:)
 
-      
-
    END SUBROUTINE cross_correlation_cosmology
-   
+
    SUBROUTINE general_projection(imode, icosmo, ihm)
 
       IMPLICIT NONE
@@ -2356,7 +2353,7 @@ CONTAINS
       nth = 128
       CALL fill_array(log(thmin), log(thmax), theta, nth)
       theta = exp(theta)
-      nb=3 ! Number of correlation functions to compute
+      nb = 3 ! Number of correlation functions to compute
       ALLOCATE (xi(nb, nth), ibessel(nb))
       ibessel(1) = 0 ! J0 (xi plus for lensing)
       ibessel(2) = 2 ! J2 (standard angular correlation function)
@@ -2402,7 +2399,7 @@ CONTAINS
          CALL print_cosmology(cosm)
 
          ! Write out diagnostics
-         IF(imode == 47) ihm = 1 ! 1 - HMcode (2016)
+         IF (imode == 47) ihm = 1 ! 1 - HMcode (2016)
          IF (imode == 42 .OR. imode == 43 .OR. imode == 63 .OR. imode == 64) ihm = 3 ! 3 - Standard halo model
          CALL assign_halomod(ihm, hmod, verbose)
          CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
@@ -2529,7 +2526,7 @@ CONTAINS
 
             CALL assign_halomod(ihm, hmod, verbose)
             CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, &
-               hmod, cosm, verbose, response=.FALSE.)
+                               hmod, cosm, verbose, response=.FALSE.)
 
             ! Fill out the projection kernels
             CALL fill_projection_kernels(ix, proj, cosm)
@@ -2575,263 +2572,263 @@ CONTAINS
             WRITE (*, *)
 
          END DO
- 
+
       ELSE IF (imode == 9) THEN
- 
+
          ! Breakdown cross-correlation in terms of mass
- 
-          ! Print to screen
-          CALL print_cosmology(cosm)
- 
-          ! Fill out the projection kernels
-          CALL fill_projection_kernels(ix, proj, cosm)
- 
-          ! Allocate arrays for power
-          ALLOCATE (pows_li(nk, na), pows_2h(2, 2, nk, na), pows_1h(2, 2, nk, na), pows_hm(2, 2, nk, na))
-          ALLOCATE (pow_ka(nk, na))
- 
-          DO i = 0, 6
-             IF (icumulative .EQV. .FALSE.) THEN
-                ! Set the mass intervals
-                IF (i == 0) THEN
-                   m1 = 1e7
-                   m2 = 1e17
-                ELSE IF (i == 1) THEN
-                   m1 = 1e7
-                   m2 = 1e11
-                ELSE IF (i == 2) THEN
-                   m1 = 1e11
-                   m2 = 1e12
-                ELSE IF (i == 3) THEN
-                   m1 = 1e12
-                   m2 = 1e13
-                ELSE IF (i == 4) THEN
-                   m1 = 1e13
-                   m2 = 1e14
-                ELSE IF (i == 5) THEN
-                   m1 = 1e14
-                   m2 = 1e15
-                ELSE IF (i == 6) THEN
-                   m1 = 1e15
-                   m2 = 1e16
-                END IF
-             ELSE
-                ! Set the mass intervals
-                IF (i == 0) THEN
-                   m1 = 1e7
-                   m2 = 1e17
-                ELSE IF (i == 1) THEN
-                   m1 = 1e7
-                   m2 = 1e11
-                ELSE IF (i == 2) THEN
-                   m1 = 1e7
-                   m2 = 1e12
-                ELSE IF (i == 3) THEN
-                   m1 = 1e7
-                   m2 = 1e13
-                ELSE IF (i == 4) THEN
-                   m1 = 1e7
-                   m2 = 1e14
-                ELSE IF (i == 5) THEN
-                   m1 = 1e7
-                   m2 = 1e15
-                ELSE IF (i == 6) THEN
-                   m1 = 1e7
-                   m2 = 1e16
-                END IF
-             END IF
- 
-             ! Set the code to not 'correct' the two-halo power for missing
-             ! mass when doing the calcultion binned in halo mass
-             IF ((icumulative .EQV. .TRUE.) .AND. i > 0) hmod%ip2h = 0
-             STOP 'ERROR: I am almost certain that hmod%ip2h=0 above needs to be changed to hmod%ip2h_corr=1'
- 
-             WRITE (*, fmt='(A16)') 'HMx_DRIVER: Mass range'
-             WRITE (*, fmt='(A16,I5)') 'HMx_DRIVER: Iteration:', i
-             WRITE (*, fmt='(A21,2ES15.7)') 'HMx_DRIVER: M_min [Msun/h]:', m1
-             WRITE (*, fmt='(A21,2ES15.7)') 'HMx_DRIVER: M_max [Msun/h]:', m2
-             WRITE (*, *)
- 
-             !Loop over redshifts
-             DO j = 1, na
- 
-                !Initiliasation for the halomodel calcualtion
-                CALL assign_halomod(ihm, hmod, verbose)
-                hmod%mmin=m1
-                hmod%mmax=m2
-                CALL init_halomod(a(j), hmod, cosm, verbose)
-                CALL print_halomod(hmod, cosm, verbose)
-                CALL calculate_HMx_a(ip, 2, k, nk, pows_li(:, j), pows_2h(:, :, :, j), pows_1h(:, :, :, j), pows_hm(:, :, :, j), hmod, cosm, verbose, response=.FALSE.)
- 
-                !Write progress to screen
-                IF (j == 1) THEN
-                   WRITE (*, fmt='(A5,A7)') 'i', 'a'
-                   WRITE (*, fmt='(A13)') '   ============'
-                END IF
-                WRITE (*, fmt='(I5,F8.3)') j, a(j)
- 
-             END DO
-             WRITE (*, fmt='(A13)') '   ============'
-             WRITE (*, *)
- 
-             dir = 'data/'
-             IF (i == 0) THEN
-                outfile = TRIM(dir)//'power'
-             ELSE
-                base = TRIM(dir)//'mass_'
-                mid = '_'
-                ext = '_power'
-                outfile = number_file2(base, NINT(log10(m1)), mid, NINT(log10(m2)), ext)
-             END IF
-             WRITE (*, *) 'HMx_DRIVER: File: ', TRIM(outfile)
-             !CALL write_power_a(k,a,powa,nk,na,output)
- 
-             !Loop over all types of C(l) to create
-             base = TRIM(dir)//'mass_'
-             mid = '_'
-             DO j = 1, 4
- 
-                !Skip the 1-halo C(l) because it takes ages (2017/02/06)
-                IF (j == 3) CYCLE
- 
-                !Set output files
-                IF (j == 1) THEN
-                   outfile = TRIM(dir)//'cl_linear.dat'
-                   ext = '_cl_linear.dat'
-                   pow_ka = pows_li
-                ELSE IF (j == 2) THEN
-                   outfile = TRIM(dir)//'cl_2h.dat'
-                   ext = '_cl_2h.dat'
-                   pow_ka = pows_2h(1, 2, :, :)
-                ELSE IF (j == 3) THEN
-                   outfile = TRIM(dir)//'cl_1h.dat'
-                   ext = '_cl_1h.dat'
-                   pow_ka = pows_1h(1, 2, :, :)
-                ELSE IF (j == 4) THEN
-                   outfile = TRIM(dir)//'cl_hm.dat'
-                   ext = '_cl_hm.dat'
-                   pow_ka = pows_hm(1, 2, :, :)
-                END IF
- 
-                IF (i > 0) outfile = number_file2(base, NINT(log10(m1)), mid, NINT(log10(m2)), ext)
- 
-                WRITE (*, *) 'HMx_DRIVER: File: ', TRIM(outfile)
- 
-                CALL calculate_Cl(0., maxdist(proj), ell, Cl, nl, k, a, pow_ka, nk, na, proj, cosm)
-                CALL write_Cl(ell, Cl, nl, outfile, verbose)
- 
-             END DO
-             WRITE (*, *) 'HMx_DRIVER: Done'
-             WRITE (*, *)
- 
-          END DO
 
-         ELSE IF (imode == 10) THEN
+         ! Print to screen
+         CALL print_cosmology(cosm)
 
-            ! Break down cross-correlation in terms of redshift
-   
-            ! Print to screen
-            CALL print_cosmology(cosm)
-   
-            CALL assign_halomod(ihm, hmod, verbose)
-   
-            CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
-   
-            ! Allocate array for power
-            ALLOCATE (pow_ka(nk, na))
-   
-            ! Fill out the projection kernels
-            CALL fill_projection_kernels(ix, proj, cosm)
-   
-            ! Write to screen
-            WRITE (*, *) 'HMx_DRIVER: Computing C(l)'
-            WRITE (*, *) 'HMx_DRIVER: ell min:', REAL(ell(1))
-            WRITE (*, *) 'HMx_DRIVER: ell max:', REAL(ell(nl))
-            WRITE (*, *) 'HMx_DRIVER: number of ell:', nl
-            WRITE (*, *)
-   
-            ! Set range of z
-            zmin = 0.
-            zmax = 1.
-            nz = 8
-   
-            DO i = 0, nz
-   
+         ! Fill out the projection kernels
+         CALL fill_projection_kernels(ix, proj, cosm)
+
+         ! Allocate arrays for power
+         ALLOCATE (pows_li(nk, na), pows_2h(2, 2, nk, na), pows_1h(2, 2, nk, na), pows_hm(2, 2, nk, na))
+         ALLOCATE (pow_ka(nk, na))
+
+         DO i = 0, 6
+            IF (icumulative .EQV. .FALSE.) THEN
+               ! Set the mass intervals
                IF (i == 0) THEN
-                  r1 = 0.
-                  r2 = maxdist(proj)
-               ELSE
-                  IF (icumulative .EQV. .FALSE.) THEN
-                     z1 = progression(zmin, zmax, i, nz)
-                  ELSE
-                     z1 = zmin
-                  END IF
-                  z2 = zmin+(zmax-zmin)*float(i)/float(nz)
-                  a1 = scale_factor_z(z1)
-                  a2 = scale_factor_z(z2)
-                  r1 = comoving_distance(a1, cosm)
-                  r2 = comoving_distance(a2, cosm)
+                  m1 = 1e7
+                  m2 = 1e17
+               ELSE IF (i == 1) THEN
+                  m1 = 1e7
+                  m2 = 1e11
+               ELSE IF (i == 2) THEN
+                  m1 = 1e11
+                  m2 = 1e12
+               ELSE IF (i == 3) THEN
+                  m1 = 1e12
+                  m2 = 1e13
+               ELSE IF (i == 4) THEN
+                  m1 = 1e13
+                  m2 = 1e14
+               ELSE IF (i == 5) THEN
+                  m1 = 1e14
+                  m2 = 1e15
+               ELSE IF (i == 6) THEN
+                  m1 = 1e15
+                  m2 = 1e16
                END IF
-   
-               WRITE (*, *) 'HMx_DRIVER:', i
-               IF (i > 0) THEN
-                  WRITE (*, *) 'HMx_DRIVER: z1:', REAL(z1)
-                  WRITE (*, *) 'HMx_DRIVER: z2:', REAL(z2)
+            ELSE
+               ! Set the mass intervals
+               IF (i == 0) THEN
+                  m1 = 1e7
+                  m2 = 1e17
+               ELSE IF (i == 1) THEN
+                  m1 = 1e7
+                  m2 = 1e11
+               ELSE IF (i == 2) THEN
+                  m1 = 1e7
+                  m2 = 1e12
+               ELSE IF (i == 3) THEN
+                  m1 = 1e7
+                  m2 = 1e13
+               ELSE IF (i == 4) THEN
+                  m1 = 1e7
+                  m2 = 1e14
+               ELSE IF (i == 5) THEN
+                  m1 = 1e7
+                  m2 = 1e15
+               ELSE IF (i == 6) THEN
+                  m1 = 1e7
+                  m2 = 1e16
                END IF
-               WRITE (*, *) 'HMx_DRIVER: r1 [Mpc/h]:', REAL(r1)
-               WRITE (*, *) 'HMx_DRIVER: r2 [Mpc/h]:', REAL(r2)
-   
-               ! Loop over all types of C(l) to create
-               dir = 'data/'
-               base = TRIM(dir)//'redshift_'
-               mid = '_'
-               DO j = 1, 4
-   
-                  !Set output files
-                  IF (j == 1) THEN
-                     ext = '_cl_linear.dat'
-                     outfile = TRIM(dir)//'cl_linear.dat'
-                     pow_ka = pows_li
-                  ELSE IF (j == 2) THEN
-                     ext = '_cl_2h.dat'
-                     outfile = TRIM(dir)//'cl_2h.dat'
-                     pow_ka = pows_2h(1, 2, :, :)
-                  ELSE IF (j == 3) THEN
-                     ext = '_cl_1h.dat'
-                     outfile = TRIM(dir)//'cl_1h.dat'
-                     pow_ka = pows_1h(1, 2, :, :)
-                  ELSE IF (j == 4) THEN
-                     ext = '_cl_hm.dat'
-                     outfile = TRIM(dir)//'cl_hm.dat'
-                     pow_ka = pows_hm(1, 2, :, :)
-                  END IF
-   
-                  IF (i > 0 .AND. (icumulative .EQV. .FALSE.)) THEN
-                     outfile = number_file2(base, i-1, mid, i, ext)
-                  ELSE IF (i > 0 .AND. icumulative) THEN
-                     outfile = number_file2(base, 0, mid, i, ext)
-                  END IF
-                  WRITE (*, *) 'HMx_DRIVER: Output: ', TRIM(outfile)
-   
-                  !This crashes for the low r2 values for some reason
-                  !Only a problem if lmax ~ 10^5
-                  !STOP 'This crashes for the low r2 values for high ell for some reason - should debug'
-                  CALL calculate_Cl(r1, r2, ell, Cl, nl, k, a, pow_ka, nk, na, proj, cosm)
-                  CALL write_Cl(ell, Cl, nl, outfile, verbose)
-   
-               END DO
-               WRITE (*, *)
-   
+            END IF
+
+            ! Set the code to not 'correct' the two-halo power for missing
+            ! mass when doing the calcultion binned in halo mass
+            IF ((icumulative .EQV. .TRUE.) .AND. i > 0) hmod%ip2h = 0
+            STOP 'ERROR: I am almost certain that hmod%ip2h=0 above needs to be changed to hmod%ip2h_corr=1'
+
+            WRITE (*, fmt='(A16)') 'HMx_DRIVER: Mass range'
+            WRITE (*, fmt='(A16,I5)') 'HMx_DRIVER: Iteration:', i
+            WRITE (*, fmt='(A21,2ES15.7)') 'HMx_DRIVER: M_min [Msun/h]:', m1
+            WRITE (*, fmt='(A21,2ES15.7)') 'HMx_DRIVER: M_max [Msun/h]:', m2
+            WRITE (*, *)
+
+            !Loop over redshifts
+            DO j = 1, na
+
+               !Initiliasation for the halomodel calcualtion
+               CALL assign_halomod(ihm, hmod, verbose)
+               hmod%mmin = m1
+               hmod%mmax = m2
+               CALL init_halomod(a(j), hmod, cosm, verbose)
+               CALL print_halomod(hmod, cosm, verbose)
+               CALL calculate_HMx_a(ip, 2, k, nk, pows_li(:, j), pows_2h(:, :, :, j), pows_1h(:, :, :, j), pows_hm(:, :, :, j), hmod, cosm, verbose, response=.FALSE.)
+
+               !Write progress to screen
+               IF (j == 1) THEN
+                  WRITE (*, fmt='(A5,A7)') 'i', 'a'
+                  WRITE (*, fmt='(A13)') '   ============'
+               END IF
+               WRITE (*, fmt='(I5,F8.3)') j, a(j)
+
             END DO
-   
+            WRITE (*, fmt='(A13)') '   ============'
+            WRITE (*, *)
+
+            dir = 'data/'
+            IF (i == 0) THEN
+               outfile = TRIM(dir)//'power'
+            ELSE
+               base = TRIM(dir)//'mass_'
+               mid = '_'
+               ext = '_power'
+               outfile = number_file2(base, NINT(log10(m1)), mid, NINT(log10(m2)), ext)
+            END IF
+            WRITE (*, *) 'HMx_DRIVER: File: ', TRIM(outfile)
+            !CALL write_power_a(k,a,powa,nk,na,output)
+
+            !Loop over all types of C(l) to create
+            base = TRIM(dir)//'mass_'
+            mid = '_'
+            DO j = 1, 4
+
+               !Skip the 1-halo C(l) because it takes ages (2017/02/06)
+               IF (j == 3) CYCLE
+
+               !Set output files
+               IF (j == 1) THEN
+                  outfile = TRIM(dir)//'cl_linear.dat'
+                  ext = '_cl_linear.dat'
+                  pow_ka = pows_li
+               ELSE IF (j == 2) THEN
+                  outfile = TRIM(dir)//'cl_2h.dat'
+                  ext = '_cl_2h.dat'
+                  pow_ka = pows_2h(1, 2, :, :)
+               ELSE IF (j == 3) THEN
+                  outfile = TRIM(dir)//'cl_1h.dat'
+                  ext = '_cl_1h.dat'
+                  pow_ka = pows_1h(1, 2, :, :)
+               ELSE IF (j == 4) THEN
+                  outfile = TRIM(dir)//'cl_hm.dat'
+                  ext = '_cl_hm.dat'
+                  pow_ka = pows_hm(1, 2, :, :)
+               END IF
+
+               IF (i > 0) outfile = number_file2(base, NINT(log10(m1)), mid, NINT(log10(m2)), ext)
+
+               WRITE (*, *) 'HMx_DRIVER: File: ', TRIM(outfile)
+
+               CALL calculate_Cl(0., maxdist(proj), ell, Cl, nl, k, a, pow_ka, nk, na, proj, cosm)
+               CALL write_Cl(ell, Cl, nl, outfile, verbose)
+
+            END DO
             WRITE (*, *) 'HMx_DRIVER: Done'
             WRITE (*, *)
-   
-         ELSE
-   
-            STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
-   
-         END IF
+
+         END DO
+
+      ELSE IF (imode == 10) THEN
+
+         ! Break down cross-correlation in terms of redshift
+
+         ! Print to screen
+         CALL print_cosmology(cosm)
+
+         CALL assign_halomod(ihm, hmod, verbose)
+
+         CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+
+         ! Allocate array for power
+         ALLOCATE (pow_ka(nk, na))
+
+         ! Fill out the projection kernels
+         CALL fill_projection_kernels(ix, proj, cosm)
+
+         ! Write to screen
+         WRITE (*, *) 'HMx_DRIVER: Computing C(l)'
+         WRITE (*, *) 'HMx_DRIVER: ell min:', REAL(ell(1))
+         WRITE (*, *) 'HMx_DRIVER: ell max:', REAL(ell(nl))
+         WRITE (*, *) 'HMx_DRIVER: number of ell:', nl
+         WRITE (*, *)
+
+         ! Set range of z
+         zmin = 0.
+         zmax = 1.
+         nz = 8
+
+         DO i = 0, nz
+
+            IF (i == 0) THEN
+               r1 = 0.
+               r2 = maxdist(proj)
+            ELSE
+               IF (icumulative .EQV. .FALSE.) THEN
+                  z1 = progression(zmin, zmax, i, nz)
+               ELSE
+                  z1 = zmin
+               END IF
+               z2 = zmin+(zmax-zmin)*float(i)/float(nz)
+               a1 = scale_factor_z(z1)
+               a2 = scale_factor_z(z2)
+               r1 = comoving_distance(a1, cosm)
+               r2 = comoving_distance(a2, cosm)
+            END IF
+
+            WRITE (*, *) 'HMx_DRIVER:', i
+            IF (i > 0) THEN
+               WRITE (*, *) 'HMx_DRIVER: z1:', REAL(z1)
+               WRITE (*, *) 'HMx_DRIVER: z2:', REAL(z2)
+            END IF
+            WRITE (*, *) 'HMx_DRIVER: r1 [Mpc/h]:', REAL(r1)
+            WRITE (*, *) 'HMx_DRIVER: r2 [Mpc/h]:', REAL(r2)
+
+            ! Loop over all types of C(l) to create
+            dir = 'data/'
+            base = TRIM(dir)//'redshift_'
+            mid = '_'
+            DO j = 1, 4
+
+               !Set output files
+               IF (j == 1) THEN
+                  ext = '_cl_linear.dat'
+                  outfile = TRIM(dir)//'cl_linear.dat'
+                  pow_ka = pows_li
+               ELSE IF (j == 2) THEN
+                  ext = '_cl_2h.dat'
+                  outfile = TRIM(dir)//'cl_2h.dat'
+                  pow_ka = pows_2h(1, 2, :, :)
+               ELSE IF (j == 3) THEN
+                  ext = '_cl_1h.dat'
+                  outfile = TRIM(dir)//'cl_1h.dat'
+                  pow_ka = pows_1h(1, 2, :, :)
+               ELSE IF (j == 4) THEN
+                  ext = '_cl_hm.dat'
+                  outfile = TRIM(dir)//'cl_hm.dat'
+                  pow_ka = pows_hm(1, 2, :, :)
+               END IF
+
+               IF (i > 0 .AND. (icumulative .EQV. .FALSE.)) THEN
+                  outfile = number_file2(base, i-1, mid, i, ext)
+               ELSE IF (i > 0 .AND. icumulative) THEN
+                  outfile = number_file2(base, 0, mid, i, ext)
+               END IF
+               WRITE (*, *) 'HMx_DRIVER: Output: ', TRIM(outfile)
+
+               !This crashes for the low r2 values for some reason
+               !Only a problem if lmax ~ 10^5
+               !STOP 'This crashes for the low r2 values for high ell for some reason - should debug'
+               CALL calculate_Cl(r1, r2, ell, Cl, nl, k, a, pow_ka, nk, na, proj, cosm)
+               CALL write_Cl(ell, Cl, nl, outfile, verbose)
+
+            END DO
+            WRITE (*, *)
+
+         END DO
+
+         WRITE (*, *) 'HMx_DRIVER: Done'
+         WRITE (*, *)
+
+      ELSE
+
+         STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
+
+      END IF
 
    END SUBROUTINE
 
@@ -3007,7 +3004,7 @@ CONTAINS
       INTEGER, PARAMETER :: nk = 128
       INTEGER, PARAMETER :: m = 9 ! Number of values to try for each parameter
       INTEGER, PARAMETER :: nf = 5
-      LOGICAL, PARAMETER :: verbose = .TRUE.   
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
       CALL fill_array(log(kmin), log(kmax), k, nk)
@@ -3608,7 +3605,7 @@ CONTAINS
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
-      
+
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
       ALLOCATE (pow_li(nk), pow_2h(1, 1, nk), pow_1h(1, 1, nk), pow_hm(1, 1, nk))
@@ -3776,7 +3773,7 @@ CONTAINS
       IMPLICIT NONE
       REAL :: error
 
-      LOGICAL, PARAMETER :: verbose = .TRUE.    
+      LOGICAL, PARAMETER :: verbose = .TRUE.
       INTEGER, PARAMETER :: nx = 3 ! Number of tests
       REAL, PARAMETER :: tolerance = 3e-3
       LOGICAL :: ifail = .FALSE. ! Initially assume tests pass
@@ -3882,7 +3879,7 @@ CONTAINS
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
-      ! Assigns the cosmological model      
+      ! Assigns the cosmological model
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
@@ -4379,7 +4376,7 @@ CONTAINS
 
       END DO
 
-   END SUBROUTINE 
+   END SUBROUTINE
 
    SUBROUTINE hydro_tests()
 
@@ -4560,7 +4557,7 @@ CONTAINS
       REAL, ALLOCATABLE :: k(:)
 
       LOGICAL, PARAMETER :: verbose = .TRUE.
-   
+
       ! Assign the cosmology
       icosmo = 1
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -4729,22 +4726,22 @@ CONTAINS
       OPEN (13, file='data/multiplicity_functions.dat')
       DO i = 1, n
          nu = progression(numin, numax, i, n)
-         DO j=1,nhm
+         DO j = 1, nhm
             masses(j) = M_nu(nu, hmods(j))
          END DO
-         IF((masses(1) .NE. masses(2)) .OR. (masses(1) .NE. masses(3))) THEN
+         IF ((masses(1) .NE. masses(2)) .OR. (masses(1) .NE. masses(3))) THEN
             STOP 'A disaster has occured with halo mass'
          END IF
-         WRITE (10, *) nu, masses(1), (b_nu(nu, hmods(j)), j=1,nhm)
-         WRITE (11, *) nu, masses(1), (g_nu(nu, hmods(j)), j=1,nhm)
-         WRITE (12, *) nu, masses(1), (mass_function(masses(j), hmods(j), cosm), j=1,nhm)
-         WRITE (13, *) nu, masses(1), (multiplicity_function(masses(j), hmods(j), cosm), j=1,nhm)
+         WRITE (10, *) nu, masses(1), (b_nu(nu, hmods(j)), j=1, nhm)
+         WRITE (11, *) nu, masses(1), (g_nu(nu, hmods(j)), j=1, nhm)
+         WRITE (12, *) nu, masses(1), (mass_function(masses(j), hmods(j), cosm), j=1, nhm)
+         WRITE (13, *) nu, masses(1), (multiplicity_function(masses(j), hmods(j), cosm), j=1, nhm)
       END DO
       CLOSE (10)
       CLOSE (11)
       CLOSE (12)
       CLOSE (13)
-      
+
    END SUBROUTINE mass_function_plots
 
    SUBROUTINE HI_mass_fractions
@@ -4872,7 +4869,7 @@ CONTAINS
       INTEGER, PARAMETER :: na = 16
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
-       ! Assigns the cosmological model
+      ! Assigns the cosmological model
       icosmo = 1
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
@@ -4981,7 +4978,7 @@ CONTAINS
       ! 65 - Triad 5 with contribution to Limber integrals per ell
       ! 66 - Triad 5 but with extended ell range
 
-         ! Assigns the cosmological model
+      ! Assigns the cosmological model
       icosmo = 4 ! 4 - WMAP9
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
@@ -5165,7 +5162,7 @@ CONTAINS
       IMPLICIT NONE
       REAL, ALLOCATABLE :: a(:), k(:)
       INTEGER, ALLOCATABLE :: fields(:)
-      
+
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
@@ -5174,7 +5171,6 @@ CONTAINS
       INTEGER, PARAMETER :: na = 4
       INTEGER, PARAMETER :: nf = 2
       LOGICAL, PARAMETER :: verbose = .TRUE.
-
 
       ! Assigns the cosmological model
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -5212,7 +5208,7 @@ CONTAINS
 
       ! Produce data for Fig. 1 of Tinker et al. (2010)
       IMPLICIT NONE
-      
+
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
@@ -5372,10 +5368,10 @@ CONTAINS
       TYPE(halomod) :: hmod
 
       LOGICAL, PARAMETER :: verbose = .TRUE.
-       
-      IF(imode == 69) THEN
+
+      IF (imode == 69) THEN
          icosmo = 37 ! 37 - WMAP 5
-      ELSE IF(imode == 74) THEN
+      ELSE IF (imode == 74) THEN
          icosmo = 43 ! 43 - WMAP 5 (low sigma_8)
       ELSE
          STOP 'HMX_DRIVER: Error, imode not set correctly'
@@ -5386,15 +5382,15 @@ CONTAINS
 
       ! Set the redshift
       na = 5
-      ALLOCATE(snaps(na), a(na))
+      ALLOCATE (snaps(na), a(na))
       snaps(1) = 85
       snaps(2) = 62
       snaps(3) = 58
       snaps(4) = 52
       snaps(5) = 36
-      DO i=1,na
-         a(i)=multidark_scale_factor(snaps(i))
-         IF(a(i)>1.) a(i)=1. ! Prevent negative z
+      DO i = 1, na
+         a(i) = multidark_scale_factor(snaps(i))
+         IF (a(i) > 1.) a(i) = 1. ! Prevent negative z
       END DO
 
       ! Actual range of a values to do
@@ -5403,10 +5399,10 @@ CONTAINS
 
       ! Output files
       ALLOCATE (bases(na))
-      base='data/power_'
-      ext='_hh_'
-      DO i=1,na
-         bases(i) = number_file(base,snaps(i),ext)
+      base = 'data/power_'
+      ext = '_hh_'
+      DO i = 1, na
+         bases(i) = number_file(base, snaps(i), ext)
       END DO
 
       ! Allocate k range
