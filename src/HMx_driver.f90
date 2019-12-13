@@ -24,7 +24,7 @@ PROGRAM HMx_driver
    IMPLICIT NONE
 
    ! Parameter definitions
-   REAL, ALLOCATABLE :: k(:), a(:)
+   !REAL, ALLOCATABLE :: k(:), a(:)
    REAL, ALLOCATABLE :: k_sim(:), pow_sim(:), pow_ql(:), pow_oh(:), pow_hf(:)
    REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
    REAL, ALLOCATABLE :: pow_ka(:, :)
@@ -33,7 +33,7 @@ PROGRAM HMx_driver
    REAL, ALLOCATABLE :: powb_hm(:, :, :, :)
    REAL, ALLOCATABLE :: ell(:), ell_edge(:), Cl(:, :, :), Cl_bm(:), theta(:), xi(:, :)
    REAL, ALLOCATABLE :: all_ell(:), all_Cl(:, :, :)
-   REAL, ALLOCATABLE :: zs(:), masses(:)
+   REAL, ALLOCATABLE :: masses(:)
    REAL, ALLOCATABLE :: z_tab(:), HI_frac(:), nu_tab(:)
    INTEGER :: i, j, ii, jj, nk, na, j1, j2, nf, nt, nx, n_all, l, n_edge
    INTEGER :: n, nl, nz, nth, nnz, m, ipa, ncos, ncore, nfeed, nsim
@@ -66,23 +66,23 @@ PROGRAM HMx_driver
    LOGICAL :: ilog
 
    ! Tests
-   REAL :: error, error_max
+   !REAL :: error, error_max
 
    ! Halo-model Parameters
-   LOGICAL, PARAMETER :: verbose = .TRUE. ! Verbosity
+   !LOGICAL, PARAMETER :: verbose = .TRUE. ! Verbosity
 
    ! Test parameters
-   INTEGER, PARAMETER :: iseed_tests = 4
-   REAL, PARAMETER :: tolerance = 3e-3
-   LOGICAL :: verbose_tests = .FALSE.
-   LOGICAl :: ifail = .FALSE.
+   !INTEGER, PARAMETER :: iseed_tests = 4
+   !REAL, PARAMETER :: tolerance = 3e-3
+   !LOGICAL :: verbose_tests = .FALSE.
+   !LOGICAl :: ifail = .FALSE.
 
    ! Benchmark parameters
-   LOGICAL, PARAMETER :: Alonso_k = .TRUE.
+   !LOGICAL, PARAMETER :: Alonso_k = .TRUE.
 
    ! Output choices
-   LOGICAL, PARAMETER :: icumulative = .TRUE. ! Do cumlative distributions for breakdown
-   LOGICAL, PARAMETER :: ifull = .FALSE.      ! Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
+   !LOGICAL, PARAMETER :: icumulative = .TRUE. ! Do cumlative distributions for breakdown
+   !LOGICAL, PARAMETER :: ifull = .FALSE.      ! Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
 
    ! Triad direct comparison
    LOGICAL, PARAMETER :: bin_theory = .FALSE.     ! Should the theory be binned in the same way as measurements?
@@ -239,15 +239,15 @@ PROGRAM HMx_driver
             imode == 64) THEN
       CALL general_projection(imode, icosmo, ihm)
    ELSE IF (imode == 12 .OR. imode == 44 .OR. imode == 38 .OR. imode == 39 .OR. imode == 55 .OR. imode == 56) THEN
-      CALL triad_stuff()
+      CALL triad_stuff(imode)
    ELSE IF(imode == 13) THEN
       CALL cross_correlation_coefficient()
    ELSE IF (imode == 14 .OR. imode == 33) THEN
-      CALL baryon_parameter_variations()
+      CALL baryon_parameter_variations(imode)
    ELSE IF (imode == 17) THEN
       CALL spectra_fields_3D()
    ELSE IF (imode == 18 .OR. imode == 40 .OR. imode == 48) THEN
-      CALL bias_fields_3D()
+      CALL bias_fields_3D(imode)
    ELSE IF (imode == 19) THEN
       CALL create_CCL_benchmark()
    ELSE IF (imode == 20) THEN
@@ -320,7 +320,7 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: icosmo
       REAL, ALLOCATABLE :: a(:), k(:), Pk_HMx(:,:), Pk_CAMB(:,:)
       TYPE(cosmology) :: cosm 
-      REAL :: crap, max_error
+      REAL :: crap, max_error, error
       INTEGER :: i, j, ii, nfail
       LOGICAL :: fail
       LOGICAL, PARAMETER :: verbose=.TRUE.
@@ -1280,11 +1280,6 @@ CONTAINS
          pow(:, j+1) = pow_save(:, j)
       END DO
 
-      !DO j=1,na
-      !   WRITE(*,*) j, a(j)
-      !END DO
-      !STOP
-
    END SUBROUTINE add_highz_BAHAMAS
 
    SUBROUTINE power_single(icosmo, ihm)
@@ -1498,6 +1493,8 @@ CONTAINS
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
       INTEGER, PARAMETER :: n = 50
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      INTEGER, PARAMETER :: iseed_tests = 4
 
       ! Tests to ensure that the code does not crash
       !  4 - Random baryon parameters
@@ -1596,6 +1593,7 @@ CONTAINS
 
    SUBROUTINE lensing_diagnostics(icosmo, ihm)
 
+      ! Projection diagnostics
       IMPLICIT NONE
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
@@ -1603,7 +1601,7 @@ CONTAINS
       TYPE(halomod) :: hmod
       INTEGER :: i, ix(2)
 
-      ! Projection diagnostics
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -1651,16 +1649,19 @@ CONTAINS
 
    SUBROUTINE hydro_stuff(imode, icosmo, ihm)
 
-      IMPLICIT NONE
-      INTEGER, INTENT(IN) :: imode
-      INTEGER, INTENT(INOUT) :: icosmo
-      INTEGER, INTENT(INOUT) :: ihm
-
-       ! Make cross power spectra of all different components of haloes as well as pressure
+      ! Make cross power spectra of all different components of haloes as well as pressure
       !  2 - Generic hydro
       ! 15 - cosmo-OWLS
       ! 16 - BAHAMAS
       ! 32 - PAPER: Baseline hydro
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+      INTEGER, INTENT(INOUT) :: icosmo
+      INTEGER, INTENT(INOUT) :: ihm
+      REAL, ALLOCATABLE :: k(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+
 
       IF (imode == 2 .OR. imode == 52) THEN
 
@@ -2208,11 +2209,14 @@ CONTAINS
       ! n(z) normalisation check
       IMPLICIT NONE
 
+      INTEGER :: i
+      INTEGER :: nz
+      INTEGER, PARAMETER :: nnz = 16
+
       WRITE (*, *) 'HMx_DRIVER: Checking n(z) functions'
       WRITE (*, *)
 
       ! Number of n(z) to check
-      nnz = 16
       DO i = 1, nnz
          IF (i == 1)  nz = tracer_RCSLenS
          IF (i == 2)  nz = tracer_CFHTLenS_vanWaerbeke2013
@@ -2246,72 +2250,12 @@ CONTAINS
    SUBROUTINE cross_correlation_cosmology()
 
       ! Assess cross-correlation as a function of cosmology
+      IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:), a(:)
 
-      ! Allocate array for power
-      ALLOCATE (pow_ka(nk, na))
+      
 
-      ! Set range in sigma_8
-      sig8min = 0.7
-      sig8max = 0.9
-      ncos = 5 ! I may have changed this number inadvertantly
-
-      ! Loop over cosmology
-      DO i = 1, ncos
-
-         cosm%sig8 = progression(sig8min, sig8max, i, ncos)
-         CALL init_cosmology(cosm)
-         CALL print_cosmology(cosm)
-
-         CALL assign_halomod(ihm, hmod, verbose)
-         CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, &
-            hmod, cosm, verbose, response=.FALSE.)
-
-         ! Fill out the projection kernels
-         CALL fill_projection_kernels(ix, proj, cosm)
-
-         ! Write to screen
-         WRITE (*, *) 'HMx_DRIVER: Computing C(l)'
-         WRITE (*, *) 'HMx_DRIVER: ell min:', REAL(ell(1))
-         WRITE (*, *) 'HMx_DRIVER: ell max:', REAL(ell(nl))
-         WRITE (*, *) 'HMx_DRIVER: number of ell:', nl
-         WRITE (*, *)
-
-         ! Loop over all types of C(l) to create
-         dir = 'data/'
-         base = TRIM(dir)//'cosmology_'
-         DO j = 1, 4
-
-            IF (j == 1) THEN
-               WRITE (*, *) 'HMx_DRIVER: Doing C(l) linear'
-               ext = '_cl_linear.dat'
-               pow_ka = pows_li
-            ELSE IF (j == 2) THEN
-               WRITE (*, *) 'HMx_DRIVER: Doing C(l) 2-halo'
-               ext = '_cl_2h.dat'
-               pow_ka = pows_2h(1, 2, :, :)
-            ELSE IF (j == 3) THEN
-               WRITE (*, *) 'HMx_DRIVER: Doing C(l) 1-halo'
-               ext = '_cl_1h.dat'
-               pow_ka = pows_1h(1, 2, :, :)
-            ELSE IF (j == 4) THEN
-               WRITE (*, *) 'HMx_DRIVER: Doing C(l) full'
-               ext = '_cl_hm.dat'
-               pow_ka = pows_hm(1, 2, :, :)
-            END IF
-            outfile = number_file(base, i, ext)
-            WRITE (*, *) 'HMx_DRIVER: Output: ', TRIM(outfile)
-
-            ! Actually calculate the C(l)
-            CALL calculate_Cl(0., maxdist(proj), ell, Cl, nl, k, a, pow_ka, nk, na, proj, cosm)
-            CALL write_Cl(ell, Cl, nl, outfile, verbose)
-
-         END DO
-         WRITE (*, *) 'HMx_DRIVER: Done'
-         WRITE (*, *)
-
-      END DO
-
-   END SUBROUTINE
+   END SUBROUTINE cross_correlation_cosmology
    
    SUBROUTINE general_projection(imode, icosmo, ihm)
 
@@ -2319,6 +2263,17 @@ CONTAINS
       INTEGER, INTENT(IN) :: imode
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
+      REAL, ALLOCATABLE :: k(:), a(:)
+
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e1
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: amin = 0.1 ! Problems with one-halo term if amin is less than 0.1
+      REAL, PARAMETER :: amax = 1.
+      INTEGER, PARAMETER :: na = 16
+      LOGICAL, PARAMETER :: icumulative = .TRUE. ! Do cumlative distributions for breakdown
+      LOGICAL, PARAMETER :: ifull = .FALSE.      ! Do only full halo model C(l), xi(theta) calculations (quicker, no breakdown ...)
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! General stuff for various 2D projections
       !  7 - Do general angular cross correlation
@@ -2357,16 +2312,10 @@ CONTAINS
       CALL init_cosmology(cosm)
 
       ! Set the k range
-      kmin = 1e-3
-      kmax = 1e1
-      nk = 128
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
       ! Set the a range
-      amin = 0.1 ! Problems with one-halo term if amin is less than 0.1
-      amax = 1.
-      na = 16
       CALL fill_array(amin, amax, a, na)
 
       ! Need to call 'comoving_distance' at least once first so as to stop
@@ -2563,11 +2512,73 @@ CONTAINS
 
       ELSE IF (imode == 8) THEN
 
-         CALL cross_correlation_cosmology()
+         ! Allocate array for power
+         ALLOCATE (pow_ka(nk, na))
+
+         ! Set range in sigma_8
+         sig8min = 0.7
+         sig8max = 0.9
+         ncos = 5 ! I may have changed this number inadvertantly
+
+         ! Loop over cosmology
+         DO i = 1, ncos
+
+            cosm%sig8 = progression(sig8min, sig8max, i, ncos)
+            CALL init_cosmology(cosm)
+            CALL print_cosmology(cosm)
+
+            CALL assign_halomod(ihm, hmod, verbose)
+            CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, &
+               hmod, cosm, verbose, response=.FALSE.)
+
+            ! Fill out the projection kernels
+            CALL fill_projection_kernels(ix, proj, cosm)
+
+            ! Write to screen
+            WRITE (*, *) 'HMx_DRIVER: Computing C(l)'
+            WRITE (*, *) 'HMx_DRIVER: ell min:', REAL(ell(1))
+            WRITE (*, *) 'HMx_DRIVER: ell max:', REAL(ell(nl))
+            WRITE (*, *) 'HMx_DRIVER: number of ell:', nl
+            WRITE (*, *)
+
+            ! Loop over all types of C(l) to create
+            dir = 'data/'
+            base = TRIM(dir)//'cosmology_'
+            DO j = 1, 4
+
+               IF (j == 1) THEN
+                  WRITE (*, *) 'HMx_DRIVER: Doing C(l) linear'
+                  ext = '_cl_linear.dat'
+                  pow_ka = pows_li
+               ELSE IF (j == 2) THEN
+                  WRITE (*, *) 'HMx_DRIVER: Doing C(l) 2-halo'
+                  ext = '_cl_2h.dat'
+                  pow_ka = pows_2h(1, 2, :, :)
+               ELSE IF (j == 3) THEN
+                  WRITE (*, *) 'HMx_DRIVER: Doing C(l) 1-halo'
+                  ext = '_cl_1h.dat'
+                  pow_ka = pows_1h(1, 2, :, :)
+               ELSE IF (j == 4) THEN
+                  WRITE (*, *) 'HMx_DRIVER: Doing C(l) full'
+                  ext = '_cl_hm.dat'
+                  pow_ka = pows_hm(1, 2, :, :)
+               END IF
+               outfile = number_file(base, i, ext)
+               WRITE (*, *) 'HMx_DRIVER: Output: ', TRIM(outfile)
+
+               ! Actually calculate the C(l)
+               CALL calculate_Cl(0., maxdist(proj), ell, Cl, nl, k, a, pow_ka, nk, na, proj, cosm)
+               CALL write_Cl(ell, Cl, nl, outfile, verbose)
+
+            END DO
+            WRITE (*, *) 'HMx_DRIVER: Done'
+            WRITE (*, *)
+
+         END DO
  
-       ELSE IF (imode == 9) THEN
+      ELSE IF (imode == 9) THEN
  
-          ! Breakdown cross-correlation in terms of mass
+         ! Breakdown cross-correlation in terms of mass
  
           ! Print to screen
           CALL print_cosmology(cosm)
@@ -2824,9 +2835,7 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE triad_stuff()
-
-      IMPLICIT NONE
+   SUBROUTINE triad_stuff(imode)
 
       ! Triad stuff
       ! 12 - Triad (T_5 cross correlations)
@@ -2835,6 +2844,10 @@ CONTAINS
       ! 44 - Triad for paper (fixed WMAP9 and feedback)
       ! 55 - Triad for all BAHAMAS feedback scenarios
       ! 56 - PAPER: Triad for all BAHAMAS feedback scenarios and ell
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       IF (imode == 12 .OR. imode == 44) THEN
          nfeed = 1
@@ -2928,6 +2941,12 @@ CONTAINS
    SUBROUTINE cross_correlation_coefficient()
 
       ! Calculate a cross-correlation coefficient
+      IMPLICIT NONE
+
+      REAL, PARAMETER :: lmin = 1e0
+      REAL, PARAMETER :: lmax = 1e4 ! Strange errors and crashes if this is increased to 10^5
+      INTEGER, PARAMETER :: nl = 64
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assign the cosmology
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -2938,9 +2957,6 @@ CONTAINS
       CALL assign_halomod(ihm, hmod, verbose)
 
       ! Set the ell range and allocate arrays for l and C(l)
-      lmin = 1e0
-      lmax = 1e4 ! Strange errors and crashes if this is increased to 10^5
-      nl = 64
       CALL fill_array(log(lmin), log(lmax), ell, nl)
       ell = exp(ell)
       ALLOCATE (Cl(nl, 2, 2))
@@ -2977,26 +2993,27 @@ CONTAINS
 
    END SUBROUTINE cross_correlation_coefficient
 
-   SUBROUTINE baryon_parameter_variations()
-
-      IMPLICIT NONE
+   SUBROUTINE baryon_parameter_variations(imode)
 
       ! Make power spectra variations as a function of baryon parameter variations
       ! 14 - General version
       ! 33 - Paper version
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+      REAL, ALLOCATABLE :: k(:)
 
-      ! Number of values to try for each parameter
-      m = 9
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e1
+      INTEGER, PARAMETER :: nk = 128
+      INTEGER, PARAMETER :: m = 9 ! Number of values to try for each parameter
+      INTEGER, PARAMETER :: nf = 5
+      LOGICAL, PARAMETER :: verbose = .TRUE.   
 
       ! Set number of k points and k range (log spaced)
-      kmin = 1e-3
-      kmax = 1e1
-      nk = 128
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
       ! Set the fields
-      nf = 5
       ALLOCATE (fields(nf))
       fields(1) = field_matter
       fields(2) = field_cdm
@@ -3298,9 +3315,20 @@ CONTAINS
    SUBROUTINE spectra_fields_3D()
 
       ! 3D spectra for a user choice of fields
+      IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:), a(:)
+      INTEGER :: na
+
+      INTEGER :: icosmo = 1
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: zmin = 0.
+      REAL, PARAMETER :: zmax = 4.
+      INTEGER, PARAMETER :: nz = 16
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
-      icosmo = 1
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
@@ -3309,16 +3337,10 @@ CONTAINS
 
       ! Set number of k points and k range (log spaced)
       ! The range kmin=1e-3 to kmax=1e4 is necessary to compare to HMcode
-      nk = 128
-      kmin = 1e-3
-      kmax = 1e2
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
       !Set the number of redshifts and range (linearly spaced) and convert z -> a
-      nz = 16
-      zmin = 0.
-      zmax = 4.
       CALL fill_array(zmin, zmax, a, nz)
       a = 1./(1.+a)
       na = nz
@@ -3338,9 +3360,15 @@ CONTAINS
 
    END SUBROUTINE spectra_fields_3D
 
-   SUBROUTINE bias_fields_3D()
+   SUBROUTINE bias_fields_3D(imode)
 
       ! Create 3D bias function
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+      REAL, ALLOCATABLE :: k(:), a(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+
       ! 18 - User choice
       ! 40 - Halo bias
       ! 48 - HI bias
@@ -3424,6 +3452,11 @@ CONTAINS
    SUBROUTINE create_CCL_benchmark()
 
       ! Create CCL benchmark data
+      IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+
+      LOGICAL, PARAMETER :: Alonso_k = .TRUE.
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
       IF (Alonso_k) THEN
@@ -3490,19 +3523,22 @@ CONTAINS
 
    SUBROUTINE Ma_Fig_1()
 
-      IMPLICIT NONE
-
       ! Ma et al. Fig. 1
+      IMPLICIT NONE
+      TYPE(cosmology) :: cosm
+      TYPE(halomod) :: hmod
+
+      INTEGER :: icomso = 3
+      INTEGER :: ihm = 4
+      REAL, PARAMETER :: z = 0.0
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set the cosmology
-      icosmo = 3
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
       ! Set the halo model
-      z = 0.0
-      ihm = 4
       CALL assign_halomod(ihm, hmod, verbose)
       CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
       CALL print_halomod(hmod, cosm, verbose)
@@ -3534,11 +3570,13 @@ CONTAINS
 
       ! Speed tests for W(M,k) integrals
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+
+      REAL, PARAMETER :: kmin = 1e-2
+      REAL, PARAMETER :: kmax = 1e3
+      INTEGER, PARAMETER :: nk = 512
 
       ! k range
-      kmin = 1e-2
-      kmax = 1e3
-      nk = 512
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
@@ -3560,23 +3598,23 @@ CONTAINS
 
       ! Mead (2017) dark energy results
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+
+      INTEGER :: ihm = 12
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e1
+      INTEGER, PARAMETER :: nk = 128
+      INTEGER, PARAMETER :: ncos = 25
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
-      nk = 128
-      kmin = 1e-3
-      kmax = 1e1
+      
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
       ALLOCATE (pow_li(nk), pow_2h(1, 1, nk), pow_1h(1, 1, nk), pow_hm(1, 1, nk))
 
       ! Directory for output
       dir = 'data'
-
-      ! Set the halo model
-      ihm = 12
-
-      ! Number of different cosmologies
-      ncos = 25
 
       ! Loop over cosmologies
       DO i = 1, ncos
@@ -3736,12 +3774,12 @@ CONTAINS
       ! TODO: Fix why these tests are super slow if ihm=3 and Cl_yy looks really fucked up
       ! TODO: I think this is probably because of the pressure evolution in ihm=3
       IMPLICIT NONE
+      REAL :: error
 
-      ! Number of tests
-      nx = 3
-
-      ! Initially assume tests pass
-      ifail = .FALSE.
+      LOGICAL, PARAMETER :: verbose = .TRUE.    
+      INTEGER, PARAMETER :: nx = 3 ! Number of tests
+      REAL, PARAMETER :: tolerance = 3e-3
+      LOGICAL :: ifail = .FALSE. ! Initially assume tests pass
 
       ALLOCATE (ixx(nx))
       ixx(1) = tracer_RCSLenS
@@ -3829,25 +3867,27 @@ CONTAINS
 
       ! Halo-void model
       IMPLICIT NONE
+      INTEGER :: i
+      REAL, ALLOCATABLE :: k(:)
+
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      INTEGER :: icosmo = 1 ! 1 - Boring
+      INTEGER :: ihm = 16
+      REAL, PARAMETER :: z = 0.0
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
-      nk = 128
-      kmin = 1e-3
-      kmax = 1e2
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
-      ! Assigns the cosmological model
-      icosmo = 1 ! 1 - Boring
+      ! Assigns the cosmological model      
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
-      ! Sets the redshift
-      z = 0.0
-
       ! Initiliasation for the halomodel calcualtion
-      ihm = 16 ! 16 - Halo-void model
       CALL assign_halomod(ihm, hmod, verbose)
       CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
       CALL print_halomod(hmod, cosm, verbose)
@@ -3872,6 +3912,12 @@ CONTAINS
 
       ! Automated testing
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:), a(:)
+      REAL :: error, error_max
+
+      REAL, PARAMETER :: tolerance = 3e-3
+      LOGICAL :: ifail = .FALSE.
+      LOGICAL, PARAMETER :: verbose = .FALSE.
 
       ! Loop over different tests
       DO itest = 1, 3
@@ -3916,16 +3962,16 @@ CONTAINS
          END DO
 
          ! Assigns the cosmological model
-         CALL assign_cosmology(icosmo, cosm, verbose_tests)
+         CALL assign_cosmology(icosmo, cosm, verbose)
          CALL init_cosmology(cosm)
          CALL print_cosmology(cosm)
 
          ! Assign the halo model
-         CALL assign_halomod(ihm, hmod, verbose_tests)
+         CALL assign_halomod(ihm, hmod, verbose)
          !CALL print_halomod(hmod)
 
          field = field_dmonly
-         CALL calculate_HMx(field, 1, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose_tests, response=.FALSE.)
+         CALL calculate_HMx(field, 1, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
 
          ! Loop over k and a
          error_max = 0.
@@ -3955,7 +4001,7 @@ CONTAINS
          ! Write data to file
          !base='data/power'
          !CALL write_power_a_multiple(k,a,powa_lin,powa_2h,powa_1h,powa_full,nk,na,base,verbose_tests)
-         CALL write_power_a_multiple(k, a, pows_li, pows_2h(1, 1, :, :), pows_1h(1, 1, :, :), pows_hm(1, 1, :, :), nk, na, base, verbose_tests)
+         CALL write_power_a_multiple(k, a, pows_li, pows_2h(1, 1, :, :), pows_1h(1, 1, :, :), pows_hm(1, 1, :, :), nk, na, base, verbose)
 
          DEALLOCATE (k, a, pow_ka)
 
@@ -3975,6 +4021,9 @@ CONTAINS
 
       ! Comparison with FrankenEmu or Mira Titan
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: z(:), a(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Number of cosmological models (+1)
       IF (imode == 28 .OR. imode == 30) n = 37 ! Franken Emu
@@ -3999,35 +4048,35 @@ CONTAINS
 
       ! Allocate arrays
       na = nz
-      ALLOCATE (zs(nz), a(nz))
+      ALLOCATE (z(nz), a(nz))
 
       ! Set redshifts
       IF (imode == 28 .OR. imode == 30) THEN
          ! Franken Emu (z up to 4)
-         zs(1) = 0.0
-         zs(2) = 0.5
-         zs(3) = 1.0
-         zs(4) = 2.0
-         zs(5) = 3.0
-         zs(6) = 4.0
+         z(1) = 0.0
+         z(2) = 0.5
+         z(3) = 1.0
+         z(4) = 2.0
+         z(5) = 3.0
+         z(6) = 4.0
       ELSE IF (imode == 27 .OR. imode == 29) THEN
          ! Mira Titan (z up to 2)
-         zs(1) = 0.0
-         zs(2) = 0.5
-         zs(3) = 1.0
-         zs(4) = 2.0
+         z(1) = 0.0
+         z(2) = 0.5
+         z(3) = 1.0
+         z(4) = 2.0
       ELSE IF (imode == 70 .OR. imode == 71) THEN
          ! Cosmic Emu (z up to 1)
-         zs(1) = 0.0
-         zs(2) = 0.5
-         zs(3) = 1.0
+         z(1) = 0.0
+         z(2) = 0.5
+         z(3) = 1.0
       ELSE
          STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
       END IF
 
       ! Set scale factors
       DO i = 1, na
-         a(i) = scale_factor_z(zs(i))
+         a(i) = scale_factor_z(z(i))
       END DO
 
       ! Output files
@@ -4064,11 +4113,11 @@ CONTAINS
          DO j = 1, nz
 
             IF (imode == 27 .OR. imode == 29) THEN
-               CALL get_Mira_Titan_power(k_sim, pow_sim, nk, zs(j), cosm, rebin=.FALSE.)
+               CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE IF (imode == 28 .OR. imode == 30) THEN
-               CALL get_Franken_Emu_power(k_sim, pow_sim, nk, zs(j), cosm, rebin=.FALSE.)
+               CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE IF (imode == 70 .OR. imode == 71) THEN
-               CALL get_Cosmic_Emu_power(k_sim, pow_sim, nk, zs(j), cosm, rebin=.FALSE.)
+               CALL get_Cosmic_Emu_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE
                STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
             END IF
@@ -4107,6 +4156,8 @@ CONTAINS
 
       ! Power breakdown as a function of mass (paper)
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
       nk = 128
@@ -4219,6 +4270,8 @@ CONTAINS
       ! Write out the variation of HMx parameters with T_AGN and z
       IMPLICIT NONE
 
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+
       !Assign the cosmological model
       icosmo = 4
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -4268,6 +4321,9 @@ CONTAINS
 
       ! Look at the effect of cores on halo profiles
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
       nk = 128
@@ -4329,6 +4385,13 @@ CONTAINS
 
       ! Automated testing of hydro models
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:), a(:)
+      REAL :: error, error_max
+      LOGICAL :: verbose_tests
+
+      REAL, PARAMETER :: tolerance = 3e-3
+      LOGICAL :: ifail = .FALSE.
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
       icosmo = 4
@@ -4409,9 +4472,6 @@ CONTAINS
       ihm = 3
       CALL assign_halomod(ihm, hmod, verbose)
       CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
-
-      ! Initially assume that all the tests will pass
-      ifail = .FALSE.
 
       ! File naming things
       outext = '.dat'
@@ -4497,6 +4557,9 @@ CONTAINS
 
       ! Assess 3D power as a function of cosmology
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
    
       ! Assign the cosmology
       icosmo = 1
@@ -4563,11 +4626,17 @@ CONTAINS
 
       ! Comparison of power spectra from Sheth & Tormen (1999) vs. Tinker et al. (2010) mass function
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+      INTEGER :: ihm
+
+      INTEGER :: icosmo = 1
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: z = 0.0
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
-      nk = 128
-      kmin = 1e-3
-      kmax = 1e2
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
@@ -4575,13 +4644,9 @@ CONTAINS
       ALLOCATE (pow_li(nk), pow_2h(1, 1, nk), pow_1h(1, 1, nk), pow_hm(1, 1, nk))
 
       ! Assigns the cosmological model
-      icosmo = 1
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
-
-      ! Sets the redshift
-      z = 0.0
 
       DO j = 1, 3
 
@@ -4623,6 +4688,8 @@ CONTAINS
 
       ! Mass function plots for different mass functions
       IMPLICIT NONE
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -4684,21 +4751,28 @@ CONTAINS
 
       ! HI mass fractions
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: a(:), z(:)
+      INTEGER :: j
+
+      INTEGER :: icosmo = 1
+      INTEGER :: ihm = 25
+      REAL, PARAMETER :: z1 = 0.
+      REAL, PARAMETER :: z2 = 5.
+      INTEGER, PARAMETER :: nz = 6
+      REAL, PARAMETER :: m1 = 1e7
+      REAL, PARAMETER :: m2 = 1e17
+      INTEGER, PARAMETER :: n = 256
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
-      icosmo = 1
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
       ! Set the range of redshifts
-      z1 = 0.
-      z2 = 5.
-      nz = 6
       ALLOCATE (hmods(nz), HI_frac(nz), z_tab(nz), a(nz))
 
-      ! Initiliasation for the halomodel calcualtion at all zs
-      ihm = 25
+      ! Initiliasation for the halomodel calcualtion at all z
       DO j = 1, nz
          z_tab(j) = progression(z1, z2, j, nz)
          a(j) = scale_factor_z(z_tab(j))
@@ -4706,11 +4780,6 @@ CONTAINS
          CALL init_halomod(a(j), hmods(j), cosm, verbose)
          CALL print_halomod(hmods(j), cosm, verbose)
       END DO
-
-      ! Set the range of halo masses
-      m1 = 1e7
-      m2 = 1e17
-      n = 256
 
       ! Loop over mass and z and do the calculation
       OPEN (7, file='data/HI_mass_fraction.dat')
@@ -4730,6 +4799,8 @@ CONTAINS
 
       ! Mass function plots as Lbox is varied
       IMPLICIT NONE
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
       icosmo = 1
@@ -4790,6 +4861,17 @@ CONTAINS
 
    SUBROUTINE power_scatter()
 
+      IMPLICIT NONE
+      REAL, ALLOCATABLE :: a(:), k(:)
+
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: amin = 0.1
+      REAL, PARAMETER :: amax = 1.
+      INTEGER, PARAMETER :: na = 16
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+
        ! Assigns the cosmological model
       icosmo = 1
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -4797,16 +4879,11 @@ CONTAINS
       CALL print_cosmology(cosm)
 
       ! Set number of k points and k range (log spaced)
-      nk = 128
-      kmin = 1e-3
-      kmax = 1e2
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
       ! Set the number of redshifts and range (linearly spaced) and convert z -> a
-      na = 16
-      amin = 0.1
-      amax = 1.
+
       CALL fill_array(amin, amax, a, na)
 
       ! Set the field
@@ -4851,17 +4928,19 @@ CONTAINS
 
       ! Trispectrum test
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+      INTEGER, ALLOCATABLE :: fields(:)
+
+      REAL, PARAMETER :: z = 0.       ! Set the redshift
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 64
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Set number of k points and k range (log spaced)
-      nk = 64
-      kmin = 1e-3
-      kmax = 1e2
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = k*real(nk)/real(nk+1) ! To stop plot spilling over border
       k = exp(k)
-
-      ! Set the redshift
-      z = 0.
 
       ! Set the fields
       ALLOCATE (fields(2))
@@ -4892,6 +4971,9 @@ CONTAINS
 
       ! Calculate C(l) by direct integration of the measured 3D BAHAMAS power spectra
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: a(:), k(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! 57 - Triad 3
       ! 61 - Triad 4
@@ -5080,7 +5162,19 @@ CONTAINS
    SUBROUTINE check_fields_symmetry()
 
       ! Check to see power is the same
-      IMPLICIT NONE  
+      IMPLICIT NONE
+      REAL, ALLOCATABLE :: a(:), k(:)
+      INTEGER, ALLOCATABLE :: fields(:)
+      
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: amin = 0.1
+      REAL, PARAMETER :: amax = 1.0
+      INTEGER, PARAMETER :: na = 4
+      INTEGER, PARAMETER :: nf = 2
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+
 
       ! Assigns the cosmological model
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -5091,25 +5185,18 @@ CONTAINS
       CALL assign_halomod(ihm, hmod, verbose)
 
       ! Set number of k points and k range (log spaced)
-      nk = 32
-      kmin = 1e-3
-      kmax = 1e2
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
       ! Set the scale factor and range (linearly spaced)
-      na = 4
-      amin = 0.1
-      amax = 1.0
       CALL fill_array(amin, amax, a, na)
 
-      nf = 2
       ALLOCATE (fields(nf))
       !fields=field_matter
       !fields=field_electron_pressure
       fields = field_gas
 
-      CALL calculate_HMx(fields, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
 
       ! Write to screen to check they are the same
       WRITE (*, *) 'HMx_DRIVER: All these columns should be idential'
@@ -5124,7 +5211,9 @@ CONTAINS
    SUBROUTINE Tinker2010_Fig1()
 
       ! Produce data for Fig. 1 of Tinker et al. (2010)
-      IMPLICIT NONE     
+      IMPLICIT NONE
+      
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
       icosmo = 1
@@ -5155,6 +5244,9 @@ CONTAINS
 
       ! Make data for Limber comparison with CCL
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:), a(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
       icosmo = 1 ! 1 - Boring
@@ -5208,6 +5300,9 @@ CONTAINS
 
       ! Non-linear halo bias model
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:)
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
       icosmo = 200 ! 200 - Frankenemu M000
@@ -5272,6 +5367,11 @@ CONTAINS
 
       ! Halo power to compare with Multidark
       IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:), a(:)
+      TYPE(cosmology) :: cosm
+      TYPE(halomod) :: hmod
+
+      LOGICAL, PARAMETER :: verbose = .TRUE.
        
       IF(imode == 69) THEN
          icosmo = 37 ! 37 - WMAP 5
@@ -5286,7 +5386,7 @@ CONTAINS
 
       ! Set the redshift
       na = 5
-      ALLOCATE(snaps(na),a(na))
+      ALLOCATE(snaps(na), a(na))
       snaps(1) = 85
       snaps(2) = 62
       snaps(3) = 58
