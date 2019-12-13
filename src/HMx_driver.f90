@@ -127,7 +127,9 @@ PROGRAM HMx_driver
       WRITE (*, *) '73 - Check halo-mass function amplitude parameter'
       WRITE (*, *) '74 - Matter, halo power spectra with non-linear bias (low sigma_8) Multidark comparison'
       WRITE (*, *) '75 - Compare HMcode aginst CAMB'
-      WRITE (*, *) '76 - Compare with boring'
+      WRITE (*, *) '76 - Power comparison at z = 0'
+      WRITE (*, *) '77 - Power comparison at multiple z'
+
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -229,6 +231,8 @@ PROGRAM HMx_driver
       CALL compare_HMcode_CAMB(iicosmo)
    ELSE IF (iimode == 76) THEN
       CALL power_single_comparison(iicosmo, iihm)
+   ELSE IF (iimode == 77) THEN
+      CALL power_multiple_comparison(iicosmo, iihm)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
@@ -1261,9 +1265,6 @@ CONTAINS
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
-      REAL, PARAMETER :: zmin = 0.
-      REAL, PARAMETER :: zmax = 4.
-      INTEGER, PARAMETER :: na = 16
       INTEGER, PARAMETER :: field(1) = field_dmonly
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
@@ -1306,13 +1307,11 @@ CONTAINS
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
+      INTEGER, PARAMETER :: icosmo_baseline = 1 ! 1 - Boring
       REAL, PARAMETER :: a = 1.
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
-      REAL, PARAMETER :: zmin = 0.
-      REAL, PARAMETER :: zmax = 4.
-      INTEGER, PARAMETER :: na = 16
       INTEGER, PARAMETER :: field(1) = field_dmonly
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
@@ -1330,10 +1329,11 @@ CONTAINS
             icosmo_here = icosmo
             outfile = 'data/power.dat'
          ELSE IF (i == 2) THEN
-            icosmo_here = 1
+            ! The comparison
+            icosmo_here = icosmo_baseline
             outfile = 'data/power_baseline.dat'
          ELSE
-            STOP
+            STOP 'POWER_SINGLE_COMPARISON: A disaster occured'
          END IF
          CALL assign_cosmology(icosmo_here, cosm, verbose)
          CALL init_cosmology(cosm)
@@ -1400,6 +1400,68 @@ CONTAINS
       CALL write_power_a_multiple(k, a, pow_li, pow_2h(1, 1, :, :), pow_1h(1, 1, :, :), pow_hm(1, 1, :, :), nk, na, base, verbose)
 
    END SUBROUTINE power_multiple
+
+   SUBROUTINE power_multiple_comparison(icosmo, ihm)
+
+      IMPLICIT NONE
+      INTEGER, INTENT(INOUT) :: icosmo
+      INTEGER, INTENT(INOUT) :: ihm
+      REAL, ALLOCATABLE :: k(:), a(:)
+      REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
+      INTEGER :: i, icos, icosmo_here
+      CHARACTER(len=256) :: base
+      TYPE(halomod) :: hmod
+      TYPE(cosmology) :: cosm
+
+      INTEGER, PARAMETER :: icosmo_baseline = 1 ! 1 - Boring
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: zmin = 0.
+      REAL, PARAMETER :: zmax = 4.
+      INTEGER, PARAMETER :: na = 16
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      INTEGER, PARAMETER :: field(1) = field_dmonly
+
+      ! Set number of k points and k range (log spaced)
+      CALL fill_array(log(kmin), log(kmax), k, nk)
+      k = exp(k)
+
+      ! Set the number of redshifts and range (linearly spaced) and convert z -> a
+      CALL fill_array(zmin, zmax, a, na)
+      DO i = 1, na
+         a(i) = scale_factor_z(a(i)) ! Note that this is correct because 'a' here is actually 'z'
+      END DO
+
+      DO icos = 1, 2
+
+         ! Assigns the cosmological model
+         IF (icos == 1) THEN
+            icosmo_here = icosmo
+            base = 'data/power'
+         ELSE IF (icos == 2) THEN
+            ! The comparison
+            icosmo_here = icosmo_baseline
+            base = 'data/power_baseline'
+         ELSE
+            STOP 'POWER_SINGLE_COMPARISON: A disaster occured'
+         END IF
+
+         ! Assigns the cosmological model
+         CALL assign_cosmology(icosmo_here, cosm, verbose)
+         CALL init_cosmology(cosm)
+         CALL print_cosmology(cosm)
+
+         ! Assign the halo model
+         CALL assign_halomod(ihm, hmod, verbose)
+
+         CALL calculate_HMx(field, 1, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+
+         CALL write_power_a_multiple(k, a, pow_li, pow_2h(1, 1, :, :), pow_1h(1, 1, :, :), pow_hm(1, 1, :, :), nk, na, base, verbose)
+
+      END DO
+
+   END SUBROUTINE power_multiple_comparison
 
    SUBROUTINE halo_stuff(icosmo, ihm)
 

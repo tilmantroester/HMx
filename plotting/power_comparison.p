@@ -1,83 +1,53 @@
-unset multiplot
 reset
 
-if(!exists('print')){print=0}
-if(print==0){set term qt dashed}
-if(print==1){set term post enh col sol; set output 'power_comparison.eps'}
+mode = 'data/power.dat'
+base = 'data/power_baseline.dat'
 
-kmin=1e-3
-kmax=1e2
+c = 5
 
-pmin=1e-7
-pmax=1e4
+pmin = 1e-8
+pmax = 1e4
 
-rmin=0.5
-rmax=1.5
-
-set log x
-set xrange [kmin:kmax]
-
-set log y
-set yrange [pmin:pmax]
-#set yrange [*:*]
-set ylabel '{/Symbol D}^2(k)'
-set format y '10^{%T}'
-
-#File to compare against
-if(!exists('com')){com='benchmarks/power_HMcode_Mead.txt'}
-
-new='data/power_hm.dat'
-p1h='data/power_1h.dat'
-p2h='data/power_2h.dat'
-
-print ''
-print 'Comparing power_hm.dat to: com: ', com
-print ''
-
-set key top left
-
-col_red(i)=sprintf("#%1x%1x0000",i-1,i-1)
-col_green(i)=sprintf("#00%1x%1x00",i-1,i-1)
+rmin = 0.8
+rmax = 1.2
 
 set lmargin 10
 set rmargin 2
 
-set multiplot layout 2,1
+set multiplot layout 2, 1
 
+set key top left
+
+set log x
 set xlabel ''
 set format x ''
 
-nz=16
+set log y
+set ylabel '{/Symbol D}^2(k)'
+set format y '10^{%T}'
+set yrange [pmin:pmax]
 
-plot for[i=1:nz]  com u 1:(column(i+1)) w l lw 2 dt 1 lc rgb col_red(i) noti,\
-     for[i=1:nz]  new u 1:(column(i+1)) w l lw 2 dt 1 lc rgb col_green(i) noti,\
-     for[i=nz:nz] p2h u 1:(column(i+1)) w l lw 2 dt 2 lc rgb col_green(i) noti,\
-     for[i=nz:nz] p1h u 1:(column(i+1)) w l lw 2 dt 3 lc rgb col_green(i) noti
-
-set xlabel 'k / (h Mpc^{-1})'
-set format x
+plot base u 1:2 w l lc -1 lw 3 dt 2 noti ,\
+   base u 1:3 w l lc -1 lw 3 dt 3 noti ,\
+   base u 1:4 w l lc -1 lw 3 dt 4 noti ,\
+   base u 1:5 w l lc -1 lw 3 dt 1 noti ,\
+   mode u 1:2 w l lc 1 lw 2 dt 2 ti 'Linear', \
+   mode u 1:3 w l lc 1 lw 2 dt 3 ti '2-halo', \
+   mode u 1:4 w l lc 1 lw 2 dt 4 ti '1-halo', \
+   mode u 1:5 w l lc 1 lw 2 dt 1 ti 'Full'
 
 unset log y
-set yrange [*:*]
-set yrange [rmin:rmax]
+set ylabel 'P(k) / P_{fid}(k)'
 set format y
-set ylabel 'P_{new}(k) / P_{old}(k)'
+set yrange [rmin:rmax]
 
-y=0.1
-dy=0.01
-ddy=0.001
+set xlabel 'k / h Mpc^{-1}'
+set format x
 
-plot 1 w l ls -1 noti,\
-     1.-ddy w l lw 1 lc -1 dt 4 ti '0.1%',\
-     1.+ddy w l lw 1 lc -1 dt 4 noti,\
-     1.-dy  w l lw 1 lc -1 dt 3 ti '1%',\
-     1.+dy  w l lw 1 lc -1 dt 3 noti,\
-     1.-y   w l lw 1 lc -1 dt 2 ti '10%',\
-     1.+y   w l lw 1 lc -1 dt 2 noti,\
-     for[i=1:nz] '<paste '.new.' '.com.'' u 1:(column(i+1)/column(i+1+17)) w l lw 2 dt 1 lc rgb col_green(i) noti
-     #for[i=1:nz] '<paste '.new.' '.com.'' u 1:(column(i+1)/column(35-i)) w l lw 2 dt 1 lc rgb col_green(i) noti
+plot 1 w l lt -1 noti,\
+   '<paste '.mode.' '.base.'' u 1:(column(2)/column(2+c)) w l lc 1 lw 2 dt 2 noti,\
+   '<paste '.mode.' '.base.'' u 1:(column(3)/column(3+c)) w l lc 1 lw 2 dt 3 noti,\
+   '<paste '.mode.' '.base.'' u 1:(column(4)/column(4+c)) w l lc 1 lw 2 dt 4 noti,\
+   '<paste '.mode.' '.base.'' u 1:(column(5)/column(5+c)) w l lc 1 lw 2 dt 1 noti
 
 unset multiplot
-
-
-
