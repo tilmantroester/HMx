@@ -361,7 +361,7 @@ CONTAINS
       CHARACTER(len=256) :: outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
-      LOGICAL, PARAMETER :: verbose = .TRUE.     
+      LOGICAL, PARAMETER :: verbose = .TRUE.
       REAL, PARAMETER :: z = 0. ! Redshift
       REAL, PARAMETER :: kmin = 0.1
       REAL, PARAMETER :: kmax = 1.0
@@ -503,17 +503,17 @@ CONTAINS
       INTEGER, INTENT(OUT) :: ix
       CHARACTER(len=256), INTENT(OUT) :: ix_name
 
-      IF(version == 1) THEN
+      IF (version == 1) THEN
          CALL triad_1_tracers(i, ix, ix_name)
-      ELSE IF(version == 2) THEN
+      ELSE IF (version == 2) THEN
          CALL triad_2_tracers(i, ix, ix_name)
-      ELSE IF(version == 3) THEN
+      ELSE IF (version == 3) THEN
          CALL triad_3_tracers(i, ix, ix_name)
-      ELSE IF(version == 4) THEN
+      ELSE IF (version == 4) THEN
          CALL triad_4_tracers(i, ix, ix_name)
-      ELSE IF(version == 5) THEN
+      ELSE IF (version == 5) THEN
          CALL triad_5_tracers(i, ix, ix_name)
-      ELSE IF(version == 6) THEN
+      ELSE IF (version == 6) THEN
          CALL triad_6_tracers(i, ix, ix_name)
       ELSE
          STOP 'TRIAD_TRACERS: Error, version of triad specified incorrectly'
@@ -1634,7 +1634,7 @@ CONTAINS
       REAL, ALLOCATABLE :: k(:), z_tab(:)
       REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
       REAL, ALLOCATABLE :: powd_li(:), powd_2h(:), powd_1h(:), powd_hm(:)
-      REAL, ALLOCATABLE :: pows_li(:), pows_2h(:,:,:), pows_1h(:,:,:), pows_hm(:,:,:)
+      REAL, ALLOCATABLE :: pows_li(:), pows_2h(:, :, :), pows_1h(:, :, :), pows_hm(:, :, :)
       INTEGER, ALLOCATABLE :: fields(:)
       REAL :: z
       INTEGER :: j, j1, j2
@@ -1642,7 +1642,7 @@ CONTAINS
       CHARACTER(len=256) :: base, dir, ext, name, fname, infile, mid, outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
-     
+
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER :: nk = 128
@@ -2236,9 +2236,9 @@ CONTAINS
       INTEGER, INTENT(IN) :: imode
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
-      REAL, ALLOCATABLE :: k(:), a(:), pow_ka(:,:)
-      REAL, ALLOCATABLE :: ell(:), Cl(:,:,:)
-      REAL, ALLOCATABLE :: theta(:), xi(:,:)
+      REAL, ALLOCATABLE :: k(:), a(:), pow_ka(:, :)
+      REAL, ALLOCATABLE :: ell(:), Cl(:, :, :)
+      REAL, ALLOCATABLE :: theta(:), xi(:, :)
       REAL, ALLOCATABLE :: pows_li(:, :), pows_2h(:, :, :, :), pows_1h(:, :, :, :), pows_hm(:, :, :, :)
       REAL :: spam
       REAL :: m1, m2, a1, a2, z1, z2, r1, r2
@@ -2840,17 +2840,17 @@ CONTAINS
       CHARACTER(len=256), ALLOCATABLE :: ixx_names(:)
       CHARACTER(len=256) :: base, outfile
       INTEGER, ALLOCATABLE :: ixx(:)
-      REAL, ALLOCATABLE :: ell(:), Cl(:,:,:)
+      REAL, ALLOCATABLE :: ell(:), Cl(:, :, :)
       INTEGER :: i, j, ii, jj
       INTEGER :: nfeed
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
-      
+
       REAL, PARAMETER :: lmin = 100.
       REAL, PARAMETER :: lmax = 4000.
       INTEGER :: nl = 64
       INTEGER, PARAMETER :: triad_version = 6
-      INTEGER, PARAMETER :: nt = 13 !5 
+      INTEGER, PARAMETER :: nt = 13 !5
       CHARACTER(len=256), PARAMETER :: dir = 'data' ! Directory for data output
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
@@ -2942,7 +2942,7 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: ihm
       CHARACTER(len=256) :: outfile
       INTEGER :: ip(2), ix(2)
-      REAL, ALLOCATABLE :: ell(:), Cl(:,:,:)
+      REAL, ALLOCATABLE :: ell(:), Cl(:, :, :)
       INTEGER :: i, j
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
@@ -3041,10 +3041,10 @@ CONTAINS
 
       ! Allocate arrays for the power spectra
       ALLOCATE (powd_li(nk), powd_2h(nk), powd_1h(nk), powd_hm(nk))
-      ALLOCATE (pow_li(nk), pow_2h(nf, nf, nk), pow_1h(nf, nf, nk), pow_hm(nf, nf, nk)) 
+      ALLOCATE (pow_li(nk), pow_2h(nf, nf, nk), pow_1h(nf, nf, nk), pow_hm(nf, nf, nk))
 
-      ! Assigns the cosmological model  
-      icosmo = 4   
+      ! Assigns the cosmological model
+      icosmo = 4
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
@@ -3397,7 +3397,7 @@ CONTAINS
       CHARACTER(len=256) :: base
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
-    
+
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
@@ -3492,7 +3492,7 @@ CONTAINS
       INTEGER :: i, j
       INTEGER :: nk
       REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
-      CHARACTER(len=256) :: outfile    
+      CHARACTER(len=256) :: outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
@@ -3832,7 +3832,7 @@ CONTAINS
       CHARACTER(len=256) :: infile, outfile
       INTEGER :: i, ii, jj
       INTEGER, ALLOCATABLE :: ixx(:)
-      REAL, ALLOCATABLE :: ell(:), Cl(:,:,:), Cl_bm(:)
+      REAL, ALLOCATABLE :: ell(:), Cl(:, :, :), Cl_bm(:)
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
@@ -3975,7 +3975,7 @@ CONTAINS
       IMPLICIT NONE
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
-      REAL, ALLOCATABLE :: k(:), a(:), pow_ka(:,:)
+      REAL, ALLOCATABLE :: k(:), a(:), pow_ka(:, :)
       REAL, ALLOCATABLE :: pows_li(:, :), pows_2h(:, :, :, :), pows_1h(:, :, :, :), pows_hm(:, :, :, :)
       REAL :: error, error_max
       INTEGER :: i, j, itest
@@ -4264,7 +4264,7 @@ CONTAINS
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
-      ! Set the fields    
+      ! Set the fields
       ALLOCATE (fields(nf))
       fields(1) = field_matter
       fields(2) = field_electron_pressure
@@ -4278,8 +4278,8 @@ CONTAINS
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
-      ! Set the halo model  
-      ihm = 3 ! 3 - Standard   
+      ! Set the halo model
+      ihm = 3 ! 3 - Standard
       CALL assign_halomod(ihm, hmod, verbose)
 
       ! Loop over upper limit of mass integral
@@ -4367,17 +4367,17 @@ CONTAINS
       INTEGER, PARAMETER :: nz = 101
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
-      !Assign the cosmological model 
-      icosmo = 4    
+      !Assign the cosmological model
+      icosmo = 4
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
-      
+
       !Initiliasation for the halomodel calcualtion
-      ihm = 18   
+      ihm = 18
       CALL assign_halomod(ihm, hmod, verbose)
       CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
-      CALL print_halomod(hmod, cosm, verbose)       
+      CALL print_halomod(hmod, cosm, verbose)
 
       DO j = 1, 3
 
@@ -4417,7 +4417,7 @@ CONTAINS
       CHARACTER(len=256) :: base, ext, outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
-    
+
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
@@ -4438,10 +4438,10 @@ CONTAINS
       icosmo = 1 ! 1 - Boring
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
-      CALL print_cosmology(cosm) 
+      CALL print_cosmology(cosm)
 
-      ! Initiliasation for the halomodel calcualtion  
-      ihm = 21   
+      ! Initiliasation for the halomodel calcualtion
+      ihm = 21
       CALL assign_halomod(ihm, hmod, verbose)
 
       ! Range of cores to explore
@@ -4824,7 +4824,7 @@ CONTAINS
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
-      !Initiliasation for the halomodel calcualtion    
+      !Initiliasation for the halomodel calcualtion
       ALLOCATE (hmods(nhm), m(nhm))
       DO i = 1, nhm
          IF (i == 1) THEN
@@ -4841,7 +4841,6 @@ CONTAINS
          CALL print_halomod(hmods(i), cosm, verbose)
       END DO
 
-      
       ! Loop over nu and write out mass function
       OPEN (10, file='data/bnu_functions.dat')
       OPEN (11, file='data/gnu_functions.dat')
@@ -4937,10 +4936,10 @@ CONTAINS
 
       REAL, PARAMETER :: numin = 0.1
       REAL, PARAMETER :: numax = 6.
-      INTEGER, PARAMETER :: nnu = 256 
+      INTEGER, PARAMETER :: nnu = 256
       REAL, PARAMETER :: Lmin = 32.
       REAL, PARAMETER :: Lmax = 2048.
-      INTEGER, PARAMETER :: ncos = 8 
+      INTEGER, PARAMETER :: ncos = 8
       REAL, PARAMETER :: z = 0.0 ! Set the redshift
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
@@ -5014,7 +5013,7 @@ CONTAINS
       INTEGER, PARAMETER :: n = 256
       REAL, PARAMETER :: cbar = 4.
       LOGICAL, PARAMETER :: verbose = .TRUE.
-      CHARACTER(len=256), PARAMETER :: outfile = 'data/p_conc.dat' 
+      CHARACTER(len=256), PARAMETER :: outfile = 'data/p_conc.dat'
 
       ! Assigns the cosmological model
       icosmo = 1
@@ -5123,11 +5122,11 @@ CONTAINS
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: imode
       INTEGER, INTENT(INOUT) :: icosmo
-      REAL, ALLOCATABLE :: a(:), k(:), pow_ka(:,:)
+      REAL, ALLOCATABLE :: a(:), k(:), pow_ka(:, :)
       REAL :: lmin, lmax
       INTEGER :: i, j, ii, jj
       INTEGER :: nl, ix(2), ip(2), n_edge, n_all, nt, nk, na
-      REAL, ALLOCATABLE :: pow_sim(:), ell(:), ell_edge(:), all_ell(:), Cl(:,:,:), all_Cl(:, :, :)
+      REAL, ALLOCATABLE :: pow_sim(:), ell(:), ell_edge(:), all_ell(:), Cl(:, :, :), all_Cl(:, :, :)
       LOGICAL :: verbose2
       CHARACTER(len=256) :: base, name, outbase, ext, outfile
       CHARACTER(len=256), ALLOCATABLE :: ixx_names(:)
@@ -5385,16 +5384,16 @@ CONTAINS
       CHARACTER(len=256), PARAMETER :: outfile = 'data/Tinker_bias.dat'
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
-      ! Assigns the cosmological model 
-      icosmo = 1   
+      ! Assigns the cosmological model
+      icosmo = 1
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
-     
+
       ihm = 44
       CALL assign_halomod(ihm, hmod, verbose)
       CALL init_halomod(1., hmod, cosm, verbose)
-      
+
       OPEN (7, file=outfile)
       DO i = 1, n
          nu = exp(progression(log(numin), log(numax), i, n))
@@ -5409,7 +5408,7 @@ CONTAINS
       ! Make data for Limber comparison with CCL
       IMPLICIT NONE
       INTEGER, INTENT(INOUT) :: icosmo
-      REAL, ALLOCATABLE :: k(:), a(:), pow_ka(:,:)
+      REAL, ALLOCATABLE :: k(:), a(:), pow_ka(:, :)
       REAL, ALLOCATABLE :: ell(:), Cl_bm(:)
       INTEGER :: i, j
       INTEGER :: nl, ix(2)
@@ -5556,7 +5555,7 @@ CONTAINS
       CHARACTER(len=256), ALLOCATABLE :: bases(:)
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
-      
+
       INTEGER, PARAMETER :: ia1 = 1 ! Actual range of a values to do
       INTEGER, PARAMETER :: ia2 = 5 ! Actual range of a values to do
       INTEGER, PARAMETER :: nf = 4  ! Number of fields, either 4 or 9

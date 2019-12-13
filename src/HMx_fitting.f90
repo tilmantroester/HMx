@@ -10,42 +10,42 @@ PROGRAM HMx_fitting
    USE owls_extras
 
    TYPE fitting
-         REAL, ALLOCATABLE :: minimum(:)            ! Minimum value this parameter is allowed to take
-         REAL, ALLOCATABLE :: maximum(:)            ! Maximum value this parameter is allowed to take
-         REAL, ALLOCATABLE :: original(:)           ! Starting value for this parameter
-         REAL, ALLOCATABLE :: sigma(:)              ! Sigma of jump size for this parameter
-         REAL, ALLOCATABLE :: best(:)               ! Best-fitting value for this parameter
-         LOGICAL, ALLOCATABLE :: set(:)             ! Should this parameter be fitted?
-         LOGICAL, ALLOCATABLE :: log(:)             ! Should this parameter be fitted in log?
-         LOGICAL, ALLOCATABLE :: cov(:)             ! Should we determine the jump size for this parameter?
-         CHARACTER(len=256), ALLOCATABLE :: name(:) ! Name of this parameter
-         INTEGER :: n                               ! Total number of parameters
-      END TYPE fitting
+      REAL, ALLOCATABLE :: minimum(:)            ! Minimum value this parameter is allowed to take
+      REAL, ALLOCATABLE :: maximum(:)            ! Maximum value this parameter is allowed to take
+      REAL, ALLOCATABLE :: original(:)           ! Starting value for this parameter
+      REAL, ALLOCATABLE :: sigma(:)              ! Sigma of jump size for this parameter
+      REAL, ALLOCATABLE :: best(:)               ! Best-fitting value for this parameter
+      LOGICAL, ALLOCATABLE :: set(:)             ! Should this parameter be fitted?
+      LOGICAL, ALLOCATABLE :: log(:)             ! Should this parameter be fitted in log?
+      LOGICAL, ALLOCATABLE :: cov(:)             ! Should we determine the jump size for this parameter?
+      CHARACTER(len=256), ALLOCATABLE :: name(:) ! Name of this parameter
+      INTEGER :: n                               ! Total number of parameters
+   END TYPE fitting
 
-      INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
-      !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
-      INTEGER, PARAMETER :: seed = 0               ! Random-number seed
-      LOGICAL, PARAMETER :: random_start = .FALSE. ! Start from a random point within the prior range
-      LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
-      INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
-      LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
+   INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
+   !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
+   INTEGER, PARAMETER :: seed = 0               ! Random-number seed
+   LOGICAL, PARAMETER :: random_start = .FALSE. ! Start from a random point within the prior range
+   LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
+   INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
+   LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
 
-      ! k cuts for the BAHAMAS power spectra
-      REAL, PARAMETER :: kmin_default = 1e-4       ! Minimum wavenumber to read in [h/Mpc]
-      REAL, PARAMETER :: kmax_default = 1e2        ! Minimum wavenumber to read in [h/Mpc]
-      REAL, PARAMETER :: kmin_BAHAMAS = 0.03       ! Minimum wavenumber to use [h/Mpc]
-      !REAL, PARAMETER :: kmin_BAHAMAS=0.15         ! Minimum wavenumber to use [h/Mpc]
-      !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.     ! Maximum wavenumber to use [h/Mpc] at z=0.0
-      !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.      ! Maximum wavenumber to use [h/Mpc] at z=0.5
-      !REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.      ! Maximum wavenumber to use [h/Mpc] at z=1.0
-      !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.      ! Maximum wavenumber to use [h/Mpc] at z=2.0
-      REAL, PARAMETER :: kmax_BAHAMAS = 10.        ! Maximum wavenumber to us [h/Mpc]
-      REAL, PARAMETER :: z_default = 0.0           ! Default z to fit if not specified
-      INTEGER, PARAMETER :: mesh = 1024            ! BAHAMAS mesh size power to use
-      LOGICAL, PARAMETER :: cut_nyquist = .TRUE.   ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
-      LOGICAL, PARAMETER :: subtract_shot = .TRUE. ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
-      LOGICAL, PARAMETER :: response_default = .TRUE.                   ! Should I treat the BAHAMAS P(k) as HMcode response?
-      CHARACTER(len=256), PARAMETER :: outbase_default = 'fitting/test' ! Default output file
+   ! k cuts for the BAHAMAS power spectra
+   REAL, PARAMETER :: kmin_default = 1e-4       ! Minimum wavenumber to read in [h/Mpc]
+   REAL, PARAMETER :: kmax_default = 1e2        ! Minimum wavenumber to read in [h/Mpc]
+   REAL, PARAMETER :: kmin_BAHAMAS = 0.03       ! Minimum wavenumber to use [h/Mpc]
+   !REAL, PARAMETER :: kmin_BAHAMAS=0.15         ! Minimum wavenumber to use [h/Mpc]
+   !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.     ! Maximum wavenumber to use [h/Mpc] at z=0.0
+   !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.      ! Maximum wavenumber to use [h/Mpc] at z=0.5
+   !REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.      ! Maximum wavenumber to use [h/Mpc] at z=1.0
+   !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.      ! Maximum wavenumber to use [h/Mpc] at z=2.0
+   REAL, PARAMETER :: kmax_BAHAMAS = 10.        ! Maximum wavenumber to us [h/Mpc]
+   REAL, PARAMETER :: z_default = 0.0           ! Default z to fit if not specified
+   INTEGER, PARAMETER :: mesh = 1024            ! BAHAMAS mesh size power to use
+   LOGICAL, PARAMETER :: cut_nyquist = .TRUE.   ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
+   LOGICAL, PARAMETER :: subtract_shot = .TRUE. ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
+   LOGICAL, PARAMETER :: response_default = .TRUE.                   ! Should I treat the BAHAMAS P(k) as HMcode response?
+   CHARACTER(len=256), PARAMETER :: outbase_default = 'fitting/test' ! Default output file
 
    CALL main()
 
@@ -62,7 +62,7 @@ CONTAINS
       TYPE(fitting) :: fit
       TYPE(halomod), ALLOCATABLE :: hmod(:)
       TYPE(cosmology), ALLOCATABLE :: cosm(:)
-      CHARACTER(len=256) :: name, base, mode, zin, outbase, numchain, maxtime, accuracy, response
+      CHARACTER(len=256) :: name, mode, zin, outbase, numchain, maxtime, accuracy, response
       REAL :: delta
       REAL :: tmax
       INTEGER :: nchain
@@ -164,7 +164,7 @@ CONTAINS
 
       ! Read in BAHAMAS simulation name
       CALL get_command_argument(6, name)
-      IF(name == '') name = 'AGN_TUNED_nu0'
+      IF (name == '') name = 'AGN_TUNED_nu0'
 
       ! Read in response logical that determines if we fit the BAHAMAS response or not
       CALL get_command_argument(7, response)
@@ -225,18 +225,18 @@ CONTAINS
       CALL init_weights(imode, weight, ncos, nfields, k, nk, nz)
 
       ! Set the initial parameter values, ranges, names, etc.
-      CALL init_parameters(z, nz, fit)
+      CALL init_parameters(z, fit)
 
       ! Set the parameters that will be varied
       CALL init_mode(imode, fit)
 
       ! Do the actual fitting algorithm
-      IF(ifit == 1) THEN
+      IF (ifit == 1) THEN
          CALL MCMC_fitting(delta, tmax, nchain, &
-            k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
-      ELSE IF(ifit == 2) THEN
+                           k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
+      ELSE IF (ifit == 2) THEN
          CALL Nelder_Mead_fitting(delta, tmax, nchain, &
-            k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
+                                  k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
       ELSE
          STOP 'ERROR, ifit specified incorrectly'
       END IF
@@ -267,7 +267,6 @@ CONTAINS
       INTEGER :: i, j, l, np
       REAL :: p_start(fit%n), p_new(fit%n), p_old(fit%n)
       REAL :: fom_old, fom_new, fom_bst, fom_ori
-      REAL :: original, best, min, max
       INTEGER :: i_bet, i_wor, i_acc, i_fai, i_tot, i_bst
       INTEGER :: out
       REAL :: t1, t2
@@ -494,7 +493,7 @@ CONTAINS
       REAL :: pow_mod(ncos, nf, nf, nk, nz)
       REAL, ALLOCATABLE :: xx(:, :), ff(:)
       REAL, ALLOCATABLE :: xo(:), xr(:), xe(:), xc(:)
-      REAL :: fo, fr, fe, fc
+      REAL :: fr, fe, fc
       INTEGER :: i, j, ii
       INTEGER :: unit_number
       REAL :: t1, t2
@@ -513,7 +512,7 @@ CONTAINS
       p = fit%original
       np = fit%n
       CALL init_Nelder_Mead(x, dx, n, p, np, fit)
-      ALLOCATE(xx(n+1, n), ff(n+1), xo(n), xr(n), xe(n), xc(n))
+      ALLOCATE (xx(n+1, n), ff(n+1), xo(n), xr(n), xe(n), xc(n))
 
       CALL CPU_TIME(t1)
       CALL CPU_TIME(t2)
@@ -522,15 +521,15 @@ CONTAINS
       DO i = 1, n+1
          DO j = 1, n
             xx(i, j) = x(j)
-            IF(i == j+1) xx(i, j) = xx(i, j)+dx(j)
+            IF (i == j+1) xx(i, j) = xx(i, j)+dx(j)
          END DO
       END DO
 
       ! Evaluate function at initial points
       DO i = 1, n+1
-         CALL map_x_to_p(xx(i,:), n, p, np, fit)
+         CALL map_x_to_p(xx(i, :), n, p, np, fit)
          CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
-         IF(i == 1) THEN
+         IF (i == 1) THEN
             ! Write out the original data
             base = trim(outbase)//'_orig_cos'
             CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
@@ -543,7 +542,7 @@ CONTAINS
 
       ii = 0
       operation = 'Starting'
-      WRITE(nstring,*) n+1
+      WRITE (nstring, *) n+1
       DO
 
          ! Increment counter
@@ -552,11 +551,11 @@ CONTAINS
          ! Sort the points from best to worst
          CALL Nelder_Mead_sort(xx, ff, n)
 
-         IF(verbose) WRITE(*, '(A16,I10,'//trim(nstring)//'F15.7)') TRIM(operation), ii, ff(1), (xx(1, i), i = 1, n)
+         IF (verbose) WRITE (*, '(A16,I10,'//trim(nstring)//'F15.7)') TRIM(operation), ii, ff(1), (xx(1, i), i=1, n)
 
          ! Decide on convergence
          CALL CPU_TIME(t2)
-         IF(Nelder_Mead_termination(ff, n, tol) .OR. ii == nmax .OR. (t2-t1) > 60.*tmax) THEN
+         IF (Nelder_Mead_termination(ff, n, tol) .OR. ii == nmax .OR. (t2-t1) > 60.*tmax) THEN
             DO i = 1, n
                x(i) = xx(1, i)
             END DO
@@ -573,12 +572,12 @@ CONTAINS
          fr = fom
 
          IF (fr < ff(1)) THEN
-            ! If the reflected point is the best so far then calculate the expanded point 
+            ! If the reflected point is the best so far then calculate the expanded point
             xe = xo+gamma*(xr-xo)
             CALL map_x_to_p(xe, n, p, np, fit)
             CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
             fe = fom
-            IF(fe < fr) THEN
+            IF (fe < fr) THEN
                ! Keep the expansed point if it is better than the reflected ...
                operation = 'Expanding'
                xx(n+1, :) = xe
@@ -603,7 +602,7 @@ CONTAINS
             CALL map_x_to_p(xc, n, p, np, fit)
             CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
             fc = fom
-            IF(fc < ff(n+1)) THEN
+            IF (fc < ff(n+1)) THEN
                ! Keep the contracted point if it is better than the worst point
                operation = 'Contracting'
                xx(n+1, :) = xc
@@ -614,7 +613,7 @@ CONTAINS
                ! Calculate the shrinkage for all except the best point
                DO i = 2, n+1
                   xx(i, :) = xx(1, :)+sigma*(xx(i, :)-xx(1, :))
-                  CALL map_x_to_p(xx(i,:), n, p, np, fit)
+                  CALL map_x_to_p(xx(i, :), n, p, np, fit)
                   CALL fom_multiple(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
                   ff(i) = fom
                END DO
@@ -633,22 +632,21 @@ CONTAINS
       CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
 
       outfile = trim(outbase)//'_params.dat'
-      OPEN(file_unit_number, file = outfile)
+      OPEN (file_unit_number, file=outfile)
       DO j = 1, 2
-         IF(j == 1) unit_number = screen_unit_number
-         IF(j == 2) unit_number = file_unit_number
+         IF (j == 1) unit_number = screen_unit_number
+         IF (j == 2) unit_number = file_unit_number
          CALL write_best_fitting(fit, unit_number)
       END DO
-      CLOSE(file_unit_number)
+      CLOSE (file_unit_number)
 
    END SUBROUTINE Nelder_Mead_fitting
 
-   SUBROUTINE init_parameters(z, nz, fit)
+   SUBROUTINE init_parameters(z, fit)
 
       ! Assigns values to parameter name, original value, sigma, minimum and maximuim values and logexp
       IMPLICIT NONE
       REAL, INTENT(IN) :: z(:)
-      INTEGER, INTENT(IN) :: nz
       TYPE(fitting), INTENT(INOUT) :: fit
       INTEGER, PARAMETER ::  n = param_n
       INTEGER :: i
@@ -705,7 +703,7 @@ CONTAINS
       fit%name(param_Astar) = 'A_*'
       !fit%original(param_Astar) = 0.03 ! Standard value from ihm=3
       !fit%original(param_Astar)=0.042
-      fit%original(param_Astar)= 0.03!*(1.+z(1))**(-0.25)
+      fit%original(param_Astar) = 0.03!*(1.+z(1))**(-0.25)
       fit%sigma(param_Astar) = 0.002
       fit%minimum(param_Astar) = 1e-4
       fit%maximum(param_Astar) = 0.2
@@ -2267,12 +2265,12 @@ CONTAINS
       nx = count(fit%set)
 
       ! Allocate arrays
-      ALLOCATE(x(nx), dx(nx))
+      ALLOCATE (x(nx), dx(nx))
 
       ! Fill the active parameter arrays using the total parameter arrays
       ii = 0
       DO i = 1, np
-         IF(fit%set(i)) THEN
+         IF (fit%set(i)) THEN
             ii = ii+1
             x(ii) = p(i)
             dx(ii) = fit%sigma(i)
@@ -2313,7 +2311,7 @@ CONTAINS
 
       ii = 0
       DO i = 1, np
-         IF(fit%set(i)) THEN
+         IF (fit%set(i)) THEN
             ii = ii+1
             p(i) = x(ii)
          END IF
@@ -2332,7 +2330,7 @@ CONTAINS
       INTEGER :: i
 
       DO i = 1, n
-         Nelder_Mead_centroid(i) = mean(x(:,i), n)
+         Nelder_Mead_centroid(i) = mean(x(:, i), n)
       END DO
 
    END FUNCTION Nelder_Mead_centroid
@@ -2351,7 +2349,7 @@ CONTAINS
       CALL index(f, j, n+1, isort)
       CALL reindex(f, j, n+1)
       DO i = 1, n
-         CALL reindex(x(:,i), j, n+1)
+         CALL reindex(x(:, i), j, n+1)
       END DO
 
    END SUBROUTINE Nelder_Mead_sort
@@ -2370,7 +2368,7 @@ CONTAINS
       sigma = standard_deviation(f, n+1)
 
       ! Decide on termination
-      IF(sigma <= tol) THEN
+      IF (sigma <= tol) THEN
          Nelder_Mead_termination = .TRUE.
       ELSE
          Nelder_Mead_termination = .FALSE.
