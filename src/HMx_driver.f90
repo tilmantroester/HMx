@@ -56,8 +56,8 @@ PROGRAM HMx_driver
       WRITE (*, *) ' 2 - Hydrodynamical halo model'
       WRITE (*, *) ' 3 - Run diagnostics for haloes'
       WRITE (*, *) ' 4 - Do random baryon parameters for bug testing'
-      WRITE (*, *) ' 5 - Lensing diagnostics'
-      WRITE (*, *) ' 6 - n(z) check'
+      WRITE (*, *) ' 5 - '
+      WRITE (*, *) ' 6 - '
       WRITE (*, *) ' 7 - Do general angular cross correlation'
       WRITE (*, *) ' 8 - Angular cross correlation as a function of cosmology'
       WRITE (*, *) ' 9 - Breakdown angular correlations in halo mass'
@@ -72,8 +72,8 @@ PROGRAM HMx_driver
       WRITE (*, *) '18 - 3D bias'
       WRITE (*, *) '19 - Make CCL benchmark data'
       WRITE (*, *) '20 - Make data for Ma et al. (2015) Fig. 1'
-      WRITE (*, *) '21 - W(k) integrand diagnostics'
-      WRITE (*, *) '22 - Time W(k) integration methods'
+      WRITE (*, *) '21 - '
+      WRITE (*, *) '22 - '
       WRITE (*, *) '23 - Produce DE response results from Mead (2017)'
       WRITE (*, *) '24 - TESTS: Projection'
       WRITE (*, *) '25 - Halo-void model'
@@ -145,10 +145,10 @@ PROGRAM HMx_driver
       CALL halo_stuff(iicosmo, iihm)
    ELSE IF (iimode == 4 .OR. iimode == 72) THEN
       CALL test_random_cosmologies(iimode, iicosmo, iihm)
-   ELSE IF (iimode == 5) THEN
-      CALL lensing_diagnostics(iicosmo)
-   ELSE IF (iimode == 6) THEN
-      CALL nz_normalisation()
+   !ELSE IF (iimode == 5) THEN
+   !   CALL lensing_diagnostics(iicosmo)
+   !ELSE IF (iimode == 6) THEN
+      !CALL nz_normalisation()
    ELSE IF (iimode == 7 .OR. &
             iimode == 8 .OR. &
             iimode == 9 .OR. &
@@ -174,11 +174,11 @@ PROGRAM HMx_driver
    ELSE IF (iimode == 19) THEN
       CALL create_CCL_benchmark(iicosmo, iihm)
    ELSE IF (iimode == 20) THEN
-      CALL Ma_Fig_1(iicosmo, iihm)
-   ELSE IF (iimode == 21) THEN
-      CALL winint_diagnosis()
-   ELSE IF (iimode == 22) THEN
-      CALL winint_speed()
+      CALL Ma2015_Fig1(iicosmo, iihm)
+   !ELSE IF (iimode == 21) THEN
+      !CALL winint_diagnosis()
+   !ELSE IF (iimode == 22) THEN
+      !CALL winint_speed()
    ELSE IF (iimode == 23) THEN
       CALL Mead2017(iicosmo, iihm)
    ELSE IF (iimode == 24) THEN
@@ -735,59 +735,60 @@ CONTAINS
 
    END SUBROUTINE read_k_values
 
-   SUBROUTINE YinZhe_Fig1(hmod, cosm)
+   ! SUBROUTINE Ma2015_Fig1_again(hmod, cosm)
 
-      IMPLICIT NONE
-      TYPE(halomod), INTENT(INOUT) :: hmod   ! Halo model
-      TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmological model
-      INTEGER :: i
-      REAL :: r, rs, rv, c, Mh, rh, r500c, m500c
+   !    ! TODO: Move this into Ma2015_Fig1
+   !    IMPLICIT NONE
+   !    TYPE(halomod), INTENT(INOUT) :: hmod   ! Halo model
+   !    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmological model
+   !    INTEGER :: i
+   !    REAL :: r, rs, rv, c, Mh, rh, r500c, m500c
 
-      REAL, PARAMETER :: M = 1e15    ! Halo virial? mass [Msun]
-      REAL, PARAMETER :: rmin = 1e-3 ! Minimum radius [Mpc]
-      REAL, PARAMETER :: rmax = 8    ! Maximum radius [Mpc]
-      INTEGER, PARAMETER :: nr = 512 ! Number of points in radius
+   !    REAL, PARAMETER :: M = 1e15    ! Halo virial? mass [Msun]
+   !    REAL, PARAMETER :: rmin = 1e-3 ! Minimum radius [Mpc]
+   !    REAL, PARAMETER :: rmax = 8    ! Maximum radius [Mpc]
+   !    INTEGER, PARAMETER :: nr = 512 ! Number of points in radius
 
-      LOGICAL, PARAMETER :: real_space = .TRUE.
-      INTEGER, PARAMETER :: itype = field_electron_pressure ! electron pressure
+   !    LOGICAL, PARAMETER :: real_space = .TRUE.
+   !    INTEGER, PARAMETER :: itype = field_electron_pressure ! electron pressure
 
-      IF (hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod, cosm)
+   !    IF (hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod, cosm)
 
-      Mh = M*cosm%h ! This virial mass is now [Msun/h]
+   !    Mh = M*cosm%h ! This virial mass is now [Msun/h]
 
-      rv = exp(find(log(Mh), hmod%log_m, log(hmod%rv), hmod%n, 3, 3, 2)) ! [Mpc/h]
-      c = find(log(Mh), hmod%log_m, hmod%c, hmod%n, 3, 3, 2)
-      rs = rv/c ! [Mpc/h]
+   !    rv = exp(find(log(Mh), hmod%log_m, log(hmod%rv), hmod%n, 3, 3, 2)) ! [Mpc/h]
+   !    c = find(log(Mh), hmod%log_m, hmod%c, hmod%n, 3, 3, 2)
+   !    rs = rv/c ! [Mpc/h]
 
-      m500c = exp(find(log(Mh), hmod%log_m, log(hmod%m500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
-      r500c = exp(find(log(Mh), hmod%log_m, log(hmod%r500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
+   !    m500c = exp(find(log(Mh), hmod%log_m, log(hmod%m500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
+   !    r500c = exp(find(log(Mh), hmod%log_m, log(hmod%r500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
 
-      WRITE (*, *) 'YINZHE_FIG1: Making data for this figure'
-      WRITE (*, *) 'YINZHE_FIG1: Redshift:', hmod%z
-      WRITE (*, *) 'YINZHE_FIG1: Virial radius [Mpc]:', rv/cosm%h
-      WRITE (*, *) 'YINZHE_FIG1: Virial radius [Mpc/h]:', rv
-      WRITE (*, *) 'YINZHE_FIG1: r_500,c [Mpc]:', r500c/cosm%h
-      WRITE (*, *) 'YINZHE_FIG1: r_500,c [Mpc/h]:', r500c
-      WRITE (*, *) 'YINZHE_FIG1: r_500,c / r_v:', r500c/rv
-      WRITE (*, *) 'YINZHE_FIG1: Virial halo mass [log10 Msun]:', log10(M)
-      WRITE (*, *) 'YINZHE_FIG1: Virial halo mass [log10 Msun/h]:', log10(Mh)
-      WRITE (*, *) 'YINZHE_FIG1: M_500,c [log10 Msun]:', log10(M500c/cosm%h)
-      WRITE (*, *) 'YINZHE_FIG1: M_500,c [log10 Msun/h]:', log10(M500c)
-      WRITE (*, *) 'YINZHE_FIG1: M_500,c / M_v:', M500c/Mh
-      WRITE (*, *) 'YINZHE_FIG1: Halo concentraiton:', c
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Making data for this figure'
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Redshift:', hmod%z
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial radius [Mpc]:', rv/cosm%h
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial radius [Mpc/h]:', rv
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: r_500,c [Mpc]:', r500c/cosm%h
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: r_500,c [Mpc/h]:', r500c
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: r_500,c / r_v:', r500c/rv
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial halo mass [log10 Msun]:', log10(M)
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial halo mass [log10 Msun/h]:', log10(Mh)
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: M_500,c [log10 Msun]:', log10(M500c/cosm%h)
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: M_500,c [log10 Msun/h]:', log10(M500c)
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: M_500,c / M_v:', M500c/Mh
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Halo concentraiton:', c
 
-      OPEN (7, file='data/YinZhe_Fig1.dat')
-      DO i = 1, nr
-         r = progression(rmin, rmax, i, nr) ! Radius [Mpc]
-         rh = r*cosm%h ! Convert [Mpc/h]
-         WRITE (7, *) r, UPP(real_space, rh, Mh, rv, rs, hmod, cosm)*r**2, win_type(real_space, itype, rh, Mh, rv, rs, hmod, cosm)*r**2
-      END DO
-      CLOSE (7)
+   !    OPEN (7, file='data/YinZhe_Fig1.dat')
+   !    DO i = 1, nr
+   !       r = progression(rmin, rmax, i, nr) ! Radius [Mpc]
+   !       rh = r*cosm%h ! Convert [Mpc/h]
+   !       WRITE (7, *) r, UPP(real_space, rh, Mh, rv, rs, hmod, cosm)*r**2, win_type(real_space, itype, rh, Mh, rv, rs, hmod, cosm)*r**2
+   !    END DO
+   !    CLOSE (7)
 
-      WRITE (*, *) 'YINZHE_FIG1: Done'
-      WRITE (*, *)
+   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Done'
+   !    WRITE (*, *)
 
-   END SUBROUTINE YinZhe_Fig1
+   ! END SUBROUTINE Ma2015_Fig1_again
 
    SUBROUTINE write_power(k, pow_lin, pow_2h, pow_1h, pow, nk, output, verbose)
 
@@ -969,171 +970,171 @@ CONTAINS
 
    END SUBROUTINE random_baryon_parameters
 
-   SUBROUTINE xpow(ix, nx, ell, Cl, nl, hmod, cosm, verbose)
+   ! SUBROUTINE xpow(ix, nx, ell, Cl, nl, hmod, cosm, verbose)
 
-      ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
-      ! TODO: Speed up if there are repeated fields in ix(n) (should this ever happen?)
-      ! TODO: Add bin theory option
-      IMPLICIT NONE
-      INTEGER, INTENT(INOUT) :: ix(nx)
-      INTEGER, INTENT(IN) :: nx
-      REAL, INTENT(IN) :: ell(nl)
-      REAL, INTENT(OUT) :: Cl(nl, nx, nx)
-      INTEGER, INTENT(IN) :: nl
-      TYPE(halomod), INTENT(INOUT) :: hmod
-      TYPE(cosmology), INTENT(INOUT) :: cosm
-      LOGICAL, INTENT(IN) :: verbose
-      REAL, ALLOCATABLE :: a(:), k(:), pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
-      REAL :: lmin, lmax
-      INTEGER :: ixx(2), ip(nx), nk, na, i, j, ii, jj, nnx, match(nx)
-      INTEGER, ALLOCATABLE :: iix(:)
-      REAL, ALLOCATABLE :: uCl(:, :, :)
+   !    ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
+   !    ! TODO: Speed up if there are repeated fields in ix(n) (should this ever happen?)
+   !    ! TODO: Add bin theory option
+   !    IMPLICIT NONE
+   !    INTEGER, INTENT(INOUT) :: ix(nx)
+   !    INTEGER, INTENT(IN) :: nx
+   !    REAL, INTENT(IN) :: ell(nl)
+   !    REAL, INTENT(OUT) :: Cl(nl, nx, nx)
+   !    INTEGER, INTENT(IN) :: nl
+   !    TYPE(halomod), INTENT(INOUT) :: hmod
+   !    TYPE(cosmology), INTENT(INOUT) :: cosm
+   !    LOGICAL, INTENT(IN) :: verbose
+   !    REAL, ALLOCATABLE :: a(:), k(:), pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
+   !    REAL :: lmin, lmax
+   !    INTEGER :: ixx(2), ip(nx), nk, na, i, j, ii, jj, nnx, match(nx)
+   !    INTEGER, ALLOCATABLE :: iix(:)
+   !    REAL, ALLOCATABLE :: uCl(:, :, :)
 
-      REAL, PARAMETER :: kmin_xpow = 1e-3 ! Minimum k to calculate P(k); it will be extrapolated below this by Limber
-      REAL, PARAMETER :: kmax_xpow = 1e2  ! Maximum k to calculate P(k); it will be extrapolated above this by Limber
-      INTEGER, PARAMETER :: nk_xpow = 256 ! Number of log-spaced k values (used to be 32)
-      REAL, PARAMETER :: amin_xpow = 0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1)
-      REAL, PARAMETER :: amax_xpow = 1.0  ! Maximum scale factor
-      INTEGER, PARAMETER :: na_xpow = 16  ! Number of linearly-spaced scale factores
+   !    REAL, PARAMETER :: kmin_xpow = 1e-3 ! Minimum k to calculate P(k); it will be extrapolated below this by Limber
+   !    REAL, PARAMETER :: kmax_xpow = 1e2  ! Maximum k to calculate P(k); it will be extrapolated above this by Limber
+   !    INTEGER, PARAMETER :: nk_xpow = 256 ! Number of log-spaced k values (used to be 32)
+   !    REAL, PARAMETER :: amin_xpow = 0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1)
+   !    REAL, PARAMETER :: amax_xpow = 1.0  ! Maximum scale factor
+   !    INTEGER, PARAMETER :: na_xpow = 16  ! Number of linearly-spaced scale factores
 
-      !IF(repeated_entries(ix,n)) STOP 'XPOW: Error, repeated tracers'
-      CALL unique_index(ix, nx, iix, nnx, match)
-      ALLOCATE (uCl(nl, nnx, nnx))
+   !    !IF(repeated_entries(ix,n)) STOP 'XPOW: Error, repeated tracers'
+   !    CALL unique_index(ix, nx, iix, nnx, match)
+   !    ALLOCATE (uCl(nl, nnx, nnx))
 
-      ! Set the k range
-      nk = nk_xpow
-      CALL fill_array(log(kmin_xpow), log(kmax_xpow), k, nk)
-      k = exp(k)
+   !    ! Set the k range
+   !    nk = nk_xpow
+   !    CALL fill_array(log(kmin_xpow), log(kmax_xpow), k, nk)
+   !    k = exp(k)
 
-      ! Set the a range
-      na = na_xpow
-      CALL fill_array(amin_xpow, amax_xpow, a, na)
+   !    ! Set the a range
+   !    na = na_xpow
+   !    CALL fill_array(amin_xpow, amax_xpow, a, na)
 
-      ! Set the ell range
-      lmin = ell(1)
-      lmax = ell(nl)
+   !    ! Set the ell range
+   !    lmin = ell(1)
+   !    lmax = ell(nl)
 
-      ! Write to screen
-      IF (verbose) THEN
-         WRITE (*, *) 'XPOW: Cross-correlation information'
-         WRITE (*, *) 'XPOW: Number of tracers:', nx
-         WRITE (*, *) 'XPOW: P(k) minimum k [h/Mpc]:', REAL(kmin_xpow)
-         WRITE (*, *) 'XPOW: P(k) maximum k [h/Mpc]:', REAL(kmax_xpow)
-         WRITE (*, *) 'XPOW: Number of k:', nk
-         WRITE (*, *) 'XPOW: minimum a:', REAL(amin_xpow)
-         WRITE (*, *) 'XPOW: maximum a:', REAL(amax_xpow)
-         WRITE (*, *) 'XPOW: number of a:', na
-         WRITE (*, *) 'XPOW: minimum ell:', REAL(lmin)
-         WRITE (*, *) 'XPOW: maximum ell:', REAL(lmax)
-         WRITE (*, *) 'XPOW: number of ell:', nl
-         WRITE (*, *)
-      END IF
+   !    ! Write to screen
+   !    IF (verbose) THEN
+   !       WRITE (*, *) 'XPOW: Cross-correlation information'
+   !       WRITE (*, *) 'XPOW: Number of tracers:', nx
+   !       WRITE (*, *) 'XPOW: P(k) minimum k [h/Mpc]:', REAL(kmin_xpow)
+   !       WRITE (*, *) 'XPOW: P(k) maximum k [h/Mpc]:', REAL(kmax_xpow)
+   !       WRITE (*, *) 'XPOW: Number of k:', nk
+   !       WRITE (*, *) 'XPOW: minimum a:', REAL(amin_xpow)
+   !       WRITE (*, *) 'XPOW: maximum a:', REAL(amax_xpow)
+   !       WRITE (*, *) 'XPOW: number of a:', na
+   !       WRITE (*, *) 'XPOW: minimum ell:', REAL(lmin)
+   !       WRITE (*, *) 'XPOW: maximum ell:', REAL(lmax)
+   !       WRITE (*, *) 'XPOW: number of ell:', nl
+   !       WRITE (*, *)
+   !    END IF
 
-      ! Use the xpowlation type to set the necessary halo profiles
-      DO i = 1, nnx
-         CALL set_field_for_xpow(ix(i), ip(i))
-      END DO
+   !    ! Use the xpowlation type to set the necessary halo profiles
+   !    DO i = 1, nnx
+   !       CALL set_field_for_xpow(ix(i), ip(i))
+   !    END DO
 
-      ! Do the halo model power spectrum calculation
-      CALL calculate_HMx(ip, nnx, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+   !    ! Do the halo model power spectrum calculation
+   !    CALL calculate_HMx(ip, nnx, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
 
-      ! Set the Cl to zero initially
-      uCl = 0.
+   !    ! Set the Cl to zero initially
+   !    uCl = 0.
 
-      ! Loop over triangle combinations
-      DO i = 1, nnx
-         ixx(1) = ix(i)
-         DO j = i, nnx
-            ixx(2) = ix(j)
-            CALL xpow_pka(ixx, ell, uCl(:, i, j), nl, k, a, pow_hm(i, j, :, :), nk, na, cosm)
-         END DO
-      END DO
+   !    ! Loop over triangle combinations
+   !    DO i = 1, nnx
+   !       ixx(1) = ix(i)
+   !       DO j = i, nnx
+   !          ixx(2) = ix(j)
+   !          CALL xpow_pka(ixx, ell, uCl(:, i, j), nl, k, a, pow_hm(i, j, :, :), nk, na, cosm)
+   !       END DO
+   !    END DO
 
-      ! Fill the symmetric cross terms
-      DO i = 1, nnx
-         DO j = i+1, nnx
-            uCl(:, j, i) = uCl(:, i, j)
-         END DO
-      END DO
+   !    ! Fill the symmetric cross terms
+   !    DO i = 1, nnx
+   !       DO j = i+1, nnx
+   !          uCl(:, j, i) = uCl(:, i, j)
+   !       END DO
+   !    END DO
 
-      ! Now fill the full arrays from the unique arrays
-      DO i = 1, nx
-         DO j = 1, nx
-            ii = match(i)
-            jj = match(j)
-            Cl(:, i, j) = uCl(:, ii, jj)
-         END DO
-      END DO
+   !    ! Now fill the full arrays from the unique arrays
+   !    DO i = 1, nx
+   !       DO j = 1, nx
+   !          ii = match(i)
+   !          jj = match(j)
+   !          Cl(:, i, j) = uCl(:, ii, jj)
+   !       END DO
+   !    END DO
 
-      ! Write to screen
-      IF (verbose) THEN
-         WRITE (*, *) 'XPOW: Done'
-         WRITE (*, *)
-      END IF
+   !    ! Write to screen
+   !    IF (verbose) THEN
+   !       WRITE (*, *) 'XPOW: Done'
+   !       WRITE (*, *)
+   !    END IF
 
-   END SUBROUTINE xpow
+   ! END SUBROUTINE xpow
 
-   SUBROUTINE set_field_for_xpow(ix, ip)
+   ! SUBROUTINE set_field_for_xpow(ix, ip)
 
-      ! Set the cross-correlation type
-      IMPLICIT NONE
-      INTEGER, INTENT(INOUT) :: ix ! Tracer for cross correlation
-      INTEGER, INTENT(OUT) :: ip   ! Corresponding field for power spectrum
-      INTEGER :: j
+   !    ! Set the cross-correlation type
+   !    IMPLICIT NONE
+   !    INTEGER, INTENT(INOUT) :: ix ! Tracer for cross correlation
+   !    INTEGER, INTENT(OUT) :: ip   ! Corresponding field for power spectrum
+   !    INTEGER :: j
 
-      IF (ix == -1) THEN
-         WRITE (*, *) 'SET_FIELDS_FOR_XPOW: Choose field'
-         WRITE (*, *) '================================='
-         DO j = 1, n_tracers
-            WRITE (*, fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
-         END DO
-         READ (*, *) ix
-         WRITE (*, *) '==================================='
-         WRITE (*, *)
-      END IF
+   !    IF (ix == -1) THEN
+   !       WRITE (*, *) 'SET_FIELDS_FOR_XPOW: Choose field'
+   !       WRITE (*, *) '================================='
+   !       DO j = 1, n_tracers
+   !          WRITE (*, fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
+   !       END DO
+   !       READ (*, *) ix
+   !       WRITE (*, *) '==================================='
+   !       WRITE (*, *)
+   !    END IF
 
-      IF (ix == tracer_Compton_y) THEN
-         ! Compton y
-         ip = field_electron_pressure
-      ELSE IF (ix == tracer_gravity_wave) THEN
-         ! Gravitational waves
-         ip = field_dmonly
-      ELSE IF (ix == tracer_RCSLenS .OR. &
-               ix == tracer_CFHTLenS_vanWaerbeke2013 .OR. &
-               ix == tracer_CMB_lensing .OR. &
-               ix == tracer_KiDS .OR. &
-               ix == tracer_KiDS_bin1 .OR. &
-               ix == tracer_KiDS_bin2 .OR. &
-               ix == tracer_KiDS_bin3 .OR. &
-               ix == tracer_KiDS_bin4 .OR. &
-               ix == tracer_KiDS_450 .OR. &
-               ix == tracer_KiDS_450_fat_bin1 .OR. &
-               ix == tracer_KiDS_450_fat_bin2 .OR. &
-               ix == tracer_KiDS_450_highz .OR. &
-               ix == tracer_lensing_z1p00 .OR. &
-               ix == tracer_lensing_z0p75 .OR. &
-               ix == tracer_lensing_z0p50 .OR. &
-               ix == tracer_lensing_z0p25 .OR. &
-               ix == tracer_KiDS_450_bin1 .OR. &
-               ix == tracer_KiDS_450_bin2 .OR. &
-               ix == tracer_KiDS_450_bin3 .OR. &
-               ix == tracer_KiDS_450_bin4 .OR. &
-               ix == tracer_CFHTLenS_Kilbinger2013) THEN
-         ! Lensing
-         ip = field_matter
-      ELSE IF (ix == tracer_CIB_353) THEN
-         ip = field_CIB_353
-      ELSE IF (ix == tracer_CIB_545) THEN
-         ip = field_CIB_545
-      ELSE IF (ix == tracer_CIB_857) THEN
-         ip = field_CIB_857
-      ELSE IF (ix == tracer_galaxies) THEN
-         ip = field_central_galaxies
-      ELSE
-         STOP 'SET_FIELD_FOR_XPOW: Error, tracer specified incorrectly'
-      END IF
+   !    IF (ix == tracer_Compton_y) THEN
+   !       ! Compton y
+   !       ip = field_electron_pressure
+   !    ELSE IF (ix == tracer_gravity_wave) THEN
+   !       ! Gravitational waves
+   !       ip = field_dmonly
+   !    ELSE IF (ix == tracer_RCSLenS .OR. &
+   !             ix == tracer_CFHTLenS_vanWaerbeke2013 .OR. &
+   !             ix == tracer_CMB_lensing .OR. &
+   !             ix == tracer_KiDS .OR. &
+   !             ix == tracer_KiDS_bin1 .OR. &
+   !             ix == tracer_KiDS_bin2 .OR. &
+   !             ix == tracer_KiDS_bin3 .OR. &
+   !             ix == tracer_KiDS_bin4 .OR. &
+   !             ix == tracer_KiDS_450 .OR. &
+   !             ix == tracer_KiDS_450_fat_bin1 .OR. &
+   !             ix == tracer_KiDS_450_fat_bin2 .OR. &
+   !             ix == tracer_KiDS_450_highz .OR. &
+   !             ix == tracer_lensing_z1p00 .OR. &
+   !             ix == tracer_lensing_z0p75 .OR. &
+   !             ix == tracer_lensing_z0p50 .OR. &
+   !             ix == tracer_lensing_z0p25 .OR. &
+   !             ix == tracer_KiDS_450_bin1 .OR. &
+   !             ix == tracer_KiDS_450_bin2 .OR. &
+   !             ix == tracer_KiDS_450_bin3 .OR. &
+   !             ix == tracer_KiDS_450_bin4 .OR. &
+   !             ix == tracer_CFHTLenS_Kilbinger2013) THEN
+   !       ! Lensing
+   !       ip = field_matter
+   !    ELSE IF (ix == tracer_CIB_353) THEN
+   !       ip = field_CIB_353
+   !    ELSE IF (ix == tracer_CIB_545) THEN
+   !       ip = field_CIB_545
+   !    ELSE IF (ix == tracer_CIB_857) THEN
+   !       ip = field_CIB_857
+   !    ELSE IF (ix == tracer_galaxies) THEN
+   !       ip = field_central_galaxies
+   !    ELSE
+   !       STOP 'SET_FIELD_FOR_XPOW: Error, tracer specified incorrectly'
+   !    END IF
 
-   END SUBROUTINE set_field_for_xpow
+   ! END SUBROUTINE set_field_for_xpow
 
    SUBROUTINE triad_ell(ell, nl)
 
@@ -1625,62 +1626,6 @@ CONTAINS
       END DO
 
    END SUBROUTINE test_random_cosmologies
-
-   SUBROUTINE lensing_diagnostics(icosmo)
-
-      ! Projection diagnostics
-      IMPLICIT NONE
-      INTEGER, INTENT(INOUT) :: icosmo
-      INTEGER :: i, j, ix(2), ip(2)
-      CHARACTER(len=256) :: outfile
-      TYPE(cosmology) :: cosm
-      TYPE(projection) :: proj(2)
-
-      LOGICAL, PARAMETER :: verbose = .TRUE.
-
-      ! Assigns the cosmological model
-      CALL assign_cosmology(icosmo, cosm, verbose)
-      CALL init_cosmology(cosm)
-      CALL print_cosmology(cosm)
-
-      ! Set the field types
-      ix = -1
-      DO i = 1, 2
-         CALL set_field_for_xpow(ix(i), ip(i))
-      END DO
-
-      ! Fill the projection kernels (plural)
-      CALL fill_projection_kernels(ix, proj, cosm)
-
-      DO j = 1, 2
-
-         IF (j == 1) outfile = 'data/nz1.dat'
-         IF (j == 2) outfile = 'data/nz2.dat'
-         OPEN (7, file=outfile)
-         IF (ALLOCATED(proj(j)%nz)) THEN
-            CALL write_nz(proj(j), outfile)
-         ELSE
-            WRITE (7, *) 0., 0.
-         END IF
-         CLOSE (7)
-
-         IF (j == 1) outfile = 'data/efficiency1.dat'
-         IF (j == 2) outfile = 'data/efficiency2.dat'
-         OPEN (7, file=outfile)
-         IF (ALLOCATED(proj(j)%q)) THEN
-            CALL write_efficiency(proj(j), cosm, outfile)
-         ELSE
-            WRITE (7, *) 0., 0.
-         END IF
-         CLOSE (7)
-
-         IF (j == 1) outfile = 'data/kernel1.dat'
-         IF (j == 2) outfile = 'data/kernel2.dat'
-         CALL write_projection_kernel(proj(j), cosm, outfile)
-
-      END DO
-
-   END SUBROUTINE lensing_diagnostics
 
    SUBROUTINE hydro_stuff(imode, icosmo, ihm)
 
@@ -2247,50 +2192,6 @@ CONTAINS
       END DO
 
    END SUBROUTINE hydro_stuff
-
-   SUBROUTINE nz_normalisation()
-
-      ! n(z) normalisation check
-      IMPLICIT NONE
-      TYPE(projection) :: proj
-
-      INTEGER :: i
-      INTEGER :: nz
-      INTEGER, PARAMETER :: nnz = 16
-
-      WRITE (*, *) 'HMx_DRIVER: Checking n(z) functions'
-      WRITE (*, *)
-
-      ! Number of n(z) to check
-      DO i = 1, nnz
-         IF (i == 1) nz = tracer_RCSLenS
-         IF (i == 2) nz = tracer_CFHTLenS_vanWaerbeke2013
-         IF (i == 3) nz = tracer_KiDS
-         IF (i == 4) nz = tracer_KiDS_bin1
-         IF (i == 5) nz = tracer_KiDS_bin2
-         IF (i == 6) nz = tracer_KiDS_bin3
-         IF (i == 7) nz = tracer_KiDS_bin4
-         IF (i == 8) nz = tracer_KiDS_450
-         IF (i == 9) nz = tracer_KiDS_450_fat_bin1
-         IF (i == 10) nz = tracer_KiDS_450_fat_bin2
-         IF (i == 11) nz = tracer_KiDS_450_highz
-         IF (i == 12) nz = tracer_KiDS_450_bin1
-         IF (i == 13) nz = tracer_KiDS_450_bin2
-         IF (i == 14) nz = tracer_KiDS_450_bin3
-         IF (i == 15) nz = tracer_KiDS_450_bin4
-         IF (i == 16) nz = tracer_CFHTLenS_Kilbinger2013
-         WRITE (*, *) 'HMx_DRIVER: n(z) number:', nz
-         WRITE (*, *) 'HMx_DRIVER: n(z) name: ', trim(xcorr_type(nz))
-         CALL read_nz(nz, proj)
-         WRITE (*, *) 'HMx_DRIVER: integration order: ', proj%order_nz
-         WRITE (*, *) 'HMx_DRIVER: n(z) integral (hist):', integrate_table(proj%z_nz, proj%nz, proj%nnz, 1, proj%nnz, 0)
-         WRITE (*, *) 'HMx_DRIVER: n(z) integral (linear):', integrate_table(proj%z_nz, proj%nz, proj%nnz, 1, proj%nnz, 1)
-         WRITE (*, *) 'HMx_DRIVER: n(z) integral (quadratic):', integrate_table(proj%z_nz, proj%nz, proj%nnz, 1, proj%nnz, 2)
-         WRITE (*, *) 'HMx_DRIVER: n(z) integral (cubic):', integrate_table(proj%z_nz, proj%nz, proj%nnz, 1, proj%nnz, 3)
-         WRITE (*, *)
-      END DO
-
-   END SUBROUTINE nz_normalisation
 
    SUBROUTINE general_projection(imode, icosmo, ihm)
 
@@ -2982,7 +2883,7 @@ CONTAINS
          IF (j == 2) base = 'triad_Cl_AGN-lo'
          IF (j == 3) base = 'triad_Cl_AGN-hi'
 
-         CALL xpow(ixx, nt, ell, Cl, nl, hmod, cosm, verbose=.TRUE.)
+         CALL xpow_halomod(ixx, nt, ell, Cl, nl, hmod, cosm, verbose=.TRUE.)
 
          ! Write data
          DO ii = 1, nt
@@ -3035,7 +2936,7 @@ CONTAINS
       END DO
 
       ! Do the cross correlation
-      CALL xpow(ix, 2, ell, Cl, nl, hmod, cosm, verbose)
+      CALL xpow_halomod(ix, 2, ell, Cl, nl, hmod, cosm, verbose)
 
       DO i = 1, 2
          DO j = i, 2
@@ -3613,7 +3514,6 @@ CONTAINS
             CALL print_halomod(hmod, cosm, verbose)
 
             ! Do the halo-model calculation
-            !field = field_dmonly
             CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
 
             ! Write out the results
@@ -3625,7 +3525,7 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE Ma_Fig_1(icosmo, ihm)
+   SUBROUTINE Ma2015_Fig1(icosmo, ihm)
 
       ! Ma et al. Fig. 1
       IMPLICIT NONE
@@ -3633,9 +3533,17 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: ihm
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
+      INTEGER :: i
+      REAL :: r, rs, rv, c, Mh, rh, r500c, m500c
 
       REAL, PARAMETER :: z = 0.0
+      REAL, PARAMETER :: M = 1e15    ! Halo virial? mass [Msun]
+      REAL, PARAMETER :: rmin = 1e-3 ! Minimum radius [Mpc]
+      REAL, PARAMETER :: rmax = 8    ! Maximum radius [Mpc]
+      INTEGER, PARAMETER :: nr = 512 ! Number of points in radius
       LOGICAL, PARAMETER :: verbose = .TRUE.
+      LOGICAL, PARAMETER :: real_space = .TRUE.
+      INTEGER, PARAMETER :: itype = field_electron_pressure ! electron pressure
 
       ! Set the cosmology
       icosmo = 3
@@ -3649,55 +3557,43 @@ CONTAINS
       CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
       CALL print_halomod(hmod, cosm, verbose)
 
-      ! Make the Figure
-      CALL YinZhe_Fig1(hmod, cosm)
+      IF (hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod, cosm)
 
-   END SUBROUTINE Ma_Fig_1
+      Mh = M*cosm%h ! This virial mass is now [Msun/h]
 
-   SUBROUTINE winint_diagnosis()
+      rv = exp(find(log(Mh), hmod%log_m, log(hmod%rv), hmod%n, 3, 3, 2)) ! [Mpc/h]
+      c = find(log(Mh), hmod%log_m, hmod%c, hmod%n, 3, 3, 2)
+      rs = rv/c ! [Mpc/h]
 
-      ! Stuff for diagnosing problems with the window function integrand
-      IMPLICIT NONE
-      INTEGER, PARAMETER :: irho = 11
-      REAL, PARAMETER :: rv = 1.
-      REAL, PARAMETER :: c = 4.
-      REAL, PARAMETER :: rs = rv/c
-      REAL, PARAMETER :: p1 = 1.18
-      REAL, PARAMETER :: p2 = 0.
-      REAL, PARAMETER :: rmin = 0.
-      REAL, PARAMETER :: rmax = rv
-      CHARACTER(len=256), PARAMETER :: outfile = 'winint/integrand.dat'
+      m500c = exp(find(log(Mh), hmod%log_m, log(hmod%m500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
+      r500c = exp(find(log(Mh), hmod%log_m, log(hmod%r500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
 
-      CALL winint_diagnostics(rmin, rmax, rv, rs, p1, p2, irho, outfile)
+      WRITE (*, *) 'MA2015_FIG1: Making data for this figure'
+      WRITE (*, *) 'MA2015_FIG1: Redshift:', hmod%z
+      WRITE (*, *) 'MA2015_FIG1: Virial radius [Mpc]:', rv/cosm%h
+      WRITE (*, *) 'MA2015_FIG1: Virial radius [Mpc/h]:', rv
+      WRITE (*, *) 'MA2015_FIG1: r_500,c [Mpc]:', r500c/cosm%h
+      WRITE (*, *) 'MA2015_FIG1: r_500,c [Mpc/h]:', r500c
+      WRITE (*, *) 'MA2015_FIG1: r_500,c / r_v:', r500c/rv
+      WRITE (*, *) 'MA2015_FIG1: Virial halo mass [log10 Msun]:', log10(M)
+      WRITE (*, *) 'MA2015_FIG1: Virial halo mass [log10 Msun/h]:', log10(Mh)
+      WRITE (*, *) 'MA2015_FIG1: M_500,c [log10 Msun]:', log10(M500c/cosm%h)
+      WRITE (*, *) 'MA2015_FIG1: M_500,c [log10 Msun/h]:', log10(M500c)
+      WRITE (*, *) 'MA2015_FIG1: M_500,c / M_v:', M500c/Mh
+      WRITE (*, *) 'MA2015_FIG1: Halo concentraiton:', c
 
-   END SUBROUTINE winint_diagnosis
+      OPEN (7, file='data/YinZhe_Fig1.dat')
+      DO i = 1, nr
+         r = progression(rmin, rmax, i, nr) ! Radius [Mpc]
+         rh = r*cosm%h ! Convert [Mpc/h]
+         WRITE (7, *) r, UPP(real_space, rh, Mh, rv, rs, hmod, cosm)*r**2, win_type(real_space, itype, rh, Mh, rv, rs, hmod, cosm)*r**2
+      END DO
+      CLOSE (7)
 
-   SUBROUTINE winint_speed()
+      WRITE (*, *) 'MA2015_FIG1: Done'
+      WRITE (*, *)
 
-      ! Speed tests for W(M,k) integrals
-      IMPLICIT NONE
-      REAL, ALLOCATABLE :: k(:)
-
-      REAL, PARAMETER :: kmin = 1e-2
-      REAL, PARAMETER :: kmax = 1e3
-      INTEGER, PARAMETER :: nk = 512
-      REAL, PARAMETER :: rv = 1.    ! Virial radius
-      REAL, PARAMETER :: c = 4.     ! Concentration
-      REAL, PARAMETER :: rs = rv/c
-      REAL, PARAMETER :: p1 = 1.2   ! Gamma
-      REAL, PARAMETER :: p2 = 0.
-      INTEGER, PARAMETER :: irho = 11  ! KS density profile
-      REAL, PARAMETER :: rmin = 0.
-      REAL, PARAMETER :: rmax = rv
-
-      ! k range
-      CALL fill_array(log(kmin), log(kmax), k, nk)
-      k = exp(k)
-
-      ! Halo parameters
-      CALL winint_speed_tests(k, nk, rmin, rmax, rv, rs, p1, p2, irho)
-
-   END SUBROUTINE winint_speed
+   END SUBROUTINE Ma2015_Fig1
 
    SUBROUTINE Mead2017(icosmo, ihm)
 
@@ -3931,7 +3827,7 @@ CONTAINS
       CALL assign_halomod(ihm, hmod, verbose=.FALSE.)
 
       ! Do the cross correlation
-      CALL xpow(ixx, nx, ell, Cl, nl, hmod, cosm, verbose=.TRUE.)
+      CALL xpow_halomod(ixx, nx, ell, Cl, nl, hmod, cosm, verbose=.TRUE.)
 
       ! Write data
       DO ii = 1, nx
