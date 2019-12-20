@@ -56,7 +56,7 @@ PROGRAM HMx_driver
       WRITE (*, *) ' 2 - Hydrodynamical halo model'
       WRITE (*, *) ' 3 - Run diagnostics for haloes'
       WRITE (*, *) ' 4 - Do random baryon parameters for bug testing'
-      WRITE (*, *) ' 5 - Power comparison with bump in linear spectrum'
+      WRITE (*, *) ' 5 - '
       WRITE (*, *) ' 6 - '
       WRITE (*, *) ' 7 - Do general angular cross correlation'
       WRITE (*, *) ' 8 - Angular cross correlation as a function of cosmology'
@@ -145,10 +145,6 @@ PROGRAM HMx_driver
       CALL halo_stuff(iicosmo, iihm)
    ELSE IF (iimode == 4 .OR. iimode == 72) THEN
       CALL test_random_cosmologies(iimode, iicosmo, iihm)
-   !ELSE IF (iimode == 5) THEN
-      !CALL power_multiple_comparison(ihm)
-   !ELSE IF (iimode == 6) THEN
-      !CALL nz_normalisation()
    ELSE IF (iimode == 7 .OR. &
             iimode == 8 .OR. &
             iimode == 9 .OR. &
@@ -175,10 +171,6 @@ PROGRAM HMx_driver
       CALL create_CCL_benchmark(iicosmo, iihm)
    ELSE IF (iimode == 20) THEN
       CALL Ma2015_Fig1(iicosmo, iihm)
-   !ELSE IF (iimode == 21) THEN
-      !CALL winint_diagnosis()
-   !ELSE IF (iimode == 22) THEN
-      !CALL winint_speed()
    ELSE IF (iimode == 23) THEN
       CALL Mead2017(iicosmo, iihm)
    ELSE IF (iimode == 24) THEN
