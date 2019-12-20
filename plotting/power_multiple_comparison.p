@@ -2,6 +2,7 @@ reset
 
 if(!exists('print')) {print=0}
 if(print==0) {set term qt dashed}
+if(print==1) {set term post enh col; set output 'power_multiple_comparison.eps'}
 
 #Type of spectrum to plot
 print('')
@@ -80,7 +81,7 @@ set xlabel ''
 set format x ''
 
 #Actual plot
-set title tits
+#set title tits
 plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti,\
      for[i=1:n] file_base u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti
 
@@ -93,7 +94,9 @@ set ylabel 'P(k) / P_{base}(k)'
 set format y
 
 plot 1 w l lt -1 noti,\
+   for[i=n:n] '<paste '.file_li.' '.file_base_li.'' u 1:(column(i+1)/column(i+2+n)):(real(i-1)/real(n)) w l lw 2 dt 2 lc -1 noti,\
    for[i=1:n] '<paste '.file.' '.file_base.'' u 1:(column(i+1)/column(i+2+n)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti
+   
 
 unset multiplot
 

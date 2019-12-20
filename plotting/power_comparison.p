@@ -27,19 +27,20 @@ set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 set yrange [pmin:pmax]
 
-plot base u 1:2 w l lc -1 lw 3 dt 2 noti ,\
-   base u 1:3 w l lc -1 lw 3 dt 3 noti ,\
-   base u 1:4 w l lc -1 lw 3 dt 4 noti ,\
-   base u 1:5 w l lc -1 lw 3 dt 1 noti ,\
-   mode u 1:2 w l lc 1 lw 2 dt 2 ti 'Linear', \
-   mode u 1:3 w l lc 1 lw 2 dt 3 ti '2-halo', \
-   mode u 1:4 w l lc 1 lw 2 dt 4 ti '1-halo', \
-   mode u 1:5 w l lc 1 lw 2 dt 1 ti 'Full'
+plot base u 1:2 w l lc -1 lw 3 dt 2 ti 'Linear',\
+   base u 1:3 w l lc -1 lw 3 dt 3 ti '2-halo',\
+   base u 1:4 w l lc -1 lw 3 dt 4 ti '1-halo',\
+   base u 1:5 w l lc -1 lw 3 dt 1 ti 'Full',\
+   mode u 1:2 w l lc 1 lw 2 dt 2 noti, \
+   mode u 1:3 w l lc 1 lw 2 dt 3 noti, \
+   mode u 1:4 w l lc 1 lw 2 dt 4 noti, \
+   mode u 1:5 w l lc 1 lw 2 dt 1 noti
 
 unset log y
 set ylabel 'P(k) / P_{fid}(k)'
 set format y
-set yrange [rmin:rmax]
+set yrange [*:*]
+#set yrange [rmin:rmax]
 
 set xlabel 'k / h Mpc^{-1}'
 set format x

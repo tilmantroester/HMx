@@ -242,6 +242,6 @@ unset label
 }
 }
 
-#unset multiplot
+unset multiplot
 
 show output

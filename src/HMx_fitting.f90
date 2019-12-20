@@ -47,6 +47,10 @@ PROGRAM HMx_fitting
    LOGICAL, PARAMETER :: response_default = .TRUE.                   ! Should I treat the BAHAMAS P(k) as HMcode response?
    CHARACTER(len=256), PARAMETER :: outbase_default = 'fitting/test' ! Default output file
 
+   INTEGER, PARAMETER :: ifit_MCMC = 1
+   INTEGER, PARAMETER :: ifit_Nelder_Mead = 2
+   INTEGER, PARAMETER :: ifit = ifit_Nelder_Mead
+
    CALL main()
 
 CONTAINS
@@ -67,7 +71,7 @@ CONTAINS
       REAL :: tmax
       INTEGER :: nchain
       LOGICAL :: resp_BAHAMAS
-      INTEGER, PARAMETER :: ifit = 2
+      
 
       ! Read in starting option for which parameter fitting to run
       CALL get_command_argument(1, mode)
@@ -82,22 +86,22 @@ CONTAINS
          WRITE (*, *)
          WRITE (*, *) 'HMx_FITTING: Choose what to do'
          WRITE (*, *) '=============================='
-         WRITE (*, *) ' 1 - Mira Titan nodes'
-         WRITE (*, *) ' 2 - FrankenEmu nodes'
-         WRITE (*, *) ' 3 - Random Mira Titan'
-         WRITE (*, *) ' 4 - Random FrankenEmu'
+         WRITE (*, *) ' 1 - Fit HMcode (2016) to Mira Titan nodes'
+         WRITE (*, *) ' 2 - Fit HMcode (2016) to FrankenEmu nodes'
+         WRITE (*, *) ' 3 - Fit HMcode (2016) to Random Mira Titan cosmology'
+         WRITE (*, *) ' 4 - Fit HMcode (2016) to Random FrankenEmu cosmology'
          WRITE (*, *) '11 - Hydro: fixed z; final parameters; gas (isothermal)'
          WRITE (*, *) '12 - Hydro: fixed z; final parameters; pressure (isothermal)'
          WRITE (*, *) '13 - Hydro: fixed z; final parameters; matter and pressure (no pressure-pressure; isothermal)'
          WRITE (*, *) '14 - Hydro: fixed z; final parameters; matter (isothermal)'
          WRITE (*, *) '15 - Hydro: fixed z; final parameters; CDM, gas, stars'
          WRITE (*, *) '16 - Hydro: fixed z; final parameters; matter, CDM, gas, stars'
-         WRITE (*, *) '17 - N/A'
-         WRITE (*, *) '18 - N/A'
-         WRITE (*, *) '19 - N/A'
+         WRITE (*, *) '17 - Fit HMcode (in prep) to Mira Titan nodes'
+         WRITE (*, *) '18 - Fit HMcode (in prep) to FrankenEmu nodes'
+         WRITE (*, *) '19 - Fit HMcode (in prep) to Mira Titan nodes (no massive neutrinos)'
          WRITE (*, *) '20 - Hydro: fixed z; final parameters; matter and pressure (no pressure-pressure)'
          WRITE (*, *) '21 - Hydro: extended z; final parameters; matter and pressure (no pressure-pressure)'
-         WRITE (*, *) '22 - N/A'
+         WRITE (*, *) '22 - Fit HMcode (2016) to Mira Titan nodes (no massive neutrinos)'
          WRITE (*, *) '23 - N/A'
          WRITE (*, *) '24 - N/A'
          WRITE (*, *) '25 - N/A'
@@ -214,7 +218,6 @@ CONTAINS
       CALL init_halomods(imode, hmod, ncos)
 
       ! Print one halo model out to check it looks sensible
-      !CALL init_halomod(mmin, mmax, scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
       CALL init_halomod(scale_factor_z(z(1)), hmod(1), cosm(1), verbose=.TRUE.)
       CALL print_halomod(hmod(1), cosm(1), verbose=.TRUE.)
 
@@ -231,10 +234,10 @@ CONTAINS
       CALL init_mode(imode, fit)
 
       ! Do the actual fitting algorithm
-      IF (ifit == 1) THEN
+      IF (ifit == ifit_MCMC) THEN
          CALL MCMC_fitting(delta, tmax, nchain, &
                            k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
-      ELSE IF (ifit == 2) THEN
+      ELSE IF (ifit == ifit_Nelder_Mead) THEN
          CALL Nelder_Mead_fitting(delta, tmax, nchain, &
                                   k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
       ELSE
@@ -484,8 +487,8 @@ CONTAINS
       TYPE(fitting), INTENT(INOUT) :: fit          ! Fitting structure
       TYPE(halomod), INTENT(INOUT) :: hmod(ncos)   ! Halo model structure
       TYPE(cosmology), INTENT(INOUT) :: cosm(ncos) ! Cosmology structure
-      INTEGER, INTENT(IN) :: ncos             ! Number of cosmologies
-      CHARACTER(len=*), INTENT(IN) :: outbase ! Base for output files
+      INTEGER, INTENT(IN) :: ncos                  ! Number of cosmologies
+      CHARACTER(len=*), INTENT(IN) :: outbase      ! Base for output files
       REAL :: fom, p(fit%n)
       REAL, ALLOCATABLE :: x(:), dx(:)
       INTEGER :: n, np
@@ -502,7 +505,7 @@ CONTAINS
       INTEGER, PARAMETER :: isort_Nelder_Mead = isort_bubble
       REAL, PARAMETER :: alpha = 1.  ! Reflection coefficient (alpha > 0; standard alpha = 1)
       REAL, PARAMETER :: gamma = 2.  ! Expansion coefficient (gamma > 1; standard gamma = 2)
-      REAL, PARAMETER :: rhoma = 0.5   ! Contraction coefficient (0 < rho < 0.5; standard rho = 0.5)
+      REAL, PARAMETER :: rhoma = 0.5 ! Contraction coefficient (0 < rho < 0.5; standard rho = 0.5)
       REAL, PARAMETER :: sigma = 0.5 ! Shrink coefficient (standard sigma = 0.5)
       LOGICAL, PARAMETER :: verbose = .TRUE.
       INTEGER, PARAMETER :: screen_unit_number = 6
@@ -514,6 +517,7 @@ CONTAINS
       CALL init_Nelder_Mead(x, dx, n, p, np, fit)
       ALLOCATE (xx(n+1, n), ff(n+1), xo(n), xr(n), xe(n), xc(n))
 
+      ! Get start times
       CALL CPU_TIME(t1)
       CALL CPU_TIME(t2)
 
@@ -533,6 +537,7 @@ CONTAINS
             ! Write out the original data
             base = trim(outbase)//'_orig_cos'
             CALL write_fitting_power(base, k, z, pow_mod, pow_sim, cosm, ncos, nf, nk, nz)
+            CALL print_halomod(hmod(1), cosm(1), .TRUE.)
          END IF
          ff(i) = fom
       END DO
@@ -966,16 +971,16 @@ CONTAINS
       fit%log(param_HMcode_eta1) = .FALSE.
 
       fit%name(param_HMcode_f0) = 'f0'
-      !fit%original(param_HMcode_f0)=0.0095 ! Mead (2016)
-      fit%original(param_HMcode_f0) = 0.188 ! Mead (2015) damping
+      fit%original(param_HMcode_f0)=0.0095 ! Mead (2016)
+      !fit%original(param_HMcode_f0) = 0.188 ! Mead (2015) damping
       fit%sigma(param_HMcode_f0) = 0.01
       fit%minimum(param_HMcode_f0) = -5.
       fit%maximum(param_HMcode_f0) = 5.
       fit%log(param_HMcode_f0) = .FALSE.
 
       fit%name(param_HMcode_fp) = 'fp'
-      !fit%original(param_HMcode_fp)=1.37 ! Mead (2016)
-      fit%original(param_HMcode_fp) = 4.29 ! Mead (2015)
+      fit%original(param_HMcode_fp)=1.37 ! Mead (2016)
+      !fit%original(param_HMcode_fp) = 4.29 ! Mead (2015)
       fit%sigma(param_HMcode_fp) = 0.1
       fit%minimum(param_HMcode_fp) = -10.
       fit%maximum(param_HMcode_fp) = 10.
@@ -1008,6 +1013,20 @@ CONTAINS
       fit%minimum(param_HMcode_alpha1) = -5.
       fit%maximum(param_HMcode_alpha1) = 5.
       fit%log(param_HMcode_alpha1) = .FALSE.
+
+      fit%name(param_HMcode_Dvnu) = 'Dvnu'
+      fit%original(param_HMcode_Dvnu) = 0.916
+      fit%sigma(param_HMcode_Dvnu) = 0.03
+      fit%minimum(param_HMcode_Dvnu) = -5.
+      fit%maximum(param_HMcode_Dvnu) = 5.
+      fit%log(param_HMcode_Dvnu) = .FALSE.
+
+      fit%name(param_HMcode_dcnu) = 'dcnu'
+      fit%original(param_HMcode_dcnu) = 0.262
+      fit%sigma(param_HMcode_dcnu) = 0.01
+      fit%minimum(param_HMcode_dcnu) = -5.
+      fit%maximum(param_HMcode_dcnu) = 5.
+      fit%log(param_HMcode_dcnu) = .FALSE.
 
       !! !!
 
@@ -1091,23 +1110,22 @@ CONTAINS
       INTEGER :: i, icosmo
 
       ! Set the number of cosmological models
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4) THEN
-
-         IF (im == 1 .OR. im == 3) THEN
-            ncos = 9 ! Number of Mita Titan nodes - only 10 have Omega_nu = 0. (ignore 1 because it is weird)
-         ELSE IF (im == 2 .OR. im == 4) THEN
-            ncos = 37 ! Number of FrankenEmu nodes
-         ELSE
-            STOP 'HMx_FITTING: Error, something went wrong with setting fields'
-         END IF
-
-      ELSE IF (im >= 11) THEN
-
-         ! Set to the number of different cosmologies
+      IF (im == 1 .OR. im == 3 .OR. im == 17) THEN
+         ! Number of Mira Titan nodes
+         ncos = 36 ! Number of Mita Titan nodes
+      ELSE IF (im == 2 .OR. im == 4 .OR. im == 18) THEN
+         ! Numnber of FrankenEmu nodes
+         ncos = 37
+      ELSE IF (im == 19 .OR. im == 22) THEN
+         ! Mira Titan nodes with massless neutrinos
+         ncos = 10
+      ELSE IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im ==14 .OR. im ==15 .OR. im ==16 .OR. &
+         im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
+         im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
+         im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
+         im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
+         ! BAHAMAS
          ncos = 1
-
-      ELSE
-         STOP 'HMx_FITTING: Error, something went wrong with setting fields'
       END IF
 
       ! Allocate arrays for cosmology and fields
@@ -1116,16 +1134,20 @@ CONTAINS
       ! Assign the cosmological models
       DO i = 1, ncos
 
-         IF (im == 1) THEN
-            icosmo = 101+i ! Set Mira Titan node (note that we are skipping node 1)
-         ELSE IF (im == 2) THEN
+         IF (im == 1 .OR. im == 17 .OR. im == 19 .OR. im == 22) THEN
+            icosmo = 100+i ! Set Mira Titan node
+         ELSE IF (im == 2 .OR. im == 18) THEN
             icosmo = 200+i ! Set set FrankenEmu node
          ELSE IF (im == 3) THEN
             icosmo = 24    ! Random Mira Titan cosmology
          ELSE IF (im == 4) THEN
             icosmo = 25    ! Random FrankenEmu cosmology
-         ELSE IF (im >= 11) THEN
-            icosmo = 4     ! WMAP9
+         ELSE IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im ==14 .OR. im ==15 .OR. im ==16 .OR. &
+            im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
+            im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
+            im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
+            im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
+            icosmo = 4 ! WMAP9
          ELSE
             STOP 'HMx_FITTING: Error, im mode not specified correctly'
          END IF
@@ -1146,29 +1168,20 @@ CONTAINS
       INTEGER, ALLOCATABLE, INTENT(OUT) :: fields(:)
       INTEGER, INTENT(OUT) :: nf
 
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4) THEN
-
-         nf = 1 ! Matter-matter only
-
-      ELSE IF (im >= 11) THEN
-
-         ! Set the number of different fields
-         IF (im == 28 .OR. im == 40) THEN
-            nf = 5
-         ELSE IF (im == 26 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. &
-                  im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 39 .OR. im == 41 .OR. &
-                  im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 11 .OR. im == 12 .OR. im == 14) THEN
-            nf = 1
-         ELSE IF (im == 20 .OR. im == 21 .OR. im == 13) THEN
-            nf = 2
-         ELSE IF (im == 16 .OR. im == 27 .OR. im == 38 .OR. im == 46) THEN
-            nf = 4
-         ELSE IF (im == 15 .OR. im == 37 .OR. im == 45) THEN
-            nf = 3
-         ELSE
-            STOP 'INIT_FIELDS: Error, something went wrong with setting fields'
-         END IF
-
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 17 .OR. im == 18 .OR. im == 19 .OR. im == 22) THEN
+         nf = 1 ! DMONLY-DMONLY only
+      ELSE IF (im == 28 .OR. im == 40) THEN
+         nf = 5
+      ELSE IF (im == 26 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. &
+               im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 39 .OR. im == 41 .OR. &
+               im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 11 .OR. im == 12 .OR. im == 14) THEN
+         nf = 1
+      ELSE IF (im == 20 .OR. im == 21 .OR. im == 13) THEN
+         nf = 2
+      ELSE IF (im == 16 .OR. im == 27 .OR. im == 38 .OR. im == 46) THEN
+         nf = 4
+      ELSE IF (im == 15 .OR. im == 37 .OR. im == 45) THEN
+         nf = 3
       ELSE
          STOP 'INIT_FIELDS: Error, something went wrong with setting fields'
       END IF
@@ -1176,8 +1189,8 @@ CONTAINS
       ALLOCATE (fields(nf))
 
       ! Set the fields
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4) THEN
-         fields(1) = field_matter
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 17 .OR. im == 18 .OR. im == 19 .OR. im == 22) THEN
+         fields(1) = field_dmonly ! Note: DMONLY
       ELSE IF (im == 28 .OR. im == 40) THEN
          ! Matter, CDM, gas, stars, electron pressure
          fields(1) = field_matter
@@ -1230,78 +1243,60 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN) :: zin
       REAL, ALLOCATABLE, INTENT(OUT) :: z(:)
       INTEGER, INTENT(OUT) :: nz
-
+      INTEGER :: i
+   
       ! Set the number of redshifts
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4) THEN
-
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 17 .OR. im == 18 .OR. im == 19 .OR. im == 22) THEN
          ! Mira Titan or FrankenEmu
-         nz = 4
-
-      ELSE IF (im >= 11) THEN
-
-         ! Hydro simulations
-         IF (name == '') name = 'AGN_TUNED_nu0'
-
-         IF (im == 20 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. &
-             im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
-             im == 40 .OR. im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
-            nz = 1
-         ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
-            nz = 11
-         ELSE
-            STOP 'HMx_FITTING: Error, mode im not specified correctly for nz'
-         END IF
-
+         nz = 4 ! z = 0, 0.5, 1, 2
+         !nz = 1 ! For testing
+      ELSE IF (im == 20 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. &
+            im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
+            im == 40 .OR. im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
+         nz = 1
+         IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
+      ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
+         nz = 11
+         IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
       ELSE
-
-         STOP 'HMx_FITTING: Error, mode im not specified correctly for redshifts'
-
+         STOP 'HMx_FITTING: Error, mode im not specified correctly for nz'
       END IF
 
       ! Allocate arrays
       ALLOCATE (z(nz))
 
       ! Set the actual redshifts
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4) THEN
-
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 17 .OR. im == 18 .OR. im == 19 .OR. im == 22) THEN
          ! Mira Titan or FrankenEmu
-         z(1) = 0.0
-         z(2) = 0.5
-         z(3) = 1.0
-         z(4) = 2.0
-
-      ELSE IF (im >= 11) THEN
-
-         ! Set the redshifts
-         IF (im == 20 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. &
+         DO i = 1, nz
+            IF (i == 1) z(i) = 0.0
+            IF (i == 2) z(i) = 0.5
+            IF (i == 3) z(i) = 1.0
+            IF (i == 4) z(i) = 2.0
+         END DO
+      ELSE IF (im == 20 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. &
              im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
              im == 40 .OR. im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
-            IF ((zin) == '') THEN
-               z(1) = z_default
-            ELSE
-               READ (zin, *) z(1)
-            END IF
-         ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
-            ! All 11 snapshots between z=0 and z=2 from BAHAMAS
-            z(1) = 0.000
-            z(2) = 0.125
-            z(3) = 0.250
-            z(4) = 0.375
-            z(5) = 0.500
-            z(6) = 0.750
-            z(7) = 1.000
-            z(8) = 1.250
-            z(9) = 1.500
-            z(10) = 1.750
-            z(11) = 2.000
+         IF ((zin) == '') THEN
+            z(1) = z_default
          ELSE
-            STOP 'HMx_FITTING: Error, mode im not specified correctly for redshifts'
+            READ (zin, *) z(1)
          END IF
-
+      ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
+         ! All 11 snapshots between z=0 and z=2 from BAHAMAS
+         z(1) = 0.000
+         z(2) = 0.125
+         z(3) = 0.250
+         z(4) = 0.375
+         z(5) = 0.500
+         z(6) = 0.750
+         z(7) = 1.000
+         z(8) = 1.250
+         z(9) = 1.500
+         z(10) = 1.750
+         z(11) = 2.000
       ELSE
-
          STOP 'HMx_FITTING: Error, mode im not specified correctly for redshifts'
-
       END IF
 
    END SUBROUTINE init_redshifts
@@ -1316,8 +1311,11 @@ CONTAINS
       INTEGER :: i, ihm
 
       ! Choose halo model type
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4) THEN
-         ihm = 15 ! 15 - HMcode 2018
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 22) THEN
+         ihm = 1  ! 1 - HMcode (2016)
+         !ihm = 7  ! 7 - HMcode (2015)       
+      ELSE IF (im == 17 .OR. im == 18 .OR. im == 19) THEN
+         ihm = 15 ! 15 - HMcode (in prep)
       ELSE IF (im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. &
                im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
                im == 40 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
@@ -1367,7 +1365,11 @@ CONTAINS
       END IF
 
       ! k range for multi-z
-      IF (im >= 11) THEN
+      IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im ==14 .OR. im ==15 .OR. im ==16 .OR. &
+      im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
+      im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
+      im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
+      im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
 
          DO j = 1, nz
 
@@ -1403,9 +1405,8 @@ CONTAINS
       INTEGER, INTENT(IN) :: im
       TYPE(fitting), INTENT(INOUT) :: fit
 
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4) THEN
-
-         ! 1,2,3,4 - HMcode
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 17 .OR. im == 18 .OR. im == 19 .OR. im == 22) THEN
+         ! HMcode
          fit%set(param_HMcode_Dv0) = .TRUE.
          fit%set(param_HMcode_Dvp) = .TRUE.
          fit%set(param_HMcode_dc0) = .TRUE.
@@ -1418,325 +1419,235 @@ CONTAINS
          fit%set(param_HMcode_As) = .TRUE.
          fit%set(param_HMcode_alpha0) = .TRUE.
          fit%set(param_HMcode_alpha1) = .TRUE.
-
-      ELSE IF (im >= 11) THEN
-
-         !! CDM !!
-
-         IF (im == 26 .OR. im == 33) THEN
-
-            ! 26 - fixed z; basic parameterts; CDM
-            ! 33 - fixed z; final parameters; CDM
-            fit%set(param_eps) = .TRUE.
-            !fit%set(param_M0)=.TRUE. ! Does not help
-
-         ELSE IF (im == 41) THEN
-
-            ! 41 - extended z; final parameters; CDM
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_epsz) = .TRUE.
-
-            !! !!
-
-            !! gas !!
-
-         ELSE IF (im == 32) THEN
-
-            ! 32 - fixed z; basic parameters; gas
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-
-         ELSE IF (im == 34) THEN
-
-            ! 34 - fixed z; final parameters; gas
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
-            !fit%set(param_gbeta) = .TRUE. ! Test
-
-         ELSE IF (im == 11) THEN
-
-            ! 47 - fixed z; final parameters; gas
-            fit%set(param_ibeta) = .TRUE.
-            fit%set(param_ibetap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
-
-         ELSE IF (im == 42) THEN
-
-            ! 42 - extended z; final parameters; gas
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_Gammaz) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_M0z) = .TRUE.
-            fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
-            !fit%set(param_Astarz)=.TRUE. ! Does not produce a large enough change in fit
-
-            !! !!
-
-            !! stars !!
-
-         ELSE IF (im == 31) THEN
-
-            ! 31 - fixed z; basic parameters; stars
-            fit%set(param_Astar) = .TRUE.
-
-         ELSE IF (im == 35) THEN
-
-            ! 35 - fixed z; final parameters; stars
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_cstar) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-            fit%set(param_sstar) = .TRUE.  ! Does not provide a significant improvement
-            !fit%set(param_Astarp) = .TRUE. ! Does not provide a significant improvement
-            !fit%set(param_cstarp) = .TRUE. ! Does not provide a significant improvement
-            fit%set(param_eta) = .TRUE.    ! Does not provide a significant improvement
-
-            ! None of the commented-out parameters provide a significant improvement
-            ! Main problem seems to be model fitting poorly at transition region at high z
-            ! In all cases, at high z the one-halo term looks like a power law
-
-            ! I also tried removing the high-mass saturation of the f_* relation (to A_*/3), this did not help
-            ! I also tried using the Schneider & Teyssier stellar-density profile. This did not help.
-
-         ELSE IF (im == 43) THEN
-
-            ! 43 - extended z; final parameters; stars
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_Astarz) = .TRUE.
-            fit%set(param_cstar) = .TRUE.
-            !fit%set(param_cstarp)=.TRUE. ! Did not improve anything in the z-fixed case
-            fit%set(param_cstarz) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-            fit%set(param_Mstarz) = .TRUE.
-
-            !! !!
-
-            !! matter !!
-
-         ELSE IF (im == 29) THEN
-
-            ! 29 - fixed z; basic parameters; matter
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-
-         ELSE IF (im == 39) THEN
-
-            ! 39 - fixed z; final parameters; matter
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            !fit%set(param_cstar)=.TRUE. ! Does not cause a large enough change in figure of merit
-            fit%set(param_Mstar) = .TRUE.
-
-         ELSE IF (im == 14) THEN
-
-            ! 39 - fixed z; final parameters; matter
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_ibeta) = .TRUE.
-            fit%set(param_ibetap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            !fit%set(param_cstar)=.TRUE. ! Does not cause a large enough change in figure of merit
-            fit%set(param_Mstar) = .TRUE.
-
-         ELSE IF (im == 44) THEN
-
-            ! 44 - extended z; final parameters; matter
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_epsz) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_Gammaz) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_M0z) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_Astarz) = .TRUE.
-            !fit%set(param_cstar)=.TRUE.  ! Did not cause a large enough change in figure-of-merit
-            !fit%set(param_cstarp)=.TRUE. ! Did not cause a large enough change in figure-of-merit
-            !fit%set(param_cstarz)=.TRUE. ! Did not cause a large enough change in figure-of-merit
-            !fit%set(param_Mstar)=.TRUE.  ! Did not cause a large enough change in figure-of-merit
-            !fit%set(param_Mstarz)=.TRUE. ! Did not cause a large enough change in figure-of-merit
-
-            !! !!
-
-            !! (matter), CDM, gas, stars !!
-
-         ELSE IF (im == 27) THEN
-
-            ! 27 - fixed z; basic parameters; matter, CDM, gas, stars
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-
-         ELSE IF (im == 37 .OR. im == 38) THEN
-
-            ! 37 - fixed z; final parameters; CDM, gas stars
-            ! 38 - fixed z; final parameters; matter, CDM, gas, stars
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_cstar) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-
-         ELSE IF (im == 15 .OR. im == 16) THEN
-
-            ! 15 - fixed z; final parameters; CDM, gas stars (isothermal)
-            ! 16 - fixed z; final parameters; matter, CDM, gas stars (isothermal)
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_ibeta) = .TRUE.
-            fit%set(param_ibetap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_cstar) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-
-         ELSE IF (im == 45 .OR. im == 46) THEN
-
-            ! 45 - extended z; final parameters; CDM, gas, stars
-            ! 46 - extended z; final parameters; matter, CDM, gas, stars
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_epsz) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_Gammaz) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_M0z) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_Astarz) = .TRUE.
-            fit%set(param_cstar) = .TRUE.
-            fit%set(param_cstarp) = .TRUE.
-            fit%set(param_cstarz) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-            fit%set(param_Mstarz) = .TRUE.
-
-            !! !!
-
-            !! electron pressure !!
-
-         ELSE IF (im == 30) THEN
-
-            ! 30 - fixed z; basic parameters; electron pressure
-            fit%set(param_alpha) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-
-         ELSE IF (im == 36) THEN
-
-            ! 36 - fixed z; final parameters; electron pressure
-            fit%set(param_alpha) = .TRUE.
-            !fit%set(param_alphap)=.TRUE. ! Does this make a difference?
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE. ! Does this make a difference?
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-
-         ELSE IF (im == 12) THEN
-
-            ! 12 - fixed z; final parameters; electron pressure
-            fit%set(param_alpha) = .TRUE.
-            fit%set(param_ibeta) = .TRUE.
-            fit%set(param_ibetap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-
-            !! !!
-
-            !! matter, electron pressure !!
-
-         ELSE IF (im == 20) THEN
-
-            ! 20 - fixed z; final parameters; matter, electron pressure
-            fit%set(param_alpha) = .TRUE.
-            fit%set(param_alphap) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-
-         ELSE IF (im == 13) THEN
-
-            ! 13 - fixed z; final parameters; matter, electron pressure (isothermal)
-            fit%set(param_alpha) = .TRUE.
-            fit%set(param_alphap) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_ibeta) = .TRUE.
-            fit%set(param_ibetap) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-
-         ELSE IF (im == 21) THEN
-
-            ! 21 - extended z; final parameters; matter, electron pressure
-            fit%set(param_alpha) = .TRUE.
-            fit%set(param_alphap) = .TRUE.
-            fit%set(param_alphaz) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-            fit%set(param_Twhimz) = .TRUE.
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_epsz) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_Gammap) = .TRUE.
-            fit%set(param_Gammaz) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_M0z) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_Astarz) = .TRUE.
-
-            !! !!
-
-            !! matter, CDM, gas, stars, electron pressure !!
-
-         ELSE IF (im == 28) THEN
-
-            ! 28 - fixed z; basic parameters; matter, CDM, gas, stars, electron pressure
-            fit%set(param_alpha) = .TRUE.
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-
-         ELSE IF (im == 40) THEN
-
-            ! 40 - fixed z; final parameters; matter, CDM, gas, stars, electron pressure
-            fit%set(param_alpha) = .TRUE.
-            fit%set(param_eps) = .TRUE.
-            fit%set(param_Gamma) = .TRUE.
-            fit%set(param_M0) = .TRUE.
-            fit%set(param_Astar) = .TRUE.
-            fit%set(param_cstar) = .TRUE.
-            fit%set(param_Mstar) = .TRUE.
-            fit%set(param_Twhim) = .TRUE.
-
-            !! !!
-
-         ELSE
-
-            STOP 'INIT_MODE: Something went wrong with setting parameters'
-
+         IF(im == 1 .OR. im == 3 .OR. im == 17) THEN
+            ! Massive neutrino parameters
+            fit%set(param_HMcode_dcnu) = .TRUE.
+            fit%set(param_HMcode_Dvnu) = .TRUE.
          END IF
-
+      ELSE IF (im == 26 .OR. im == 33) THEN
+         ! 26 - fixed z; basic parameterts; CDM
+         ! 33 - fixed z; final parameters; CDM
+         fit%set(param_eps) = .TRUE.
+         !fit%set(param_M0)=.TRUE. ! Does not help
+      ELSE IF (im == 41) THEN
+         ! 41 - extended z; final parameters; CDM
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_epsz) = .TRUE.
+      ELSE IF (im == 32) THEN
+         ! 32 - fixed z; basic parameters; gas
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+      ELSE IF (im == 34) THEN
+         ! 34 - fixed z; final parameters; gas
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
+         !fit%set(param_gbeta) = .TRUE. ! Test
+      ELSE IF (im == 11) THEN
+         ! 47 - fixed z; final parameters; gas
+         fit%set(param_ibeta) = .TRUE.
+         fit%set(param_ibetap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
+      ELSE IF (im == 42) THEN
+         ! 42 - extended z; final parameters; gas
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_Gammaz) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_M0z) = .TRUE.
+         fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
+         !fit%set(param_Astarz)=.TRUE. ! Does not produce a large enough change in fit
+      ELSE IF (im == 31) THEN
+         ! 31 - fixed z; basic parameters; stars
+         fit%set(param_Astar) = .TRUE.
+      ELSE IF (im == 35) THEN
+         ! 35 - fixed z; final parameters; stars
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_cstar) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+         fit%set(param_sstar) = .TRUE.  ! Does not provide a significant improvement
+         !fit%set(param_Astarp) = .TRUE. ! Does not provide a significant improvement
+         !fit%set(param_cstarp) = .TRUE. ! Does not provide a significant improvement
+         fit%set(param_eta) = .TRUE.    ! Does not provide a significant improvement
+         ! None of the commented-out parameters provide a significant improvement
+         ! Main problem seems to be model fitting poorly at transition region at high z
+         ! In all cases, at high z the one-halo term looks like a power law
+         ! I also tried removing the high-mass saturation of the f_* relation (to A_*/3), this did not help
+         ! I also tried using the Schneider & Teyssier stellar-density profile. This did not help.
+      ELSE IF (im == 43) THEN
+         ! 43 - extended z; final parameters; stars
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_Astarz) = .TRUE.
+         fit%set(param_cstar) = .TRUE.
+         !fit%set(param_cstarp)=.TRUE. ! Did not improve anything in the z-fixed case
+         fit%set(param_cstarz) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+         fit%set(param_Mstarz) = .TRUE.
+      ELSE IF (im == 29) THEN
+         ! 29 - fixed z; basic parameters; matter
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+      ELSE IF (im == 39) THEN
+         ! 39 - fixed z; final parameters; matter
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         !fit%set(param_cstar)=.TRUE. ! Does not cause a large enough change in figure of merit
+         fit%set(param_Mstar) = .TRUE.
+      ELSE IF (im == 14) THEN
+         ! 14 - fixed z; final parameters; matter
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_ibeta) = .TRUE.
+         fit%set(param_ibetap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         !fit%set(param_cstar)=.TRUE. ! Does not cause a large enough change in figure of merit
+         fit%set(param_Mstar) = .TRUE.
+      ELSE IF (im == 44) THEN
+         ! 44 - extended z; final parameters; matter
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_epsz) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_Gammaz) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_M0z) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_Astarz) = .TRUE.
+         !fit%set(param_cstar)=.TRUE.  ! Did not cause a large enough change in figure-of-merit
+         !fit%set(param_cstarp)=.TRUE. ! Did not cause a large enough change in figure-of-merit
+         !fit%set(param_cstarz)=.TRUE. ! Did not cause a large enough change in figure-of-merit
+         !fit%set(param_Mstar)=.TRUE.  ! Did not cause a large enough change in figure-of-merit
+         !fit%set(param_Mstarz)=.TRUE. ! Did not cause a large enough change in figure-of-merit
+      ELSE IF (im == 27) THEN
+         ! 27 - fixed z; basic parameters; matter, CDM, gas, stars
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+      ELSE IF (im == 37 .OR. im == 38) THEN
+         ! 37 - fixed z; final parameters; CDM, gas stars
+         ! 38 - fixed z; final parameters; matter, CDM, gas, stars
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_cstar) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+      ELSE IF (im == 15 .OR. im == 16) THEN
+         ! 15 - fixed z; final parameters; CDM, gas stars (isothermal)
+         ! 16 - fixed z; final parameters; matter, CDM, gas stars (isothermal)
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_ibeta) = .TRUE.
+         fit%set(param_ibetap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_cstar) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+      ELSE IF (im == 45 .OR. im == 46) THEN
+         ! 45 - extended z; final parameters; CDM, gas, stars
+         ! 46 - extended z; final parameters; matter, CDM, gas, stars
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_epsz) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_Gammaz) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_M0z) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_Astarz) = .TRUE.
+         fit%set(param_cstar) = .TRUE.
+         fit%set(param_cstarp) = .TRUE.
+         fit%set(param_cstarz) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+         fit%set(param_Mstarz) = .TRUE.     
+      ELSE IF (im == 30) THEN
+         ! 30 - fixed z; basic parameters; electron pressure
+         fit%set(param_alpha) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
+      ELSE IF (im == 36) THEN
+         ! 36 - fixed z; final parameters; electron pressure
+         fit%set(param_alpha) = .TRUE.
+         !fit%set(param_alphap)=.TRUE. ! Does this make a difference?
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE. ! Does this make a difference?
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
+      ELSE IF (im == 12) THEN
+         ! 12 - fixed z; final parameters; electron pressure
+         fit%set(param_alpha) = .TRUE.
+         fit%set(param_ibeta) = .TRUE.
+         fit%set(param_ibetap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
+      ELSE IF (im == 20) THEN
+         ! 20 - fixed z; final parameters; matter, electron pressure
+         fit%set(param_alpha) = .TRUE.
+         fit%set(param_alphap) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+      ELSE IF (im == 13) THEN
+         ! 13 - fixed z; final parameters; matter, electron pressure (isothermal)
+         fit%set(param_alpha) = .TRUE.
+         fit%set(param_alphap) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_ibeta) = .TRUE.
+         fit%set(param_ibetap) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+      ELSE IF (im == 21) THEN
+         ! 21 - extended z; final parameters; matter, electron pressure
+         fit%set(param_alpha) = .TRUE.
+         fit%set(param_alphap) = .TRUE.
+         fit%set(param_alphaz) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
+         fit%set(param_Twhimz) = .TRUE.
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_epsz) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_Gammap) = .TRUE.
+         fit%set(param_Gammaz) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_M0z) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_Astarz) = .TRUE.        
+      ELSE IF (im == 28) THEN
+         ! 28 - fixed z; basic parameters; matter, CDM, gas, stars, electron pressure
+         fit%set(param_alpha) = .TRUE.
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
+      ELSE IF (im == 40) THEN
+         ! 40 - fixed z; final parameters; matter, CDM, gas, stars, electron pressure
+         fit%set(param_alpha) = .TRUE.
+         fit%set(param_eps) = .TRUE.
+         fit%set(param_Gamma) = .TRUE.
+         fit%set(param_M0) = .TRUE.
+         fit%set(param_Astar) = .TRUE.
+         fit%set(param_cstar) = .TRUE.
+         fit%set(param_Mstar) = .TRUE.
+         fit%set(param_Twhim) = .TRUE.
       ELSE
-
          STOP 'INIT_MODE: Something went wrong with setting parameters'
-
       END IF
 
    END SUBROUTINE init_mode
@@ -1773,11 +1684,15 @@ CONTAINS
                DO j2 = j1, nf
 
                   ! Read in power spectra
-                  IF (im == 1 .OR. im == 3) THEN
+                  IF (im == 1 .OR. im == 3 .OR. im == 17 .OR. im == 19 .OR. im == 22) THEN
                      CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
-                  ELSE IF (im == 2 .OR. im == 4) THEN
+                  ELSE IF (im == 2 .OR. im == 4 .OR. im == 18) THEN
                      CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
-                  ELSE IF (im >= 11) THEN
+                  ELSE IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im ==14 .OR. im ==15 .OR. im ==16 .OR. &
+                     im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
+                     im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
+                     im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
+                     im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
                      ip(1) = fields(j1)
                      ip(2) = fields(j2)
                      CALL read_BAHAMAS_power(k_sim, pow_sim, nk, z(j), name, mesh, ip, cosm(i), &
@@ -1824,39 +1739,41 @@ CONTAINS
       END DO
 
       ! HMcode
-      IF (fit%set(param_HMcode_Dv0)) hmod%Dv0 = p_out(param_HMcode_Dv0)
-      IF (fit%set(param_HMcode_Dvp)) hmod%Dv1 = p_out(param_HMcode_Dvp)
-      IF (fit%set(param_HMcode_dc0)) hmod%dc0 = p_out(param_HMcode_dc0)
-      IF (fit%set(param_HMcode_dcp)) hmod%dc1 = p_out(param_HMcode_dcp)
-      IF (fit%set(param_HMcode_eta0)) hmod%eta0 = p_out(param_HMcode_eta0)
-      IF (fit%set(param_HMcode_eta1)) hmod%eta1 = p_out(param_HMcode_eta1)
-      IF (fit%set(param_HMcode_f0)) hmod%f0 = p_out(param_HMcode_f0)
-      IF (fit%set(param_HMcode_fp)) hmod%f1 = p_out(param_HMcode_fp)
-      IF (fit%set(param_HMcode_kstar)) hmod%ks = p_out(param_HMcode_kstar)
-      IF (fit%set(param_HMcode_As)) hmod%As = p_out(param_HMcode_As)
+      IF (fit%set(param_HMcode_Dv0))    hmod%Dv0 = p_out(param_HMcode_Dv0)
+      IF (fit%set(param_HMcode_Dvp))    hmod%Dv1 = p_out(param_HMcode_Dvp)
+      IF (fit%set(param_HMcode_dc0))    hmod%dc0 = p_out(param_HMcode_dc0)
+      IF (fit%set(param_HMcode_dcp))    hmod%dc1 = p_out(param_HMcode_dcp)
+      IF (fit%set(param_HMcode_eta0))   hmod%eta0 = p_out(param_HMcode_eta0)
+      IF (fit%set(param_HMcode_eta1))   hmod%eta1 = p_out(param_HMcode_eta1)
+      IF (fit%set(param_HMcode_f0))     hmod%f0 = p_out(param_HMcode_f0)
+      IF (fit%set(param_HMcode_fp))     hmod%f1 = p_out(param_HMcode_fp)
+      IF (fit%set(param_HMcode_kstar))  hmod%ks = p_out(param_HMcode_kstar)
+      IF (fit%set(param_HMcode_As))     hmod%As = p_out(param_HMcode_As)
       IF (fit%set(param_HMcode_alpha0)) hmod%alp0 = p_out(param_HMcode_alpha0)
       IF (fit%set(param_HMcode_alpha1)) hmod%alp1 = p_out(param_HMcode_alpha1)
+      IF (fit%set(param_HMcode_dcnu))   hmod%dcnu = p_out(param_HMcode_dcnu)
+      IF (fit%set(param_HMcode_Dvnu))   hmod%Dvnu = p_out(param_HMcode_Dvnu)
 
       ! Hydro
       IF (fit%set(param_alpha)) hmod%alpha = p_out(param_alpha)
-      IF (fit%set(param_beta)) hmod%beta = p_out(param_beta)
-      IF (fit%set(param_eps)) hmod%eps = p_out(param_eps)
+      IF (fit%set(param_beta))  hmod%beta = p_out(param_beta)
+      IF (fit%set(param_eps))   hmod%eps = p_out(param_eps)
       IF (fit%set(param_Gamma)) hmod%Gamma = 1.+p_out(param_Gamma)   ! CARE: Funny, internal parameter is Gamma-1
-      IF (fit%set(param_M0)) hmod%M0 = 10.**p_out(param_M0)          ! CARE: Log, internal parameter is log10(M0)
+      IF (fit%set(param_M0))    hmod%M0 = 10.**p_out(param_M0)       ! CARE: Log, internal parameter is log10(M0)
       IF (fit%set(param_Astar)) hmod%Astar = p_out(param_Astar)
       IF (fit%set(param_Twhim)) hmod%Twhim = 10.**p_out(param_Twhim) ! CARE: Log, internal parameter is log10(Twhim)
       IF (fit%set(param_cstar)) hmod%cstar = p_out(param_cstar)
       IF (fit%set(param_fcold)) hmod%fcold = p_out(param_fcold)
       IF (fit%set(param_Mstar)) hmod%Mstar = 10.**p_out(param_Mstar) ! CARE: Log, internal parameter is log10(M*)
       IF (fit%set(param_sstar)) hmod%sstar = p_out(param_sstar)
-      IF (fit%set(param_fhot)) hmod%fhot = p_out(param_fhot)
-      IF (fit%set(param_eta)) hmod%eta = p_out(param_eta)
+      IF (fit%set(param_fhot))  hmod%fhot = p_out(param_fhot)
+      IF (fit%set(param_eta))   hmod%eta = p_out(param_eta)
       IF (fit%set(param_ibeta)) hmod%ibeta = p_out(param_ibeta)
       IF (fit%set(param_gbeta)) hmod%gbeta = p_out(param_gbeta)
 
       ! Hydro - mass indices
       IF (fit%set(param_alphap)) hmod%alphap = p_out(param_alphap)
-      IF (fit%set(param_betap)) hmod%betap = p_out(param_betap)
+      IF (fit%set(param_betap))  hmod%betap = p_out(param_betap)
       IF (fit%set(param_Gammap)) hmod%Gammap = p_out(param_Gammap)
       IF (fit%set(param_Astarp)) hmod%Astarp = p_out(param_Astarp)
       IF (fit%set(param_cstarp)) hmod%cstarp = p_out(param_cstarp)
@@ -1864,10 +1781,10 @@ CONTAINS
 
       ! Hydro - z indices
       IF (fit%set(param_alphaz)) hmod%alphaz = p_out(param_alphaz)
-      IF (fit%set(param_betaz)) hmod%betaz = p_out(param_betaz)
-      IF (fit%set(param_epsz)) hmod%epsz = p_out(param_epsz)
+      IF (fit%set(param_betaz))  hmod%betaz = p_out(param_betaz)
+      IF (fit%set(param_epsz))   hmod%epsz = p_out(param_epsz)
       IF (fit%set(param_Gammaz)) hmod%Gammaz = p_out(param_Gammaz)
-      IF (fit%set(param_M0z)) hmod%M0z = p_out(param_M0z)
+      IF (fit%set(param_M0z))    hmod%M0z = p_out(param_M0z)
       IF (fit%set(param_Astarz)) hmod%Astarz = p_out(param_Astarz)
       IF (fit%set(param_cstarz)) hmod%cstarz = p_out(param_cstarz)
       IF (fit%set(param_mstarz)) hmod%mstarz = p_out(param_mstarz)

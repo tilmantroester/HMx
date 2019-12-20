@@ -63,8 +63,8 @@ _OBJ = \
 	physics.o \
 	sorting.o \
 	fix_polynomial.o \
+	basic_operations.o \
 	array_operations.o \
-	logical_operations.o \
 	file_info.o \
 	random_numbers.o \
 	table_integer.o \
