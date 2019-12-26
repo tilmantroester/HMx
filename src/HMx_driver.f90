@@ -258,7 +258,7 @@ CONTAINS
       REAL, PARAMETER :: amin_test = 1./3. ! Minimum scale factor for test
       REAL, PARAMETER :: amax_test = 1.    ! Maximum scale factor for test
       INTEGER, PARAMETER :: iseed = 0      ! Seed for random number generator for tests
-      INTEGER, PARAMETER :: ntest = 1    ! Number of tests to run
+      INTEGER, PARAMETER :: ntest = 100    ! Number of tests to run
       LOGICAL, PARAMETER :: verbose_test = .FALSE.
       LOGICAL, PARAMETER :: stop_on_fail = .TRUE.
 
@@ -275,7 +275,7 @@ CONTAINS
          CALL print_cosmology(cosm)
 
          ! Ensures power routines are called before calling CAMB below
-         crap = p_lin(k_crap, a_crap, flag_power_matter, cosm)
+         crap = p_lin(k_crap, a_crap, flag_power_total, cosm)
 
          ! Fill scale-factor arrays
          CALL fill_array(amin, amax, a, na)
@@ -5397,7 +5397,7 @@ CONTAINS
       ALLOCATE (pow_ka(nk, na))
       DO j = 1, na
          DO i = 1, nk
-            pow_ka(i, j) = p_lin(k(i), a(j), flag_power_matter, cosm)
+            pow_ka(i, j) = p_lin(k(i), a(j), flag_power_total, cosm)
          END DO
       END DO
 
