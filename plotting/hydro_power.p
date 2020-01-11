@@ -43,8 +43,12 @@ print 'iplot = 29: Response as a functon of AGN strength: matter-electron pressu
 print 'iplot = 30: All power as a function of AGN strength'
 print 'iplot = 31: All responses as a function of AGN strength'
 print 'iplot = 32: PAPER: Combination of iplot=31 and 32'
+print 'iplot = 33: Same as 32, but for fitted data'
 print 'iplot = '.iplot.''
 print ''
+
+# n in k^n P(k) for some plots
+pow=1.5
 
 # Simulations to compare against
 # 1 - cosmo-OWLS
@@ -55,6 +59,7 @@ if(iplot==8){icomp=3}
 print 'icomp = 1: Compare to cosmo-OWLS (NO LONGER SUPPORTED)'
 print 'icomp = 2: Compare to BAHAMAS'
 print 'icomp = 3: Generic hydro, no comparison simulation'
+print 'icomp = 4: Compare to BAHAMAS fitted'
 print 'icomp = '.icomp.''
 print ''
 
@@ -89,6 +94,7 @@ zs[4]=2.0
 print 'Redshift: z = ', z
 print ''
 
+# Growth factors
 array gs[4]
 gs[1]=1.000
 gs[2]=0.779
@@ -117,18 +123,32 @@ plot_title_z(z)=sprintf('BAHAMAS comarison at z = %1.1f', z)
 simpk(sim,mesh,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M%d/%s_L400N1024_WMAP9_%s_%s_%s_power.dat',mesh,sim,snap,type1,type2)
 sim_dmonly='DMONLY_2fluid_nu0'
 
+# Integer labels for fields
+i_dmonly = 1 
+i_matter = 2
+i_cdm = 3
+i_gas = 4
+i_stars = 5
+i_electron_pressure = 8
+
 # File names - BAHAMAS
 if(icomp==2){
 hmpk(sim,z,i,j)=sprintf('data/power_%s_z%1.1f_%i%i.dat',sim,z,i,j)
-hmpk_dmonly=hmpk('DMONLY',z,0,0)
+hmpk_dmonly(z)=hmpk('DMONLY', z, i_dmonly, i_dmonly)
 }
 
 # File names - generic hydro
 if(icomp==3){
 hmpk(sim,z,i,j)=sprintf('data/power_z%1.1f_%i%i.dat',z,i,j)
-hmdm(z)=sprintf('data/power_z%1.1f.dat',z)
-hmpk_dmonly=hmdm(z)
+hmpk_dmonly(z)=sprintf('data/power_z%1.1f_11.dat',z)
+#hmpk_dmonly=hm
 }
+
+# File names - BAHAMAS fitted
+#if(icomp==4){
+#hmpk(sim,z,i,j)=sprintf('fitting/m33/%s/z%1.3f_n3000_c1_power_%i%i.dat',sim,z,i,j)
+#hmpk_dmonly(z)=hmpk(sim,z,1,1)
+#}
 
 # Number of columns and pertinent column for simulation power
 c=2
@@ -146,7 +166,8 @@ M=5
 #}
 
 # BAHAMAS simulation names
-if(icomp==2){hmpk_names="'DMONLY' 'AGN-lo' 'AGN' 'AGN-hi'"; hmpk_cols="'black' 'dark-yellow' 'blue' 'dark-plum'"}
+#if(icomp==2){hmpk_names="'DMONLY' 'AGN-lo' 'AGN' 'AGN-hi'"; hmpk_cols="'black' 'dark-yellow' 'blue' 'dark-plum'"}
+if(icomp==2){hmpk_names="'DMONLY' 'AGN_7p6_nu0' 'AGN_TUNED_nu0' 'AGN_8p0_nu0'"; hmpk_cols="'black' 'dark-yellow' 'blue' 'dark-plum'"}
 if(icomp==3){hmpk_names="''"; hmpk_cols="'black'"}
 sims="'DMONLY_2fluid_nu0' 'AGN_7p6_nu0' 'AGN_TUNED_nu0' 'AGN_8p0_nu0' 'AGN_TUNED_nu0_v2' 'AGN_TUNED_nu0_v3' 'AGN_TUNED_nu0_v4'"
 sim_names="'DMonly' 'AGN-lo' 'AGN' 'AGN-hi' 'AGN v2' 'AGN v3' 'AGN v4'"
@@ -172,11 +193,11 @@ field_names="'matter' 'CDM' 'gas' 'stars' 'electron pressure'"
 
 # Field integers
 array ifield[5]
-ifield[1]=0
-ifield[2]=1
-ifield[3]=2
-ifield[4]=3
-ifield[5]=6
+ifield[1]=i_matter 
+ifield[2]=i_cdm
+ifield[3]=i_gas
+ifield[4]=i_stars
+ifield[5]=i_electron_pressure
 
 # Field colours
 array icol[5]
@@ -192,8 +213,8 @@ field_few_names="'matter' 'electron pressure [keV cm^{-3}]'"
 
 # Few field integers
 array ifield_few[2]
-ifield_few[1]=0
-ifield_few[2]=6
+ifield_few[1]=i_matter 
+ifield_few[2]=i_electron_pressure
 
 # Few field colours
 array icol_few[2]
@@ -299,8 +320,8 @@ plot 1 w l lt -1 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
      for [i=1:4] '<paste '.simpk(sim,mesh,snap,word(fields,i),word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc icol[i] noti,\
      for [i=1:4] '<paste '.simpk(sim,mesh,snap,'all',word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 lc icol[i] noti,\
-     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[i],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc icol[i] ti word(field_names,i),\
-     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[1],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc icol[i] noti
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[i],ifield[i]).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc icol[i] ti word(field_names,i),\
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[1],ifield[i]).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc icol[i] noti
 
 rmin=1e-6
 rmax=2.
@@ -310,8 +331,8 @@ set format y '10^{%T}'
 # right - pressure response
 plot 1 w l lt -1 noti,\
      for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2]   '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i+1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
+     for [i=1:2] for [j=i:2]   '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i+1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -373,13 +394,13 @@ set label zlab at graph 0.1,0.9
 if(icomp==1 || icomp==2){
 plot 1 w l lt -1 noti,\
      for [i=1:words(sims_few)]   '<paste '.simpk(word(sims_few,i),mesh,snap,'all','all').' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(sim_few_cols,i) noti,\
-     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc rgb word(sim_few_cols,i) ti word(names,i)
+     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,i_matter,i_matter).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 lc rgb word(sim_few_cols,i) ti word(names,i)
 }
 
 if(icomp==3){
 plot 1 w l lt -1 noti,\
      for [i=1:words(sims_few)]    '<paste '.simpk(word(sims,i),mesh,snap,'all','all').' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 dt 1 lc rgb word(sim_few_cols,i) noti,\
-     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,0,0).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 lc -1 ti word(names,i)
+     for [i=1:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),z,i_matter,i_matter).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 lc -1 ti word(names,i)
 }
 
 unset label
@@ -569,9 +590,9 @@ set yrange [rmin:rmax]
 set ylabel 'P(k) / P_{DMONLY}(k)'
 
 plot 1 w l lt -1 noti,\
-     for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2]   '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i+1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
+     for [i=1:2] for [j=i:2]   '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2]   '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i+1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -582,8 +603,6 @@ unset multiplot
 ## ##
 
 if(iplot==7){
-
-pow=1.5
 
 # Delta^2(k)/k^1.5 range
 pmin=1e-4
@@ -676,8 +695,8 @@ plot 1 w l lt -1 noti,\
      (Om_c/Om_m)**2 w l lc -1 dt 2 noti,\
      for [i=1:4] '<paste '.simpk(sim,mesh,snap,word(fields,i),word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,word(fields,1),word(fields,1)).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol[i] noti,\
      for [i=1:4] '<paste '.simpk(sim,mesh,snap,word(fields,1),word(fields,i)).' '.simpk(sim_dmonly,mesh,snap,word(fields,1),word(fields,1)).'' u 1:((column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc icol[i] noti,\
-     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[i],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc icol[i] noti,\
-     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[1],ifield[i]).' '.hmpk_dmonly.'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc icol[i] noti
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[i],ifield[i]).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc icol[i] noti,\
+     for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[1],ifield[i]).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc icol[i] noti
 
 rmin=1e-2
 rmax=2
@@ -687,8 +706,8 @@ set yrange [rmin:rmax]
 # Bottom right - pressure response
 plot 1 w l lt -1 noti,\
      for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly.'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
+     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -764,7 +783,7 @@ combi(isim,iz,i,j)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],ifield[i]
 }
 
 if(icomp==3){
-combi(isim,iz,i,j)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],ifield[i],ifield[j]).' '.hmdm(zs[iz]).' '.simpk(word(sims,isim),mesh,word(snaps,iz),word(fields,i),word(fields,j)).' '.simpk(sim_dmonly,mesh,word(snaps,iz),'all','all').'',isim,iz,i,j)
+combi(isim,iz,i,j)=sprintf('<paste '.hmpk(word(hmpk_names,isim),zs[iz],ifield[i],ifield[j]).' '.hmpk_dmonly(zs[iz]).' '.simpk(word(sims,isim),mesh,word(snaps,iz),word(fields,i),word(fields,j)).' '.simpk(sim_dmonly,mesh,word(snaps,iz),'all','all').'',isim,iz,i,j)
 }
 
 if(iz==1){set tmargin at screen top-0*dy; set bmargin at screen top-1*dy}
@@ -921,7 +940,7 @@ if(iplot==20 || iplot==21 || iplot==22 || iplot==23 || iplot==24 || iplot==25 ||
 
 unset title
 
-pow=1.5
+
 
 icomp=2
 print 'icomp automatically set to 2 here'
@@ -1100,14 +1119,34 @@ unset multiplot
 
 }
 
-if(iplot==32){
+if(iplot==32 || iplot==33){
 
-if(print==1) {set term post enh col size 10,12 font ',8'; set output 'paper/big_AGN_model.eps'}
+if(print==1) {set term post enh col font ',8'; set output 'paper/big_AGN_model.eps'}
+
+if(iplot==33){
+# Fitted power file locations
+fitted_power(m,sim,z,n,c,i,j)=sprintf('fitting/m%i/%s/z%1.3f_n%i_c%i_power_%i%i.dat',m,sim,z,n,c,i,j)
+
+# Default values of variables
+if(!exists('mode'))  {mode=33}
+if(!exists('num'))   {num=3000}
+if(!exists('chain')) {chain=1}
+
+# Write to screen
+print 'Fitting mode; mode: ', mode
+print 'Number of points in chain; num: ', num
+print 'Chain number; chain: ', chain
+print ''
+
+# File names for fitted power
+hmpk(sim,z,i,j)=fitted_power(mode,sim,z,num,chain,i,j)
+hmpk_dmonly(z)=hmpk('AGN_TUNED_nu0',z,1,1)
+}
 
 unset title
 unset mytics
 
-set multiplot layout 10,4 margins 0.06,0.98,0.04,0.98 spacing 0.01,0.01
+set multiplot layout 10,4 margins 0.06,0.98,0.04,0.98 spacing 0.005,0.005
 
 do for [ifi=1:5]{
 
@@ -1115,14 +1154,16 @@ if(ifi==1){f1=1; f2=1; rmin=0.75; rmax=1.05;   pmin=0; pmax=30;    plab='k^{3/2}
 if(ifi==2){f1=2; f2=2; rmin=0.65; rmax=0.80;   pmin=0; pmax=20;    plab='k^{3/2} P_{cc}^2(k)'; rlab='P_{cc}(k) / P_{mm-dmony}(k)'}
 if(ifi==3){f1=3; f2=3; rmin=0.00; rmax=0.03;   pmin=0; pmax=0.4;   plab='k^{3/2} P_{gg}^2(k)'; rlab='P_{gg}(k) / P_{mm-dmony}(k)'}
 if(ifi==4){f1=4; f2=4; rmin=0.00; rmax=0.0025; pmin=0; pmax=0.04;  plab='k^{3/2} P_{**}^2(k)'; rlab='P_{**}(k) / P_{mm-dmony}(k)'}
-if(ifi==5){f1=1; f2=5; rmin=0.00; rmax=2.5e-4; pmin=0; pmax=0.006; plab='k^{3/2} P_{mP}^2(k)'; rlab='P_{mP}(k) / P_{mm-dmony}(k)'}
+if(ifi==5){f1=1; f2=5; rmin=0.00; rmax=4.5e-4; pmin=0; pmax=0.009; plab='k^{3/2} P_{mP}^2(k)'; rlab='P_{mP}(k) / P_{mm-dmony}(k)'}
 
+# Loop over power and ratio plots
 do for [ir=1:2]{
 
 set xlabel ''
 set format x ''
 if(ir==2 && ifi==5){set xlabel klab; set format x}
 
+# Loop over redshifts
 do for [iz=1:4]{
 
 # Growth factors
@@ -1158,15 +1199,15 @@ if(ir==1){
 unset key
 plot NaN w p pt 7 ps .5 lc -1 ti simti,\
      NaN w l dt 1 lw  2 lc -1 ti haloti,\
-     for [i=2:words(sims_few)] simpk(word(sims,i),mesh,word(snaps,iz),word(fields,f1),word(fields,f2)) u 1:((column(c)-column(s))/(g2*column(1)**pow)):((column(5))/(g2*column(1)**pow)) w e pt 7 ps .25 lc rgb word(sim_cols,i) noti,\
+     for [i=2:words(sims_few)]   simpk(word(sims,i),mesh,word(snaps,iz),word(fields,f1),word(fields,f2)) u 1:((column(c)-column(s))/(g2*column(1)**pow)):((column(5))/(g2*column(1)**pow)) w e pt 7 ps .25 lc rgb word(sim_cols,i) noti,\
      for [i=2:words(hmpk_names)] hmpk(word(hmpk_names,i),zs[iz],ifield[f1],ifield[f2]) u 1:((column(d)/(g2*column(1)**pow))) w l lw 2 dt 1 lc rgb word(hmpk_cols,i) ti word(hmpk_names,i)
 }
 
 if(ir==2){
 plot NaN w p pt 7 ps .5 lc -1 ti simti,\
      NaN w l dt 1 lw  2 lc -1 ti haloti,\
-     for [i=2:words(sims_few)] '<paste '.simpk(word(sims,i),mesh,word(snaps,iz),word(fields,f1),word(fields,f2)).' '.simpk(word(sims,1),mesh,word(snaps,iz),word(fields,1),word(fields,1)).'' u 1:(column(c)-column(s))/(column(c+5)-column(s+5)) w p pt 7 ps .25 lc rgb word(sim_cols,i) noti,\
-     for [i=2:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),zs[iz],ifield[f1],ifield[f2]).' '.hmpk(word(hmpk_names,1),zs[iz],ifield[1],ifield[1]).'' u 1:(column(d)/column(d+5)) w l lw 2 dt 1 lc rgb word(hmpk_cols,i) ti word(hmpk_names,i)
+     for [i=2:words(sims_few)]   '<paste '.simpk(word(sims,i),mesh,word(snaps,iz),word(fields,f1),word(fields,f2)).' '.simpk(word(sims,1),mesh,word(snaps,iz),word(fields,1),word(fields,1)).'' u 1:(column(c)-column(s))/(column(c+5)-column(s+5)) w p pt 7 ps .25 lc rgb word(sim_cols,i) noti,\
+     for [i=2:words(hmpk_names)] '<paste '.hmpk(word(hmpk_names,i),zs[iz],ifield[f1],ifield[f2]).' '.hmpk_dmonly(zs[iz]).'' u 1:(column(d)/column(d+5)) w l lw 2 dt 1 lc rgb word(hmpk_cols,i) ti word(hmpk_names,i)
 }
 
 unset label

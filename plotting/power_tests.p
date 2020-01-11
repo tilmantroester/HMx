@@ -89,12 +89,13 @@ test(z,i,j)=sprintf('data/power_z%1.1f_%d%d.dat',z,i,j)
 
 fields="'matter' 'CDM' 'gas' 'stars' 'electron pressure'"
 array f[5]
-f[1]=0
-f[2]=1
-f[3]=2
-f[4]=3
-f[5]=6
+f[1]=2 # 2 - Matter
+f[2]=3 # 3 - CDM
+f[3]=4 # 4 - gas
+f[4]=5 # 5 - stars
+f[5]=8 # 8 - electron pressure
 
+# Colors
 array c[5]
 c[1]=1
 c[2]=2

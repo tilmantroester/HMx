@@ -103,7 +103,8 @@ mods="'triad_Cl_AGN-lo' 'triad_Cl_AGN' 'triad_Cl_AGN-hi'" # Halo model Cl file b
 dirs="'triad_Cl_direct_AGN-lo' 'triad_Cl_direct_AGN' 'triad_Cl_direct_AGN-hi' 'triad_Cl_direct_AGN_v2' 'triad_Cl_direct_AGN_v3'" # Direct integration of BAHAMAS 3D spectra Cl file bases
 sims="'LOW' 'TUNED' 'HIGH' 'TUNED' 'TUNED'" # BAHAMAS simulation names
 sim_names="'AGN-lo' 'AGN' 'AGN-hi'" # BAHAMAS simulation names
-cols="'dark-yellow' 'blue' 'dark-plum' 'light-blue' 'light-blue'" # Colour scheme for feedback models
+#cols="'dark-yellow' 'blue' 'dark-plum' 'light-blue' 'light-blue'" # Colour scheme for feedback models
+cols="'dark-yellow' 'blue' 'dark-plum' 'blue' 'blue'" # Colour scheme for feedback models
 nsim=3 # DO NOT CHANGE THIS TO 5
 }
 if(triad==4){
@@ -111,7 +112,8 @@ mods="'triad_Cl_AGN'" # Halo model Cl file bases
 dirs="'triad_Cl_direct_AGN' 'triad_Cl_direct_AGN_v2' 'triad_Cl_direct_AGN_v3'" # Halo model Cl file bases
 sims="'TUNED' 'TUNED' 'TUNED'" # BAHAMAS simulation names
 sim_names="'AGN'" # BAHAMAS simulation names
-cols="'blue' 'light-blue' 'light-blue'" # Colour scheme for feedback models
+#cols="'blue' 'light-blue' 'light-blue'" # Colour scheme for feedback models
+cols="'blue' 'blue' 'blue'" # Colour scheme for feedback models
 nsim=1 # DO NOT CHANGE THIS TO 3
 }
 print 'Number of simulations: ', nsim
