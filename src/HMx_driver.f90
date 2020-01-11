@@ -730,162 +730,6 @@ CONTAINS
 
    END SUBROUTINE read_k_values
 
-   ! SUBROUTINE Ma2015_Fig1_again(hmod, cosm)
-
-   !    ! TODO: Move this into Ma2015_Fig1
-   !    IMPLICIT NONE
-   !    TYPE(halomod), INTENT(INOUT) :: hmod   ! Halo model
-   !    TYPE(cosmology), INTENT(INOUT) :: cosm ! Cosmological model
-   !    INTEGER :: i
-   !    REAL :: r, rs, rv, c, Mh, rh, r500c, m500c
-
-   !    REAL, PARAMETER :: M = 1e15    ! Halo virial? mass [Msun]
-   !    REAL, PARAMETER :: rmin = 1e-3 ! Minimum radius [Mpc]
-   !    REAL, PARAMETER :: rmax = 8    ! Maximum radius [Mpc]
-   !    INTEGER, PARAMETER :: nr = 512 ! Number of points in radius
-
-   !    LOGICAL, PARAMETER :: real_space = .TRUE.
-   !    INTEGER, PARAMETER :: itype = field_electron_pressure ! electron pressure
-
-   !    IF (hmod%has_mass_conversions .EQV. .FALSE.) CALL convert_mass_definitions(hmod, cosm)
-
-   !    Mh = M*cosm%h ! This virial mass is now [Msun/h]
-
-   !    rv = exp(find(log(Mh), hmod%log_m, log(hmod%rv), hmod%n, 3, 3, 2)) ! [Mpc/h]
-   !    c = find(log(Mh), hmod%log_m, hmod%c, hmod%n, 3, 3, 2)
-   !    rs = rv/c ! [Mpc/h]
-
-   !    m500c = exp(find(log(Mh), hmod%log_m, log(hmod%m500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
-   !    r500c = exp(find(log(Mh), hmod%log_m, log(hmod%r500c), hmod%n, 3, 3, 2)) ! [Mpc/h]
-
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Making data for this figure'
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Redshift:', hmod%z
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial radius [Mpc]:', rv/cosm%h
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial radius [Mpc/h]:', rv
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: r_500,c [Mpc]:', r500c/cosm%h
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: r_500,c [Mpc/h]:', r500c
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: r_500,c / r_v:', r500c/rv
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial halo mass [log10 Msun]:', log10(M)
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Virial halo mass [log10 Msun/h]:', log10(Mh)
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: M_500,c [log10 Msun]:', log10(M500c/cosm%h)
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: M_500,c [log10 Msun/h]:', log10(M500c)
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: M_500,c / M_v:', M500c/Mh
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Halo concentraiton:', c
-
-   !    OPEN (7, file='data/YinZhe_Fig1.dat')
-   !    DO i = 1, nr
-   !       r = progression(rmin, rmax, i, nr) ! Radius [Mpc]
-   !       rh = r*cosm%h ! Convert [Mpc/h]
-   !       WRITE (7, *) r, UPP(real_space, rh, Mh, rv, rs, hmod, cosm)*r**2, win_type(real_space, itype, rh, Mh, rv, rs, hmod, cosm)*r**2
-   !    END DO
-   !    CLOSE (7)
-
-   !    WRITE (*, *) 'MA2015_FIG1_AGAIN: Done'
-   !    WRITE (*, *)
-
-   ! END SUBROUTINE Ma2015_Fig1_again
-
-   SUBROUTINE write_power(k, pow_lin, pow_2h, pow_1h, pow, nk, output, verbose)
-
-      IMPLICIT NONE
-      CHARACTER(len=*), INTENT(IN) :: output
-      INTEGER, INTENT(IN) :: nk
-      REAL, INTENT(IN) :: k(nk), pow_lin(nk), pow_2h(nk), pow_1h(nk), pow(nk)
-      LOGICAL, INTENT(IN) :: verbose
-      INTEGER :: i
-
-      IF (verbose) WRITE (*, *) 'WRITE_POWER: Writing power to ', TRIM(output)
-
-      ! Loop over k values
-      ! Fill the tables with one- and two-halo terms as well as total
-      OPEN (7, file=output)
-      DO i = 1, nk
-         WRITE (7, fmt='(5ES20.10)') k(i), pow_lin(i), pow_2h(i), pow_1h(i), pow(i)
-      END DO
-      CLOSE (7)
-
-      IF (verbose) THEN
-         WRITE (*, *) 'WRITE_POWER: Done'
-         WRITE (*, *)
-      END IF
-
-   END SUBROUTINE write_power
-
-   SUBROUTINE write_power_a_multiple(k, a, pow_lin, pow_2h, pow_1h, pow_full, nk, na, base, verbose)
-
-      IMPLICIT NONE
-      CHARACTER(len=*), INTENT(IN) :: base
-      INTEGER, INTENT(IN) :: nk, na
-      REAL, INTENT(IN) :: k(nk), a(na), pow_lin(nk, na), pow_2h(nk, na), pow_1h(nk, na), pow_full(nk, na)
-      LOGICAL, INTENT(IN) :: verbose
-      REAL :: pow(nk, na)
-      INTEGER :: i
-      CHARACTER(len=512) :: output
-      LOGICAL :: verbose2
-
-      DO i = 1, 4
-         IF (i == 1) THEN
-            output = TRIM(base)//'_linear.dat'
-            pow = pow_lin
-         ELSE IF (i == 2) THEN
-            output = TRIM(base)//'_2h.dat'
-            pow = pow_2h
-         ELSE IF (i == 3) THEN
-            output = TRIM(base)//'_1h.dat'
-            pow = pow_1h
-         ELSE IF (i == 4) THEN
-            output = TRIM(base)//'_hm.dat'
-            pow = pow_full
-         ELSE
-            STOP 'WRITE_POWER_A_MULTIPLE: Error, something went FUBAR'
-         END IF
-         IF (i == 1) THEN
-            verbose2 = verbose
-         ELSE
-            verbose2 = .FALSE.
-         END IF
-         CALL write_power_a(k, a, pow, nk, na, output, verbose2)
-      END DO
-
-   END SUBROUTINE write_power_a_multiple
-
-   SUBROUTINE write_power_a(k, a, pow, nk, na, output, verbose)
-
-      IMPLICIT NONE
-      CHARACTER(len=*), INTENT(IN) :: output
-      INTEGER, INTENT(IN) :: nk, na
-      REAL, INTENT(IN) :: k(nk), a(na), pow(nk, na)
-      LOGICAL, INTENT(IN) :: verbose
-      INTEGER :: i, j
-
-      ! Print to screen
-      IF (verbose) THEN
-         WRITE (*, *) 'WRITE_POWER_A: The first entry of the file is hashes - #####'
-         WRITE (*, *) 'WRITE_POWER_A: The remainder of the first row are the scale factors - a'
-         WRITE (*, *) 'WRITE_POWER_A: The remainder of the first column are the wave numbers - k'
-         WRITE (*, *) 'WRITE_POWER_A: Each row then gives the power at that k and a'
-         WRITE (*, *) 'WRITE_POWER_A: Output:', TRIM(output)
-      END IF
-
-      ! Write out data to files
-      OPEN (7, file=output)
-      DO i = 0, nk
-         IF (i == 0) THEN
-            WRITE (7, fmt='(A20,40F20.10)') '#####', (a(j), j=1, na)
-         ELSE
-            WRITE (7, fmt='(F20.10,40E20.10)') k(i), (pow(i, j), j=1, na)
-         END IF
-      END DO
-      CLOSE (7)
-
-      ! Print to screen
-      IF (verbose) THEN
-         WRITE (*, *) 'WRITE_POWER_A: Done'
-         WRITE (*, *)
-      END IF
-
-   END SUBROUTINE write_power_a
-
    SUBROUTINE random_baryon_parameters(hmod)
 
       IMPLICIT NONE
@@ -1641,7 +1485,6 @@ CONTAINS
       REAL, ALLOCATABLE :: k(:), z_tab(:)
       REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
       REAL, ALLOCATABLE :: powd_li(:), powd_2h(:), powd_1h(:), powd_hm(:)
-      REAL, ALLOCATABLE :: pows_li(:), pows_2h(:, :, :), pows_1h(:, :, :), pows_hm(:, :, :)
       INTEGER, ALLOCATABLE :: fields(:)
       REAL :: z
       INTEGER :: j, j1, j2
@@ -1653,7 +1496,7 @@ CONTAINS
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER :: nk = 128
-      INTEGER, PARAMETER :: nf = 2
+      INTEGER, PARAMETER :: nf = 5
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
       IF (imode == 2 .OR. imode == 52) THEN
@@ -1673,20 +1516,14 @@ CONTAINS
 
          ! Set number of k points and k range (log spaced)
          IF (imode == 2) THEN
-
             CALL fill_array(log(kmin), log(kmax), k, nk)
             k = exp(k)
-
          ELSE IF (imode == 52) THEN
-
             ! Get the k values from the simulation measured P(k)
             infile = '/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
             CALL read_k_values(infile, k, nk)
-
          ELSE
-
             STOP 'HMx_DRIVER: imode specified incorrectly'
-
          END IF
 
       ELSE IF (imode == 32) THEN
@@ -1732,7 +1569,7 @@ CONTAINS
 
          ! BAHAMAS
 
-         ! Do AGN, AGN-lo and AGN-hi
+         ! Do AGN, AGN_7p6_nu0 and AGN_8p0_nu0
          n = 3
 
          ! Set the redshift
@@ -1744,7 +1581,7 @@ CONTAINS
          z_tab(4) = 2.0
 
          ! Get the k values from the simulation measured P(k)
-         infile = '/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+         infile = '/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
          CALL read_k_values(infile, k, nk)
 
       END IF
@@ -1836,14 +1673,14 @@ CONTAINS
 
             END IF
 
-            !BAHAMAS
+            ! BAHAMAS
             IF (imode == 16) THEN
 
                IF (iowl == 1) THEN
 
                   ! Simulation name and file name
                   name = 'AGN'
-                  fname = 'AGN'
+                  fname = 'AGN_TUNED_nu0'
 
                   ! Best z=0 fit on 21/06/2018
                   IF (ihm == 4) THEN
@@ -1931,7 +1768,7 @@ CONTAINS
 
                   ! Simulation name and file name
                   name = 'AGN high'
-                  fname = 'AGN-hi'
+                  fname = 'AGN_8p0_nu0'
                   hmod%Theat = 10**8.0
 
                   ! Best z=0 fit on 21/06/2018
@@ -2020,7 +1857,7 @@ CONTAINS
 
                   ! Simulation name and file name
                   name = 'AGN low'
-                  fname = 'AGN-lo'
+                  fname = 'AGN_7p6_nu0'
                   hmod%Theat = 10**7.6
 
                   ! Best z=0 21/06/2018
@@ -2147,17 +1984,17 @@ CONTAINS
 
             ! Dark-matter only
             IF (imode == 2 .OR. imode == 32 .OR. imode == 52) THEN
-               IF (j == 1) outfile = 'data/power_z0.0.dat'
-               IF (j == 2) outfile = 'data/power_z0.5.dat'
-               IF (j == 3) outfile = 'data/power_z1.0.dat'
-               IF (j == 4) outfile = 'data/power_z2.0.dat'
+               IF (j == 1) outfile = 'data/power_z0.0_11.dat'
+               IF (j == 2) outfile = 'data/power_z0.5_11.dat'
+               IF (j == 3) outfile = 'data/power_z1.0_11.dat'
+               IF (j == 4) outfile = 'data/power_z2.0_11.dat'
             ELSE IF (imode == 15) THEN
-               outfile = 'data/power_DMONLY_00.dat'
+               outfile = 'data/power_DMONLY_11.dat'
             ELSE IF (imode == 16) THEN
-               IF (j == 1) outfile = 'data/power_DMONLY_z0.0_00.dat'
-               IF (j == 2) outfile = 'data/power_DMONLY_z0.5_00.dat'
-               IF (j == 3) outfile = 'data/power_DMONLY_z1.0_00.dat'
-               IF (j == 4) outfile = 'data/power_DMONLY_z2.0_00.dat'
+               IF (j == 1) outfile = 'data/power_DMONLY_z0.0_11.dat'
+               IF (j == 2) outfile = 'data/power_DMONLY_z0.5_11.dat'
+               IF (j == 3) outfile = 'data/power_DMONLY_z1.0_11.dat'
+               IF (j == 4) outfile = 'data/power_DMONLY_z2.0_11.dat'
             END IF
 
             ! Write some things to the screen
@@ -2169,7 +2006,7 @@ CONTAINS
             CALL write_power(k, powd_li, powd_2h, powd_1h, powd_hm, nk, outfile, verbose)
 
             ! Do the calculation for the rest of the fields
-            CALL calculate_HMx_a(fields, nf, k, nk, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
 
             ! Loop over fields and write data
             DO j1 = 1, nf
@@ -2181,8 +2018,8 @@ CONTAINS
                   ! Set the halo types and write to screen
                   WRITE (*, *) fields(j1), fields(j2), TRIM(outfile)
 
-                  ! Write P(k
-                  CALL write_power(k, pows_li, pows_2h(j1, j2, :), pows_1h(j1, j2, :), pows_hm(j1, j2, :), nk, outfile, verbose=.FALSE.)
+                  ! Write P(k)
+                  CALL write_power(k, pow_li, pow_2h(j1, j2, :), pow_1h(j1, j2, :), pow_hm(j1, j2, :), nk, outfile, verbose=.FALSE.)
 
                END DO
             END DO
@@ -2879,9 +2716,9 @@ CONTAINS
          ! Assign the halo
          CALL assign_halomod(ihm, hmod, verbose)
 
-         IF (j == 1) base = 'triad_Cl_AGN'
-         IF (j == 2) base = 'triad_Cl_AGN-lo'
-         IF (j == 3) base = 'triad_Cl_AGN-hi'
+         IF (j == 1) base = 'triad_Cl_AGN_TUNED_nu0'
+         IF (j == 2) base = 'triad_Cl_AGN_7p6_nu0'
+         IF (j == 3) base = 'triad_Cl_AGN_8p0_nu0'
 
          CALL xpow_halomod(ixx, nt, ell, Cl, nl, hmod, cosm, verbose=.TRUE.)
 
@@ -4338,13 +4175,13 @@ CONTAINS
       DO j = 1, 3
 
          IF (j == 1) THEN
-            outfile = 'data/HMx_params_AGN-lo.dat'
+            outfile = 'data/HMx_params_AGN_7p6_nu0.dat'
             hmod%Theat = 10**7.6
          ELSE IF (j == 2) THEN
-            outfile = 'data/HMx_params_AGN.dat'
+            outfile = 'data/HMx_params_AGN_TUNED_nu0.dat'
             hmod%Theat = 10**7.8
          ELSE IF (j == 3) THEN
-            outfile = 'data/HMx_params_AGN-hi.dat'
+            outfile = 'data/HMx_params_AGN_8p0_nu0.dat'
             hmod%Theat = 10**8.0
          END IF
 
@@ -5154,19 +4991,19 @@ CONTAINS
          ! Set BAHAMAS models
          IF (j == 1) THEN
             name = 'AGN_TUNED_nu0'
-            outbase = 'data/triad_Cl_direct_AGN'
+            outbase = 'data/triad_Cl_direct_AGN_TUNED_nu0'
          ELSE IF (j == 2) THEN
             name = 'AGN_7p6_nu0'
-            outbase = 'data/triad_Cl_direct_AGN-lo'
+            outbase = 'data/triad_Cl_direct_AGN_7p6_nu0'
          ELSE IF (j == 3) THEN
             name = 'AGN_8p0_nu0'
-            outbase = 'data/triad_Cl_direct_AGN-hi'
+            outbase = 'data/triad_Cl_direct_AGN_8p0_nu0'
          ELSE IF (j == 4) THEN
             name = 'AGN_TUNED_nu0_v2'
-            outbase = 'data/triad_Cl_direct_AGN_v2'
+            outbase = 'data/triad_Cl_direct_AGN_TUNED_nu0_v2'
          ELSE IF (j == 5) THEN
             name = 'AGN_TUNED_nu0_v3'
-            outbase = 'data/triad_Cl_direct_AGN_v3'
+            outbase = 'data/triad_Cl_direct_AGN_TUNED_nu0_v3'
          ELSE
             STOP 'HMx_DRIVER: Error, feedback senario not supported'
          END IF
