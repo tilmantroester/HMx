@@ -45,17 +45,17 @@ PROGRAM HMx_fitting
    LOGICAL, PARAMETER :: cut_nyquist = .TRUE.   ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
    LOGICAL, PARAMETER :: subtract_shot = .TRUE. ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
    LOGICAL, PARAMETER :: response_default = .TRUE.                   ! Should I treat the BAHAMAS P(k) as HMcode response?
-   CHARACTER(len=256), PARAMETER :: outbase_default = 'fitting/test' ! Default output file
+   CHARACTER(len=256), PARAMETER :: outbase_default = 'fitting/test' ! Default output file base
 
    INTEGER, PARAMETER :: ifit_MCMC = 1
    INTEGER, PARAMETER :: ifit_Nelder_Mead = 2
    INTEGER, PARAMETER :: ifit = ifit_Nelder_Mead
 
-   CALL main()
+   CALL HMx_fitting_main()
 
 CONTAINS
 
-   SUBROUTINE main()
+   SUBROUTINE HMx_fitting_main()
 
       IMPLICIT NONE
 
@@ -66,7 +66,7 @@ CONTAINS
       TYPE(fitting) :: fit
       TYPE(halomod), ALLOCATABLE :: hmod(:)
       TYPE(cosmology), ALLOCATABLE :: cosm(:)
-      CHARACTER(len=256) :: name, mode, zin, outbase, numchain, maxtime, accuracy, response
+      CHARACTER(len=256) :: name, mode, zin, outbase, numchain, maxtime, accuracy, response, base
       REAL :: delta
       REAL :: tmax
       INTEGER :: nchain
@@ -133,7 +133,7 @@ CONTAINS
       ! Read in chain length
       CALL get_command_argument(2, numchain)
       IF (numchain == '') THEN
-         WRITE (*, *) 'HMx_FITTING: Specify points in fitting chain'
+         WRITE (*, *) 'HMx_FITTING: Specify number of iterations in fitting'
          READ (*, *) nchain
          WRITE (*, *)
       ELSE
@@ -241,10 +241,95 @@ CONTAINS
          CALL Nelder_Mead_fitting(delta, tmax, nchain, &
                                   k, nk, z, nz, fields, nfields, weight, pow, fit, hmod, cosm, ncos, outbase)
       ELSE
-         STOP 'ERROR, ifit specified incorrectly'
+         STOP 'HMx_FITTING: error, ifit specified incorrectly'
       END IF
 
-   END SUBROUTINE main
+      IF (imode == 11 .OR. imode == 12 .OR. imode == 13 .OR. imode ==14 .OR. imode ==15 .OR. imode ==16 .OR. &
+         imode == 20 .OR. imode == 21 .OR. imode == 26 .OR. imode == 27 .OR. imode == 28 .OR. imode == 29 .OR. &
+         imode == 30 .OR. imode == 31 .OR. imode == 32 .OR. imode == 33 .OR. imode == 34 .OR. imode == 35 .OR. &
+         imode == 36 .OR. imode == 37 .OR. imode == 38 .OR. imode == 39 .OR. imode == 40 .OR. imode == 41 .OR. &
+         imode == 42 .OR. imode == 43 .OR. imode == 44 .OR. imode == 45 .OR. imode == 46) THEN
+         CALL write_all_hydro(k, nk, z, nz, hmod(1), cosm(1), outbase)
+      END IF
+
+   END SUBROUTINE HMx_fitting_main
+
+   SUBROUTINE write_all_hydro(k, nk, z, nz, hmod, cosm, outbase)
+
+      IMPLICIT NONE
+      REAL, INTENT(IN) :: k(nk)
+      INTEGER, INTENT(IN) :: nk
+      REAL, INTENT(IN) :: z(nz)
+      INTEGER, INTENT(IN) :: nz
+      TYPE(halomod), INTENT(INOUT) :: hmod
+      TYPE(cosmology), INTENT(INOUT) :: cosm
+      CHARACTER(len=*), INTENT(IN) :: outbase
+      REAL :: a(1)
+      INTEGER, ALLOCATABLE :: fields(:)
+      REAL, ALLOCATABLE :: pow_li(:,:), pow_2h(:,:,:,:), pow_1h(:,:,:,:), pow_hm(:,:,:,:)
+      CHARACTER(len=256) :: zstring, base, newname
+      INTEGER :: i, nf
+      INTEGER, PARAMETER :: na = 1
+      LOGICAL, PARAMETER :: response=.FALSE.
+      LOGICAL, PARAMETER :: verbose=.TRUE.
+
+      IF(nz .NE. 1) THEN
+         STOP 'WRITE_ALL_HYDRO: Error, nz should be equal to one, but is not'
+      END IF
+      a = scale_factor_z(z(1))
+
+      ! Convert the redshift into a string
+      WRITE(zstring, fmt='(f5.3)') z(1)
+
+      ! Loop over DMONLY and hydro
+      DO i = 3, 3
+
+         IF (i == 1) THEN
+            WRITE(*, *) 'WRITE_ALL_HYDRO: Calculating DMONLY power spectra'          
+            nf = 1
+            ALLOCATE(fields(nf))
+            fields(1) = field_dmonly
+            !base = 'fitting/power_DMONLY_z'//trim(zstring)//'_'
+            base = trim(outbase)//'_power_DMONLY_'
+         ELSE IF (i == 2) THEN
+            WRITE(*, *) 'WRITE_ALL_HYDRO: Calculating all hydrodynamic power spectra'
+            nf = 5
+            ALLOCATE(fields(nf))     
+            fields(1) = field_matter
+            fields(2) = field_cdm
+            fields(3) = field_gas
+            fields(4) = field_star
+            fields(5) = field_electron_pressure
+            base = trim(outbase)//'_power_'
+         ELSE IF(i == 3) THEN
+            nf = 6
+            ALLOCATE(fields(nf))
+            fields(1) = field_dmonly    
+            fields(2) = field_matter
+            fields(3) = field_cdm
+            fields(4) = field_gas
+            fields(5) = field_star
+            fields(6) = field_electron_pressure
+            base = trim(outbase)//'_power_'
+         END IF
+
+         !WRITE(*,*) trim(base)
+
+         ALLOCATE(pow_li(nk, na), pow_2h(nf, nf, nk, na), pow_1h(nf, nf, nk, na), pow_hm(nf, nf, nk, na))
+
+         CALL calculate_HMx(fields, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE., response=.FALSE.)
+      
+         CALL write_power_fields(k, pow_li(:,1), pow_2h(:,:,:,1), pow_1h(:,:,:,1), pow_hm(:,:,:,1), nk, fields, nf, base, verbose)
+
+         DEALLOCATE(pow_li, pow_2h, pow_1h, pow_hm, fields)
+
+         WRITE(*, *) 'WRITE_ALL_HYDRO_POWER:'
+         WRITE(*, *) 'WRITE_ALL_HYDRO_POWER: Done'
+         WRITE(*, *)
+
+      END DO
+
+   END SUBROUTINE write_all_hydro
 
    SUBROUTINE MCMC_fitting(delta, tmax, nchain, k, nk, z, nz, fields, nf, weight, pow_sim, fit, hmod, cosm, ncos, outbase)
 
@@ -1254,10 +1339,10 @@ CONTAINS
             im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
             im == 40 .OR. im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
          nz = 1
-         IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
+         !IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
       ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
          nz = 11
-         IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
+         !IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
       ELSE
          STOP 'HMx_FITTING: Error, mode im not specified correctly for nz'
       END IF
@@ -1428,7 +1513,8 @@ CONTAINS
          ! 26 - fixed z; basic parameterts; CDM
          ! 33 - fixed z; final parameters; CDM
          fit%set(param_eps) = .TRUE.
-         !fit%set(param_M0)=.TRUE. ! Does not help
+         !fit%set(param_M0) = .TRUE. ! Does not help
+         !fit%set(param_gbeta) = .TRUE. ! Not tested
       ELSE IF (im == 41) THEN
          ! 41 - extended z; final parameters; CDM
          fit%set(param_eps) = .TRUE.
@@ -1470,7 +1556,7 @@ CONTAINS
          fit%set(param_Mstar) = .TRUE.
          fit%set(param_sstar) = .TRUE.  ! Does not provide a significant improvement
          !fit%set(param_Astarp) = .TRUE. ! Does not provide a significant improvement
-         !fit%set(param_cstarp) = .TRUE. ! Does not provide a significant improvement
+         fit%set(param_cstarp) = .TRUE. ! Does not provide a significant improvement
          fit%set(param_eta) = .TRUE.    ! Does not provide a significant improvement
          ! None of the commented-out parameters provide a significant improvement
          ! Main problem seems to be model fitting poorly at transition region at high z
@@ -1499,7 +1585,7 @@ CONTAINS
          fit%set(param_Gammap) = .TRUE.
          fit%set(param_M0) = .TRUE.
          fit%set(param_Astar) = .TRUE.
-         !fit%set(param_cstar)=.TRUE. ! Does not cause a large enough change in figure of merit
+         fit%set(param_cstar)=.TRUE. ! Does not cause a large enough change in figure of merit
          fit%set(param_Mstar) = .TRUE.
       ELSE IF (im == 14) THEN
          ! 14 - fixed z; final parameters; matter
@@ -2195,26 +2281,6 @@ CONTAINS
       END DO
 
    END SUBROUTINE init_Nelder_Mead
-
-   ! SUBROUTINE map_p_to_x(x, nx, p, np, fit)
-
-   !    IMPLICIT NONE
-   !    REAL, INTENT(OUT) :: x(nx)       ! Active parameters
-   !    INTEGER, INTENT(IN) :: nx        ! Number of active parameters
-   !    REAL, INTENT(IN) :: p(np)        ! Parameters
-   !    INTEGER, INTENT(IN) :: np        ! Total number of parameters
-   !    TYPE(fitting), INTENT(IN) :: fit ! Fitting structure
-   !    INTEGER :: i, ii
-
-   !    ii = 0
-   !    DO i = 1, np
-   !       IF(fit%set(i)) THEN
-   !          ii = ii+1
-   !          x(ii) = p(i)
-   !       END IF
-   !    END DO
-
-   ! END SUBROUTINE map_p_to_x
 
    SUBROUTINE map_x_to_p(x, nx, p, np, fit)
 
