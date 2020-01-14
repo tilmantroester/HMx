@@ -485,7 +485,7 @@ CONTAINS
          CALL print_halomod(hmod, cosm, verbose)
 
          ! Do the halo-model calculation
-         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
          ! Write out the results
          CALL write_power(k, pow_li, pow_2h, pow_1h, pow_hm, nk, outfile, verbose)
@@ -1126,7 +1126,7 @@ CONTAINS
       ALLOCATE (pow_li(nk), pow_2h(nk), pow_1h(nk), pow_hm(nk))
 
       ! Do the halo-model calculation
-      CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
       ! Write out the results
       outfile = 'data/power.dat'
@@ -1189,7 +1189,7 @@ CONTAINS
          CALL print_halomod(hmod, cosm, verbose)
 
          ! Do the halo-model calculation
-         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
          ! Write out the results
          CALL write_power(k, pow_li, pow_2h, pow_1h, pow_hm, nk, outfile, verbose)
@@ -1238,7 +1238,7 @@ CONTAINS
       END DO
 
       field = field_dmonly
-      CALL calculate_HMx(field, 1, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx(field, 1, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
       base = 'data/power'
       CALL write_power_a_multiple(k, a, pow_li, pow_2h(1, 1, :, :), pow_1h(1, 1, :, :), pow_hm(1, 1, :, :), nk, na, base, verbose)
@@ -1300,7 +1300,7 @@ CONTAINS
          ! Assign the halo model
          CALL assign_halomod(ihm_here, hmod, verbose)
 
-         CALL calculate_HMx(field, 1, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx(field, 1, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
          CALL write_power_a_multiple(k, a, pow_li, pow_2h(1, 1, :, :), pow_1h(1, 1, :, :), pow_hm(1, 1, :, :), nk, na, base, verbose)
 
@@ -1446,7 +1446,7 @@ CONTAINS
          CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
          CALL print_halomod(hmod, cosm, verbose)
 
-         CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE., response=.FALSE.)
+         CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE.)
 
          ! Do the halo-model calculation for a range of halo types
          DO j1 = 1, nf
@@ -2002,11 +2002,11 @@ CONTAINS
             WRITE (*, *) field(1), field(1), TRIM(outfile)
 
             ! Do the calculation for DMonly
-            CALL calculate_HMx_a(field, 1, k, nk, powd_li, powd_2h, powd_1h, powd_hm, hmod, cosm, verbose, response=.FALSE.)
+            CALL calculate_HMx_a(field, 1, k, nk, powd_li, powd_2h, powd_1h, powd_hm, hmod, cosm, verbose)
             CALL write_power(k, powd_li, powd_2h, powd_1h, powd_hm, nk, outfile, verbose)
 
             ! Do the calculation for the rest of the fields
-            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
             ! Loop over fields and write data
             DO j1 = 1, nf
@@ -2194,7 +2194,7 @@ CONTAINS
          IF (imode == 47) ihm = 1 ! 1 - HMcode (2016)
          IF (imode == 42 .OR. imode == 43 .OR. imode == 63 .OR. imode == 64) ihm = 3 ! 3 - Standard halo model
          CALL assign_halomod(ihm, hmod, verbose)
-         CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
          base = TRIM(dir)//'power'
          CALL write_power_a_multiple(k, a, pows_li, pows_2h(1, 2, :, :), pows_1h(1, 2, :, :), pows_hm(1, 2, :, :), nk, na, base, verbose)
@@ -2317,8 +2317,7 @@ CONTAINS
             CALL print_cosmology(cosm)
 
             CALL assign_halomod(ihm, hmod, verbose)
-            CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, &
-                               hmod, cosm, verbose, response=.FALSE.)
+            CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
             ! Fill out the projection kernels
             CALL fill_projection_kernels(ix, proj, cosm)
@@ -2450,7 +2449,8 @@ CONTAINS
                hmod%mmax = m2
                CALL init_halomod(a(j), hmod, cosm, verbose)
                CALL print_halomod(hmod, cosm, verbose)
-               CALL calculate_HMx_a(ip, 2, k, nk, pows_li(:, j), pows_2h(:, :, :, j), pows_1h(:, :, :, j), pows_hm(:, :, :, j), hmod, cosm, verbose, response=.FALSE.)
+               CALL calculate_HMx_a(ip, 2, k, nk, pows_li(:, j), pows_2h(:, :, :, j), pows_1h(:, :, :, j), pows_hm(:, :, :, j), &
+                                    hmod, cosm, verbose)
 
                !Write progress to screen
                IF (j == 1) THEN
@@ -2524,7 +2524,7 @@ CONTAINS
 
          CALL assign_halomod(ihm, hmod, verbose)
 
-         CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
          ! Allocate array for power
          ALLOCATE (pow_ka(nk, na))
@@ -2857,7 +2857,7 @@ CONTAINS
 
       ! DMONLY
       outfile = 'data/DMONLY.dat'
-      CALL calculate_HMx_a(field, 1, k, nk, powd_li, powd_2h, powd_1h, powd_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx_a(field, 1, k, nk, powd_li, powd_2h, powd_1h, powd_hm, hmod, cosm, verbose)
       CALL write_power(k, powd_li, powd_2h, powd_1h, powd_hm, nk, outfile, verbose)
 
       ! Prevents warning
@@ -3095,7 +3095,7 @@ CONTAINS
             outfile = number_file2(base, ipa, mid, i, ext)
             CALL write_halo_fractions(hmod, cosm, outfile)
 
-            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
             ! Loop over field combinations and do the calculation
             DO j1 = 1, nf
@@ -3174,7 +3174,7 @@ CONTAINS
       END DO
 
       ! User chooses halo model
-      CALL calculate_HMx(ip, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx(ip, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
       base = 'data/power'
       CALL write_power_a_multiple(k, a, pows_li, pows_2h(ip(1), ip(2), :, :), pows_1h(ip(1), ip(2), :, :), pows_hm(ip(1), ip(2), :, :), nk, na, base, verbose)
@@ -3257,7 +3257,7 @@ CONTAINS
       IF (imode == 40) fields(2) = 9  ! Central galaxies/haloes
       IF (imode == 48) fields(2) = 12 ! HI
 
-      CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
       DO j1 = 1, nf
          DO j2 = j1, nf
@@ -3351,7 +3351,7 @@ CONTAINS
             CALL print_halomod(hmod, cosm, verbose)
 
             ! Do the halo-model calculation
-            CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+            CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
             ! Write out the results
             CALL write_power(k, pow_li, pow_2h(1, 1, :), pow_1h(1, 1, :), pow_hm(1, 1, :), nk, outfile, verbose)
@@ -3603,7 +3603,7 @@ CONTAINS
 
          ! Do the halo-model calculation
          !field = field_dmonly
-         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
          ! Write out the results
          outfile = TRIM(dir)//'/power_'//TRIM(outfile)//'.dat'
@@ -3753,7 +3753,7 @@ CONTAINS
       ALLOCATE (powd_li(nk), powd_2h(nk), powd_1h(nk), powd_hm(nk))
 
       ! Do the halo-model calculation
-      CALL calculate_HMx_a(field, 1, k, nk, powd_li, powd_2h, powd_1h, powd_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx_a(field, 1, k, nk, powd_li, powd_2h, powd_1h, powd_hm, hmod, cosm, verbose)
 
       ! Write the one-void term if necessary
       OPEN (7, file='data/power_halovoid.dat')
@@ -3837,7 +3837,7 @@ CONTAINS
          !CALL print_halomod(hmod)
 
          !field = field_dmonly
-         CALL calculate_HMx(field, 1, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx(field, 1, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
          ! Loop over k and a
          error_max = 0.
@@ -4003,7 +4003,7 @@ CONTAINS
             CALL init_halomod(a(j), hmod, cosm, verbose=.TRUE.)
             CALL print_halomod(hmod, cosm, verbose=.TRUE.)
             field = field_dmonly
-            CALL calculate_HMx_a(field, 1, k_sim, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE., response=.FALSE.)
+            CALL calculate_HMx_a(field, 1, k_sim, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE.)
 
             ALLOCATE (pow_ql(nk), pow_oh(nk), pow_hf(nk))
             CALL calculate_halofit_a(k_sim, a(j), pow_li, pow_ql, pow_oh, pow_hf, nk, cosm, verbose=.TRUE., ihf=4)
@@ -4102,7 +4102,7 @@ CONTAINS
          CALL print_halomod(hmod, cosm, verbose)
 
          ! Do the halo-model calculation
-         CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
          ! Loop over fields
          DO j1 = 1, nf
@@ -4254,7 +4254,7 @@ CONTAINS
 
          ! Do the halo-model calculation
          field = field_dmonly
-         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE., response=.FALSE.)
+         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE.)
 
          ! Write out the results
          base = 'data/power_cored_'
@@ -4367,7 +4367,7 @@ CONTAINS
       ! Assign the halo model
       ihm = 3
       CALL assign_halomod(ihm, hmod, verbose)
-      CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
       ! File naming things
       outext = '.dat'
@@ -4507,7 +4507,7 @@ CONTAINS
          CALL print_halomod(hmod, cosm, verbose=.FALSE.)
 
          ! Do the halo-model calculation
-         CALL calculate_HMx_a(fields, 2, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE., response=.FALSE.)
+         CALL calculate_HMx_a(fields, 2, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE.)
 
          ! Write data
          dir = 'data/'
@@ -4584,7 +4584,7 @@ CONTAINS
 
          ! Do the halo-model calculation
          field = field_dmonly
-         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose2, response=.FALSE.)
+         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose2)
 
          ! Write out data
          CALL write_power(k, pow_li, pow_2h(1, 1, :), pow_1h(1, 1, :), pow_hm(1, 1, :), nk, outfile, verbose)
@@ -4840,7 +4840,7 @@ CONTAINS
 
          CALL assign_halomod(ihm, hmod, verbose)
 
-         CALL calculate_HMx(field, 1, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx(field, 1, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
          CALL write_power_a_multiple(k, a, pows_li, pows_2h(1, 1, :, :), pows_1h(1, 1, :, :), pows_hm(1, 1, :, :), nk, na, base, verbose)
 
@@ -5148,7 +5148,7 @@ CONTAINS
       !fields=field_electron_pressure
       fields = field_gas
 
-      CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose, response=.FALSE.)
+      CALL calculate_HMx(fields, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
       ! Write to screen to check they are the same
       WRITE (*, *) 'HMx_DRIVER: All these columns should be idential'
@@ -5320,7 +5320,7 @@ CONTAINS
 
          ! Do the halo-model calculation
          field = field_dmonly
-         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+         CALL calculate_HMx_a(field, 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
          ! Write out the results
          CALL write_power(k, pow_li, pow_2h, pow_1h, pow_hm, nk, outfile, verbose)
@@ -5460,7 +5460,7 @@ CONTAINS
             CALL print_halomod(hmod, cosm, verbose)
 
             ! Do the halo-model calculation
-            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
+            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
             ! Write out the results
             DO j1 = 1, nf

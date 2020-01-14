@@ -317,7 +317,7 @@ CONTAINS
 
          ALLOCATE(pow_li(nk, na), pow_2h(nf, nf, nk, na), pow_1h(nf, nf, nk, na), pow_hm(nf, nf, nk, na))
 
-         CALL calculate_HMx(fields, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE., response=.FALSE.)
+         CALL calculate_HMx(fields, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE.)
       
          CALL write_power_fields(k, pow_li(:,1), pow_2h(:,:,:,1), pow_1h(:,:,:,1), pow_hm(:,:,:,1), nk, fields, nf, base, verbose)
 
@@ -1942,7 +1942,7 @@ CONTAINS
             ! Calculate the halo-model power spectrum
             CALL calculate_HMx_a(fields, nf, k, nk, &
                                  pow_li(icos, :, iz), pow_2h(icos, :, :, :, iz), pow_1h(icos, :, :, :, iz), pow_mod(icos, :, :, :, iz), &
-                                 hmod(icos), cosm(icos), verbose=.FALSE., response=.FALSE.)
+                                 hmod(icos), cosm(icos), verbose=.FALSE.)
 
             ! Calculate figure of merit and add to total
             DO if1 = 1, nf
