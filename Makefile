@@ -2,7 +2,7 @@
 
 # Standard HMx flags
 HMX_FFLAGS = \
-	-fcheck=all \
+	-fcheck=all,no-array-temps \
 	-fmax-errors=4 \
 	-ffpe-trap=invalid,zero,overflow \
 	-fimplicit-none \
@@ -104,8 +104,8 @@ debug: $(BIN_DIR)/HMx_debug
 fitting: $(BIN_DIR)/HMx_fitting
 
 # Fitting debugging
-fitting_debug: FFLAGS += $(DEBUG_FLAGS)
-fitting_debug: $(BIN_DIR)/HMx_fitting_debug
+fitting-debug: FFLAGS += $(DEBUG_FLAGS)
+fitting-debug: $(BIN_DIR)/HMx_fitting_debug
 
 # Rule to make object files
 $(BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
