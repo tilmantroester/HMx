@@ -66,7 +66,7 @@ CONTAINS
       TYPE(fitting) :: fit
       TYPE(halomod), ALLOCATABLE :: hmod(:)
       TYPE(cosmology), ALLOCATABLE :: cosm(:)
-      CHARACTER(len=256) :: name, mode, zin, outbase, numchain, maxtime, accuracy, response, base
+      CHARACTER(len=256) :: name, mode, zin, outbase, numchain, maxtime, accuracy, response
       REAL :: delta
       REAL :: tmax
       INTEGER :: nchain
@@ -212,7 +212,7 @@ CONTAINS
       CALL init_fields(imode, fields, nfields)
 
       ! Set the redshifts
-      CALL init_redshifts(imode, name, zin, z, nz)
+      CALL init_redshifts(imode, zin, z, nz)
 
       ! Set the halo models
       CALL init_halomods(imode, hmod, ncos)
@@ -267,11 +267,10 @@ CONTAINS
       REAL :: a(1)
       INTEGER, ALLOCATABLE :: fields(:)
       REAL, ALLOCATABLE :: pow_li(:,:), pow_2h(:,:,:,:), pow_1h(:,:,:,:), pow_hm(:,:,:,:)
-      CHARACTER(len=256) :: zstring, base, newname
+      CHARACTER(len=256) :: zstring, base
       INTEGER :: i, nf
       INTEGER, PARAMETER :: na = 1
-      LOGICAL, PARAMETER :: response=.FALSE.
-      LOGICAL, PARAMETER :: verbose=.TRUE.
+      LOGICAL, PARAMETER :: verbose = .TRUE.
 
       IF(nz .NE. 1) THEN
          STOP 'WRITE_ALL_HYDRO: Error, nz should be equal to one, but is not'
@@ -298,7 +297,7 @@ CONTAINS
             fields(1) = field_matter
             fields(2) = field_cdm
             fields(3) = field_gas
-            fields(4) = field_star
+            fields(4) = field_stars
             fields(5) = field_electron_pressure
             base = trim(outbase)//'_power_'
          ELSE IF(i == 3) THEN
@@ -308,7 +307,7 @@ CONTAINS
             fields(2) = field_matter
             fields(3) = field_cdm
             fields(4) = field_gas
-            fields(5) = field_star
+            fields(5) = field_stars
             fields(6) = field_electron_pressure
             base = trim(outbase)//'_power_'
          END IF
@@ -871,6 +870,13 @@ CONTAINS
       fit%maximum(param_gbeta) = 0.99
       fit%log(param_gbeta) = .FALSE.
 
+      fit%name(param_cmod) = 'cmod'
+      fit%original(param_cmod) = 1.0
+      fit%sigma(param_cmod) = 0.1
+      fit%minimum(param_cmod) = 1e-2
+      fit%maximum(param_cmod) = 1e1
+      fit%log(param_cmod) = .TRUE.
+
       !! !!
 
       !! Hydro - M indices !!
@@ -1281,14 +1287,14 @@ CONTAINS
          fields(1) = field_matter
          fields(2) = field_cdm
          fields(3) = field_gas
-         fields(4) = field_star
+         fields(4) = field_stars
          fields(5) = field_electron_pressure
       ELSE IF (im == 16 .OR. im == 27 .OR. im == 38 .OR. im == 46) THEN
          ! Matter, CDM, gas, stars
          fields(1) = field_matter
          fields(2) = field_cdm
          fields(3) = field_gas
-         fields(4) = field_star
+         fields(4) = field_stars
       ELSE IF (im == 29 .OR. im == 39 .OR. im == 44 .OR. im == 14) THEN
          ! Matter
          fields(1) = field_matter
@@ -1300,7 +1306,7 @@ CONTAINS
          fields(1) = field_gas
       ELSE IF (im == 31 .OR. im == 35 .OR. im == 43) THEN
          ! Stars
-         fields(1) = field_star
+         fields(1) = field_stars
       ELSE IF (im == 30 .OR. im == 36 .OR. im == 12) THEN
          ! Electron pressure
          fields(1) = field_electron_pressure
@@ -1308,7 +1314,7 @@ CONTAINS
          ! CDM, gas, stars
          fields(1) = field_cdm
          fields(2) = field_gas
-         fields(3) = field_star
+         fields(3) = field_stars
       ELSE IF (im == 20 .OR. im == 21 .OR. im == 13 .OR. im == 23) THEN
          ! Matter and pressure
          fields(1) = field_matter
@@ -1319,12 +1325,11 @@ CONTAINS
 
    END SUBROUTINE init_fields
 
-   SUBROUTINE init_redshifts(im, name, zin, z, nz)
+   SUBROUTINE init_redshifts(im, zin, z, nz)
 
       ! Set the redshifts to fit over depending on imode
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
-      CHARACTER(len=*), INTENT(INOUT) :: name
       CHARACTER(len=*), INTENT(IN) :: zin
       REAL, ALLOCATABLE, INTENT(OUT) :: z(:)
       INTEGER, INTENT(OUT) :: nz
@@ -1456,7 +1461,7 @@ CONTAINS
       END IF
 
       ! k range for multi-z
-      IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im ==14 .OR. im ==15 .OR. im ==16 .OR. &
+      IF (im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16 .OR. &
          im == 20 .OR. im == 21 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
@@ -1515,12 +1520,15 @@ CONTAINS
             fit%set(param_HMcode_dcnu) = .TRUE.
             fit%set(param_HMcode_Dvnu) = .TRUE.
          END IF
-      ELSE IF (im == 26 .OR. im == 33) THEN
+      ELSE IF (im == 26) THEN
          ! 26 - fixed z; basic parameterts; CDM
+         fit%set(param_eps) = .TRUE.
+      ELSE IF (im == 33) THEN
          ! 33 - fixed z; final parameters; CDM
          fit%set(param_eps) = .TRUE.
-         !fit%set(param_M0) = .TRUE. ! Helps only a minor amount but throws gas-gas and thus matter-matter off a lot
+         !fit%set(param_M0) = .TRUE.    ! Helps only a minor amount but throws gas-gas and thus matter-matter off a lot
          !fit%set(param_gbeta) = .TRUE. ! Seems to add too much freedom, errors in WININT
+         fit%set(param_cmod) = .TRUE.   ! Helps a lot!
       ELSE IF (im == 41) THEN
          ! 41 - extended z; final parameters; CDM
          fit%set(param_eps) = .TRUE.
@@ -1870,6 +1878,7 @@ CONTAINS
       IF (fit%set(param_eta))   hmod%eta = p_out(param_eta)
       IF (fit%set(param_ibeta)) hmod%ibeta = p_out(param_ibeta)
       IF (fit%set(param_gbeta)) hmod%gbeta = p_out(param_gbeta)
+      IF (fit%set(param_cmod))  hmod%cmod = p_out(param_cmod)
 
       ! Hydro - mass indices
       IF (fit%set(param_alphap)) hmod%alphap = p_out(param_alphap)
@@ -2216,21 +2225,21 @@ CONTAINS
 
    END SUBROUTINE write_fitting_power
 
-   SUBROUTINE write_model(p, np, fit, hmod, cosm)
+   ! SUBROUTINE write_model(p, np, fit, hmod, cosm)
 
-      ! Writes out the halo model with parameters p
-      IMPLICIT NONE
-      REAL, INTENT(IN) :: p(np)              ! Fitting parameters
-      INTEGER, INTENT(IN) :: np              ! Total number of fitting parameters
-      TYPE(fitting), INTENT(INOUT) :: fit    ! Fitting structure
-      TYPE(halomod), INTENT(INOUT) :: hmod   ! Halo model
-      TYPE(cosmology), INTENT(INOUT) :: cosm ! Array of cosmological models for each comparison
+   !    ! Writes out the halo model with parameters p
+   !    IMPLICIT NONE
+   !    REAL, INTENT(IN) :: p(np)              ! Fitting parameters
+   !    INTEGER, INTENT(IN) :: np              ! Total number of fitting parameters
+   !    TYPE(fitting), INTENT(INOUT) :: fit    ! Fitting structure
+   !    TYPE(halomod), INTENT(INOUT) :: hmod   ! Halo model
+   !    TYPE(cosmology), INTENT(INOUT) :: cosm ! Array of cosmological models for each comparison
 
-      CALL set_HMx_parameters(p, np, fit, hmod)
+   !    CALL set_HMx_parameters(p, np, fit, hmod)
 
-      CALL print_halomod(hmod, cosm, verbose=.TRUE.)
+   !    CALL print_halomod(hmod, cosm, verbose=.TRUE.)
 
-   END SUBROUTINE write_model
+   ! END SUBROUTINE write_model
 
    SUBROUTINE write_best_fitting(fit, out)
 
