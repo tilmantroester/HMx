@@ -66,8 +66,8 @@ PROGRAM HMx_driver
       WRITE (*, *) '12 - Triad'
       WRITE (*, *) '13 - Cross-correlation coefficient'
       WRITE (*, *) '14 - 3D spectra for variations in baryon parameters'
-      WRITE (*, *) '15 - 3D spectra for cosmo-OWLS models (Feedback models and k values) NOT SUPPORTED'
-      WRITE (*, *) '16 - 3D spectra for BAHAMAS models (AGN models and k values)'
+      WRITE (*, *) '15 - '
+      WRITE (*, *) '16 - '
       WRITE (*, *) '17 - 3D spectra for user choice of fields'
       WRITE (*, *) '18 - 3D bias'
       WRITE (*, *) '19 - Make CCL benchmark data'
@@ -83,7 +83,7 @@ PROGRAM HMx_driver
       WRITE (*, *) '29 - Comparison with random Mira Titan cosmology'
       WRITE (*, *) '30 - Comparison with random FrankenEmu cosmology'
       WRITE (*, *) '31 - PAPER: Breakdown 3D hydro power in halo mass'
-      WRITE (*, *) '32 - PAPER: Hydro power for baseline model'
+      WRITE (*, *) '32 - PAPER: Hydro power for baseline model (NOT SUPPORTED)'
       WRITE (*, *) '33 - PAPER: Effect of parameter variations on baseline model hydro power'
       WRITE (*, *) '34 - Write HMx hydro parameter variations with T_AGN and z'
       WRITE (*, *) '35 - Power spectra of cored halo profiles'
@@ -139,7 +139,7 @@ PROGRAM HMx_driver
       CALL power_single(iicosmo, iihm)
    ELSE IF (iimode == 1) THEN
       CALL power_multiple(iicosmo, iihm)
-   ELSE IF (iimode == 2 .OR. iimode == 15 .OR. iimode == 16 .OR. iimode == 32 .OR. iimode == 52) THEN
+   ELSE IF (iimode == 2 .OR. iimode == 32 .OR. iimode == 52) THEN
       CALL hydro_stuff(iimode, iicosmo, iihm)
    ELSE IF (iimode == 3) THEN
       CALL halo_stuff(iicosmo, iihm)
@@ -1407,7 +1407,7 @@ CONTAINS
          fields(1) = field_matter
          fields(2) = field_cdm
          fields(3) = field_gas
-         fields(4) = field_star
+         fields(4) = field_stars
          fields(5) = field_electron_pressure
       ELSE IF (imode == 72) THEN
          fields = field_dmonly
@@ -1478,6 +1478,7 @@ CONTAINS
       ! 15 - cosmo-OWLS
       ! 16 - BAHAMAS
       ! 32 - PAPER: Baseline hydro
+      ! 52 - Generic hydro but with BAHAMAS k range
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: imode
       INTEGER, INTENT(INOUT) :: icosmo
@@ -1488,8 +1489,8 @@ CONTAINS
       INTEGER, ALLOCATABLE :: fields(:)
       REAL :: z
       INTEGER :: j, j1, j2
-      INTEGER :: iowl, field(1), nz, n
-      CHARACTER(len=256) :: base, dir, ext, name, fname, infile, mid, outfile
+      INTEGER :: iowl, field(1), nz, nowl
+      CHARACTER(len=256) :: base, dir, ext, infile, mid, outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
@@ -1504,7 +1505,7 @@ CONTAINS
          ! Generic hydro
 
          ! Only do one 'model' here
-         n = 1
+         nowl = 1
 
          ! Set the redshift
          nz = 4
@@ -1515,7 +1516,7 @@ CONTAINS
          z_tab(4) = 2.0
 
          ! Set number of k points and k range (log spaced)
-         IF (imode == 2) THEN
+         IF (imode == 2 .OR. imode == 32) THEN
             CALL fill_array(log(kmin), log(kmax), k, nk)
             k = exp(k)
          ELSE IF (imode == 52) THEN
@@ -1523,96 +1524,79 @@ CONTAINS
             infile = '/Users/Mead/Physics/BAHAMAS/power/M1536/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
             CALL read_k_values(infile, k, nk)
          ELSE
-            STOP 'HMx_DRIVER: imode specified incorrectly'
+            STOP 'HMx_DRIVER: Error, imode specified incorrectly'
          END IF
 
-      ELSE IF (imode == 32) THEN
-
-         ! Generic hydro
-
-         ! Only do one 'model' here
-         n = 1
-
-         ! Set the redshift
-         nz = 4
-         ALLOCATE (z_tab(nz))
-         z_tab(1) = 0.0
-         z_tab(2) = 0.5
-         z_tab(3) = 1.0
-         z_tab(4) = 2.0
-
-         ! Set number of k points and k range (log spaced)
-         !nk = 128
-         !kmin = 1e-3
-         !kmax = 1e2
-         CALL fill_array(log(kmin), log(kmax), k, nk)
-         k = exp(k)
-
-      ELSE IF (imode == 15) THEN
-
-         ! cosmo-OWLS
-         STOP 'HMx_DRIVER: not tested in ages, be very careful'
-
-         ! Do from REF, NOCOOL, AGN, AGN 8.5, AGN 8.7
-         n = 5
-
-         ! Set the redshift
-         nz = 1
-         ALLOCATE (z_tab(nz))
-         z_tab(1) = 0.
-
-         ! Get the k values from the simulation measured P(k)
-         infile = '/Users/Mead/Physics/cosmo-OWLS/power/N800/DMONLY_all_all_power.dat'
-         CALL read_k_values(infile, k, nk)
-
-      ELSE IF (imode == 16) THEN
-
-         ! BAHAMAS
-
-         ! Do AGN, AGN_7p6_nu0 and AGN_8p0_nu0
-         n = 3
-
-         ! Set the redshift
-         nz = 4
-         ALLOCATE (z_tab(nz))
-         z_tab(1) = 0.0
-         z_tab(2) = 0.5
-         z_tab(3) = 1.0
-         z_tab(4) = 2.0
-
-         ! Get the k values from the simulation measured P(k)
-         infile = '/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
-         CALL read_k_values(infile, k, nk)
-
+      ELSE
+         STOP 'HMx_DRIVER: Error, imode specified incorrectly'
       END IF
+
+      ! ELSE IF (imode == 15) THEN
+
+      !    ! cosmo-OWLS
+      !    STOP 'HMx_DRIVER: not tested in ages, be very careful'
+
+      !    ! Do from REF, NOCOOL, AGN, AGN 8.5, AGN 8.7
+      !    n = 5
+
+      !    ! Set the redshift
+      !    nz = 1
+      !    ALLOCATE (z_tab(nz))
+      !    z_tab(1) = 0.
+
+      !    ! Get the k values from the simulation measured P(k)
+      !    infile = '/Users/Mead/Physics/cosmo-OWLS/power/N800/DMONLY_all_all_power.dat'
+      !    CALL read_k_values(infile, k, nk)
+
+      ! ELSE IF (imode == 16) THEN
+
+      !    ! BAHAMAS
+
+      !    ! Do AGN, AGN_7p6_nu0 and AGN_8p0_nu0
+      !    n = 3
+
+      !    ! Set the redshift
+      !    nz = 4
+      !    ALLOCATE (z_tab(nz))
+      !    z_tab(1) = 0.0
+      !    z_tab(2) = 0.5
+      !    z_tab(3) = 1.0
+      !    z_tab(4) = 2.0
+
+      !    ! Get the k values from the simulation measured P(k)
+      !    infile = '/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+      !    CALL read_k_values(infile, k, nk)
+
+      ! END IF
 
       ! Field types
       ALLOCATE (fields(nf))
       fields(1) = field_matter
       fields(2) = field_cdm
       fields(3) = field_gas
-      fields(4) = field_star
+      fields(4) = field_stars
       fields(5) = field_electron_pressure
 
       ! Allocate the arrays for P(k)
       ALLOCATE (powd_li(nk), powd_2h(nk), powd_1h(nk), powd_hm(nk))
       ALLOCATE (pow_li(nk), pow_2h(nf, nf, nk), pow_1h(nf, nf, nk), pow_hm(nf, nf, nk))
 
-      DO iowl = 1, n
+      DO iowl = 1, nowl
 
          DO j = 1, nz
 
             z = z_tab(j)
 
             !Assigns the cosmological model
-            IF (imode == 2 .OR. imode == 52) THEN
+            IF (imode == 2 .OR. imode == 32 .OR. imode == 52) THEN
                icosmo = 4
-            ELSE IF (imode == 15) THEN
-               icosmo = 2
-            ELSE IF (imode == 16) THEN
-               icosmo = 4
-            ELSE IF (imode == 32) THEN
-               icosmo = 4
+            !ELSE IF (imode == 15) THEN
+            !   icosmo = 2
+            !ELSE IF (imode == 16) THEN
+            !   icosmo = 4
+            END IF
+
+            IF (imode == 32) THEN
                ihm = 3
             END IF
 
@@ -1621,333 +1605,333 @@ CONTAINS
             CALL print_cosmology(cosm)
             CALL assign_halomod(ihm, hmod, verbose)
 
-            IF (imode == 15) THEN
+            ! IF (imode == 15) THEN
 
-               ! cosmo-OWLS
-               IF (imode == 15 .AND. iowl == 1) THEN
-                  name = 'REF'
-                  fname = name
-                  ! From my fitting by eye
-                  hmod%alpha = 2.
-                  hmod%eps = 1.
-                  hmod%Gamma = 1.24
-                  hmod%M0 = 1e13
-                  hmod%Astar = 0.055
-               ELSE IF (imode == 15 .AND. iowl == 2) THEN
-                  name = 'NOCOOL'
-                  fname = name
-                  ! From my fitting by eye
-                  hmod%alpha = 2.
-                  hmod%eps = 1.
-                  hmod%Gamma = 1.1
-                  hmod%M0 = 0.
-                  hmod%Astar = 0.
-               ELSE IF (imode == 15 .AND. iowl == 3) THEN
-                  name = 'AGN'
-                  fname = name
-                  ! From Tilman's preliminary results
-                  hmod%alpha = 0.52
-                  hmod%eps = 1.
-                  hmod%Gamma = 1.17
-                  hmod%M0 = 1.047e14
-                  hmod%Astar = 0.02
-               ELSE IF (imode == 15 .AND. iowl == 4) THEN
-                  name = 'AGN 8.5'
-                  fname = 'AGN8p5'
-                  ! From Tilman's preliminary results
-                  hmod%alpha = 0.56
-                  hmod%eps = 1.
-                  hmod%Gamma = 1.19
-                  hmod%M0 = 3.548e14
-                  hmod%Astar = 0.01
-               ELSE IF (imode == 15 .AND. iowl == 5) THEN
-                  name = 'AGN 8.7'
-                  fname = 'AGN8p7'
-                  ! From Tilman's preliminary results
-                  hmod%alpha = 0.53
-                  hmod%eps = 1.
-                  hmod%Gamma = 1.21
-                  hmod%M0 = 7.586e14
-                  hmod%Astar = 0.01
-               END IF
+            !    ! cosmo-OWLS
+            !    IF (imode == 15 .AND. iowl == 1) THEN
+            !       name = 'REF'
+            !       fname = name
+            !       ! From my fitting by eye
+            !       hmod%alpha = 2.
+            !       hmod%eps = 1.
+            !       hmod%Gamma = 1.24
+            !       hmod%M0 = 1e13
+            !       hmod%Astar = 0.055
+            !    ELSE IF (imode == 15 .AND. iowl == 2) THEN
+            !       name = 'NOCOOL'
+            !       fname = name
+            !       ! From my fitting by eye
+            !       hmod%alpha = 2.
+            !       hmod%eps = 1.
+            !       hmod%Gamma = 1.1
+            !       hmod%M0 = 0.
+            !       hmod%Astar = 0.
+            !    ELSE IF (imode == 15 .AND. iowl == 3) THEN
+            !       name = 'AGN'
+            !       fname = name
+            !       ! From Tilman's preliminary results
+            !       hmod%alpha = 0.52
+            !       hmod%eps = 1.
+            !       hmod%Gamma = 1.17
+            !       hmod%M0 = 1.047e14
+            !       hmod%Astar = 0.02
+            !    ELSE IF (imode == 15 .AND. iowl == 4) THEN
+            !       name = 'AGN 8.5'
+            !       fname = 'AGN8p5'
+            !       ! From Tilman's preliminary results
+            !       hmod%alpha = 0.56
+            !       hmod%eps = 1.
+            !       hmod%Gamma = 1.19
+            !       hmod%M0 = 3.548e14
+            !       hmod%Astar = 0.01
+            !    ELSE IF (imode == 15 .AND. iowl == 5) THEN
+            !       name = 'AGN 8.7'
+            !       fname = 'AGN8p7'
+            !       ! From Tilman's preliminary results
+            !       hmod%alpha = 0.53
+            !       hmod%eps = 1.
+            !       hmod%Gamma = 1.21
+            !       hmod%M0 = 7.586e14
+            !       hmod%Astar = 0.01
+            !    END IF
 
-            END IF
+            ! END IF
 
-            ! BAHAMAS
-            IF (imode == 16) THEN
+            ! ! BAHAMAS
+            ! IF (imode == 16) THEN
 
-               IF (iowl == 1) THEN
+            !    IF (iowl == 1) THEN
 
-                  ! Simulation name and file name
-                  name = 'AGN'
-                  fname = 'AGN_TUNED_nu0'
+            !       ! Simulation name and file name
+            !       name = 'AGN'
+            !       fname = 'AGN_TUNED_nu0'
 
-                  ! Best z=0 fit on 21/06/2018
-                  IF (ihm == 4) THEN
+            !       ! Best z=0 fit on 21/06/2018
+            !       IF (ihm == 4) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.379
-                        hmod%eps = 10**(-0.061)
-                        hmod%Gamma = 1.205
-                        hmod%M0 = 10**(13.823)
-                        hmod%Astar = 0.029
-                        hmod%Twhim = 10**(5.754)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.537
-                        hmod%eps = 10**(-0.209)
-                        hmod%Gamma = 1.163
-                        hmod%M0 = 10**(13.964)
-                        hmod%Astar = 0.024
-                        hmod%Twhim = 10**(5.750)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.755
-                        hmod%eps = 10**(-0.985)
-                        hmod%Gamma = 1.162
-                        hmod%M0 = 10**(13.673)
-                        hmod%Astar = 0.019
-                        hmod%Twhim = 10**(5.057)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.379
+            !             hmod%eps = 10**(-0.061)
+            !             hmod%Gamma = 1.205
+            !             hmod%M0 = 10**(13.823)
+            !             hmod%Astar = 0.029
+            !             hmod%Twhim = 10**(5.754)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.537
+            !             hmod%eps = 10**(-0.209)
+            !             hmod%Gamma = 1.163
+            !             hmod%M0 = 10**(13.964)
+            !             hmod%Astar = 0.024
+            !             hmod%Twhim = 10**(5.750)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.755
+            !             hmod%eps = 10**(-0.985)
+            !             hmod%Gamma = 1.162
+            !             hmod%M0 = 10**(13.673)
+            !             hmod%Astar = 0.019
+            !             hmod%Twhim = 10**(5.057)
+            !          END IF
 
-                  ELSE IF (ihm == 6) THEN
+            !       ELSE IF (ihm == 6) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.195
-                        hmod%eps = 10**(-0.484)
-                        hmod%Gamma = 1.399
-                        hmod%M0 = 10**(13.807)
-                        hmod%Astar = 0.020
-                        hmod%Twhim = 10**(6.049)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.619
-                        hmod%eps = 10**(-0.309)
-                        hmod%Gamma = 1.507
-                        hmod%M0 = 10**(14.937)
-                        hmod%Astar = 0.021
-                        hmod%Twhim = 10**(5.987)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.384
-                        hmod%eps = 10**(-0.475)
-                        hmod%Gamma = 1.183
-                        hmod%M0 = 10**(14.562)
-                        hmod%Astar = 0.017
-                        hmod%Twhim = 10**(5.796)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.195
+            !             hmod%eps = 10**(-0.484)
+            !             hmod%Gamma = 1.399
+            !             hmod%M0 = 10**(13.807)
+            !             hmod%Astar = 0.020
+            !             hmod%Twhim = 10**(6.049)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.619
+            !             hmod%eps = 10**(-0.309)
+            !             hmod%Gamma = 1.507
+            !             hmod%M0 = 10**(14.937)
+            !             hmod%Astar = 0.021
+            !             hmod%Twhim = 10**(5.987)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.384
+            !             hmod%eps = 10**(-0.475)
+            !             hmod%Gamma = 1.183
+            !             hmod%M0 = 10**(14.562)
+            !             hmod%Astar = 0.017
+            !             hmod%Twhim = 10**(5.796)
+            !          END IF
 
-                  ELSE IF (ihm == 3 .OR. ihm == 14) THEN
+            !       ELSE IF (ihm == 3 .OR. ihm == 14) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.428
-                        hmod%eps = 10**(0.015)
-                        hmod%Gamma = 1.287
-                        hmod%M0 = 10**(13.233)
-                        hmod%Astar = 0.030
-                        hmod%Twhim = 10**(5.404)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.742
-                        hmod%eps = 10**(0.148)
-                        hmod%Gamma = 1.516
-                        hmod%M0 = 10**(12.688)
-                        hmod%Astar = 0.026
-                        hmod%Twhim = 10**(5.531)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.830
-                        hmod%eps = 10**(0.169)
-                        hmod%Gamma = 1.487
-                        hmod%M0 = 10**(12.004)
-                        hmod%Astar = 0.024
-                        hmod%Twhim = 10**(5.643)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.428
+            !             hmod%eps = 10**(0.015)
+            !             hmod%Gamma = 1.287
+            !             hmod%M0 = 10**(13.233)
+            !             hmod%Astar = 0.030
+            !             hmod%Twhim = 10**(5.404)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.742
+            !             hmod%eps = 10**(0.148)
+            !             hmod%Gamma = 1.516
+            !             hmod%M0 = 10**(12.688)
+            !             hmod%Astar = 0.026
+            !             hmod%Twhim = 10**(5.531)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.830
+            !             hmod%eps = 10**(0.169)
+            !             hmod%Gamma = 1.487
+            !             hmod%M0 = 10**(12.004)
+            !             hmod%Astar = 0.024
+            !             hmod%Twhim = 10**(5.643)
+            !          END IF
 
-                  ELSE IF (ihm == 17 .OR. ihm == 18 .OR. ihm == 19) THEN
+            !       ELSE IF (ihm == 17 .OR. ihm == 18 .OR. ihm == 19) THEN
 
-                     hmod%Theat = 10**7.8
+            !          hmod%Theat = 10**7.8
 
-                  END IF
+            !       END IF
 
-               ELSE IF (iowl == 3) THEN
+            !    ELSE IF (iowl == 3) THEN
 
-                  ! Simulation name and file name
-                  name = 'AGN high'
-                  fname = 'AGN_8p0_nu0'
-                  hmod%Theat = 10**8.0
+            !       ! Simulation name and file name
+            !       name = 'AGN high'
+            !       fname = 'AGN_8p0_nu0'
+            !       hmod%Theat = 10**8.0
 
-                  ! Best z=0 fit on 21/06/2018
-                  IF (ihm == 4) THEN
+            !       ! Best z=0 fit on 21/06/2018
+            !       IF (ihm == 4) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.421
-                        hmod%eps = 10**(-0.154)
-                        hmod%Gamma = 1.211
-                        hmod%M0 = 10**(14.316)
-                        hmod%Astar = 0.026
-                        hmod%Twhim = 10**(5.801)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.599
-                        hmod%eps = 10**(-0.686)
-                        hmod%Gamma = 1.158
-                        hmod%M0 = 10**(14.455)
-                        hmod%Astar = 0.022
-                        hmod%Twhim = 10**(5.849)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.659
-                        hmod%eps = 10**(-1.993)
-                        hmod%Gamma = 1.151
-                        hmod%M0 = 10**(14.386)
-                        hmod%Astar = 0.018
-                        hmod%Twhim = 10**(5.829)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.421
+            !             hmod%eps = 10**(-0.154)
+            !             hmod%Gamma = 1.211
+            !             hmod%M0 = 10**(14.316)
+            !             hmod%Astar = 0.026
+            !             hmod%Twhim = 10**(5.801)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.599
+            !             hmod%eps = 10**(-0.686)
+            !             hmod%Gamma = 1.158
+            !             hmod%M0 = 10**(14.455)
+            !             hmod%Astar = 0.022
+            !             hmod%Twhim = 10**(5.849)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.659
+            !             hmod%eps = 10**(-1.993)
+            !             hmod%Gamma = 1.151
+            !             hmod%M0 = 10**(14.386)
+            !             hmod%Astar = 0.018
+            !             hmod%Twhim = 10**(5.829)
+            !          END IF
 
-                  ELSE IF (ihm == 6) THEN
+            !       ELSE IF (ihm == 6) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.302
-                        hmod%eps = 10**(-0.429)
-                        hmod%Gamma = 1.339
-                        hmod%M0 = 10**(14.662)
-                        hmod%Astar = 0.026
-                        hmod%Twhim = 10**(6.080)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.751
-                        hmod%eps = 10**(-0.013)
-                        hmod%Gamma = 1.502
-                        hmod%M0 = 10**(14.958)
-                        hmod%Astar = 0.014
-                        hmod%Twhim = 10**(5.959)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.371
-                        hmod%eps = 10**(-0.127)
-                        hmod%Gamma = 1.101
-                        hmod%M0 = 10**(14.966)
-                        hmod%Astar = 0.018
-                        hmod%Twhim = 10**(6.040)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.302
+            !             hmod%eps = 10**(-0.429)
+            !             hmod%Gamma = 1.339
+            !             hmod%M0 = 10**(14.662)
+            !             hmod%Astar = 0.026
+            !             hmod%Twhim = 10**(6.080)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.751
+            !             hmod%eps = 10**(-0.013)
+            !             hmod%Gamma = 1.502
+            !             hmod%M0 = 10**(14.958)
+            !             hmod%Astar = 0.014
+            !             hmod%Twhim = 10**(5.959)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.371
+            !             hmod%eps = 10**(-0.127)
+            !             hmod%Gamma = 1.101
+            !             hmod%M0 = 10**(14.966)
+            !             hmod%Astar = 0.018
+            !             hmod%Twhim = 10**(6.040)
+            !          END IF
 
-                  ELSE IF (ihm == 3 .OR. ihm == 14) THEN
+            !       ELSE IF (ihm == 3 .OR. ihm == 14) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.528
-                        hmod%eps = 10**(0.038)
-                        hmod%Gamma = 1.505
-                        hmod%M0 = 10**(13.638)
-                        hmod%Astar = 0.027
-                        hmod%Twhim = 10**(5.078)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.742
-                        hmod%eps = 10**(0.125)
-                        hmod%Gamma = 1.547
-                        hmod%M0 = 10**(13.481)
-                        hmod%Astar = 0.024
-                        hmod%Twhim = 10**(5.786)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.918
-                        hmod%eps = 10**(0.289)
-                        hmod%Gamma = 1.996
-                        hmod%M0 = 10**(13.022)
-                        hmod%Astar = 0.022
-                        hmod%Twhim = 10**(5.849)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.528
+            !             hmod%eps = 10**(0.038)
+            !             hmod%Gamma = 1.505
+            !             hmod%M0 = 10**(13.638)
+            !             hmod%Astar = 0.027
+            !             hmod%Twhim = 10**(5.078)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.742
+            !             hmod%eps = 10**(0.125)
+            !             hmod%Gamma = 1.547
+            !             hmod%M0 = 10**(13.481)
+            !             hmod%Astar = 0.024
+            !             hmod%Twhim = 10**(5.786)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.918
+            !             hmod%eps = 10**(0.289)
+            !             hmod%Gamma = 1.996
+            !             hmod%M0 = 10**(13.022)
+            !             hmod%Astar = 0.022
+            !             hmod%Twhim = 10**(5.849)
+            !          END IF
 
-                  ELSE IF (ihm == 17 .OR. ihm == 18 .OR. ihm == 19) THEN
+            !       ELSE IF (ihm == 17 .OR. ihm == 18 .OR. ihm == 19) THEN
 
-                     hmod%Theat = 10**8.0
+            !          hmod%Theat = 10**8.0
 
-                  END IF
+            !       END IF
 
-               ELSE IF (iowl == 2) THEN
+            !    ELSE IF (iowl == 2) THEN
 
-                  ! Simulation name and file name
-                  name = 'AGN low'
-                  fname = 'AGN_7p6_nu0'
-                  hmod%Theat = 10**7.6
+            !       ! Simulation name and file name
+            !       name = 'AGN low'
+            !       fname = 'AGN_7p6_nu0'
+            !       hmod%Theat = 10**7.6
 
-                  ! Best z=0 21/06/2018
-                  IF (ihm == 4) THEN
+            !       ! Best z=0 21/06/2018
+            !       IF (ihm == 4) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.353
-                        hmod%eps = 10**(-0.017)
-                        hmod%Gamma = 1.199
-                        hmod%M0 = 10**(13.517)
-                        hmod%Astar = 0.031
-                        hmod%Twhim = 10**(5.767)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.491
-                        hmod%eps = 10**(-0.104)
-                        hmod%Gamma = 1.158
-                        hmod%M0 = 10**(13.663)
-                        hmod%Astar = 0.025
-                        hmod%Twhim = 10**(5.721)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.532
-                        hmod%eps = 10**(-0.990)
-                        hmod%Gamma = 1.079
-                        hmod%M0 = 10**(13.815)
-                        hmod%Astar = 0.021
-                        hmod%Twhim = 10**(5.601)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.353
+            !             hmod%eps = 10**(-0.017)
+            !             hmod%Gamma = 1.199
+            !             hmod%M0 = 10**(13.517)
+            !             hmod%Astar = 0.031
+            !             hmod%Twhim = 10**(5.767)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.491
+            !             hmod%eps = 10**(-0.104)
+            !             hmod%Gamma = 1.158
+            !             hmod%M0 = 10**(13.663)
+            !             hmod%Astar = 0.025
+            !             hmod%Twhim = 10**(5.721)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.532
+            !             hmod%eps = 10**(-0.990)
+            !             hmod%Gamma = 1.079
+            !             hmod%M0 = 10**(13.815)
+            !             hmod%Astar = 0.021
+            !             hmod%Twhim = 10**(5.601)
+            !          END IF
 
-                  ELSE IF (ihm == 6) THEN
+            !       ELSE IF (ihm == 6) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.181
-                        hmod%eps = 10**(-0.489)
-                        hmod%Gamma = 1.432
-                        hmod%M0 = 10**(13.632)
-                        hmod%Astar = 0.023
-                        hmod%Twhim = 10**(6.099)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.420
-                        hmod%eps = 10**(-0.413)
-                        hmod%Gamma = 1.467
-                        hmod%M0 = 10**(14.606)
-                        hmod%Astar = 0.021
-                        hmod%Twhim = 10**(5.874)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.715
-                        hmod%eps = 10**(-0.405)
-                        hmod%Gamma = 1.154
-                        hmod%M0 = 10**(14.786)
-                        hmod%Astar = 0.019
-                        hmod%Twhim = 10**(5.434)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.181
+            !             hmod%eps = 10**(-0.489)
+            !             hmod%Gamma = 1.432
+            !             hmod%M0 = 10**(13.632)
+            !             hmod%Astar = 0.023
+            !             hmod%Twhim = 10**(6.099)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.420
+            !             hmod%eps = 10**(-0.413)
+            !             hmod%Gamma = 1.467
+            !             hmod%M0 = 10**(14.606)
+            !             hmod%Astar = 0.021
+            !             hmod%Twhim = 10**(5.874)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.715
+            !             hmod%eps = 10**(-0.405)
+            !             hmod%Gamma = 1.154
+            !             hmod%M0 = 10**(14.786)
+            !             hmod%Astar = 0.019
+            !             hmod%Twhim = 10**(5.434)
+            !          END IF
 
-                  ELSE IF (ihm == 3 .OR. ihm == 14) THEN
+            !       ELSE IF (ihm == 3 .OR. ihm == 14) THEN
 
-                     IF (z == 0.) THEN
-                        hmod%alpha = 0.409
-                        hmod%eps = 10**(0.045)
-                        hmod%Gamma = 1.275
-                        hmod%M0 = 10**(12.737)
-                        hmod%Astar = 0.032
-                        hmod%Twhim = 10**(5.357)
-                     ELSE IF (z == 0.5) THEN
-                        hmod%alpha = 0.698
-                        hmod%eps = 10**(0.159)
-                        hmod%Gamma = 1.393
-                        hmod%M0 = 10**(12.012)
-                        hmod%Astar = 0.028
-                        hmod%Twhim = 10**(5.491)
-                     ELSE IF (z == 1. .OR. z == 2.) THEN
-                        hmod%alpha = 0.832
-                        hmod%eps = 10**(0.312)
-                        hmod%Gamma = 1.344
-                        hmod%M0 = 10**(12.020)
-                        hmod%Astar = 0.025
-                        hmod%Twhim = 10**(5.723)
-                     END IF
+            !          IF (z == 0.) THEN
+            !             hmod%alpha = 0.409
+            !             hmod%eps = 10**(0.045)
+            !             hmod%Gamma = 1.275
+            !             hmod%M0 = 10**(12.737)
+            !             hmod%Astar = 0.032
+            !             hmod%Twhim = 10**(5.357)
+            !          ELSE IF (z == 0.5) THEN
+            !             hmod%alpha = 0.698
+            !             hmod%eps = 10**(0.159)
+            !             hmod%Gamma = 1.393
+            !             hmod%M0 = 10**(12.012)
+            !             hmod%Astar = 0.028
+            !             hmod%Twhim = 10**(5.491)
+            !          ELSE IF (z == 1. .OR. z == 2.) THEN
+            !             hmod%alpha = 0.832
+            !             hmod%eps = 10**(0.312)
+            !             hmod%Gamma = 1.344
+            !             hmod%M0 = 10**(12.020)
+            !             hmod%Astar = 0.025
+            !             hmod%Twhim = 10**(5.723)
+            !          END IF
 
-                  ELSE IF (ihm == 17 .OR. ihm == 18 .OR. ihm == 19) THEN
+            !       ELSE IF (ihm == 17 .OR. ihm == 18 .OR. ihm == 19) THEN
 
-                     hmod%Theat = 10**7.6
+            !          hmod%Theat = 10**7.6
 
-                  END IF
+            !       END IF
 
-               END IF
+            !    END IF
 
-            END IF
+            ! END IF
 
-            IF (imode == 15) WRITE (*, *) 'Comparing to OWLS model: ', TRIM(name)
-            IF (imode == 16) WRITE (*, *) 'Comparing to BAHAMAS model: ', TRIM(name)
+            ! IF (imode == 15) WRITE (*, *) 'Comparing to OWLS model: ', TRIM(name)
+            ! IF (imode == 16) WRITE (*, *) 'Comparing to BAHAMAS model: ', TRIM(name)
 
             ! Initiliasation for the halomodel calcualtion after variables changed
             CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
@@ -1969,17 +1953,17 @@ CONTAINS
                IF (j == 4) base = 'data/power_z2.0_'
                mid = ''
                ext = '.dat'
-            ELSE IF (imode == 15) THEN
-               base = 'data/power_'//TRIM(fname)//'_'
-               mid = ''
-               ext = '.dat'
-            ELSE IF (imode == 16) THEN
-               IF (j == 1) base = 'data/power_'//TRIM(fname)//'_z0.0_'
-               IF (j == 2) base = 'data/power_'//TRIM(fname)//'_z0.5_'
-               IF (j == 3) base = 'data/power_'//TRIM(fname)//'_z1.0_'
-               IF (j == 4) base = 'data/power_'//TRIM(fname)//'_z2.0_'
-               mid = ''
-               ext = '.dat'
+            ! ELSE IF (imode == 15) THEN
+            !    base = 'data/power_'//TRIM(fname)//'_'
+            !    mid = ''
+            !    ext = '.dat'
+            ! ELSE IF (imode == 16) THEN
+            !    IF (j == 1) base = 'data/power_'//TRIM(fname)//'_z0.0_'
+            !    IF (j == 2) base = 'data/power_'//TRIM(fname)//'_z0.5_'
+            !    IF (j == 3) base = 'data/power_'//TRIM(fname)//'_z1.0_'
+            !    IF (j == 4) base = 'data/power_'//TRIM(fname)//'_z2.0_'
+            !    mid = ''
+            !    ext = '.dat'
             END IF
 
             ! Dark-matter only
@@ -1988,13 +1972,13 @@ CONTAINS
                IF (j == 2) outfile = 'data/power_z0.5_11.dat'
                IF (j == 3) outfile = 'data/power_z1.0_11.dat'
                IF (j == 4) outfile = 'data/power_z2.0_11.dat'
-            ELSE IF (imode == 15) THEN
-               outfile = 'data/power_DMONLY_11.dat'
-            ELSE IF (imode == 16) THEN
-               IF (j == 1) outfile = 'data/power_DMONLY_z0.0_11.dat'
-               IF (j == 2) outfile = 'data/power_DMONLY_z0.5_11.dat'
-               IF (j == 3) outfile = 'data/power_DMONLY_z1.0_11.dat'
-               IF (j == 4) outfile = 'data/power_DMONLY_z2.0_11.dat'
+            ! ELSE IF (imode == 15) THEN
+            !    outfile = 'data/power_DMONLY_11.dat'
+            ! ELSE IF (imode == 16) THEN
+            !    IF (j == 1) outfile = 'data/power_DMONLY_z0.0_11.dat'
+            !    IF (j == 2) outfile = 'data/power_DMONLY_z0.5_11.dat'
+            !    IF (j == 3) outfile = 'data/power_DMONLY_z1.0_11.dat'
+            !    IF (j == 4) outfile = 'data/power_DMONLY_z2.0_11.dat'
             END IF
 
             ! Write some things to the screen
@@ -2836,7 +2820,7 @@ CONTAINS
       fields(1) = field_matter
       fields(2) = field_cdm
       fields(3) = field_gas
-      fields(4) = field_star
+      fields(4) = field_stars
       fields(5) = field_electron_pressure
 
       ! Allocate arrays for the power spectra
@@ -3005,30 +2989,30 @@ CONTAINS
             CALL assign_halomod(ihm, hmod, verbose)
 
             IF (hmod%HMx_mode == 1 .OR. hmod%HMx_mode == 2 .OR. hmod%HMx_mode == 3) THEN
-               IF (ipa == param_alpha) hmod%alpha = param
-               IF (ipa == param_eps) hmod%eps = param
-               IF (ipa == param_Gamma) hmod%Gamma = param
-               IF (ipa == param_M0) hmod%M0 = param
-               IF (ipa == param_Astar) hmod%Astar = param
-               IF (ipa == param_Twhim) hmod%Twhim = param
-               IF (ipa == param_cstar) hmod%cstar = param
-               IF (ipa == param_fcold) hmod%fcold = param
-               IF (ipa == param_mstar) hmod%mstar = param
-               IF (ipa == param_sstar) hmod%sstar = param
+               IF (ipa == param_alpha)  hmod%alpha = param
+               IF (ipa == param_eps)    hmod%eps = param
+               IF (ipa == param_Gamma)  hmod%Gamma = param
+               IF (ipa == param_M0)     hmod%M0 = param
+               IF (ipa == param_Astar)  hmod%Astar = param
+               IF (ipa == param_Twhim)  hmod%Twhim = param
+               IF (ipa == param_cstar)  hmod%cstar = param
+               IF (ipa == param_fcold)  hmod%fcold = param
+               IF (ipa == param_mstar)  hmod%mstar = param
+               IF (ipa == param_sstar)  hmod%sstar = param
                IF (ipa == param_alphap) hmod%alphap = param
                IF (ipa == param_Gammap) hmod%Gammap = param
                IF (ipa == param_cstarp) hmod%cstarp = param
-               IF (ipa == param_fhot) hmod%fhot = param
+               IF (ipa == param_fhot)   hmod%fhot = param
                IF (ipa == param_alphaz) hmod%alphaz = param
                IF (ipa == param_Gammaz) hmod%Gammaz = param
-               IF (ipa == param_M0z) hmod%M0z = param
+               IF (ipa == param_M0z)    hmod%M0z = param
                IF (ipa == param_Astarz) hmod%Astarz = param
                IF (ipa == param_Twhimz) hmod%Twhimz = param
-               IF (ipa == param_eta) hmod%eta = param
-               IF (ipa == param_epsz) hmod%epsz = param
-               IF (ipa == param_beta) hmod%beta = param
-               IF (ipa == param_betap) hmod%betap = param
-               IF (ipa == param_betaz) hmod%betaz = param
+               IF (ipa == param_eta)    hmod%eta = param
+               IF (ipa == param_epsz)   hmod%epsz = param
+               IF (ipa == param_beta)   hmod%beta = param
+               IF (ipa == param_betap)  hmod%betap = param
+               IF (ipa == param_betaz)  hmod%betaz = param
             ELSE IF (hmod%HMx_mode == 4) THEN
                IF (ipa == param_alpha) THEN
                   hmod%A_alpha = 0.
@@ -3150,7 +3134,7 @@ CONTAINS
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
-      icosmo = 1 ! 1 - Boring
+      !icosmo = -1 ! 1 - Boring
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
@@ -3611,7 +3595,7 @@ CONTAINS
 
       END DO
 
-   END SUBROUTINE
+   END SUBROUTINE Mead2017
 
    SUBROUTINE projection_tests(icosmo, ihm)
 
@@ -4302,7 +4286,7 @@ CONTAINS
       fields(1) = field_matter
       fields(2) = field_cdm
       fields(3) = field_gas
-      fields(4) = field_star
+      fields(4) = field_stars
       fields(5) = field_electron_pressure
 
       ! Set the redshifts
