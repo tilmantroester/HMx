@@ -48,8 +48,13 @@ print 'Number of redshifts: nz: ', nz
 print ''
 
 # Number of cosmologies
-if(!exists('ncos')){ncos=10}
-print 'Plotting this number of cosmolgies: ncos: ', ncos
+if(!exists('icos1')) {icos1=1}
+if(!exists('icos2')) {icos2=10}
+#if(!exists('ncos')) {ncos=10}
+print 'First cosmology to plot: icos1: ', icos1
+print 'Last cosmology to plot: icos2: ', icos2
+#print 'Plotting this number of cosmolgies: ncos: ', ncos
+print 'Total number of cosmologies to plot: ', icos2-icos1+1
 print ''
 
 # Residual range
@@ -104,7 +109,7 @@ if(imode==1){
 plot 1 w l lt -1 noti,\
      1.+ddy w l lc -1 dt 2 noti,\
      1.-ddy w l lc -1 dt 2 noti,\
-     for [icos=0:ncos] file(icos,j) u 1:(column(c)/column(c_em)) w l noti
+     for [icos=icos1:icos2] file(icos,j) u 1:(column(c)/column(c_em)) w l noti
 }
 
 if(imode==2) {
@@ -113,7 +118,7 @@ if(i==2) {A=0.08; b=0.1; n=1}
 plot 1 w l lt -1 noti,\
      1.+ddy w l lc -1 dt 2 noti,\
      1.-ddy w l lc -1 dt 2 noti,\
-     for [icos=0:ncos] file(icos,j) u 1:(column(c)/column(c_em)) w l noti,\
+     for [icos=icos1:icos2] file(icos,j) u 1:(column(c)/column(c_em)) w l noti,\
      error_positive(x,A,b,knl[j],n) w l lw 3 lc -1 noti,\
      error_negative(x,A,b,knl[j],n) w l lw 3 lc -1 noti
 }
