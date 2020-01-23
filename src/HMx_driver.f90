@@ -1489,7 +1489,7 @@ CONTAINS
       REAL :: z
       INTEGER :: iz, j1, j2
       INTEGER :: iowl, field(1), nz, nowl
-      CHARACTER(len=256) :: base, dir, ext, infile, mid, outfile, name
+      CHARACTER(len=256) :: base, dir, ext, mid, outfile, name
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
@@ -1511,7 +1511,7 @@ CONTAINS
       IF (imode == 2 .OR. imode==32 .OR. imode == 52) THEN
          ! Only do one 'model' here
          nowl = 1
-      ELSE IF (imode ==5) THEN
+      ELSE IF (imode == 5) THEN
          ! Do AGN_7p6, AGN_TUNED and AGN_8p0
          nowl = 3
       ELSE
@@ -3832,7 +3832,13 @@ CONTAINS
          OPEN (7, file=outfile)
          DO i = 1, nz
             hmod%z = progression(zmin, zmax, i, nz)
-            WRITE (7, *) hmod%z, HMx_alpha(mass, hmod), HMx_eps(hmod), HMx_Gamma(mass, hmod), HMx_M0(hmod), HMx_Astar(mass, hmod), HMx_Twhim(hmod)
+            WRITE (7, *) hmod%z, &
+               HMx_alpha(mass, hmod), &
+               HMx_eps(hmod), &
+               HMx_Gamma(mass, hmod), &
+               HMx_M0(hmod), &
+               HMx_Astar(hmod), &
+               HMx_Twhim(hmod)
          END DO
          CLOSE (7)
 
@@ -4563,7 +4569,8 @@ CONTAINS
       REAL :: lmin, lmax
       INTEGER :: i, j, ii, jj
       INTEGER :: nl, ix(2), ip(2), n_edge, n_all, nt, nk, na
-      REAL, ALLOCATABLE :: pow_sim(:), ell(:), ell_edge(:), all_ell(:), Cl(:, :, :), all_Cl(:, :, :)
+      REAL, ALLOCATABLE :: pow_sim(:), err_sim(:)
+      REAL, ALLOCATABLE :: ell(:), ell_edge(:), all_ell(:), Cl(:, :, :), all_Cl(:, :, :)
       LOGICAL :: verbose2
       CHARACTER(len=256) :: base, name, outbase, ext, outfile
       CHARACTER(len=256), ALLOCATABLE :: ixx_names(:)
@@ -4690,7 +4697,7 @@ CONTAINS
 
                ! Read in power
                DO i = 1, na
-                  CALL read_BAHAMAS_power(k, pow_sim, nk, redshift_a(a(i)), name, mesh, ip, cosm, &
+                  CALL read_BAHAMAS_power(k, pow_sim, err_sim, nk, redshift_a(a(i)), name, mesh, ip, cosm, &
                                           kmax=kmax_BAHAMAS, &
                                           cut_nyquist=cut_nyquist, &
                                           subtract_shot=subtract_shot, &
