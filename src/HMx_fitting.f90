@@ -42,9 +42,11 @@ PROGRAM HMx_fitting
    REAL, PARAMETER :: kmax_BAHAMAS = 10.        ! Maximum wavenumber to us [h/Mpc]
    REAL, PARAMETER :: z_default = 0.0           ! Default z to fit if not specified
    INTEGER, PARAMETER :: mesh = 1024            ! BAHAMAS mesh size power to use
-   LOGICAL, PARAMETER :: cut_nyquist = .FALSE.  ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
-   LOGICAL, PARAMETER :: subtract_shot = .TRUE. ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
-   LOGICAL, PARAMETER :: response_default = .TRUE.                   ! Should I treat the BAHAMAS P(k) as HMcode response?
+   LOGICAL, PARAMETER :: cut_nyquist = .FALSE.       ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
+   LOGICAL, PARAMETER :: subtract_shot = .TRUE.      ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
+   LOGICAL, PARAMETER :: response_default = .TRUE.   ! Should I treat the BAHAMAS P(k) as HMcode response?
+   LOGICAL, PARAMETER :: realisation_errors= .TRUE. ! Do we use the errors from the individual simulations or across realisations?
+   LOGICAL, PARAMETER :: weight_by_errors = .FALSE.  ! Do we weight by the inverse of the errors?
    CHARACTER(len=256), PARAMETER :: powbase_default = 'fitting/test' ! Default output file base
 
    INTEGER, PARAMETER :: ifit_MCMC = 1
@@ -61,7 +63,7 @@ CONTAINS
 
       INTEGER :: imode
       INTEGER :: ncos, nfields, nz, nk
-      REAL, ALLOCATABLE :: k(:), z(:), pow(:, :, :, :, :), weight(:, :, :, :, :)
+      REAL, ALLOCATABLE :: k(:), z(:), pow(:, :, :, :, :), weight(:, :, :, :, :), err(:,:,:,:,:)
       INTEGER, ALLOCATABLE :: fields(:)
       TYPE(fitting) :: fit
       TYPE(halomod), ALLOCATABLE :: hmod(:)
@@ -233,10 +235,10 @@ CONTAINS
       CALL assign_halomods(imode, name, hmod, ncos)
 
       ! Read in the simulation power spectra
-      CALL read_simulation_power_spectra(imode, name, k, nk, pow, cosm, ncos, z, nz, fields, nfields, resp_BAHAMAS)
+      CALL read_simulation_power_spectra(imode, name, k, nk, pow, err, cosm, ncos, z, nz, fields, nfields, resp_BAHAMAS)
 
       ! Set the weights
-      CALL init_weights(imode, weight, ncos, nfields, k, nk, nz)
+      CALL init_weights(imode, weight, err/pow, ncos, nfields, k, nk, nz)
 
       ! Set the initial parameter values, ranges, names, etc.
       CALL init_parameters(z, fit)
@@ -771,14 +773,19 @@ CONTAINS
       fit%maximum(param_beta) = 1e1
       fit%log(param_beta) = .TRUE.
 
+      !fit%name(param_eps) = 'epsilon'
+      !fit%original(param_eps) = 1.1
+      !fit%sigma(param_eps) = 0.05
+      !fit%minimum(param_eps) = 1e-2
+      !fit%maximum(param_eps) = 1e2
+      !fit%log(param_eps) = .TRUE.
+
       fit%name(param_eps) = 'epsilon'
-      !fit%original(param_eps)=1. ! Standard value from ihm=3
-      fit%original(param_eps) = 1.1
+      fit%original(param_eps) = 0.
       fit%sigma(param_eps) = 0.05
-      fit%minimum(param_eps) = 1e-2
-      fit%maximum(param_eps) = 1e2
-      !fit%log(param_eps)=.FALSE. ! Changed on 25/04/2019; may cause problems?
-      fit%log(param_eps) = .TRUE.
+      fit%minimum(param_eps) = -0.99
+      fit%maximum(param_eps) = 2.
+      fit%log(param_eps) = .FALSE.
 
       ! NOTE: This parameter is Gamma-1, not regular Gamma
       fit%name(param_Gamma) = 'Gamma-1'
@@ -883,12 +890,19 @@ CONTAINS
       fit%maximum(param_gbeta) = 0.99
       fit%log(param_gbeta) = .FALSE.
 
-      fit%name(param_cmod) = 'cmod'
-      fit%original(param_cmod) = 1.0
-      fit%sigma(param_cmod) = 0.1
-      fit%minimum(param_cmod) = 1e-2
-      fit%maximum(param_cmod) = 1e1
-      fit%log(param_cmod) = .TRUE.
+      !fit%name(param_cmod) = 'cmod'
+      !fit%original(param_cmod) = 1.0
+      !fit%sigma(param_cmod) = 0.1
+      !fit%minimum(param_cmod) = 1e-2
+      !fit%maximum(param_cmod) = 1e1
+      !fit%log(param_cmod) = .TRUE.
+
+      fit%name(param_eps2) = 'epsilon2'
+      fit%original(param_eps2) = 0.0
+      fit%sigma(param_eps2) = 0.05
+      fit%minimum(param_eps2) = -0.99
+      fit%maximum(param_eps2) = 1.
+      fit%log(param_eps2) = .FALSE.
 
       !! !!
 
@@ -1008,13 +1022,10 @@ CONTAINS
       fit%log(param_cstarz) = .FALSE.
 
       fit%name(param_Mstarz) = 'M_*_z_pow'
-      !fit%original(param_Mstarz) = 0.0 ! Standard value from ihm=3
-      fit%original(param_Mstarz) = 1.0 ! HMx2020 linear realtion in z
+      fit%original(param_Mstarz) = 0.0 ! Standard value from ihm=3
       fit%sigma(param_Mstarz) = 0.01
-      !fit%minimum(param_Mstarz) = -1.
-      !fit%maximum(param_Mstarz) = 1.
-      fit%minimum(param_Mstarz) = 0.
-      fit%maximum(param_Mstarz) = 2.
+      fit%minimum(param_Mstarz) = -1.
+      fit%maximum(param_Mstarz) = 1.
       fit%log(param_Mstarz) = .FALSE.
 
       fit%name(param_ibetaz) = 'iso_beta_z_pow'
@@ -1368,12 +1379,13 @@ CONTAINS
             im == 40 .OR. im == 11 .OR. im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16 .OR. im == 23) THEN
          nz = 1
          !IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
-      ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
+      ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 45 .OR. im == 46) THEN
          nz = 11
          !IF (name == '') name = 'AGN_TUNED_nu0' ! TODO: Should this be here?
-      ELSE IF (im == 43) THEN
+      ELSE IF (im == 43 .OR. im == 44) THEN
          ! Limited z range for stars
          !nz = 5
+         !nz = 6
          nz = 7
       ELSE
          STOP 'HMx_FITTING: Error, mode im not specified correctly for nz'
@@ -1399,7 +1411,7 @@ CONTAINS
          ELSE
             READ (zin, *) z(1)
          END IF
-      ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 44 .OR. im == 45 .OR. im == 46) THEN
+      ELSE IF (im == 21 .OR. im == 41 .OR. im == 42 .OR. im == 45 .OR. im == 46) THEN
          ! All 11 snapshots between z=0 and z=2 from BAHAMAS
          z(1) = 0.000
          z(2) = 0.125
@@ -1412,8 +1424,7 @@ CONTAINS
          z(9) = 1.500
          z(10) = 1.750
          z(11) = 2.000
-      ELSE IF (im == 43) THEN
-         ! Only z < 0.5 for stars
+      ELSE IF (im == 43 .OR. im == 44) THEN
          z(1) = 0.000
          z(2) = 0.125
          z(3) = 0.250
@@ -1476,7 +1487,7 @@ CONTAINS
 
    END SUBROUTINE assign_halomods
 
-   SUBROUTINE read_simulation_power_spectra(im, name, k, nk, pow, cosm, ncos, z, nz, fields, nf, response)
+   SUBROUTINE read_simulation_power_spectra(im, name, k, nk, pow, err, cosm, ncos, z, nz, fields, nf, response)
 
       ! Read in the simulation P(k) data that is to be fitted
       IMPLICIT NONE
@@ -1485,6 +1496,7 @@ CONTAINS
       REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
       INTEGER, INTENT(OUT) :: nk
       REAL, ALLOCATABLE, INTENT(OUT) :: pow(:, :, :, :, :)
+      REAL, ALLOCATABLE, INTENT(OUT) :: err(:, :, :, :, :)
       TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
       INTEGER, INTENT(IN) :: ncos
       REAL, INTENT(IN) :: z(nz)
@@ -1494,7 +1506,7 @@ CONTAINS
       LOGICAL, INTENT(IN) :: response
       INTEGER :: i, j, j1, j2
       INTEGER :: ip(2)
-      REAL, ALLOCATABLE :: k_sim(:), pow_sim(:)
+      REAL, ALLOCATABLE :: k_sim(:), pow_sim(:), err_sim(:)
 
       LOGICAL, PARAMETER :: rebin_emu = .TRUE.
       LOGICAL, PARAMETER :: verbose_BAHAMAS = .TRUE.
@@ -1519,19 +1531,25 @@ CONTAINS
                      im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 23) THEN
                      ip(1) = fields(j1)
                      ip(2) = fields(j2)
-                     CALL read_BAHAMAS_power(k_sim, pow_sim, nk, z(j), name, mesh, ip, cosm(i), &
-                                             kmin_default, kmax_default, cut_nyquist, subtract_shot, &
-                                             response=response, verbose=verbose_BAHAMAS)
+                     CALL read_BAHAMAS_power(k_sim, pow_sim, err_sim, nk, z(j), name, mesh, ip, cosm(i), &
+                                             kmin=kmin_default, &
+                                             kmax=kmax_default, &
+                                             cut_nyquist=cut_nyquist, &
+                                             subtract_shot=subtract_shot, &
+                                             response=response, &
+                                             realisation_errors=realisation_errors, &
+                                             verbose=verbose_BAHAMAS)
                   ELSE
                      STOP 'READ_SIMULATION_POWER_SPECTRA: Error, something went wrong reading data'
                   END IF
 
                   ! Allocate big arrays for P(k,z,cosm)
-                  IF (.NOT. ALLOCATED(k)) ALLOCATE (k(nk))
+                  IF (.NOT. ALLOCATED(k))   ALLOCATE (k(nk))
                   IF (.NOT. ALLOCATED(pow)) ALLOCATE (pow(ncos, nf, nf, nk, nz))
+                  IF (.NOT. ALLOCATED(err)) ALLOCATE (err(ncos, nf, nf, nk, nz))
                   k = k_sim
                   pow(i, j1, j2, :, j) = pow_sim
-
+                  err(i, j1, j2, :, j) = err_sim
                END DO
             END DO
 
@@ -1540,13 +1558,14 @@ CONTAINS
 
    END SUBROUTINE read_simulation_power_spectra
 
-   SUBROUTINE init_weights(im, weight, ncos, nf, k, nk, nz)
+   SUBROUTINE init_weights(im, weight, errors, ncos, nf, k, nk, nz)
 
       ! Set the weights depending on the mode selected by the user
       ! This allows the user to exclude some scales, redshifts, fields combinations etc. etc.
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: im
+      INTEGER, INTENT(IN) :: im    
       REAL, ALLOCATABLE, INTENT(OUT) :: weight(:, :, :, :, :)
+      REAL, INTENT(IN) :: errors(ncos, nf, nf, nk, nz)
       INTEGER, INTENT(IN) :: ncos
       INTEGER, INTENT(IN) :: nf
       REAL, INTENT(IN) :: k(nk)
@@ -1557,7 +1576,11 @@ CONTAINS
 
       ! Standard to give equal weight to everything
       ALLOCATE (weight(ncos, nf, nf, nk, nz))
-      weight = 1.
+      IF(weight_by_errors) THEN
+         weight = 1./errors
+      ELSE
+         weight = 1.
+      END IF
 
       ! No weight to pressure-pressure
       IF (im == 20 .OR. im == 21 .OR. im == 13) THEN
@@ -1643,7 +1666,7 @@ CONTAINS
          fit%set(param_eps) = .TRUE.
          !fit%set(param_M0) = .TRUE.    ! Helps only a minor amount but throws gas-gas and thus matter-matter off a lot
          !fit%set(param_gbeta) = .TRUE. ! Seems to add too much freedom, errors in WININT
-         fit%set(param_cmod) = .TRUE.   ! Helps a lot
+         fit%set(param_eps2) = .TRUE.   ! Helps a lot
       ELSE IF (im == 41) THEN
          ! 41 - extended z; final parameters; CDM
          fit%set(param_eps) = .TRUE.
@@ -1660,7 +1683,7 @@ CONTAINS
          fit%set(param_M0) = .TRUE.
          fit%set(param_Astar) = .TRUE. ! Needed because it governs how much overall gas there is
          !fit%set(param_gbeta) = .TRUE. ! Test
-         fit%set(param_cmod) = .TRUE. ! Test
+         fit%set(param_eps2) = .TRUE. ! Test
       ELSE IF (im == 11) THEN
          ! 47 - fixed z; final parameters; gas
          fit%set(param_ibeta) = .TRUE.
@@ -1694,7 +1717,7 @@ CONTAINS
          ! I also tried removing the high-mass saturation of the f_* relation (to A_*/3), this did not help
          ! I also tried using the Schneider & Teyssier stellar-density profile. This did not help.
       ELSE IF (im == 43) THEN
-         ! 43 - extended z; final parameters; stars
+         ! 43 - extended z; final parameters; star
          fit%set(param_Astar) = .TRUE.
          fit%set(param_Astarz) = .TRUE.
          !fit%set(param_sstar) = .TRUE.  ! HMx2020 - does not help with star-star much
@@ -1704,7 +1727,7 @@ CONTAINS
          fit%set(param_Mstar) = .TRUE.
          fit%set(param_Mstarz) = .TRUE.
          fit%set(param_eta) = .TRUE.
-         !fit%set(param_etaz) = .TRUE.
+         !fit%set(param_etaz) = .TRUE. ! HMx2020 - did not help with star-star much
       ELSE IF (im == 29) THEN
          ! 29 - fixed z; basic parameters; matter
          fit%set(param_eps) = .TRUE.
@@ -1720,7 +1743,7 @@ CONTAINS
          !fit%set(param_Astar) = .TRUE.
          !fit%set(param_cstar)=.TRUE.
          !fit%set(param_Mstar) = .TRUE.
-         fit%set(param_cmod) = .TRUE. ! Test
+         fit%set(param_eps2) = .TRUE. ! Test
       ELSE IF (im == 14) THEN
          ! 14 - fixed z; final parameters; matter
          fit%set(param_eps) = .TRUE.
@@ -1735,12 +1758,13 @@ CONTAINS
          fit%set(param_eps) = .TRUE.
          fit%set(param_epsz) = .TRUE.
          fit%set(param_Gamma) = .TRUE.
-         fit%set(param_Gammap) = .TRUE.
-         fit%set(param_Gammaz) = .TRUE.
+         !fit%set(param_Gammap) = .TRUE.
+         !fit%set(param_Gammaz) = .TRUE.
          fit%set(param_M0) = .TRUE.
          fit%set(param_M0z) = .TRUE.
-         fit%set(param_Astar) = .TRUE.
-         fit%set(param_Astarz) = .TRUE.
+         !fit%set(param_Astar) = .TRUE.
+         !fit%set(param_Astarz) = .TRUE.
+         fit%set(param_eps2) = .TRUE.
          !fit%set(param_cstar)=.TRUE.  ! Did not cause a large enough change in figure-of-merit
          !fit%set(param_cstarp)=.TRUE. ! Did not cause a large enough change in figure-of-merit
          !fit%set(param_cstarz)=.TRUE. ! Did not cause a large enough change in figure-of-merit
@@ -1762,7 +1786,7 @@ CONTAINS
          fit%set(param_Astar) = .TRUE.
          fit%set(param_cstar) = .TRUE.
          fit%set(param_Mstar) = .TRUE.
-         fit%set(param_cmod) = .TRUE. ! Test
+         fit%set(param_eps2) = .TRUE. ! Test
       ELSE IF (im == 15 .OR. im == 16) THEN
          ! 15 - fixed z; final parameters; CDM, gas stars (isothermal)
          ! 16 - fixed z; final parameters; matter, CDM, gas stars (isothermal)
@@ -1935,7 +1959,7 @@ CONTAINS
       IF (fit%set(param_eta))   hmod%eta = p_out(param_eta)
       IF (fit%set(param_ibeta)) hmod%ibeta = p_out(param_ibeta)
       IF (fit%set(param_gbeta)) hmod%gbeta = p_out(param_gbeta)
-      IF (fit%set(param_cmod))  hmod%cmod = p_out(param_cmod)
+      IF (fit%set(param_eps2))  hmod%eps2 = p_out(param_eps2)
 
       ! Hydro - mass indices
       IF (fit%set(param_alphap)) hmod%alphap = p_out(param_alphap)
