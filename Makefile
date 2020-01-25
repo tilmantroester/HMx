@@ -9,8 +9,8 @@ HMX_FFLAGS = \
 	-O3 \
 	-fdefault-real-8 \
 	-fdefault-double-8 \
-	-fopenmp# \
-	-Warray-bounds \
+	-fopenmp #\
+	-Warray-bounds #\
 	-lgfortran \
 	-lm
 
