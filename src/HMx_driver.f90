@@ -2777,7 +2777,7 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), a(:)
-      REAL, ALLOCATABLE :: pows_li(:, :), pows_2h(:, :, :, :), pows_1h(:, :, :, :), pows_hm(:, :, :, :)
+      REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
       INTEGER :: i
       INTEGER :: na, ip(2)
       CHARACTER(len=256) :: base
@@ -2818,10 +2818,12 @@ CONTAINS
       END DO
 
       ! User chooses halo model
-      CALL calculate_HMx(ip, nf, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
+      CALL calculate_HMx(ip, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
+      ! Write out data
       base = 'data/power'
-      CALL write_power_a_multiple(k, a, pows_li, pows_2h(ip(1), ip(2), :, :), pows_1h(ip(1), ip(2), :, :), pows_hm(ip(1), ip(2), :, :), nk, na, base, verbose)
+      CALL write_power_a_multiple(k, a, pow_li, pow_2h(1, 2, :, :), pow_1h(1, 2, :, :), &
+         pow_hm(1, 2, :, :), nk, na, base, verbose)
 
    END SUBROUTINE spectra_fields_3D
 
