@@ -35,7 +35,8 @@ plot om_b/om_m  w l lw width dt 2 lc -1 ti 'Universal baryon',\
    file u 1:5 w l lw width dt 3 lc 3  ti 'Unbound gas',\
    file u 1:6 w l lw width dt 1 lc 4  ti 'Stars',\
    file u 1:7 w l lw width dt 2 lc 4  ti 'Central stars',\
-   file u 1:8 w l lw width dt 3 lc 4  ti 'Satellite stars'
+   file u 1:8 w l lw width dt 3 lc 4  ti 'Satellite stars',\
+   file u 1:9 w l lw width dt 3 lc 5  ti 'Neutrinos'
 
 show output
 

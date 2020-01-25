@@ -32,7 +32,7 @@ set mxtics 10
 pmin = 1e-8
 pmax = 1e4
 set log y
-#set yrange [pmin:pmax]
+set yrange [pmin:pmax]
 set ylabel '{/Symbol D}_{i,j}^2(k)'
 set format y '10^{%T}'
 
@@ -68,7 +68,7 @@ print('')
 #Actual plot
 set title tits
 plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti,\
-      file_li u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 2 lc palette noti,\
+      file_li u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 2 lc palette noti#,\
       file_2h u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 3 lc palette noti,\
       file_1h u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 4 lc palette noti
 
