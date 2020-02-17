@@ -56,8 +56,8 @@ PROGRAM HMx_driver
       WRITE (*, *) ' 2 - Hydrodynamical halo model'
       WRITE (*, *) ' 3 - Run diagnostics for haloes'
       WRITE (*, *) ' 4 - Do random baryon parameters for bug testing'
-      WRITE (*, *) ' 5 - HMx 2020'
-      WRITE (*, *) ' 6 - '
+      WRITE (*, *) ' 5 - HMx2020'
+      WRITE (*, *) ' 6 - HMx2020 across AGN temperature range'
       WRITE (*, *) ' 7 - Do general angular cross correlation'
       WRITE (*, *) ' 8 - Angular cross correlation as a function of cosmology'
       WRITE (*, *) ' 9 - Breakdown angular correlations in halo mass'
@@ -66,7 +66,7 @@ PROGRAM HMx_driver
       WRITE (*, *) '12 - Triad'
       WRITE (*, *) '13 - Cross-correlation coefficient'
       WRITE (*, *) '14 - 3D spectra for variations in baryon parameters'
-      WRITE (*, *) '15 - '
+      WRITE (*, *) '15 - HMx2020 comparison for different AGN temperatures'
       WRITE (*, *) '16 - '
       WRITE (*, *) '17 - 3D spectra for user choice of fields'
       WRITE (*, *) '18 - 3D bias'
@@ -82,7 +82,7 @@ PROGRAM HMx_driver
       WRITE (*, *) '28 - Comparison with FrankenEmu nodes'
       WRITE (*, *) '29 - Comparison with random Mira Titan cosmology'
       WRITE (*, *) '30 - Comparison with random FrankenEmu cosmology'
-      WRITE (*, *) '31 - PAPER: Breakdown 3D hydro power in halo mass'
+      WRITE (*, *) '31 - Breakdown 3D hydro power with lower-mass limits on halo mass'
       WRITE (*, *) '32 - PAPER: Hydro power for baseline model (NOT SUPPORTED)'
       WRITE (*, *) '33 - PAPER: Effect of parameter variations on baseline model hydro power'
       WRITE (*, *) '34 - Write HMx hydro parameter variations with T_AGN and z'
@@ -92,9 +92,9 @@ PROGRAM HMx_driver
       WRITE (*, *) '38 - Tilman AGN model triad for all feedback models'
       WRITE (*, *) '39 - Tilman AGN model Triad for all feedback models (Triad 3 ell)'
       WRITE (*, *) '40 - Halo bias'
-      WRITE (*, *) '41 - 3D power as a function of cosmology'
-      WRITE (*, *) '42 - PAPER: Contributions to k-k C(l) integral'
-      WRITE (*, *) '43 - PAPER: Contributions to k-y C(l) integral'
+      WRITE (*, *) '41 - PAPER: Matter, pressure power as a function of sigma8'
+      WRITE (*, *) '42 - MAYBE PAPER: Contributions to k-k C(l) integral'
+      WRITE (*, *) '43 - MAYBE PAPER: Contributions to k-y C(l) integral'
       WRITE (*, *) '44 - Triad with Tilman model'
       WRITE (*, *) '45 - Comparison of Sheth-Tormen vs. Tinker mass function'
       WRITE (*, *) '46 - Mass function and bias plots'
@@ -104,10 +104,10 @@ PROGRAM HMx_driver
       WRITE (*, *) '50 - Mass function changes with Lbox'
       WRITE (*, *) '51 - Compare power with and without scatter'
       WRITE (*, *) '52 - Hydrodynamical halo model with BAHAMAS k range'
-      WRITE (*, *) '53 - Breakdown 3D hydro power in halo mass II'
+      WRITE (*, *) '53 - PAPER: Breakdown 3D hydro power in halo mass bins'
       WRITE (*, *) '54 - Trispectrum test'
       WRITE (*, *) '55 - Triad for all feedback models'
-      WRITE (*, *) '56 - PAPER: Triad for all feedback models (Triad 3 ell)'
+      WRITE (*, *) '56 - MAYBE PAPER: Triad for all feedback models (Triad 3 ell)'
       WRITE (*, *) '57 - Direct integration of measured 3D BAHAMAS spectra: Triad 3'
       WRITE (*, *) '58 - Multiple same fields check'
       WRITE (*, *) '59 - Tinker (2010) bias plot check'
@@ -141,6 +141,10 @@ PROGRAM HMx_driver
       CALL power_multiple(iicosmo, iihm)
    ELSE IF (iimode == 2 .OR. iimode == 5 .OR. iimode == 32 .OR. iimode == 52) THEN
       CALL hydro_stuff(iimode, iicosmo, iihm)
+   ELSE IF (iimode == 6) THEN
+      CALL hydro_across_temperature_range(iimode, iicosmo, iihm)
+   ELSE IF (iimode == 15) THEN
+      CALL hydro_suppression_as_a_function_of_cosmology(iimode, iicosmo, iihm)
    ELSE IF (iimode == 3) THEN
       CALL halo_stuff(iicosmo, iihm)
    ELSE IF (iimode == 4 .OR. iimode == 72) THEN
@@ -809,172 +813,6 @@ CONTAINS
 
    END SUBROUTINE random_baryon_parameters
 
-   ! SUBROUTINE xpow(ix, nx, ell, Cl, nl, hmod, cosm, verbose)
-
-   !    ! Calculates the C(l) for the cross correlation of fields ix(1) and ix(2)
-   !    ! TODO: Speed up if there are repeated fields in ix(n) (should this ever happen?)
-   !    ! TODO: Add bin theory option
-   !    IMPLICIT NONE
-   !    INTEGER, INTENT(INOUT) :: ix(nx)
-   !    INTEGER, INTENT(IN) :: nx
-   !    REAL, INTENT(IN) :: ell(nl)
-   !    REAL, INTENT(OUT) :: Cl(nl, nx, nx)
-   !    INTEGER, INTENT(IN) :: nl
-   !    TYPE(halomod), INTENT(INOUT) :: hmod
-   !    TYPE(cosmology), INTENT(INOUT) :: cosm
-   !    LOGICAL, INTENT(IN) :: verbose
-   !    REAL, ALLOCATABLE :: a(:), k(:), pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
-   !    REAL :: lmin, lmax
-   !    INTEGER :: ixx(2), ip(nx), nk, na, i, j, ii, jj, nnx, match(nx)
-   !    INTEGER, ALLOCATABLE :: iix(:)
-   !    REAL, ALLOCATABLE :: uCl(:, :, :)
-
-   !    REAL, PARAMETER :: kmin_xpow = 1e-3 ! Minimum k to calculate P(k); it will be extrapolated below this by Limber
-   !    REAL, PARAMETER :: kmax_xpow = 1e2  ! Maximum k to calculate P(k); it will be extrapolated above this by Limber
-   !    INTEGER, PARAMETER :: nk_xpow = 256 ! Number of log-spaced k values (used to be 32)
-   !    REAL, PARAMETER :: amin_xpow = 0.1  ! Minimum scale factor (problems with one-halo term if amin is less than 0.1)
-   !    REAL, PARAMETER :: amax_xpow = 1.0  ! Maximum scale factor
-   !    INTEGER, PARAMETER :: na_xpow = 16  ! Number of linearly-spaced scale factores
-
-   !    !IF(repeated_entries(ix,n)) STOP 'XPOW: Error, repeated tracers'
-   !    CALL unique_index(ix, nx, iix, nnx, match)
-   !    ALLOCATE (uCl(nl, nnx, nnx))
-
-   !    ! Set the k range
-   !    nk = nk_xpow
-   !    CALL fill_array(log(kmin_xpow), log(kmax_xpow), k, nk)
-   !    k = exp(k)
-
-   !    ! Set the a range
-   !    na = na_xpow
-   !    CALL fill_array(amin_xpow, amax_xpow, a, na)
-
-   !    ! Set the ell range
-   !    lmin = ell(1)
-   !    lmax = ell(nl)
-
-   !    ! Write to screen
-   !    IF (verbose) THEN
-   !       WRITE (*, *) 'XPOW: Cross-correlation information'
-   !       WRITE (*, *) 'XPOW: Number of tracers:', nx
-   !       WRITE (*, *) 'XPOW: P(k) minimum k [h/Mpc]:', REAL(kmin_xpow)
-   !       WRITE (*, *) 'XPOW: P(k) maximum k [h/Mpc]:', REAL(kmax_xpow)
-   !       WRITE (*, *) 'XPOW: Number of k:', nk
-   !       WRITE (*, *) 'XPOW: minimum a:', REAL(amin_xpow)
-   !       WRITE (*, *) 'XPOW: maximum a:', REAL(amax_xpow)
-   !       WRITE (*, *) 'XPOW: number of a:', na
-   !       WRITE (*, *) 'XPOW: minimum ell:', REAL(lmin)
-   !       WRITE (*, *) 'XPOW: maximum ell:', REAL(lmax)
-   !       WRITE (*, *) 'XPOW: number of ell:', nl
-   !       WRITE (*, *)
-   !    END IF
-
-   !    ! Use the xpowlation type to set the necessary halo profiles
-   !    DO i = 1, nnx
-   !       CALL set_field_for_xpow(ix(i), ip(i))
-   !    END DO
-
-   !    ! Do the halo model power spectrum calculation
-   !    CALL calculate_HMx(ip, nnx, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose, response=.FALSE.)
-
-   !    ! Set the Cl to zero initially
-   !    uCl = 0.
-
-   !    ! Loop over triangle combinations
-   !    DO i = 1, nnx
-   !       ixx(1) = ix(i)
-   !       DO j = i, nnx
-   !          ixx(2) = ix(j)
-   !          CALL xpow_pka(ixx, ell, uCl(:, i, j), nl, k, a, pow_hm(i, j, :, :), nk, na, cosm)
-   !       END DO
-   !    END DO
-
-   !    ! Fill the symmetric cross terms
-   !    DO i = 1, nnx
-   !       DO j = i+1, nnx
-   !          uCl(:, j, i) = uCl(:, i, j)
-   !       END DO
-   !    END DO
-
-   !    ! Now fill the full arrays from the unique arrays
-   !    DO i = 1, nx
-   !       DO j = 1, nx
-   !          ii = match(i)
-   !          jj = match(j)
-   !          Cl(:, i, j) = uCl(:, ii, jj)
-   !       END DO
-   !    END DO
-
-   !    ! Write to screen
-   !    IF (verbose) THEN
-   !       WRITE (*, *) 'XPOW: Done'
-   !       WRITE (*, *)
-   !    END IF
-
-   ! END SUBROUTINE xpow
-
-   ! SUBROUTINE set_field_for_xpow(ix, ip)
-
-   !    ! Set the cross-correlation type
-   !    IMPLICIT NONE
-   !    INTEGER, INTENT(INOUT) :: ix ! Tracer for cross correlation
-   !    INTEGER, INTENT(OUT) :: ip   ! Corresponding field for power spectrum
-   !    INTEGER :: j
-
-   !    IF (ix == -1) THEN
-   !       WRITE (*, *) 'SET_FIELDS_FOR_XPOW: Choose field'
-   !       WRITE (*, *) '================================='
-   !       DO j = 1, n_tracers
-   !          WRITE (*, fmt='(I3,A3,A30)') j, '- ', TRIM(xcorr_type(j))
-   !       END DO
-   !       READ (*, *) ix
-   !       WRITE (*, *) '==================================='
-   !       WRITE (*, *)
-   !    END IF
-
-   !    IF (ix == tracer_Compton_y) THEN
-   !       ! Compton y
-   !       ip = field_electron_pressure
-   !    ELSE IF (ix == tracer_gravity_wave) THEN
-   !       ! Gravitational waves
-   !       ip = field_dmonly
-   !    ELSE IF (ix == tracer_RCSLenS .OR. &
-   !             ix == tracer_CFHTLenS_vanWaerbeke2013 .OR. &
-   !             ix == tracer_CMB_lensing .OR. &
-   !             ix == tracer_KiDS .OR. &
-   !             ix == tracer_KiDS_bin1 .OR. &
-   !             ix == tracer_KiDS_bin2 .OR. &
-   !             ix == tracer_KiDS_bin3 .OR. &
-   !             ix == tracer_KiDS_bin4 .OR. &
-   !             ix == tracer_KiDS_450 .OR. &
-   !             ix == tracer_KiDS_450_fat_bin1 .OR. &
-   !             ix == tracer_KiDS_450_fat_bin2 .OR. &
-   !             ix == tracer_KiDS_450_highz .OR. &
-   !             ix == tracer_lensing_z1p00 .OR. &
-   !             ix == tracer_lensing_z0p75 .OR. &
-   !             ix == tracer_lensing_z0p50 .OR. &
-   !             ix == tracer_lensing_z0p25 .OR. &
-   !             ix == tracer_KiDS_450_bin1 .OR. &
-   !             ix == tracer_KiDS_450_bin2 .OR. &
-   !             ix == tracer_KiDS_450_bin3 .OR. &
-   !             ix == tracer_KiDS_450_bin4 .OR. &
-   !             ix == tracer_CFHTLenS_Kilbinger2013) THEN
-   !       ! Lensing
-   !       ip = field_matter
-   !    ELSE IF (ix == tracer_CIB_353) THEN
-   !       ip = field_CIB_353
-   !    ELSE IF (ix == tracer_CIB_545) THEN
-   !       ip = field_CIB_545
-   !    ELSE IF (ix == tracer_CIB_857) THEN
-   !       ip = field_CIB_857
-   !    ELSE IF (ix == tracer_galaxies) THEN
-   !       ip = field_central_galaxies
-   !    ELSE
-   !       STOP 'SET_FIELD_FOR_XPOW: Error, tracer specified incorrectly'
-   !    END IF
-
-   ! END SUBROUTINE set_field_for_xpow
-
    SUBROUTINE triad_ell(ell, nl)
 
       IMPLICIT NONE
@@ -1548,12 +1386,8 @@ CONTAINS
             z = zs(iz)
 
             !Assigns the cosmological model
-            IF (imode == 2 .OR. imode == 5 .OR. imode == 32 .OR. imode == 52) THEN
+            IF (imode == 2 .OR. imode == 32 .OR. imode == 52) THEN
                icosmo = 4
-            !ELSE IF (imode == 15) THEN
-            !   icosmo = 2
-            !ELSE IF (imode == 16) THEN
-            !   icosmo = 4
             END IF
 
             IF (imode == 32) THEN
@@ -1561,27 +1395,29 @@ CONTAINS
             END IF
 
             IF (imode == 5) THEN
+               ihm = 56 ! HMx2020 stars
                IF (iowl == 1) THEN
                   ! AGN 7.6
                   name = 'AGN_7p6_nu0'
-                  ihm = 55
+                  icosmo = 4
                ELSE IF(iowl == 2) THEN
                   ! AGN TUNED
                   name = 'AGN_TUNED_nu0'
-                  ihm = 56
+                  icosmo = 61
                ELSE IF (iowl == 3) THEN
                   ! AGN 8.0
                   name = 'AGN_8p0_nu0'
-                  ihm = 57
+                  icosmo = 62
                END IF
             END IF
 
+            ! Initialisation for cosmology
             CALL assign_cosmology(icosmo, cosm, verbose)
             CALL init_cosmology(cosm)
             CALL print_cosmology(cosm)
-            CALL assign_halomod(ihm, hmod, verbose)
-
+            
             ! Initiliasation for the halomodel calcualtion after variables changed
+            CALL assign_halomod(ihm, hmod, verbose)
             CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
             CALL print_halomod(hmod, cosm, verbose)
 
@@ -1673,6 +1509,182 @@ CONTAINS
       END DO
 
    END SUBROUTINE hydro_stuff
+
+   SUBROUTINE hydro_across_temperature_range(imode, icosmo, ihm)
+
+      ! Make cross power spectra of all different components of haloes as well as pressure
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+      INTEGER, INTENT(INOUT) :: ihm
+      INTEGER, INTENT(INOUT) :: icosmo
+      REAL, ALLOCATABLE :: k(:), zs(:), logTs(:)
+      REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
+      REAL :: z, logT
+      INTEGER :: iT, iz, j1, j2, nk
+      CHARACTER(len=256) :: base, ext, mid, outfile
+      TYPE(cosmology) :: cosm
+      TYPE(halomod) :: hmod
+
+      !INTEGER :: icosmo = 4
+      !INTEGER :: ihm = 61
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      REAL, PARAMETER :: logTmin = 7.5
+      REAL, PARAMETER :: logTmax = 8.1
+      INTEGER, PARAMETER :: nT = 7
+      INTEGER, PARAMETER :: nf = 6
+      INTEGER, PARAMETER :: fields(nf) = [field_dmonly, field_matter, field_cdm, field_gas, field_stars, field_electron_pressure]
+      INTEGER, PARAMETER :: nz = 4
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      CHARACTER(len=256), PARAMETER :: infile_k = &
+         '/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+
+      ! Set the redshifts
+      ALLOCATE (zs(nz))
+      zs(1) = 0.0
+      zs(2) = 0.5
+      zs(3) = 1.0
+      zs(4) = 2.0
+
+      CALL fill_array(logTmin, logTmax, logTs, nT)
+
+      ! Get the k values from the simulation measured P(k)
+      CALL read_k_values(infile_k, k, nk)
+
+      ! Allocate the arrays for P(k)
+      ALLOCATE (pow_li(nk), pow_2h(nf, nf, nk), pow_1h(nf, nf, nk), pow_hm(nf, nf, nk))
+
+      CALL assign_cosmology(icosmo, cosm, verbose)
+      CALL init_cosmology(cosm)
+      CALL print_cosmology(cosm)
+
+      CALL assign_halomod(ihm, hmod, verbose)
+
+      DO iT = 1, nT
+
+         logT = logTs(iT)
+         cosm%Theat = 10**logT
+
+         DO iz = 1, nz
+
+            z = zs(iz)
+
+            ! Initiliasation for the halomodel calculation
+            CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
+            CALL print_halomod(hmod, cosm, verbose)
+
+            base = 'data/power_T'//trim(real_to_string(logT,1,1))//'_z'//trim(real_to_string(z,1,1))//'_'
+            mid = ''
+            ext = '.dat'
+
+            ! Do the calculation for the rest of the fields
+            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
+
+            ! Loop over fields and write data
+            DO j1 = 1, nf
+               DO j2 = j1, nf
+
+                  ! Fix output file and write to screen
+                  outfile = number_file2(base, fields(j1), mid, fields(j2), ext)
+
+                  ! Set the halo types and write to screen
+                  WRITE (*, *) fields(j1), fields(j2), TRIM(outfile)
+
+                  ! Write P(k)
+                  CALL write_power(k, pow_li, pow_2h(j1, j2, :), pow_1h(j1, j2, :), pow_hm(j1, j2, :), nk, outfile, verbose=.FALSE.)
+
+               END DO
+            END DO
+
+         END DO
+
+      END DO
+
+   END SUBROUTINE hydro_across_temperature_range
+
+   SUBROUTINE hydro_suppression_as_a_function_of_cosmology(imode, icosmo, ihm)
+
+      ! Make cross power spectra of all different components of haloes as well as pressure
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+      INTEGER, INTENT(INOUT) :: ihm
+      INTEGER, INTENT(INOUT) :: icosmo
+      REAL, ALLOCATABLE :: k(:), zs(:)
+      REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
+      REAL, ALLOCATABLE :: suppression(:, :)
+      REAL :: z
+      INTEGER :: iz, nk, icos, ik
+      TYPE(cosmology) :: cosm
+      TYPE(halomod) :: hmod
+
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      REAL, PARAMETER :: logT = 7.8
+      INTEGER, PARAMETER :: nf = 2
+      INTEGER, PARAMETER :: fields(nf) = [field_dmonly, field_matter]
+      INTEGER, PARAMETER :: nz = 1
+      INTEGER, PARAMETER :: ncos = 2
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      CHARACTER(len=256), PARAMETER :: infile_k = &
+         '/Users/Mead/Physics/BAHAMAS/power/M1024/DMONLY_nu0_L400N1024_WMAP9_snap32_all_all_power.dat'
+      CHARACTER(len=256), PARAMETER :: outfile = 'data/hydro_suppression_cosmology.dat'
+
+      ! Set the redshifts
+      ALLOCATE (zs(nz))
+      zs(1) = 0.
+
+      ! Get the k values from the simulation measured P(k)
+      CALL read_k_values(infile_k, k, nk)
+
+      ! Allocate the arrays for P(k)
+      ALLOCATE (pow_li(nk), pow_2h(nf, nf, nk), pow_1h(nf, nf, nk), pow_hm(nf, nf, nk))
+
+      ALLOCATE(suppression(ncos, nk))
+
+      DO icos = 1, ncos
+
+         IF(icos == 1) THEN
+            icosmo = 4 ! 4 - WMAP 9
+         ELSE IF(icos == 2) THEN
+            icosmo = 3 ! 3 - Planck 2013
+         END IF
+
+         CALL assign_cosmology(icosmo, cosm, verbose)
+         CALL init_cosmology(cosm)
+         CALL print_cosmology(cosm)
+
+         CALL assign_halomod(ihm, hmod, verbose)
+         hmod%Theat = 10**logT
+
+         DO iz = 1, nz
+
+            z = zs(iz)
+
+            ! Initiliasation for the halomodel calculation
+            CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
+            CALL print_halomod(hmod, cosm, verbose)
+
+            ! Do the calculation for the rest of the fields
+            CALL calculate_HMx_a(fields, nf, k, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
+
+            DO ik = 1, nk
+               suppression(icos, ik) = pow_hm(2, 2, ik)/pow_hm(1, 1, ik)            
+            END DO
+
+         END DO
+
+      END DO
+
+      WRITE(*, *) 'HMx: Writing suppression data: ', trim(outfile)
+      OPEN(7, file=outfile)    
+      DO ik = 1, nk
+         WRITE(7, *) k(ik), (suppression(icos, ik), icos = 1, ncos)
+      END DO  
+      CLOSE(7) 
+      WRITE(*, *) 'HMx: Done'
+      WRITE(*, *)
+
+   END SUBROUTINE hydro_suppression_as_a_function_of_cosmology
 
    SUBROUTINE general_projection(imode, icosmo, ihm)
 
@@ -3550,6 +3562,7 @@ CONTAINS
       CHARACTER(len=256), PARAMETER :: base = 'data/cosmo'
       CHARACTER(len=256), PARAMETER :: mid = '_z'
       CHARACTER(len=256), PARAMETER :: ext = '.dat'
+      INTEGER, PARAMETER :: ihf = halofit_CAMB
 
       ! Number of cosmological models (+1)
       IF (imode == 28 .OR. imode == 30) n = 37 ! Franken Emu
@@ -3652,7 +3665,7 @@ CONTAINS
             CALL calculate_HMx_a(field, 1, k_sim, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE.)
 
             ALLOCATE (pow_ql(nk), pow_oh(nk), pow_hf(nk))
-            CALL calculate_halofit_a(k_sim, a(j), pow_li, pow_ql, pow_oh, pow_hf, nk, cosm, verbose=.TRUE., ihf=4)
+            CALL calculate_halofit_a(k_sim, a(j), pow_li, pow_ql, pow_oh, pow_hf, nk, cosm, verbose=.TRUE., ihf=ihf)
 
             ! Write data
             outfile = number_file2(base, i, mid, j, ext)
@@ -3835,12 +3848,12 @@ CONTAINS
          DO i = 1, nz
             hmod%z = progression(zmin, zmax, i, nz)
             WRITE (7, *) hmod%z, &
-               HMx_alpha(mass, hmod), &
-               HMx_eps(hmod), &
-               HMx_Gamma(mass, hmod), &
-               HMx_M0(hmod), &
-               HMx_Astar(hmod), &
-               HMx_Twhim(hmod)
+               HMx_alpha(mass, hmod, cosm), &
+               HMx_eps(hmod, cosm), &
+               HMx_Gamma(mass, hmod, cosm), &
+               HMx_M0(hmod, cosm), &
+               HMx_Astar(hmod, cosm), &
+               HMx_Twhim(hmod, cosm)
          END DO
          CLOSE (7)
 
