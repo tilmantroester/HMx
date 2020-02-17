@@ -49,7 +49,7 @@ print ''
 
 # Number of cosmologies
 if(!exists('icos1')) {icos1=1}
-if(!exists('icos2')) {icos2=10}
+if(!exists('icos2')) {icos2=36}
 #if(!exists('ncos')) {ncos=10}
 print 'First cosmology to plot: icos1: ', icos1
 print 'Last cosmology to plot: icos2: ', icos2
@@ -78,13 +78,13 @@ knl[2]=0.690 # z=0.5
 knl[3]=1.206 # z=1.0
 knl[4]=3.446 # z=2.0
 
-set xlabel ''
-set format x ''
-
+# Setup multiplot
 set multiplot layout nz,2 margins 0.10,0.98,0.11,0.94 spacing 0.0,0.00
 
+# Loop over redshifts
 do for [j=1:nz]{
 
+# Loop over HMcode (left) and HALOFIT (right)
 do for [i=1:2]{
 
 if(i==1){c=c_hm; set format y;    set ylabel 'P(k) / P_{emu}(k)'}
@@ -105,6 +105,7 @@ if(i==1) {set label zlab at graph xlab,ylab}
 set xlabel ''; set format x ''
 if(j==nz){set xlabel klab; set format x}
 
+# Standard plot
 if(imode==1){
 plot 1 w l lt -1 noti,\
      1.+ddy w l lc -1 dt 2 noti,\
@@ -112,6 +113,7 @@ plot 1 w l lt -1 noti,\
      for [icos=icos1:icos2] file(icos,j) u 1:(column(c)/column(c_em)) w l noti
 }
 
+# Plot with error blob
 if(imode==2) {
 if(i==1) {A=0.04; b=0.1; n=1}
 if(i==2) {A=0.08; b=0.1; n=1}

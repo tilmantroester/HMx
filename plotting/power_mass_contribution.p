@@ -23,6 +23,10 @@ if(print==1 && iplot==2) {set output 'paper/power_mass_contribution.eps'}
 if(iplot==1) {power(f1,f2,m)=sprintf('data/power_%d%d_m%d.dat',f1,f2,m)}
 if(iplot==2) {power(f1,f2,m1,m2)=sprintf('data/power_%d%d_m%d_m%d.dat',f1,f2,m1,m2); base(f1,f2)=sprintf('data/power_%d%d.dat',f1,f2)}
 
+# Field integers
+imatter=2
+ipressure=8
+
 # Mass range
 if(iplot==1) {m1=10; m2=16}
 if(iplot==2) {m1=10; m2=15}
@@ -51,13 +55,13 @@ if(iplot==2) {set cbrange [m1:m2+1]}
 set label 'matter-matter' at graph 0.1,0.93
 
 if(iplot==1){
-plot for [i=m1:m2] power(0,0,i) u 1:5:(i) w l lw 3 dt 1 lc palette noti#,\
-     for [i=m1:m2] power(0,0,i) u 1:3:(i) w l lw 3 dt 2 lc palette noti,\
-     for [i=m1:m2] power(0,0,i) u 1:4:(i) w l lw 3 dt 3 lc palette noti
+plot for [i=m1:m2] power(imatter,imatter,i) u 1:5:(i) w l lw 3 dt 1 lc palette noti#,\
+     for [i=m1:m2] power(imatter,imatter,i) u 1:3:(i) w l lw 3 dt 2 lc palette noti,\
+     for [i=m1:m2] power(imatter,imatter,i) u 1:4:(i) w l lw 3 dt 3 lc palette noti
 }
 if(iplot==2){
-plot base(0,0) u 1:5 w l lw 5 dt 1 lc -1 noti,\
-     for [i=m1:m2] power(0,0,i,i+1) u 1:5:(i) w l lw 3 dt 1 lc palette noti
+plot base(imatter,imatter) u 1:5 w l lw 5 dt 1 lc -1 noti,\
+     for [i=m1:m2] power(imatter,imatter,i,i+1) u 1:5:(i) w l lw 3 dt 1 lc palette noti
 }
 
 unset label
@@ -76,13 +80,13 @@ set cblabel 'log_{10} (M / h^{-1} M_{'.sun.'})'
 set label 'matter-electron pressure' at graph 0.1,0.93
 
 if(iplot==1){
-plot for [i=m1:m2] power(0,6,i) u 1:5:(i) w l lw 3 dt 1 lc palette noti#,\
-     for [i=m1:m2] power(0,6,i) u 1:3:(i) w l lw 3 dt 2 lc palette noti,\
-     for [i=m1:m2] power(0,6,i) u 1:4:(i) w l lw 3 dt 3 lc palette noti
+plot for [i=m1:m2] power(imatter,ipressure,i) u 1:5:(i) w l lw 3 dt 1 lc palette noti#,\
+     for [i=m1:m2] power(imatter,ipressure,i) u 1:3:(i) w l lw 3 dt 2 lc palette noti,\
+     for [i=m1:m2] power(imatter,ipressure,i) u 1:4:(i) w l lw 3 dt 3 lc palette noti
 }
 if(iplot==2){
-plot base(0,6) u 1:5 w l lw 5 dt 1 lc -1 noti,\
-     for [i=m1:m2] power(0,6,i,i+1) u 1:5:(i) w l lw 3 dt 1 lc palette noti
+plot base(imatter,ipressure) u 1:5 w l lw 5 dt 1 lc -1 noti,\
+     for [i=m1:m2] power(imatter,ipressure,i,i+1) u 1:5:(i) w l lw 3 dt 1 lc palette noti
 }
 
 unset label
