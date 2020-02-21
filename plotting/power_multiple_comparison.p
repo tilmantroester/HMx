@@ -1,6 +1,7 @@
 unset multiplot
 reset
 
+# Set terminal options
 if(!exists('print')) {print=0}
 if(print==0) {set term qt dashed}
 if(print==1) {set term post enh col; set output 'power_multiple_comparison.eps'}
@@ -28,15 +29,17 @@ file_base_hm='data/power_baseline_hm.dat'
 file_base_1h='data/power_baseline_1h.dat'
 file_base_2h='data/power_baseline_2h.dat'
 
-#Set k-range
+# Set k-range
 kmin=1e-3
 kmax=1e2
 
-
-#Set power axis
+# Set power axis
 pmin = 1e-8
 pmax = 1e4
 
+# Set ratio axis
+rmin = 0.80
+rmax = 1.02
 
 unset colorbox
 
@@ -51,13 +54,13 @@ unset colorbox
 #Key stuff
 unset key
 
-#Number of redshifts
+# Number of redshifts
 n=16
 
-#Colour stuff
+# Colour stuff
 set palette defined (1 'dark-red', 2 'gold')
 
-#Set the file type to plot
+# Set the file type to plot
 if(itype==1){file=file_li; file_base=file_base_li; tits='Linear power'}
 if(itype==2){file=file_2h; file_base=file_base_2h; tits='Two-halo power'}
 if(itype==3){file=file_1h; file_base=file_base_1h; tits='One-halo power'}
@@ -67,33 +70,39 @@ print('')
 print('Title: '.tits.'')
 print('')
 
-set lmargin 10
-set rmargin 2
-set multiplot layout 2,1
-
-set log y
-#set yrange [pmin:pmax]
-set ylabel '{/Symbol D}_{i,j}^2(k)'
-set format y '10^{%T}'
-
+# k axis
 set log x
 set xrange [kmin:kmax]
 set xlabel ''
 set format x ''
 
-#Actual plot
-#set title tits
-plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti,\
-     for[i=1:n] file_base u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti
+# Margin options and multiplot
+set lmargin 10
+set rmargin 2
+set multiplot layout 2,1
 
+# Power axis
+set log y
+#set yrange [pmin:pmax]
+set ylabel '{/Symbol D}_{i,j}^2(k)'
+set format y '10^{%T}'
+
+# Plot power
+plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette not,\
+     for[i=1:n] file_base u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 1 dt 3 lc palette noti
+
+# x axis
 set xlabel 'k / (h Mpc^{-1})'
 set mxtics 10
 set format x
 
+# ratio axis
 unset log y
 set ylabel 'P(k) / P_{base}(k)'
 set format y
+set yrange [rmin:rmax]
 
+# Plot response
 plot 1 w l lt -1 noti,\
    for[i=n:n] '<paste '.file_li.' '.file_base_li.'' u 1:(column(i+1)/column(i+2+n)):(real(i-1)/real(n)) w l lw 2 dt 2 lc -1 noti,\
    for[i=1:n] '<paste '.file.' '.file_base.'' u 1:(column(i+1)/column(i+2+n)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti
