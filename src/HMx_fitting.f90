@@ -1749,8 +1749,8 @@ CONTAINS
          fit%set(param_Astarz) = .TRUE.
          !fit%set(param_sstar) = .TRUE.  ! HMx2020 - does not help with star-star much
          !fit%set(param_cstar) = .TRUE.  ! HMx2020 - does not help with the star-star much
-         !fit%set(param_cstarp)=.TRUE.   ! ?
-         !fit%set(param_cstarz) = .TRUE. ! ?
+         !fit%set(param_cstarp)=.TRUE.   ! HMx2020 - does not help with the star-star much
+         !fit%set(param_cstarz) = .TRUE. ! HMx2020 - does not help with the star-star much
          fit%set(param_Mstar) = .TRUE.
          fit%set(param_Mstarz) = .TRUE.
          fit%set(param_eta) = .TRUE.
@@ -1776,12 +1776,7 @@ CONTAINS
          fit%set(param_eps) = .TRUE.
          fit%set(param_epsz) = .TRUE.
          fit%set(param_Gamma) = .TRUE.
-         !fit%set(param_Gammap) = .TRUE.
-         !fit%set(param_Gammaz) = .TRUE.
          fit%set(param_M0) = .TRUE.
-         !fit%set(param_M0z) = .TRUE.
-         !fit%set(param_eps2) = .TRUE.
-         !fit%set(param_eps2z) = .TRUE.
       ELSE IF (im == 27) THEN
          ! 27 - fixed z; basic parameters; matter, CDM, gas, stars
          fit%set(param_eps) = .TRUE.
@@ -1813,20 +1808,20 @@ CONTAINS
          fit%set(param_M0z) = .TRUE.
       ELSE IF (im == 49 .OR. im == 51) THEN
          ! 49 - extended z; final parameters; matter, CDM, gas, stars
+         ! 51 - As 49, but with different weighting scheme
          fit%set(param_eps) = .TRUE.
          fit%set(param_epsz) = .TRUE.
          fit%set(param_Gamma) = .TRUE.
          fit%set(param_Gammaz) = .TRUE.
          fit%set(param_M0) = .TRUE.
-         fit%set(param_M0z) = .TRUE.
          fit%set(param_Astar) = .TRUE.
          fit%set(param_Astarz) = .TRUE.
          fit%set(param_eta) = .TRUE.
-         fit%set(param_etaz) = .TRUE.
          fit%set(param_Mstar) = .TRUE.
          fit%set(param_Mstarz) = .TRUE.
       ELSE IF (im == 50 .OR. im == 52) THEN
          ! 50 - extended z; final parameters; matter, CDM, gas, stars, pressure
+         ! 52 - As 50, but with different weighting scheme
          fit%set(param_eps) = .TRUE.
          fit%set(param_epsz) = .TRUE.
          fit%set(param_Gamma) = .TRUE.
@@ -1882,19 +1877,11 @@ CONTAINS
          ! 47 - extended z; final parameters; matter, electron pressure
          ! 48 - extended z; final parameters; matter, CDM, gas, stars, electron pressure (fixed star model)
          fit%set(param_alpha) = .TRUE.
-         !fit%set(param_alphap) = .TRUE.
-         fit%set(param_alphaz) = .TRUE.
          fit%set(param_Twhim) = .TRUE.
          fit%set(param_Twhimz) = .TRUE.
          fit%set(param_eps) = .TRUE.
-         fit%set(param_epsz) = .TRUE.
          fit%set(param_Gamma) = .TRUE.
-         fit%set(param_Gammap) = .TRUE. ! UNDO: Test for Gammap
-         fit%set(param_Gammaz) = .TRUE.
          fit%set(param_M0) = .TRUE.
-         fit%set(param_M0z) = .TRUE.
-         !fit%set(param_Astar) = .TRUE.
-         !fit%set(param_Astarz) = .TRUE.  
       ELSE IF (im == 28) THEN
          ! 28 - fixed z; basic parameters; matter, CDM, gas, stars, electron pressure
          fit%set(param_alpha) = .TRUE.
