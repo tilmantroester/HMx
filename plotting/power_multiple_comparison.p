@@ -1,3 +1,4 @@
+unset multiplot
 reset
 
 if(!exists('print')) {print=0}

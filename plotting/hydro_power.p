@@ -11,6 +11,7 @@ print ''
 
 # Plot to make
 if(!exists('iplot')){iplot=10}
+print 'iplot = 0:  PAPER: Basic hydro plot' 
 print 'iplot = 1:  Power spectrum plot'
 print 'iplot = 2:  Power spectrum ratio plot'
 print 'iplot = 3:  Power spectrum suppression plot'
@@ -18,7 +19,7 @@ print 'iplot = 4:  Power spectrum residual plot'
 print 'iplot = 5:  Power spectrum components'
 print 'iplot = 6:  Power spectrum of electron pressure'
 print 'iplot = 7:  Power spectrum with k^1.5 units'
-print 'iplot = 8:  PAPER: Combination of iplot=1 and 2'
+print 'iplot = 8:  PAPER: Combination of iplot=1 and 2 (enforced options for paper figure)'
 print 'iplot = 9:  Response residual'
 print 'iplot = 10: Combination of iplot=1 and 2'
 print 'iplot = 11: Matter-electron pressure spectrum variance demonstration'
@@ -42,7 +43,7 @@ print 'iplot = 28: Response as a functon of AGN strength: stars-stars'
 print 'iplot = 29: Response as a functon of AGN strength: matter-electron pressure'
 print 'iplot = 30: All power as a function of AGN strength'
 print 'iplot = 31: All responses as a function of AGN strength'
-print 'iplot = 32: PAPER: Combination of iplot=31 and 32'
+print 'iplot = 32: Combination of iplot=31 and 32'
 print 'iplot = 33: Same as 30, but for fitted data'
 print 'iplot = 34: Same as 31, but for fitted data'
 print 'iplot = 35: Same as 32, but for fitted data'
@@ -142,6 +143,14 @@ i_gas = 4
 i_stars = 5
 i_electron_pressure = 8
 
+# Colours
+i_col_dmonly = 1
+i_col_matter = 1
+i_col_cdm = 2
+i_col_gas = 3
+i_col_stars = 4
+i_col_electron_pressure = 6
+
 # File names - BAHAMAS
 if(icomp==2){
 hmpk(sim,z,i,j)=sprintf('data/power_%s_z%1.1f_%i%i.dat',sim,z,i,j)
@@ -187,7 +196,7 @@ if(!exists('nsim')){nsim=3}       # Default to AGN
 if(iplot==8 || iplot==11){nsim=3} # Default to AGN
 hmpk_name=word(hmpk_names,nsim)
 print 'Simulation model number: nsim: '.nsim.''
-if(icomp==2) print 'Halo model power file name: '.hmpk_name.''
+if(icomp==2) {print 'Halo model power file name: '.hmpk_name.''}
 sim=word(sims,nsim)
 print 'Simulation power file: '.sim.''
 print ''
@@ -206,11 +215,11 @@ ifield[5]=i_electron_pressure
 
 # Field colours
 array icol[5]
-icol[1]=1
-icol[2]=2
-icol[3]=3
-icol[4]=4
-icol[5]=6
+icol[1]=i_col_matter
+icol[2]=i_col_cdm
+icol[3]=i_col_gas
+icol[4]=i_col_stars
+icol[5]=i_col_electron_pressure
 
 # Few fields
 fields_few="'all' 'epressure'"
@@ -260,6 +269,80 @@ set mytics 10
 
 # Set the overall plot titles
 set title plot_title_name_z(sim,z) noenh
+
+## ##
+
+if(iplot==0){
+
+if(print==1){
+outfile=sprintf('paper/power_components.eps')
+set term post enh col sol font ',14' size 8,8
+set output outfile
+print 'Outfile: ', outfile
+print ''
+}
+
+fields1 = "'matter' 'CDM' 'gas' 'stars' 'matter'"
+fields2 = "'matter' 'CDM' 'gas' 'stars' 'epressure'"
+
+ifs=5
+array if1[ifs]
+if1[1] = i_matter
+if1[2] = i_cdm
+if1[3] = i_gas
+if1[4] = i_stars
+if1[5] = i_matter
+array if2[ifs]
+if2[1] = i_matter
+if2[2] = i_cdm
+if2[3] = i_gas
+if2[4] = i_stars
+if2[5] = i_electron_pressure
+icol[1] = i_col_matter
+icol[2] = i_col_cdm
+icol[3] = i_col_gas
+icol[4] = i_col_stars
+icol[5] = i_col_electron_pressure
+array facs[ifs]
+facs[1]=1.
+facs[2]=1.
+facs[3]=1.
+facs[4]=1.
+facs[5]=1e-3
+array names[ifs]
+names[1]='matter'
+names[2]='CDM'
+names[3]='gas'
+names[4]='stars'
+names[5]='electron pressure [meV cm^{-3}]'
+
+kmin = 1e-2
+kmax = 1e1
+set xrange [kmin:kmax]
+
+pmin=1e-10
+pmax=1e4
+set yrange [pmin:pmax]
+
+z=0
+
+unset title
+
+set key at screen 0.55,0.96
+
+set label 'z = 0.0' at screen 0.85,0.15
+plot NaN w l lw 5 dt 1 lc -1 ti 'Halo model',\
+   NaN w l lw 5 dt 2 lc -1 ti 'Two-halo term',\
+   NaN w l lw 5 dt 3 lc -1 ti 'One-halo term',\
+   for [i=1:ifs] hmpk(hmpk_name,z,if1[i],if2[i]) u 1:(facs[i]*$5) w l lw 5 dt 1 lc icol[i] ti names[i],\
+   for [i=5:ifs] hmpk(hmpk_name,z,if1[i],if2[i]) u 1:(facs[i]*$5) w l lw 5 dt 2 lc icol[1] noti,\
+   for [i=2:ifs] hmpk(hmpk_name,z,if1[i],if2[i]) u 1:(facs[i]*$3) w l lw 5 dt 2 lc icol[i] noti word(field_names,i),\
+   for [i=2:ifs] hmpk(hmpk_name,z,if1[i],if2[i]) u 1:(facs[i]*$4) w l lw 5 dt 3 lc icol[i] noti word(field_names,i)
+unset label
+
+}
+
+## ##
 
 ## ##
 

@@ -21,30 +21,31 @@ UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat'
 
 # Fix the parameter to plot
 if(!exists("param")){param=1}
-if(param==1)  {pname='{/Symbol a}';       min=0.4;    max=1.0;    ilog=0; ptype='mid'}
-if(param==2)  {pname='{/Symbol e}';       min=0.5;    max=1.5;    ilog=0; ptype='mid'}
-if(param==3)  {pname='{/Symbol G}';       min=1.12;   max=1.22;   ilog=0; ptype='mid'}
-if(param==4)  {pname='M_g / M_{'.sun.'}'; min=1e13;   max=1e15;   ilog=1; ptype='mid'}
-if(param==5)  {pname='A_*';               min=0.02;   max=0.04;   ilog=0; ptype='mid'}
-if(param==6)  {pname='T_{WHIM} / K';      min=3e5;    max=3e7;    ilog=1; ptype='mid'}
-if(param==7)  {pname='c_*';               min=5.;     max=20.;    ilog=1; ptype='mid'}
-if(param==8)  {pname='f_{c}';             min=0.;     max=0.25;   ilog=0; ptype='low'}
-if(param==9)  {pname='M_*';               min=5e11;   max=5e13;   ilog=1; ptype='mid'}
-if(param==10) {pname='{/Symbol s}_*';     min=0.7;    max=1.7;    ilog=0; ptype='mid'}
-if(param==11) {pname='{/Symbol a}^{P}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==12) {pname='{/Symbol G}^{P}';   min=-0.01;  max=0.01;   ilog=0; ptype='mid'}
-if(param==13) {pname='c_*^{P}';           min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==14) {pname='f_{h}';             min=0.;     max=0.25;   ilog=0; ptype='low'}
-if(param==15) {pname='{/Symbol a}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==16) {pname='{/Symbol G}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==17) {pname='M_g^{Z}';           min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==18) {pname='A_*^{Z}';           min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==19) {pname='T_{WHIM}^{Z}';      min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==20) {pname='{/Symbol h}';       min=-0.5;   max=0.0;    ilog=0; ptype='hig'}
-if(param==33) {pname='{/Symbol e}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==34) {pname='{/Symbol b}';       min=0.4;    max=1.0;    ilog=0; ptype='mid'}
-if(param==35) {pname='{/Symbol b}^{P}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==36) {pname='{/Symbol b}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==1)  {pname='{/Symbol a}';              min=0.4;    max=1.0;    ilog=0; ptype='mid'}
+if(param==2)  {pname='{/Symbol e}';              min=0.5;    max=1.5;    ilog=0; ptype='mid'}
+if(param==3)  {pname='{/Symbol G}';              min=1.12;   max=1.22;   ilog=0; ptype='mid'}
+if(param==4)  {pname='M_0 / h^{-1} M_{'.sun.'}'; min=1e13;   max=1e15;   ilog=1; ptype='mid'}
+if(param==5)  {pname='A_*';                      min=0.02;   max=0.04;   ilog=0; ptype='mid'}
+if(param==6)  {pname='T_{WHIM} / K';             min=3e5;    max=3e7;    ilog=1; ptype='mid'}
+if(param==7)  {pname='c_*';                      min=5.;     max=20.;    ilog=1; ptype='mid'}
+if(param==8)  {pname='f_{c}';                    min=0.;     max=0.25;   ilog=0; ptype='low'}
+if(param==9)  {pname='M_* / h^{-1} M_{'.sun.'}'; min=5e11;   max=5e13;   ilog=1; ptype='mid'}
+if(param==10) {pname='{/Symbol s}_*';            min=0.7;    max=1.7;    ilog=0; ptype='mid'}
+if(param==11) {pname='{/Symbol a}^{P}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==12) {pname='{/Symbol G}^{P}';          min=-0.01;  max=0.01;   ilog=0; ptype='mid'}
+if(param==13) {pname='c_*^{P}';                  min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==14) {pname='f_{h}';                    min=0.;     max=0.25;   ilog=0; ptype='low'}
+if(param==15) {pname='{/Symbol a}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==16) {pname='{/Symbol G}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==17) {pname='M_g^{Z}';                  min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==18) {pname='A_*^{Z}';                  min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==19) {pname='T_{WHIM}^{Z}';             min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+#if(param==20) {pname='{/Symbol h}';              min=-0.5;   max=0.0;    ilog=0; ptype='hig'}
+if(param==20) {pname='{/Symbol h}';              min=-0.5;   max=-0.1;   ilog=0; ptype='mid'}
+if(param==33) {pname='{/Symbol e}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==34) {pname='{/Symbol b}';              min=0.4;    max=1.0;    ilog=0; ptype='mid'}
+if(param==35) {pname='{/Symbol b}^{P}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==36) {pname='{/Symbol b}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
 print 'Comparison for parameter (set with *param*): '.param.''
 
 # Output figure
@@ -69,7 +70,7 @@ if(!exists('sim')){sim=4}
 simulation_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
 simulation_titles="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
 simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
-sim_name=word(simulation_names,sim)
+sim_name=word(simulation_names, sim)
 #sim_title(name,z)=''.word(simulation_titles,sim).'; z = '.z.''
 name=word(simulation_titles,sim)
 sim_title(name,z)=sprintf('%s; z = %1.1f',name,z)
@@ -85,8 +86,10 @@ psim='epressure'
 
 # Name of halo-model power spectrum types
 #types_density="'00' '01' '11' '02' '22' '03' '33''"
-types_density="'00' '01' '02' '03'"
-types_pressure="'00' '06' '66'"
+#types_density="'00' '01' '02' '03'"
+#types_pressure="'00' '06' '66'"
+types_density="'22' '23' '24' '25'"
+types_pressure="'22' '28' '88'"
 
 # Label information
 #ddlab = 'mm'

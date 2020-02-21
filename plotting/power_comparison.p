@@ -1,3 +1,4 @@
+unset multiplot
 reset
 
 mode = 'data/power.dat'
@@ -27,7 +28,9 @@ set ylabel '{/Symbol D}^2(k)'
 set format y '10^{%T}'
 set yrange [pmin:pmax]
 
-plot base u 1:2 w l lc -1 lw 3 dt 2 ti 'Linear',\
+plot NaN w l lc -1 lw 3 ti 'Baseline',\
+   NaN w l lc 1 lw 3 ti 'Comparison',\
+   base u 1:2 w l lc -1 lw 3 dt 2 ti 'Linear',\
    base u 1:3 w l lc -1 lw 3 dt 3 ti '2-halo',\
    base u 1:4 w l lc -1 lw 3 dt 4 ti '1-halo',\
    base u 1:5 w l lc -1 lw 3 dt 1 ti 'Full',\
@@ -39,8 +42,8 @@ plot base u 1:2 w l lc -1 lw 3 dt 2 ti 'Linear',\
 unset log y
 set ylabel 'P(k) / P_{fid}(k)'
 set format y
-set yrange [*:*]
-#set yrange [rmin:rmax]
+#set yrange [*:*]
+set yrange [rmin:rmax]
 
 set xlabel 'k / h Mpc^{-1}'
 set format x
