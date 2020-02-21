@@ -1137,16 +1137,16 @@ CONTAINS
 
       ! Pick baseline halo model
       IF (imode == 78) THEN
-         ihm_baseline = 3 ! 3 - Seljak (2000)
+         ihm_baseline = 3         ! 3 - Seljak (2000)
          icosmo_baseline = icosmo ! User choice
       ELSE IF (imode == 80) THEN
-         ihm_baseline = 1 ! 1 - HMcode (2016)
+         ihm_baseline = 1         ! 1 - HMcode (2016)
          icosmo_baseline = icosmo ! User choice
       ELSE IF (imode == 82) THEN
-         ihm_baseline = 3 ! 3 - Seljak (2000)
+         ihm_baseline = 3    ! 3 - Seljak (2000)
          icosmo_baseline = 1 ! 1 - Boring
       ELSE IF (imode == 84) THEN
-         ihm_baseline = 1 ! 1 - HMcode (2016)
+         ihm_baseline = 1    ! 1 - HMcode (2016)
          icosmo_baseline = 1 ! 1 - Boring
       ELSE
          STOP 'POWER_SINGLE_COMPARISON: Error, imode not specified correctly'
