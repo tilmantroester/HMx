@@ -97,7 +97,7 @@ CONTAINS
          WRITE (*, *) ' 2 - HMcode (2016): FrankenEmu nodes'
          WRITE (*, *) ' 3 - HMcode (2016): Random Mira Titan cosmologies'
          WRITE (*, *) ' 4 - HMcode (2016): Random FrankenEmu cosmologies'
-         WRITE (*, *) ' 5 - '
+         WRITE (*, *) ' 5 - HMcode (2016): BAHAMAS baryon models'
          WRITE (*, *) ' 6 - '
          WRITE (*, *) ' 7 - '
          WRITE (*, *) ' 8 - '
@@ -217,7 +217,7 @@ CONTAINS
       WRITE (*, *)
 
       ! Is this fitting hydro or not
-      IF (imode == 1 .OR. imode == 2 .OR. imode == 3 .OR. imode == 4 .OR. imode == 11 .OR. &
+      IF (imode == 1 .OR. imode == 2 .OR. imode == 3 .OR. imode == 4 .OR. imode == 5 .OR. imode == 11 .OR. &
           imode == 17 .OR. imode == 18 .OR. imode == 19) THEN
          ! HMcode
          hydro = .FALSE.
@@ -256,6 +256,10 @@ CONTAINS
 
       ! Read in the simulation power spectra
       CALL read_simulation_power_spectra(imode, name, k, nk, pow, err, cosm, ncos, z, nz, fields, nfields, resp_BAHAMAS)
+
+      ! Horrible fudge to read BAHAMAS matter-matter above and then calculate DMONLY below
+      ! TODO: Undo this fudge
+      IF(imode == 5) fields = field_dmonly
 
       ! Set the weights
       CALL init_weights(imode, weight, pow, err, ncos, nfields, k, nk, nz)
@@ -1160,6 +1164,27 @@ CONTAINS
       fit%maximum(param_HMcode_dcnu) = 5.
       fit%log(param_HMcode_dcnu) = .FALSE.
 
+      fit%name(param_HMcode_mbar) = 'log_mbar'
+      fit%original(param_HMcode_mbar) = log10(1e14)
+      fit%sigma(param_HMcode_mbar) = 0.1
+      fit%minimum(param_HMcode_mbar) = log10(1e10)
+      fit%maximum(param_HMcode_mbar) = log10(1e16)
+      fit%log(param_HMcode_mbar) = .FALSE.
+
+      fit%name(param_HMcode_nbar) = 'nbar'
+      fit%original(param_HMcode_nbar) = 1.
+      fit%sigma(param_HMcode_nbar) = 0.01
+      fit%minimum(param_HMcode_nbar) = 0.1
+      fit%maximum(param_HMcode_nbar) = 10.
+      fit%log(param_HMcode_nbar) = .FALSE.
+
+      fit%name(param_HMcode_abar) = 'abar'
+      fit%original(param_HMcode_abar) = 1e-3
+      fit%sigma(param_HMcode_abar) = 0.1
+      fit%minimum(param_HMcode_abar) = 1e-6
+      fit%maximum(param_HMcode_abar) = 1e-1
+      fit%log(param_HMcode_abar) = .TRUE.
+
       !! !!
 
       ! Initially assume all parameters are not being varied
@@ -1252,7 +1277,8 @@ CONTAINS
       ELSE IF (im == 11 .OR. im == 19) THEN
          ! Mira Titan nodes with massless neutrinos
          ncos = 10
-      ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
+      ELSE IF (im == 5 .OR. &
+         im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
          im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
@@ -1275,6 +1301,8 @@ CONTAINS
             icosmo = 24    ! Random Mira Titan cosmology
          ELSE IF (im == 4) THEN
             icosmo = 25    ! Random FrankenEmu cosmology
+         ELSE IF (im == 5) THEN
+            icosmo = 4     ! WMAP9
          ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
             im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
             im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
@@ -1310,7 +1338,8 @@ CONTAINS
       INTEGER, ALLOCATABLE, INTENT(OUT) :: fields(:)
       INTEGER, INTENT(OUT) :: nf
 
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 11 .OR. im == 17 .OR. im == 18 .OR. im == 19) THEN
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 5 .OR. im == 11 .OR. im == 17 .OR. &
+      im == 18 .OR. im == 19) THEN
          nf = 1 ! DMONLY-DMONLY only
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          nf = 5
@@ -1331,8 +1360,11 @@ CONTAINS
       ALLOCATE (fields(nf))
 
       ! Set the fields
-      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 11 .OR. im == 17 .OR. im == 18 .OR. im == 19) THEN
+      IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 11 .OR. im == 17 .OR. &
+      im == 18 .OR. im == 19) THEN
          fields(1) = field_dmonly ! Note: DMONLY
+      ELSE IF (im == 5) THEN
+         fields(1) = field_matter
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          ! Matter, CDM, gas, stars, electron pressure
          fields(1) = field_matter
@@ -1391,6 +1423,8 @@ CONTAINS
          ! Mira Titan or FrankenEmu
          nz = 4 ! z = 0, 0.5, 1, 2
          !nz = 1 ! For testing
+      ELSE IF (im == 5) THEN
+         nz = 1
       ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40) THEN
@@ -1415,6 +1449,8 @@ CONTAINS
             IF (i == 3) z(i) = 1.0
             IF (i == 4) z(i) = 2.0
          END DO
+      ELSE IF (im == 5) THEN
+         z(1) = 0.
       ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. &
          im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. &
          im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 23 .OR. &
@@ -1459,7 +1495,9 @@ CONTAINS
          ihm = 1  ! 1 - HMcode (2016)
          !ihm = 7  ! 7 - HMcode (2015)
       ELSE IF (im == 17 .OR. im == 18 .OR. im == 19) THEN
-         ihm = 15 ! 15 - HMcode (in prep)
+         ihm = 15 ! 15 - HMcode (2020)
+      ELSE IF (im == 5) THEN
+         ihm = 64
       ELSE IF (im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. &
          im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 41 .OR. &
          im == 42 .OR. im == 43 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
@@ -1529,7 +1567,8 @@ CONTAINS
                      CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im == 2 .OR. im == 4 .OR. im == 18) THEN
                      CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
-                  ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
+                  ELSE IF (im == 5 .OR. &
+                     im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
                      im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
                      im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
                      im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
@@ -1691,6 +1730,10 @@ CONTAINS
             fit%set(param_HMcode_dcnu) = .TRUE.
             fit%set(param_HMcode_Dvnu) = .TRUE.
          END IF
+      ELSE IF (im == 5) THEN
+         fit%set(param_HMcode_mbar) = .TRUE.
+         fit%set(param_HMcode_nbar) = .TRUE.
+         fit%set(param_HMcode_abar) = .TRUE.
       ELSE IF (im == 26) THEN
          ! 26 - fixed z; basic parameterts; CDM
          fit%set(param_eps) = .TRUE.
@@ -1943,6 +1986,9 @@ CONTAINS
       IF (fit%set(param_HMcode_alpha1)) hmod%alp1 = p_out(param_HMcode_alpha1)
       IF (fit%set(param_HMcode_dcnu))   hmod%dcnu = p_out(param_HMcode_dcnu)
       IF (fit%set(param_HMcode_Dvnu))   hmod%Dvnu = p_out(param_HMcode_Dvnu)
+      IF (fit%set(param_HMcode_mbar))   hmod%mbar = 10.**p_out(param_HMcode_mbar)
+      IF (fit%set(param_HMcode_nbar))   hmod%nbar = p_out(param_HMcode_nbar)
+      IF (fit%set(param_HMcode_abar))   hmod%abar = p_out(param_HMcode_abar)
 
       ! Hydro
       IF (fit%set(param_alpha)) hmod%alpha = p_out(param_alpha)
