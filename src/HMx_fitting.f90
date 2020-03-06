@@ -732,7 +732,7 @@ CONTAINS
          ! Sort the points from best to worst
          CALL Nelder_Mead_sort(xx, ff, n)
 
-         !IF (verbose) WRITE (*, '(A16,I10,'//trim(nstring)//'F15.7)') TRIM(operation), ii, ff(1), (xx(1, i), i=1, n)
+         IF (verbose) WRITE (*, '(A16,I10,'//trim(nstring)//'F15.7)') TRIM(operation), ii, ff(1), (xx(1, i), i=1, n)
 
          ! Decide on convergence
          CALL CPU_TIME(t2)
@@ -834,9 +834,9 @@ CONTAINS
       fit%name(param_alpha) = 'alpha'
       fit%original(param_alpha) = 1. ! Standard value from ihm=3
       fit%sigma(param_alpha) = 0.1
-      fit%minimum(param_alpha) = 1e-2
-      fit%maximum(param_alpha) = 1e1
-      fit%log(param_alpha) = .TRUE.
+      fit%minimum(param_alpha) = 0.3
+      fit%maximum(param_alpha) = 3.
+      fit%log(param_alpha) = .FALSE.
 
       fit%name(param_beta) = 'beta'
       fit%original(param_beta) = 1. ! Standard value from ihm=3
@@ -895,9 +895,9 @@ CONTAINS
       fit%name(param_Twhim) = 'log_T_whim'
       !fit%original(param_Twhim)=log10(10.**6.47712) ! Standard value from ihm=3
       fit%original(param_Twhim) = log10(10.**6.5)
-      fit%sigma(param_Twhim) = log10(10.**0.1)
-      fit%minimum(param_Twhim) = log10(1e2)
-      fit%maximum(param_Twhim) = log10(1e8)
+      fit%sigma(param_Twhim) = 0.1
+      fit%minimum(param_Twhim) = log10(1e5)
+      fit%maximum(param_Twhim) = log10(1e7)
       fit%log(param_Twhim) = .FALSE.
 
       fit%name(param_cstar) = 'c_*'
@@ -1898,7 +1898,9 @@ CONTAINS
          fit%set(param_eps) = .TRUE.
          fit%set(param_epsz) = .TRUE.
          fit%set(param_Gamma) = .TRUE.
+         !fit%set(param_Gammaz) = .TRUE. ! TEST
          fit%set(param_M0) = .TRUE.
+         !fit%set(param_M0z) = .TRUE. ! TEST
       ELSE IF (im == 27) THEN
          ! 27 - fixed z; basic parameters; matter, CDM, gas, stars
          fit%set(param_eps) = .TRUE.
