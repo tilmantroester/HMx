@@ -54,10 +54,10 @@ PROGRAM HMx_driver
       WRITE (*, *) ' 0 - Gravity-only power spectrum at z=0'
       WRITE (*, *) ' 1 - 3D Matter power spectrum over multiple z'
       WRITE (*, *) ' 2 - Hydrodynamical halo model'
-      WRITE (*, *) ' 3 - PAPER: Run diagnostics for haloes'
+      WRITE (*, *) ' 3 - Run diagnostics for haloes'
       WRITE (*, *) ' 4 - Do random baryon parameters for bug testing'
       WRITE (*, *) ' 5 - HMx2020'
-      WRITE (*, *) ' 6 - HMx2020 across AGN temperature range'
+      WRITE (*, *) ' 6 - HMx2020 as a function of AGN temperature'
       WRITE (*, *) ' 7 - Do general angular cross correlation'
       WRITE (*, *) ' 8 - Angular cross correlation as a function of cosmology'
       WRITE (*, *) ' 9 - Breakdown angular correlations in halo mass'
@@ -65,9 +65,9 @@ PROGRAM HMx_driver
       WRITE (*, *) '11 - Do general angular cross correlation and correlation functions'
       WRITE (*, *) '12 - Triad'
       WRITE (*, *) '13 - Cross-correlation coefficient'
-      WRITE (*, *) '14 - 3D spectra for variations in baryon parameters'
-      WRITE (*, *) '15 - HMx2020 comparison for different AGN temperatures'
-      WRITE (*, *) '16 - '
+      WRITE (*, *) '14 - Effect of parameter variations on hydro power'
+      WRITE (*, *) '15 - HMx2020 matter-matter suppression as a function of cosmology'
+      WRITE (*, *) '16 - TEST: Equality of matter vs. DMONLY implementation'
       WRITE (*, *) '17 - 3D spectra for user choice of fields'
       WRITE (*, *) '18 - 3D bias'
       WRITE (*, *) '19 - Make CCL benchmark data'
@@ -93,8 +93,8 @@ PROGRAM HMx_driver
       WRITE (*, *) '39 - Tilman AGN model Triad for all feedback models (Triad 3 ell)'
       WRITE (*, *) '40 - Halo bias'
       WRITE (*, *) '41 - PAPER: Matter, pressure power as a function of sigma8'
-      WRITE (*, *) '42 - MAYBE PAPER: Contributions to k-k C(l) integral'
-      WRITE (*, *) '43 - MAYBE PAPER: Contributions to k-y C(l) integral'
+      WRITE (*, *) '42 - PAPER: Contributions to k-k C(l) integral'
+      WRITE (*, *) '43 - PAPER: Contributions to k-y C(l) integral'
       WRITE (*, *) '44 - Triad with Tilman model'
       WRITE (*, *) '45 - Comparison of Sheth-Tormen vs. Tinker mass function'
       WRITE (*, *) '46 - Mass function and bias plots'
@@ -104,10 +104,10 @@ PROGRAM HMx_driver
       WRITE (*, *) '50 - Mass function changes with Lbox'
       WRITE (*, *) '51 - Compare power with and without scatter'
       WRITE (*, *) '52 - Hydrodynamical halo model with BAHAMAS k range'
-      WRITE (*, *) '53 - MAYBE PAPER: Breakdown 3D hydro power in halo mass bins'
+      WRITE (*, *) '53 - Breakdown 3D hydro power in halo mass bins'
       WRITE (*, *) '54 - Trispectrum test'
       WRITE (*, *) '55 - Triad for all feedback models'
-      WRITE (*, *) '56 - MAYBE PAPER: Triad for all feedback models (Triad 3 ell)'
+      WRITE (*, *) '56 - Triad for all feedback models (Triad 3 ell)'
       WRITE (*, *) '57 - Direct integration of measured 3D BAHAMAS spectra: Triad 3'
       WRITE (*, *) '58 - Multiple same fields check'
       WRITE (*, *) '59 - Tinker (2010) bias plot check'
@@ -128,14 +128,19 @@ PROGRAM HMx_driver
       WRITE (*, *) '74 - Matter, halo power spectra with non-linear bias (low sigma_8) Multidark comparison'
       WRITE (*, *) '75 - Compare HMcode aginst CAMB'
       WRITE (*, *) '76 - Comparison with massless neutrino Mira Titan nodes'
-      WRITE (*, *) '77 - Power comparison at z = 0 with regular halo model and user choice cosmology' 
-      WRITE (*, *) '78 - Power comparison at multiple z with regular halo model and user choice cosmology'    
-      WRITE (*, *) '79 - Power comparison at z = 0 with HMcode (2016) and user choice cosmology'
-      WRITE (*, *) '80 - Power comparison at multiple z with HMcode (2016) and user choice cosmology'
-      WRITE (*, *) '81 - Power comparison at z = 0 with regular halo model and boring cosmology'
-      WRITE (*, *) '82 - Power comparison at multiple z with regular halo model and boring cosmology'
-      WRITE (*, *) '83 - Power comparison at z = 0 with HMcode (2016) and boring cosmology'
-      WRITE (*, *) '84 - Power comparison at multiple z with HMcode (2016) and boring cosmology'
+      WRITE (*, *) '77 - DMONLY comparison at z = 0 with regular halo model and user choice cosmology' 
+      WRITE (*, *) '78 - DMONLY comparison at multiple z with regular halo model and user choice cosmology'    
+      WRITE (*, *) '79 - DMONLY comparison at z = 0 with HMcode (2016) and user choice cosmology'
+      WRITE (*, *) '80 - DMONLY comparison at multiple z with HMcode (2016) and user choice cosmology'
+      WRITE (*, *) '81 - DMONLY comparison at z = 0 with regular halo model and boring cosmology'
+      WRITE (*, *) '82 - DMONLY comparison at multiple z with regular halo model and boring cosmology'
+      WRITE (*, *) '83 - DMONLY comparison at z = 0 with HMcode (2016) and boring cosmology'
+      WRITE (*, *) '84 - DMONLY comparison at multiple z with HMcode (2016) and boring cosmology'
+      WRITE (*, *) '85 - Power comparison at multiple z for bump cosmologies'
+      WRITE (*, *) '86 - PAPER: Run diagnostics for haloes'
+      WRITE (*, *) '87 - Hydro power with varying upper-mass limits on halo mass integrals'
+      WRITE (*, *) '88 - Matter, pressure power as a function of sigma8'
+      WRITE (*, *) '89 - Compare to Mira Titan as a function of neutrino mass'
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -151,8 +156,10 @@ PROGRAM HMx_driver
       CALL hydro_across_temperature_range(iimode, iicosmo, iihm)
    ELSE IF (iimode == 15) THEN
       CALL hydro_suppression_as_a_function_of_cosmology(iimode, iicosmo, iihm)
-   ELSE IF (iimode == 3) THEN
-      CALL halo_stuff(iicosmo, iihm)
+   ELSE IF (iimode == 16) THEN
+      CALL compare_matter_vs_DMONLY_implementation(iicosmo)
+   ELSE IF (iimode == 3 .OR. iimode == 86) THEN
+      CALL halo_stuff(iimode, iicosmo, iihm)
    ELSE IF (iimode == 4 .OR. iimode == 72) THEN
       CALL test_random_cosmologies(iimode, iicosmo, iihm)
    ELSE IF (iimode == 7 .OR. &
@@ -190,9 +197,9 @@ PROGRAM HMx_driver
    ELSE IF (iimode == 26) THEN
       CALL halo_model_tests(iicosmo, iihm)
    ELSE IF (iimode == 27 .OR. iimode == 28 .OR. iimode == 29 .OR. iimode == 30 .OR. &
-      iimode == 70 .OR. iimode == 71 .OR.  iimode == 76) THEN
-      CALL emulator_tests(iimode, iicosmo, iihm)
-   ELSE IF (iimode == 31 .OR. iimode == 53) THEN
+      iimode == 70 .OR. iimode == 71 .OR.  iimode == 76 .OR. iimode == 89) THEN
+      CALL emulator_comparison(iimode, iicosmo, iihm)
+   ELSE IF (iimode == 31 .OR. iimode == 53 .OR. iimode == 87) THEN
       CALL power_breakdown_halomass(iimode, iicosmo, iihm)
    ELSE IF (iimode == 34) THEN
       CALL write_HMx_variations(iicosmo, iihm)
@@ -200,8 +207,8 @@ PROGRAM HMx_driver
       CALL halo_cores(iicosmo, iihm)
    ELSE IF (iimode == 36) THEN
       CALL hydro_tests(iicosmo, iihm)
-   ELSE IF (iimode == 41) THEN
-      CALL power_cosmology_dependence(iicosmo, iihm)
+   ELSE IF (iimode == 41 .OR. iimode == 88) THEN
+      CALL power_cosmology_dependence(iimode, iicosmo, iihm)
    ELSE IF (iimode == 45) THEN
       CALL power_different_halo_mass_functions(iicosmo, iihm)
    ELSE IF (iimode == 46) THEN
@@ -234,13 +241,69 @@ PROGRAM HMx_driver
       CALL compare_HMcode_CAMB(iicosmo)
    ELSE IF (iimode == 77 .OR. iimode == 79 .OR. iimode == 81 .OR. iimode == 83) THEN
       CALL power_single_comparison(iimode, iicosmo, iihm)
-   ELSE IF (iimode == 78 .OR. iimode == 80 .OR. iimode == 82 .OR. iimode == 84) THEN
+   ELSE IF (iimode == 78 .OR. iimode == 80 .OR. iimode == 82 .OR. iimode == 84 .OR. iimode == 85) THEN
       CALL power_multiple_comparison(iimode, iicosmo, iihm)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
 
 CONTAINS
+
+   SUBROUTINE compare_matter_vs_DMONLY_implementation(icosmo)
+
+      IMPLICIT NONE
+      INTEGER, INTENT(INOUT) :: icosmo
+      REAL, ALLOCATABLE :: k(:), a(:)
+      REAL, ALLOCATABLE :: pow_li(:,:), pow_1h(:,:,:,:), pow_2h(:,:,:,:), pow_hm(:,:,:,:)
+      INTEGER :: ihm
+      INTEGER:: ik, ia
+      LOGICAL :: fail
+      TYPE(cosmology) :: cosm
+      TYPE(halomod) :: hmod
+      REAL, PARAMETER :: amin = 0.5
+      REAL, PARAMETER :: amax = 1.0
+      INTEGER, PARAMETER :: na = 2
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 101
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      INTEGER, PARAMETER :: fields(2) = [field_dmonly, field_matter]
+      INTEGER, PARAMETER :: nf = 2
+      !INTEGER, PARAMETER :: icosmo_default = 1 ! 60 - Boring but with 0.3 eV neutrinos
+      INTEGER, PARAMETER :: ihm_default = 54 ! 54 - Matter masquerading as DMONLY
+      REAL, PARAMETER :: eps = 1e-4
+
+      CALL fill_array_log(kmin, kmax, k, nk)
+      CALL fill_array(amin, amax, a, na)
+
+      !icosmo = icosmo_default
+      CALL assign_cosmology(icosmo, cosm, verbose)
+      CALL init_cosmology(cosm)
+
+      ihm = ihm_default
+      CALL assign_halomod(ihm, hmod, verbose)
+
+      CALL calculate_HMx(fields, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
+
+      fail = .FALSE.
+      DO ia = 1, na
+         DO ik = 1, nk
+            IF(.NOT. requal(pow_hm(1, 1, ik, ia), pow_hm(2, 2, ik, ia), eps)) THEN
+               fail = .TRUE.
+               WRITE(*, *) k(ik), a(ia), pow_hm(2, 2, ik, ia)/pow_hm(1, 1, ik, ia)
+            END IF
+         END DO
+      END DO
+
+      IF(fail) THEN
+         WRITE(*, *)
+         WRITE(*, *) 'Test failed'
+      ELSE
+         WRITE(*, *) 'Test passed'
+      END IF
+      WRITE(*, *)
+
+   END SUBROUTINE compare_matter_vs_DMONLY_implementation
 
    SUBROUTINE compare_HMcode_CAMB(icosmo)
 
@@ -1117,10 +1180,11 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), a(:)
       REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
-      INTEGER :: i, icos
-      INTEGER :: icosmo_here, icosmo_baseline
-      INTEGER :: ihm_here, ihm_baseline
-      CHARACTER(len=256) :: base
+      REAL :: zmin, zmax
+      INTEGER :: i, icos, na, ncos
+      INTEGER :: icosmo_here
+      INTEGER :: ihm_here, ihm_base, ihm_test
+      CHARACTER(len=256) :: filebase, filebase_test
       TYPE(halomod) :: hmod
       TYPE(cosmology) :: cosm
 
@@ -1129,53 +1193,136 @@ CONTAINS
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
-      REAL, PARAMETER :: zmin = 0.
-      REAL, PARAMETER :: zmax = 4.
-      INTEGER, PARAMETER :: na = 16
       LOGICAL, PARAMETER :: verbose = .TRUE.
       INTEGER, PARAMETER :: field(1) = field_dmonly
 
-      ! Pick baseline halo model
-      IF (imode == 78) THEN
-         ihm_baseline = 3         ! 3 - Seljak (2000)
-         icosmo_baseline = icosmo ! User choice
-      ELSE IF (imode == 80) THEN
-         ihm_baseline = 1         ! 1 - HMcode (2016)
-         icosmo_baseline = icosmo ! User choice
-      ELSE IF (imode == 82) THEN
-         ihm_baseline = 3    ! 3 - Seljak (2000)
-         icosmo_baseline = 1 ! 1 - Boring
-      ELSE IF (imode == 84) THEN
-         ihm_baseline = 1    ! 1 - HMcode (2016)
-         icosmo_baseline = 1 ! 1 - Boring
-      ELSE
-         STOP 'POWER_SINGLE_COMPARISON: Error, imode not specified correctly'
-      END IF
+      ! ! Pick baseline halo model
+      ! IF (imode == 78) THEN
+      !    ihm_base = 3         ! 3 - Seljak (2000)        
+      !    icosmo_base = icosmo ! User choice        
+      ! ELSE IF (imode == 80) THEN
+      !    ihm_base = 1         ! 1 - HMcode (2016)         
+      !    icosmo_base = icosmo ! User choice       
+      ! ELSE IF (imode == 82) THEN
+      !    ihm_base = 3         ! 3 - Seljak (2000)
+      !    icosmo_base = 1      ! 1 - Boring        
+      ! ELSE IF (imode == 84) THEN
+      !    ihm_base = 1         ! 1 - HMcode (2016)        
+      !    icosmo_base = 1      ! 1 - Boring        
+      ! ELSE IF (imode == 85 .OR. imode == 89 .OR. imode == 90) THEN
+      !    ihm_base = 3 ! 3 - Seljak (2000)
+      !    ihm_test = ihm_base
+      !    icosmo_base = 69 ! Planck-ish
+      !    IF(imode == 85) THEN
+      !       icosmo_test = 66 ! kbump = 0.05 h/Mpc
+      !       filebase_test = 'data/power_bump_k0p05'
+      !    ELSE IF(imode == 89) THEN
+      !       icosmo_test = 67 ! kbump = 0.1 h/Mpc
+      !       filebase_test = 'data/power_bump_k0p1'
+      !    ELSE IF(imode == 90) THEN
+      !       icosmo_test = 68 ! kbump = 1 h/Mpc
+      !       filebase_test = 'data/power_bump_k1'
+      !    ELSE
+      !       STOP 'POWER_SINGLE_COMPARISON: Error, imode not specified correctly'
+      !    END IF
+      ! ELSE
+      !    STOP 'POWER_SINGLE_COMPARISON: Error, imode not specified correctly'
+      ! END IF
 
       ! Set number of k points and k range (log spaced)
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
 
       ! Set the number of redshifts and range (linearly spaced) and convert z -> a
-      CALL fill_array(zmin, zmax, a, na)
-      DO i = 1, na
-         a(i) = scale_factor_z(a(i)) ! Note that this is correct because 'a' here is actually 'z'
-      END DO
+      IF (imode == 85) THEN
+         na = 6
+         ALLOCATE(a(na))
+         a(6) = 4.
+         a(5) = 3.
+         a(4) = 2.
+         a(3) = 1.
+         a(2) = 0.5
+         a(1) = 0.
+         a = scale_factor_z(a)
+      ELSE
+         zmin = 0.
+         zmax = 4.
+         na = 16
+         CALL fill_array(zmin, zmax, a, na)
+         DO i = 1, na
+            a(i) = scale_factor_z(a(i)) ! Note that this is correct because 'a' here is actually 'z'
+         END DO
+      END IF
 
-      DO icos = 1, 2
+      ! Fix the total number of cosmologies
+      ncos = 1
+      IF (imode == 85) ncos = 3
+
+      ! Loop over cosmological models to compare
+      DO icos = 0, ncos
 
          ! Assigns the cosmological model
-         IF (icos == 1) THEN
-            icosmo_here = icosmo
-            ihm_here = ihm
-            base = 'data/power'
-         ELSE IF (icos == 2) THEN
-            ! The comparison
-            icosmo_here = icosmo_baseline
-            ihm_here = ihm_baseline
-            base = 'data/power_baseline'
+         IF (imode == 85) THEN
+
+            ihm_here = 3 ! 3 - Seljak (2000)             
+            IF (icos == 0) THEN
+               icosmo_here = 69 ! Planck-ish
+               filebase = 'data/power_nobump'
+            ELSE IF(icos == 1) THEN
+               icosmo_here = 66 ! kbump = 0.05 h/Mpc
+               filebase = 'data/power_bump_k0p05'
+            ELSE IF(icos == 2) THEN
+               icosmo_here = 67 ! kbump = 0.1 h/Mpc
+               filebase = 'data/power_bump_k0p1'
+            ELSE IF(icos == 3) THEN
+               icosmo_here = 68 ! kbump = 1 h/Mpc
+               filebase = 'data/power_bump_k1'
+            ELSE
+               STOP 'POWER_MULTIPLE_COMPARISON: Error, something went wrong with bumps'
+            END IF
+
          ELSE
-            STOP 'POWER_SINGLE_COMPARISON: A disaster occured'
+
+            IF (icos == 0) THEN
+
+               ! The comparison
+               IF (imode == 78) THEN
+                  ihm_here = 3 ! 3 - Seljak (2000)        
+                  icosmo_here = icosmo ! User choice        
+               ELSE IF (imode == 80) THEN
+                  ihm_here = 1 ! 1 - HMcode (2016)         
+                  icosmo_here = icosmo ! User choice       
+               ELSE IF (imode == 82) THEN
+                  ihm_here = 3 ! 3 - Seljak (2000)
+                  icosmo_here = 1 ! 1 - Boring        
+               ELSE IF (imode == 84) THEN
+                  ihm_here = 1 ! 1 - HMcode (2016)        
+                  icosmo_here = 1 ! 1 - Boring        
+               ELSE IF (imode == 85) THEN
+                  ihm_here = ihm
+                  icosmo_here = 69 ! Planck-ish
+               END IF
+               filebase = 'data/power_baseline'
+
+            ELSE
+
+               IF (imode == 78) THEN
+                  ihm_here = ihm ! User choice
+                  icosmo_here = icosmo ! User choice             
+               ELSE IF (imode == 80) THEN
+                  ihm_here = ihm ! User choice
+                  icosmo_here = icosmo ! User choice
+               ELSE IF (imode == 82) THEN
+                  ihm_here = ihm ! User choice
+                  icosmo_here = icosmo ! User choice
+               ELSE IF (imode == 84) THEN
+                  ihm_here = ihm ! User choice
+                  icosmo_here = icosmo ! User choice
+               END IF
+               filebase = 'data/power'
+         
+            END IF
+
          END IF
 
          ! Assigns the cosmological model
@@ -1186,29 +1333,38 @@ CONTAINS
 
          CALL calculate_HMx(field, 1, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
 
-         CALL write_power_a_multiple(k, a, pow_li, pow_2h(1, 1, :, :), pow_1h(1, 1, :, :), pow_hm(1, 1, :, :), nk, na, base, verbose)
+         CALL write_power_a_multiple(k, a, pow_li, pow_2h(1, 1, :, :), pow_1h(1, 1, :, :), pow_hm(1, 1, :, :), nk, na, filebase, verbose)
 
       END DO
 
    END SUBROUTINE power_multiple_comparison
 
-   SUBROUTINE halo_stuff(icosmo, ihm)
+   SUBROUTINE halo_stuff(imode, icosmo, ihm)
 
       IMPLICIT NONE
-      INTEGER, INTENT(INOUT) :: icosmo
-      INTEGER, INTENT(INOUT) :: ihm
+      INTEGER, INTENT(IN) :: imode
+      INTEGER, INTENT(IN) :: icosmo
+      INTEGER, INTENT(IN) :: ihm
       TYPE(halomod) :: hmod
       TYPE(cosmology) :: cosm
       REAL :: z
-      INTEGER :: j
+      INTEGER :: j, icosmo_here, ihm_here
       CHARACTER(len=256) :: dir
 
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Halo diagnostics
 
+      IF (imode == 86) THEN
+         icosmo_here = 4
+         ihm_here = 65
+      ELSE
+         icosmo_here = icosmo
+         ihm_here = ihm
+      END IF
+
       ! Assigns the cosmological model
-      CALL assign_cosmology(icosmo, cosm, verbose)
+      CALL assign_cosmology(icosmo_here, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
@@ -1222,7 +1378,7 @@ CONTAINS
          IF (j == 4) z = 2.0
 
          ! Initiliasation for the halomodel calcualtion
-         CALL assign_halomod(ihm, hmod, verbose)
+         CALL assign_halomod(ihm_here, hmod, verbose)
          CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
          CALL print_halomod(hmod, cosm, verbose)
 
@@ -1392,7 +1548,7 @@ CONTAINS
       zs(3) = 1.0
       zs(4) = 2.0
 
-      IF (imode == 2 .OR. imode==32 .OR. imode == 52) THEN
+      IF (imode == 2 .OR. imode== 32 .OR. imode == 52) THEN
          ! Only do one 'model' here
          nowl = 1
       ELSE IF (imode == 5) THEN
@@ -1437,7 +1593,7 @@ CONTAINS
             END IF
 
             IF (imode == 32) THEN
-               ihm = 3
+               ihm = 65
             END IF
 
             IF (imode == 5) THEN
@@ -1567,7 +1723,7 @@ CONTAINS
       REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
       REAL :: z, logT
       INTEGER :: iT, iz, j1, j2, nk
-      CHARACTER(len=256) :: base, ext, mid, outfile
+      CHARACTER(len=256) :: start, base, ext, mid, outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
@@ -1575,6 +1731,8 @@ CONTAINS
       REAL, PARAMETER :: kmax = 1e2
       REAL, PARAMETER :: logTmin = 7.5
       REAL, PARAMETER :: logTmax = 8.1
+      !REAL, PARAMETER :: logTmin = 7.2
+      !REAL, PARAMETER :: logTmax = 8.4
       INTEGER, PARAMETER :: nT = 7
       INTEGER, PARAMETER :: nf = 6
       INTEGER, PARAMETER :: fields(nf) = [field_dmonly, field_matter, field_cdm, field_gas, field_stars, field_electron_pressure]
@@ -1585,11 +1743,17 @@ CONTAINS
 
       ! Set models for paper plots
       IF (imode == 21) THEN
+         ! matter-matter model
          icosmo = 4
          ihm = 60
+         start = 'data/power_mm_T'
       ELSE IF(imode == 22) THEN
+         ! matter-electron pressure model
          icosmo = 4
          ihm = 61
+         start = 'data/power_me_T'
+      ELSE
+         start = 'data/power_T'
       END IF
 
       ! Set the redshifts
@@ -1633,7 +1797,7 @@ CONTAINS
             CALL init_halomod(scale_factor_z(z), hmod, cosm, verbose)
             CALL print_halomod(hmod, cosm, verbose)
 
-            base = 'data/power_T'//trim(real_to_string(logT,1,1))//'_z'//trim(real_to_string(z,1,3))//'_'
+            base = trim(start)//trim(real_to_string(logT,1,1))//'_z'//trim(real_to_string(z,1,3))//'_'
             mid = ''
             ext = '.dat'
 
@@ -1770,7 +1934,7 @@ CONTAINS
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e1
       INTEGER, PARAMETER :: nk = 128
-      REAL, PARAMETER :: amin = 0.1 ! Problems with one-halo term if amin is less than 0.1
+      REAL, PARAMETER :: amin = 0.2 ! Problems with one-halo term if amin is less than 0.1
       REAL, PARAMETER :: amax = 1.
       INTEGER, PARAMETER :: na = 16
       REAL, PARAMETER :: lmax_xi = 1e5
@@ -1908,7 +2072,8 @@ CONTAINS
 
          ! Write out diagnostics
          IF (imode == 47) ihm = 1 ! 1 - HMcode (2016)
-         IF (imode == 42 .OR. imode == 43 .OR. imode == 63 .OR. imode == 64) ihm = 3 ! 3 - Standard halo model
+         IF (imode == 63 .OR. imode == 64) ihm = 3  ! 3 - Standard halo model
+         IF (imode == 42 .OR. imode == 43) ihm = 61 ! 55 - HMx2020
          CALL assign_halomod(ihm, hmod, verbose)
          CALL calculate_HMx(ip, 2, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
 
@@ -2625,8 +2790,8 @@ CONTAINS
             ilog = .FALSE.
          ELSE IF (ipa == param_mstar) THEN
             ! 9 - M* - peak of stellar halo mass filling
-            param_min = hmod%mstar/10.
-            param_max = hmod%mstar*10.
+            param_min = hmod%mstar/sqrt(10.)
+            param_max = hmod%mstar*sqrt(10.)
             ilog = .TRUE.
          ELSE IF (ipa == param_sstar) THEN
             ! 10 - sigma* - width of stellar halo mass filling distribution
@@ -2684,10 +2849,11 @@ CONTAINS
                ! In this case the default eta is -0.3
                param_min = hmod%eta-0.2
                param_max = hmod%eta+0.2
+            ELSE
+               ! Otherwise the default value for eta is 0.
+               param_min = hmod%eta-0.5
+               param_max = hmod%eta
             END IF
-            ! Otherwise the default value for eta is 0.
-            param_min = hmod%eta-0.5
-            param_max = hmod%eta
             ilog = .FALSE.
          ELSE IF (ipa == param_epsz) THEN
             ! 33 - epsz - z power-law for epsilon
@@ -3606,7 +3772,7 @@ CONTAINS
 
    END SUBROUTINE halo_model_tests
 
-   SUBROUTINE emulator_tests(imode, icosmo, ihm)
+   SUBROUTINE emulator_comparison(imode, icosmo, ihm)
 
       ! Comparison with FrankenEmu or Mira Titan
       IMPLICIT NONE
@@ -3623,6 +3789,8 @@ CONTAINS
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
+      REAL, PARAMETER :: m_nu_min = 0.00 ! Minimum neutrino mass [eV]
+      REAL, PARAMETER :: m_nu_max = 0.94 ! Maximum neutrino mass [eV]
       LOGICAL, PARAMETER :: verbose = .TRUE.
       CHARACTER(len=256), PARAMETER :: base = 'data/cosmo'
       CHARACTER(len=256), PARAMETER :: mid = '_z'
@@ -3634,16 +3802,17 @@ CONTAINS
       IF (imode == 27 .OR. imode == 29) n = 36 ! Mira Titan
       IF (imode == 70 .OR. imode == 71) n = 37 ! Cosmic Emu
       IF (imode == 76) n = 10 ! Mira Titan with massless neutrinos
+      IF (imode == 89) n = 10
 
       ! Set number of redshifts
       IF (imode == 28 .OR. imode == 30) THEN
          nz = 6 ! Franken Emu
-      ELSE IF (imode == 27 .OR. imode == 29 .OR. imode == 76) THEN
+      ELSE IF (imode == 27 .OR. imode == 29 .OR. imode == 76 .OR. imode == 89) THEN
          nz = 4 ! Mira Titan
       ELSE IF (imode == 70 .OR. imode == 71) THEN
          nz = 3 ! Cosmic Emu
       ELSE
-         STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
+         STOP 'EMULATOR_COMPARISON:  Error, imode not specified correctly for EMU'
       END IF
 
       ! Set the random number generator for the random cosmologies
@@ -3664,7 +3833,7 @@ CONTAINS
          z(4) = 2.0
          z(5) = 3.0
          z(6) = 4.0
-      ELSE IF (imode == 27 .OR. imode == 29 .OR. imode == 76) THEN
+      ELSE IF (imode == 27 .OR. imode == 29 .OR. imode == 76 .OR. imode == 89) THEN
          ! Mira Titan (z up to 2)
          z(1) = 0.0
          z(2) = 0.5
@@ -3676,7 +3845,7 @@ CONTAINS
          z(2) = 0.5
          z(3) = 1.0
       ELSE
-         STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
+         STOP 'EMULATOR_COMPARISON:  Error, imode not specified correctly for EMU'
       END IF
 
       ! Set scale factors
@@ -3702,24 +3871,30 @@ CONTAINS
             icosmo = 25    ! Random Franken Emu
          ELSE IF (imode == 71) THEN
             icosmo = 38    ! Random Cosmic Emu
+         ELSE IF (imode == 89) THEN
+            icosmo = 100 ! Mira Titan central node
          ELSE
-            STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
+            WRITE (*, *) 'EMULATOR_COMPARISON:', imode
+            STOP 'EMULATOR_COMPARISON: Error, imode not specified correctly for EMU'
          END IF
          CALL assign_cosmology(icosmo, cosm, verbose)
+         IF (imode == 89) THEN
+            cosm%m_nu = progression(m_nu_min, m_nu_max, i+1, n+1)
+         END IF
          CALL init_cosmology(cosm)
          CALL print_cosmology(cosm)
 
          ! Loop over redshift
          DO j = 1, nz
 
-            IF (imode == 27 .OR. imode == 29 .OR. imode == 76) THEN
+            IF (imode == 27 .OR. imode == 29 .OR. imode == 76 .OR. imode == 89) THEN
                CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE IF (imode == 28 .OR. imode == 30) THEN
                CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE IF (imode == 70 .OR. imode == 71) THEN
                CALL get_Cosmic_Emu_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE
-               STOP 'HMx_DRIVER: Error, imode not specified correctly for EMU'
+               STOP 'EMULATOR_COMPARISON: Error, imode not specified correctly for EMU'
             END IF
 
             ALLOCATE (pow_li(nk), pow_2h(1, 1, nk), pow_1h(1, 1, nk), pow_hm(1, 1, nk))
@@ -3750,7 +3925,7 @@ CONTAINS
 
       END DO
 
-   END SUBROUTINE emulator_tests
+   END SUBROUTINE emulator_comparison
 
    SUBROUTINE power_breakdown_halomass(imode, icosmo, ihm)
 
@@ -3790,13 +3965,13 @@ CONTAINS
       ALLOCATE (pow_li(nk), pow_2h(nf, nf, nk), pow_1h(nf, nf, nk), pow_hm(nf, nf, nk))
 
       ! Assign the cosmological model
-      icosmo = 4 ! 4 - BAHAMAS cosmology
+      IF (imode == 31) icosmo = 4 ! 4 - BAHAMAS cosmology
       CALL assign_cosmology(icosmo, cosm, verbose)
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
       ! Set the halo model
-      ihm = 3 ! 3 - Standard
+      IF (imode == 31) ihm = 65
       CALL assign_halomod(ihm, hmod, verbose)
 
       ! Loop over upper limit of mass integral
@@ -3804,7 +3979,7 @@ CONTAINS
 
          ! Set the upper limit for the mass integration
          ! Needs to be 10. to enforce that m2 is real
-         IF (imode == 31) THEN
+         IF (imode == 31 .OR. imode == 87) THEN
             m1 = 1e7
             m2 = 10.**i
          ELSE IF (imode == 53) THEN
@@ -3834,7 +4009,7 @@ CONTAINS
 
                ! Write out the results
                base = 'data/power_'
-               IF (imode == 31) THEN
+               IF (imode == 31 .OR. imode == 87) THEN
                   mid = ''
                   ext = '_m'
                   base = number_file2(base, fields(j1), mid, fields(j2), ext)
@@ -4179,10 +4354,11 @@ CONTAINS
 
    END SUBROUTINE hydro_tests
 
-   SUBROUTINE power_cosmology_dependence(icosmo, ihm)
+   SUBROUTINE power_cosmology_dependence(imode, icosmo, ihm)
 
       ! Assess 3D power as a function of cosmology
       IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:)
@@ -4204,11 +4380,11 @@ CONTAINS
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assign the cosmology
-      icosmo = 1
+      IF(imode == 41) icosmo = 44
       CALL assign_cosmology(icosmo, cosm, verbose)
 
       ! Assign the halo model
-      ihm = 3
+      IF(imode == 41) ihm = 65
       CALL assign_halomod(ihm, hmod, verbose=.FALSE.)
 
       ! Allocate arrays for the fields
@@ -4777,7 +4953,7 @@ CONTAINS
 
                ! Read in power
                DO i = 1, na
-                  CALL read_BAHAMAS_power(k, pow_sim, err_sim, nk, redshift_a(a(i)), name, mesh, ip, cosm, &
+                  CALL BAHAMAS_read_power(k, pow_sim, err_sim, nk, redshift_a(a(i)), name, mesh, ip, cosm, &
                                           kmax=kmax_BAHAMAS, &
                                           cut_nyquist=cut_nyquist, &
                                           subtract_shot=subtract_shot, &
