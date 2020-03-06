@@ -19,15 +19,15 @@ print('')
 
 # Files
 file_li='data/power_linear.dat'
-file_hm='data/power_hm.dat'
-file_1h='data/power_1h.dat'
 file_2h='data/power_2h.dat'
+file_1h='data/power_1h.dat'
+file_hm='data/power_hm.dat'
 
 # Baseline files
 file_base_li='data/power_baseline_linear.dat'
-file_base_hm='data/power_baseline_hm.dat'
-file_base_1h='data/power_baseline_1h.dat'
 file_base_2h='data/power_baseline_2h.dat'
+file_base_1h='data/power_baseline_1h.dat'
+file_base_hm='data/power_baseline_hm.dat'
 
 # Set k-range
 kmin=1e-3
@@ -38,8 +38,8 @@ pmin = 1e-8
 pmax = 1e4
 
 # Set ratio axis
-rmin = 0.80
-rmax = 1.02
+rmin = 0.65
+rmax = 1.05
 
 unset colorbox
 
@@ -55,7 +55,8 @@ unset colorbox
 unset key
 
 # Number of redshifts
-n=16
+if(!exist('nz')){nz = 16}
+print('Number of z being plotted: nz: ', nz)
 
 # Colour stuff
 set palette defined (1 'dark-red', 2 'gold')
@@ -84,12 +85,12 @@ set multiplot layout 2,1
 # Power axis
 set log y
 #set yrange [pmin:pmax]
-set ylabel '{/Symbol D}_{i,j}^2(k)'
+set ylabel '{/Symbol D}@^2_{i,j}(k)'
 set format y '10^{%T}'
 
 # Plot power
-plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette not,\
-     for[i=1:n] file_base u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 1 dt 3 lc palette noti
+plot for[i=1:nz] file u 1:(column(i+1)):(real(i-1)/real(nz)) w l lw 2 dt 1 lc palette not,\
+     for[i=1:nz] file_base u 1:(column(i+1)):(real(i-1)/real(nz)) w l lw 1 dt 3 lc palette noti
 
 # x axis
 set xlabel 'k / (h Mpc^{-1})'
@@ -98,14 +99,14 @@ set format x
 
 # ratio axis
 unset log y
+#set yrange [rmin:rmax]
 set ylabel 'P(k) / P_{base}(k)'
 set format y
-set yrange [rmin:rmax]
 
 # Plot response
 plot 1 w l lt -1 noti,\
-   for[i=n:n] '<paste '.file_li.' '.file_base_li.'' u 1:(column(i+1)/column(i+2+n)):(real(i-1)/real(n)) w l lw 2 dt 2 lc -1 noti,\
-   for[i=1:n] '<paste '.file.' '.file_base.'' u 1:(column(i+1)/column(i+2+n)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti
+   for[i=nz:nz] '<paste '.file_li.' '.file_base_li.'' u 1:(column(i+1)/column(i+2+nz)):(real(i-1)/real(nz)) w l lw 2 dt 2 lc -1 noti,\
+   for[i=1:nz] '<paste '.file.' '.file_base.'' u 1:(column(i+1)/column(i+2+nz)):(real(i-1)/real(nz)) w l lw 2 dt 1 lc palette noti
    
 
 unset multiplot

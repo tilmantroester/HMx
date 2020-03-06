@@ -45,10 +45,10 @@ set multiplot layout 1,2
 
 # power axis
 dmin=1e-3
-dmax=1e3
+dmax=1e4
 set log y
 set yrange [dmin:dmax]
-set ylabel '{/Symbol D}^2_{mm}(k)'
+set ylabel '{/Symbol D}@^2_{mm}(k)'
 set format y '10^{%T}'
 
 set palette defined ( 0 "light-blue", 1 "blue", 2 "black" )
@@ -74,7 +74,7 @@ dmin=1e-7
 dmax=1e-1
 set log y
 set yrange [dmin:dmax]
-set ylabel '{/Symbol D}^2_{mp}(k) / eV cm^{-3}'
+set ylabel '{/Symbol D}@^2_{mp}(k) / eV cm^{-3}'
 set format y '10^{%T}'
 
 set palette defined ( 0 "pink", 1 "red", 2 "black" )

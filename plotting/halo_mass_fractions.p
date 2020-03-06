@@ -43,8 +43,8 @@ om_m=0.2793
 plot 1 w l lt -1 lw width ti 'Total',\
    om_b/om_m  w l lw width dt 2 lc -1 ti 'Universal baryon',\
    file u 1:2 w l lw width dt 1 lc 2  ti 'CDM',\
-   file u 1:3 w l lw width dt 1 lc 3  ti 'Total gas',\
-   file u 1:4 w l lw width dt 2 lc 3  ti 'Bound gas',\
+   file u 1:3 w l lw width dt 2 lc 3  ti 'Total gas',\
+   file u 1:4 w l lw width dt 1 lc 3  ti 'Bound gas',\
    file u 1:5 w l lw width dt 3 lc 3  ti 'Unbound gas',\
    file u 1:6 w l lw width dt 1 lc 4  ti 'Total stars',\
    file u 1:7 w l lw width dt 2 lc 4  ti 'Central stars',\

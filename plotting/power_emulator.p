@@ -13,6 +13,7 @@ if(!exists('imode')) {imode=1}
 print 'imode = 1: Many cosmologies; no error blob'
 print 'imode = 2: Many cosmologies; error blob'
 print 'imode = 3: Single cosmology'
+print 'imode = 4: Many cosmologies; no error blob; colourscale'
 print 'imode = ', imode
 print ''
 
@@ -32,7 +33,7 @@ c_hm=9 # Halo model
 # Label for k axis
 klab='k / h Mpc^{-1}'
 
-if(imode==1 || imode==2){
+if(imode==1 || imode==2 || imode == 4){
 
 if(print==1) {set output 'power_emulator_many.eps'}
 
@@ -78,6 +79,10 @@ knl[2]=0.690 # z=0.5
 knl[3]=1.206 # z=1.0
 knl[4]=3.446 # z=2.0
 
+#set palette cubehelix
+set palette defined (1 'blue', 2 'cyan')
+unset colorbox
+
 # Setup multiplot
 set multiplot layout nz,2 margins 0.10,0.98,0.11,0.94 spacing 0.0,0.00
 
@@ -110,7 +115,15 @@ if(imode==1){
 plot 1 w l lt -1 noti,\
      1.+ddy w l lc -1 dt 2 noti,\
      1.-ddy w l lc -1 dt 2 noti,\
-     for [icos=icos1:icos2] file(icos,j) u 1:(column(c)/column(c_em)) w l noti
+     for [icos=icos1:icos2] file(icos,j) u 1:(column(c)/column(c_em)) w l lc icos noti
+}
+
+# Standard plot
+if(imode==4){
+   plot 1 w l lt -1 noti,\
+      1.+ddy w l lc -1 dt 2 noti,\
+      1.-ddy w l lc -1 dt 2 noti,\
+      for [icos=icos1:icos2] file(icos,j) u 1:(column(c)/column(c_em)):(icos) w l lc palette noti
 }
 
 # Plot with error blob

@@ -223,7 +223,8 @@ icol[5]=i_col_electron_pressure
 
 # Few fields
 fields_few="'all' 'epressure'"
-field_few_names="'matter' 'electron pressure [keV cm^{-3}]'"
+#field_few_names="'matter' 'electron pressure [keV cm^{-3}]'"
+field_few_names="'matter' 'electron pressure [100 eV cm^{-3}]'"
 
 # Few field integers
 array ifield_few[2]
@@ -238,7 +239,8 @@ icol_few[2]=6
 # Fractions to multiply pressure spectra by
 array fac[2]
 fac[1]=1.
-fac[2]=1e3 # Units of pressure become [keV/cm^3]
+#fac[2]=1e3 # Units of pressure become [keV/cm^3]
+fac[2]=100. # Units of pressure become [keV/cm^3]
 
 # Write to screen
 print 'Pressure field multiplied by: ', fac[2]
@@ -264,7 +266,7 @@ pmax=1e3
 set log y
 set yrange [pmin:pmax]
 set format y '10^{%T}'
-set ylabel '{/Symbol D}_{uv}^2(k)'
+set ylabel '{/Symbol D}@^2_{uv}(k)'
 set mytics 10
 
 # Set the overall plot titles
@@ -555,7 +557,7 @@ set log x
 set xlabel klab
 
 # y axis
-plab='{/Symbol D}_{uv}^2(k)'
+plab='{/Symbol D}@^2_{uv}(k)'
 pmin=1e-7; pmax=1e3 # Suitable for matter spectra
 if(field1 eq 'pressure'){pmin=pmin/1e3; pmax=pmax/1e3}
 if(field2 eq 'pressure'){pmin=pmin/1e3; pmax=pmax/1e3}
@@ -698,7 +700,7 @@ pmax=1e2
 set log y
 set yrange [pmin:pmax]
 set format y '10^{%T}'
-set ylabel '{/Symbol D}_{uv}^2(k) / [k / h^{-1} Mpc]^{1.5}'
+set ylabel '{/Symbol D}@^2_{uv}(k) / [k / h^{-1} Mpc]^{1.5}'
 set mytics 10
 
 if(print==1){
@@ -757,22 +759,33 @@ plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
 
 unset label
 
-pmin=1e-5
+#pmin=1e-5
+pmin=1e-7
 pmax=1e3
 set yrange [pmin:pmax]
 
-plot for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
-     for [i=1:2] for [j=i:i] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 7 ps .5 lc icol_few[i] noti,\
-     for [i=1:1] for [j=2:2] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 6 ps .5 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 1 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 2 lc icol_few[j] noti
+plot NaN w l lw 3 dt 1 lc -1 ti 'Autospectra',\
+     NaN w l lw 3 dt 2 lc -1 ti 'Cross with matter',\
+     for [i=1:2] NaN w l lw 3 dt 1 lc icol_few[i] ti word(field_few_names,i),\
+     for [i=1:2] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,i)) u 1:(fac[i]*fac[i]*(column(c)-column(s))):(fac[i]*fac[i]*$5) w e pt 7 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] simpk(sim,mesh,snap,word(fields_few,1),word(fields_few,i)) u 1:(fac[i]*fac[1]*(column(c)-column(s))):(fac[i]*fac[1]*$5) w e pt 6 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[i]) u 1:(fac[i]*fac[i]*column(d)) w l lw 3 dt 1 lc icol_few[i] noti word(field_names,i),\
+     for [i=1:2] hmpk(hmpk_name,z,ifield_few[1],ifield_few[i]) u 1:(fac[i]*fac[1]*column(d)) w l lw 3 dt 2 lc icol_few[i] noti
+
+     #for [i=1:2] for [j=i:i] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 7 ps .5 lc icol_few[i] noti,\
+     #for [i=1:1] for [j=2:2] simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)) u 1:(fac[i]*fac[j]*(column(c)-column(s))):(fac[i]*fac[j]*column(5)) w e pt 6 ps .5 lc icol_few[i] noti,\
+     #for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 2 lc icol_few[j] noti
+     
+#for [i=1:2] for [j=i:2] hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]) u 1:(fac[i]*fac[j]*column(d)) w l lw 3 dt 1 lc icol_few[i] noti#,\
+     
 
 set xlabel 'k / h Mpc^{-1}'
 set format x
 
 rmin=1e-4
-rmax=2
-set ylabel 'P_{uv}(k) / P_{no-hydro}(k)'
+rmax=2.
+#set ylabel 'P_{uv}(k) / P_{no-hydro}(k)'
+set ylabel 'P_@{uv}^{hydro}(k) / P_@{mm}^{gravity}(k)'
 set yrange [rmin:rmax]
 
 # Bottom left - matter response
@@ -786,16 +799,22 @@ plot 1 w l lt -1 noti,\
      for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[i],ifield[i]).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 dt 1 lc icol[i] noti,\
      for [i=1:4] '<paste '.hmpk(hmpk_name,z,ifield[1],ifield[i]).' '.hmpk_dmonly(z).'' u 1:(column(d)/column(d+M)) w l lw 3 dt 2 lc icol[i] noti
 
-rmin=1e-2
-rmax=2
-set ylabel 'P_{uv}(k) / P_{no-hydro}(k)'
+#rmin=1e-2
+rmin=1e-4
+rmax=2.
+set ylabel 'P_@{uv}^{hydro}(k) / P_@{mm}^{gravity}(k)'
 set yrange [rmin:rmax]
 
 # Bottom right - pressure response
 plot 1 w l lt -1 noti,\
-     for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
-     for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
+     for [i=1:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,i)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[i]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,1),word(fields_few,i)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[1]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 6 ps .5 lc icol_few[i] noti,\
+     for [i=1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[i]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[i]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+     for [i=1:2] '<paste '.hmpk(hmpk_name,z,ifield_few[1],ifield_few[i]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[1]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[i] noti
+
+#for [i=1:2] for [j=i:2] '<paste '.simpk(sim,mesh,snap,word(fields_few,i),word(fields_few,j)).' '.simpk(sim_dmonly,mesh,snap,'all','all').'' u 1:(fac[i]*fac[j]*(column(c)-column(s))/(column(c+L)-column(s+L))) w p pt 7 ps .5 lc icol_few[i] noti,\
+#for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 1 lc icol_few[i] noti,\
+#for [i=1:2] for [j=i:2] '<paste '.hmpk(hmpk_name,z,ifield_few[i],ifield_few[j]).' '.hmpk_dmonly(z).'' u 1:(fac[i]*fac[j]*column(d)/column(d+M)) w l lw 3 dt 2 lc icol_few[j] noti
 
 unset multiplot
 
@@ -955,7 +974,7 @@ set xrange [kmin:kmax]
 dmin=1e-6
 dmax=1e3
 set log y
-set ylabel '{/Symbol D}_{uv}^2(k)'
+set ylabel '{/Symbol D}@^2_{uv}(k)'
 set format y '10^{%T}'
 set yrange [dmin:dmax]
 
