@@ -66,6 +66,7 @@ _OBJ = \
 	basic_operations.o \
 	array_operations.o \
 	file_info.o \
+	io.o \
 	random_numbers.o \
 	table_integer.o \
 	special_functions.o \
