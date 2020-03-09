@@ -2,6 +2,7 @@
 
 # Standard HMx flags
 HMX_FFLAGS = \
+	-std=gnu \
 	-fcheck=all,no-array-temps \
 	-fmax-errors=4 \
 	-ffpe-trap=invalid,zero,overflow \
@@ -25,7 +26,7 @@ DEBUG_FLAGS = \
 ifeq ($(COSMOSIS_SRC_DIR),)
 # No cosmosis
 FC = gfortran
-FFLAGS = $(HMX_FFLAGS) -std=gnu -ffree-line-length-none 
+FFLAGS = $(HMX_FFLAGS) -ffree-line-length-none 
 all: bin lib
 else
 # With cosmosis
