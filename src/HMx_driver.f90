@@ -1196,39 +1196,6 @@ CONTAINS
       LOGICAL, PARAMETER :: verbose = .TRUE.
       INTEGER, PARAMETER :: field(1) = field_dmonly
 
-      ! ! Pick baseline halo model
-      ! IF (imode == 78) THEN
-      !    ihm_base = 3         ! 3 - Seljak (2000)        
-      !    icosmo_base = icosmo ! User choice        
-      ! ELSE IF (imode == 80) THEN
-      !    ihm_base = 1         ! 1 - HMcode (2016)         
-      !    icosmo_base = icosmo ! User choice       
-      ! ELSE IF (imode == 82) THEN
-      !    ihm_base = 3         ! 3 - Seljak (2000)
-      !    icosmo_base = 1      ! 1 - Boring        
-      ! ELSE IF (imode == 84) THEN
-      !    ihm_base = 1         ! 1 - HMcode (2016)        
-      !    icosmo_base = 1      ! 1 - Boring        
-      ! ELSE IF (imode == 85 .OR. imode == 89 .OR. imode == 90) THEN
-      !    ihm_base = 3 ! 3 - Seljak (2000)
-      !    ihm_test = ihm_base
-      !    icosmo_base = 69 ! Planck-ish
-      !    IF(imode == 85) THEN
-      !       icosmo_test = 66 ! kbump = 0.05 h/Mpc
-      !       filebase_test = 'data/power_bump_k0p05'
-      !    ELSE IF(imode == 89) THEN
-      !       icosmo_test = 67 ! kbump = 0.1 h/Mpc
-      !       filebase_test = 'data/power_bump_k0p1'
-      !    ELSE IF(imode == 90) THEN
-      !       icosmo_test = 68 ! kbump = 1 h/Mpc
-      !       filebase_test = 'data/power_bump_k1'
-      !    ELSE
-      !       STOP 'POWER_SINGLE_COMPARISON: Error, imode not specified correctly'
-      !    END IF
-      ! ELSE
-      !    STOP 'POWER_SINGLE_COMPARISON: Error, imode not specified correctly'
-      ! END IF
-
       ! Set number of k points and k range (log spaced)
       CALL fill_array(log(kmin), log(kmax), k, nk)
       k = exp(k)
@@ -1256,7 +1223,7 @@ CONTAINS
 
       ! Fix the total number of cosmologies
       ncos = 1
-      IF (imode == 85) ncos = 3
+      IF (imode == 85) ncos = 6
 
       ! Loop over cosmological models to compare
       DO icos = 0, ncos
@@ -1264,19 +1231,28 @@ CONTAINS
          ! Assigns the cosmological model
          IF (imode == 85) THEN
 
-            ihm_here = 3 ! 3 - Seljak (2000)             
+            ihm_here = 1 ! 3 - Seljak (2000)             
             IF (icos == 0) THEN
                icosmo_here = 69 ! Planck-ish
                filebase = 'data/power_nobump'
             ELSE IF(icos == 1) THEN
-               icosmo_here = 66 ! kbump = 0.05 h/Mpc
+               icosmo_here = 66 ! bump = 0.05 h/Mpc
                filebase = 'data/power_bump_k0p05'
             ELSE IF(icos == 2) THEN
-               icosmo_here = 67 ! kbump = 0.1 h/Mpc
+               icosmo_here = 67 ! bump = 0.1 h/Mpc
                filebase = 'data/power_bump_k0p1'
             ELSE IF(icos == 3) THEN
-               icosmo_here = 68 ! kbump = 1 h/Mpc
+               icosmo_here = 68 ! bump = 1 h/Mpc
                filebase = 'data/power_bump_k1'
+            ELSE IF(icos == 4) THEN
+               icosmo_here = 72 ! thinbump = 0.05 h/Mpc
+               filebase = 'data/power_thinbump_k0p05'
+            ELSE IF(icos == 5) THEN
+               icosmo_here = 73 ! thinbump = 0.1 h/Mpc
+               filebase = 'data/power_thinbump_k0p1'
+            ELSE IF(icos == 6) THEN
+               icosmo_here = 74 ! thinbump = 1 h/Mpc
+               filebase = 'data/power_thinbump_k1'
             ELSE
                STOP 'POWER_MULTIPLE_COMPARISON: Error, something went wrong with bumps'
             END IF
