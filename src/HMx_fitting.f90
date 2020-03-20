@@ -25,24 +25,26 @@ PROGRAM HMx_fitting
 
    INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
    !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
-   INTEGER, PARAMETER :: seed = 1               ! Random-number seed
-   LOGICAL, PARAMETER :: random_start = .TRUE. ! Start from a random point within the prior range
+   INTEGER, PARAMETER :: random_seed = 0        ! Random-number seed
+   LOGICAL, PARAMETER :: random_start = .TRUE.  ! Start from a random point within the prior range
    LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
    INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
    LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
 
    ! k cuts for the BAHAMAS power spectra
-   REAL, PARAMETER :: kmin_default = 1e-4       ! Minimum wavenumber to read in [h/Mpc]
-   REAL, PARAMETER :: kmax_default = 1e2        ! Minimum wavenumber to read in [h/Mpc]
-   REAL, PARAMETER :: kmin_BAHAMAS = 0.03       ! Minimum wavenumber to use [h/Mpc]
+   REAL, PARAMETER :: kmin_default = 1e-4 ! Minimum wavenumber to read in [h/Mpc]
+   REAL, PARAMETER :: kmax_default = 1e2  ! Minimum wavenumber to read in [h/Mpc]
+   REAL, PARAMETER :: kmin_BAHAMAS = 0.03 ! Minimum BAHAMAS wavenumber to use [h/Mpc]
+   REAL, PARAMETER :: kmax_BAHAMAS = 10.  ! Maximum BAHAMAS wavenumber to use [h/Mpc]
+   REAL, PARAMETER :: kmin_VD20 = 0.03    ! Minimum VD20 wavenumber to use [h/Mpc]
+   REAL, PARAMETER :: kmax_VD20 = 1e1     ! Maximum VD20 wavenumber to use [h/Mpc]
    !REAL, PARAMETER :: kmin_BAHAMAS=0.15         ! Minimum wavenumber to use [h/Mpc]
    !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.     ! Maximum wavenumber to use [h/Mpc] at z=0.0
    !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.      ! Maximum wavenumber to use [h/Mpc] at z=0.5
    !REAL, PARAMETER :: kmax_BAHAMAS_z1p0=2.      ! Maximum wavenumber to use [h/Mpc] at z=1.0
-   !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.      ! Maximum wavenumber to use [h/Mpc] at z=2.0
-   REAL, PARAMETER :: kmax_BAHAMAS = 10.        ! Maximum wavenumber to us [h/Mpc]
-   REAL, PARAMETER :: z_default = 0.0           ! Default z to fit if not specified
-   INTEGER, PARAMETER :: mesh = 1024            ! BAHAMAS mesh size power to use
+   !REAL, PARAMETER :: kmax_BAHAMAS_z2p0=1.      ! Maximum wavenumber to use [h/Mpc] at z=2.0   
+   REAL, PARAMETER :: z_default = 0.0     ! Default z to fit if not specified
+   INTEGER, PARAMETER :: mesh = 1024      ! BAHAMAS mesh size power to use
    LOGICAL, PARAMETER :: cut_nyquist = .FALSE.      ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
    LOGICAL, PARAMETER :: subtract_shot = .TRUE.     ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
    LOGICAL, PARAMETER :: response_default = .TRUE.  ! Should I treat the BAHAMAS P(k) as HMcode response?
@@ -161,7 +163,7 @@ CONTAINS
       CALL read_command_argument(10, zin, '', '') ! TODO: Remove this, or make it more sensible
 
       ! Set the random-number generator
-      CALL RNG_set(seed)
+      CALL RNG_set(random_seed)
 
       ! Initial white space
       WRITE (*, *)
@@ -185,7 +187,7 @@ CONTAINS
       WRITE (*, *) 'HMx_FITTING: log10(accuracy):', log10(delta)
       WRITE (*, *) 'HMx_FITTING: Output power file base: ', TRIM(powbase)
       IF (ifit == ifit_MCMC) THEN
-         WRITE (*, *) 'HMx_FITTING: Random number seed:', seed
+         WRITE (*, *) 'HMx_FITTING: Random number seed:', random_seed
          WRITE (*, *) 'HMx_FITTING: Random start:', random_start
          WRITE (*, *) 'HMx_FITTING: MCMC mode:', mcmc
          !WRITE(*,*) 'HMx_FITTING: Re-evaluate covariance:', m
@@ -238,7 +240,7 @@ CONTAINS
       TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
       INTEGER, INTENT(IN) :: ncos
       CHARACTER(len=*), INTENT(IN) :: outbase
-      LOGICAL :: hydro
+      LOGICAL, INTENT(IN) :: hydro
       CHARACTER(len=*), INTENT(IN) :: label
       LOGICAL, INTENT(IN) :: verbose
       REAL :: a(1)
@@ -606,15 +608,25 @@ CONTAINS
       INTEGER, INTENT(IN) :: m
       INTEGER :: i, j, unit_number
       REAL :: fombest
+      REAL :: a(nz), pow_hmcode(nk, na)
       TYPE(fitting) :: fitbest
       TYPE(halomod) :: hmodbest(ncos)
       INTEGER, PARAMETER :: screen_unit_number = 6
       INTEGER, PARAMETER :: file_unit_number = 77
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
+      IF (m > 1 .AND. (.NOT. random_start)) STOP 'FITTING_MULTIPLE: It does not make much sense to have more than one chain and not to random start'
+
       ! Write out the original data
       CALL write_all_power(k, nk, z, nz, hmod, cosm, ncos, powbase, hydro, 'orig', verbose)
       CALL print_halomod(hmod(1), cosm(1), verbose)
+
+      ! HMcode calculation
+      a = scale_factor_z(z)
+      DO icos = 1, ncos
+         CALL calculate_HMcode(k, a, pow_hmcode, nk, na, cosm(icos))
+         CALL write_all_power(k, nk)
+      END DO
 
       ! Call the fitting routine
       fombest = huge(fombest)
@@ -1123,8 +1135,8 @@ CONTAINS
       fit%name(param_HMcode_Dvp) = 'Dvp'
       fit%original(param_HMcode_Dvp) = -0.352
       fit%sigma(param_HMcode_Dvp) = 0.02
-      fit%minimum(param_HMcode_Dvp) = -5.
-      fit%maximum(param_HMcode_Dvp) = 5.
+      fit%minimum(param_HMcode_Dvp) = -1.
+      fit%maximum(param_HMcode_Dvp) = 1.
       fit%log(param_HMcode_Dvp) = .FALSE.
 
       fit%name(param_HMcode_dc0) = 'dc0'
@@ -1137,45 +1149,45 @@ CONTAINS
       fit%name(param_HMcode_dcp) = 'dcp'
       fit%original(param_HMcode_dcp) = 0.0314
       fit%sigma(param_HMcode_dcp) = 0.002
-      fit%minimum(param_HMcode_dcp) = -5.
-      fit%maximum(param_HMcode_dcp) = 5.
+      fit%minimum(param_HMcode_dcp) = -0.1
+      fit%maximum(param_HMcode_dcp) = 0.1
       fit%log(param_HMcode_dcp) = .FALSE.
 
       fit%name(param_HMcode_eta0) = 'eta0'
       fit%original(param_HMcode_eta0) = 0.603
       fit%sigma(param_HMcode_eta0) = 0.02
-      fit%minimum(param_HMcode_eta0) = -5.
-      fit%maximum(param_HMcode_eta0) = 5.
+      fit%minimum(param_HMcode_eta0) = -1.
+      fit%maximum(param_HMcode_eta0) = 1.
       fit%log(param_HMcode_eta0) = .FALSE.
 
       fit%name(param_HMcode_eta1) = 'eta1'
       fit%original(param_HMcode_eta1) = 0.300
       fit%sigma(param_HMcode_eta1) = 0.02
-      fit%minimum(param_HMcode_eta1) = -5.
-      fit%maximum(param_HMcode_eta1) = 5.
+      fit%minimum(param_HMcode_eta1) = -1.
+      fit%maximum(param_HMcode_eta1) = 1.
       fit%log(param_HMcode_eta1) = .FALSE.
 
       fit%name(param_HMcode_f0) = 'f0'
       fit%original(param_HMcode_f0)=0.0095 ! Mead (2016)
       !fit%original(param_HMcode_f0) = 0.188 ! Mead (2015) damping
       fit%sigma(param_HMcode_f0) = 0.01
-      fit%minimum(param_HMcode_f0) = -5.
-      fit%maximum(param_HMcode_f0) = 5.
+      fit%minimum(param_HMcode_f0) = -0.1
+      fit%maximum(param_HMcode_f0) = 0.1
       fit%log(param_HMcode_f0) = .FALSE.
 
       fit%name(param_HMcode_fp) = 'fp'
       fit%original(param_HMcode_fp)=1.37 ! Mead (2016)
       !fit%original(param_HMcode_fp) = 4.29 ! Mead (2015)
       fit%sigma(param_HMcode_fp) = 0.1
-      fit%minimum(param_HMcode_fp) = -10.
-      fit%maximum(param_HMcode_fp) = 10.
+      fit%minimum(param_HMcode_fp) = -3.
+      fit%maximum(param_HMcode_fp) = 3.
       fit%log(param_HMcode_fp) = .FALSE.
 
       fit%name(param_HMcode_kstar) = 'kstar'
       fit%original(param_HMcode_kstar) = 0.584
-      fit%sigma(param_HMcode_kstar) = 0.05
-      fit%minimum(param_HMcode_kstar) = -5.
-      fit%maximum(param_HMcode_kstar) = 5.
+      fit%sigma(param_HMcode_kstar) = 0.01
+      fit%minimum(param_HMcode_kstar) = -1.
+      fit%maximum(param_HMcode_kstar) = 1.
       fit%log(param_HMcode_kstar) = .FALSE.
 
       fit%name(param_HMcode_As) = 'As'
@@ -1625,10 +1637,11 @@ CONTAINS
       INTEGER, INTENT(IN) :: fields(nf)
       INTEGER, INTENT(IN) :: nf
       LOGICAL, INTENT(IN) :: response
-      INTEGER :: i, j, j1, j2
+      INTEGER :: i, j, j1, j2, ik
       INTEGER :: ip(2)
       REAL, ALLOCATABLE :: k_sim(:), pow_sim(:), err_sim(:)
 
+      LOGICAL, PARAMETER :: rebin_VD20 = .TRUE.
       LOGICAL, PARAMETER :: rebin_emu = .TRUE.
       LOGICAL, PARAMETER :: verbose_BAHAMAS = .TRUE.
 
@@ -1645,8 +1658,14 @@ CONTAINS
                      CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im == 2 .OR. im == 4 .OR. im == 18) THEN
                      CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
-                  ELSE IF (im == 5 .OR. &
-                     im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
+                  ELSE IF (im == 5) THEN
+                     CALL VD20_get_more_power(k_sim, pow_sim, err_sim, nk, z(j), name, cosm(i), &
+                        response=response, &
+                        kmin=kmin_VD20, &
+                        kmax=kmax_VD20, &
+                        rebin=rebin_VD20 &
+                        )
+                  ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
                      im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
                      im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
                      im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
@@ -1654,13 +1673,14 @@ CONTAINS
                      ip(1) = fields(j1)
                      ip(2) = fields(j2)
                      CALL BAHAMAS_read_power(k_sim, pow_sim, err_sim, nk, z(j), name, mesh, ip, cosm(i), &
-                                             kmin=kmin_default, &
-                                             kmax=kmax_default, &
+                                             kmin=kmin_BAHAMAS, &
+                                             kmax=kmax_BAHAMAS, &
                                              cut_nyquist=cut_nyquist, &
                                              subtract_shot=subtract_shot, &
                                              response=response, &
                                              realisation_errors=realisation_errors, &
-                                             verbose=verbose_BAHAMAS)
+                                             verbose=verbose_BAHAMAS &
+                                             )
                   ELSE
                      STOP 'READ_SIMULATION_POWER_SPECTRA: Error, something went wrong reading data'
                   END IF
@@ -1669,14 +1689,24 @@ CONTAINS
                   IF (.NOT. ALLOCATED(k))   ALLOCATE (k(nk))
                   IF (.NOT. ALLOCATED(pow)) ALLOCATE (pow(ncos, nf, nf, nk, nz))
                   IF (.NOT. ALLOCATED(err)) ALLOCATE (err(ncos, nf, nf, nk, nz))
+                  IF (.NOT. ALLOCATED(err_sim)) THEN
+                     ALLOCATE(err_sim(nk))
+                     err_sim = 0.
+                  END IF
                   k = k_sim
                   pow(i, j1, j2, :, j) = pow_sim
                   err(i, j1, j2, :, j) = err_sim
+
                END DO
             END DO
 
          END DO
       END DO
+
+      !IF (.NOT. ALLOCATED(err)) THEN
+      !   ALLOCATE (err(ncos, nf, nf, nk, nz))
+      !   err = 0.
+      !END IF
 
    END SUBROUTINE read_simulation_power_spectra
 
@@ -1810,9 +1840,9 @@ CONTAINS
          END IF
       ELSE IF (im == 5) THEN
          fit%set(param_HMcode_mbar) = .TRUE.
-         fit%set(param_HMcode_nbar) = .TRUE.
+         !fit%set(param_HMcode_nbar) = .TRUE.
          fit%set(param_HMcode_abar) = .TRUE.
-         fit%set(param_HMcode_sbar) = .TRUE.
+         !fit%set(param_HMcode_sbar) = .TRUE.
       ELSE IF (im == 26) THEN
          ! 26 - fixed z; basic parameterts; CDM
          fit%set(param_eps) = .TRUE.
