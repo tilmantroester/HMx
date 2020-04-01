@@ -34,10 +34,10 @@ PROGRAM HMx_fitting
    ! k cuts for the BAHAMAS power spectra
    REAL, PARAMETER :: kmin_default = 1e-4 ! Minimum wavenumber to read in [h/Mpc]
    REAL, PARAMETER :: kmax_default = 1e2  ! Minimum wavenumber to read in [h/Mpc]
-   REAL, PARAMETER :: kmin_BAHAMAS = 0.03 ! Minimum BAHAMAS wavenumber to use [h/Mpc]
+   REAL, PARAMETER :: kmin_BAHAMAS = 1e-2 ! Minimum BAHAMAS wavenumber to use [h/Mpc]
    REAL, PARAMETER :: kmax_BAHAMAS = 10.  ! Maximum BAHAMAS wavenumber to use [h/Mpc]
    REAL, PARAMETER :: kmin_VD20 = 0.03    ! Minimum VD20 wavenumber to use [h/Mpc]
-   REAL, PARAMETER :: kmax_VD20 = 1e1     ! Maximum VD20 wavenumber to use [h/Mpc]
+   REAL, PARAMETER :: kmax_VD20 = 10.     ! Maximum VD20 wavenumber to use [h/Mpc]
    !REAL, PARAMETER :: kmin_BAHAMAS=0.15         ! Minimum wavenumber to use [h/Mpc]
    !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10.     ! Maximum wavenumber to use [h/Mpc] at z=0.0
    !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.      ! Maximum wavenumber to use [h/Mpc] at z=0.5
@@ -299,6 +299,62 @@ CONTAINS
       END IF
 
    END SUBROUTINE write_all_power
+
+   SUBROUTINE write_HMcode_power(k, nk, z, nz, cosm, ncos, outbase, verbose)
+
+      IMPLICIT NONE
+      REAL, INTENT(IN) :: k(nk)
+      INTEGER, INTENT(IN) :: nk
+      REAL, INTENT(IN) :: z(nz)
+      INTEGER, INTENT(IN) :: nz
+      TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
+      INTEGER, INTENT(IN) :: ncos
+      CHARACTER(len=*), INTENT(IN) :: outbase
+      LOGICAL, INTENT(IN) :: verbose
+      REAL :: a(nz)
+      INTEGER, ALLOCATABLE :: fields(:)
+      REAL, ALLOCATABLE :: Pk(:, :)
+      CHARACTER(len=256) :: outfile, zstring
+      CHARACTER(len=8) :: cosstring
+      INTEGER :: icos, ik, iz, na
+      INTEGER, PARAMETER :: unit=31
+
+      !base = trim(outbase)//'_power_HMcode_'
+
+      a = scale_factor_z(z)
+      na = nz
+
+      ! Loop over cosmologies
+      DO icos = 1, ncos
+
+         ! Calculate P(k, a)
+         CALL calculate_HMcode(k, a, Pk, nk, na, cosm(icos))
+
+         ! Loop over z
+         DO iz = 1, nz
+       
+            ! Convert the redshift and cosmology into strings and make an output file
+            WRITE(zstring, fmt='(f5.3)') z(iz)
+            cosstring = integer_to_string(icos)
+            outfile = trim(outbase)//'_z'//trim(zstring)//'_cos'//trim(cosstring)//'_HMcode_power.dat'
+            
+            ! Write file
+            OPEN(unit, file=outfile)
+            DO ik = 1, nk
+               WRITE(unit, *) k(ik), Pk(ik, iz)
+            END DO
+            CLOSE(unit)
+
+         END DO
+
+      END DO
+
+      IF(verbose) THEN
+         WRITE(*, *) 'WRITE_HMCODE_POWER: Done'
+         WRITE(*, *)
+      END IF
+
+   END SUBROUTINE write_HMcode_power
 
    SUBROUTINE MCMC_fit(delta, tmax, nchain, k, nk, z, nz, fields, nf, fom, weight, pow_sim, fit, hmod, cosm, ncos, outbase, paramsfile)
 
@@ -606,9 +662,11 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN) :: paramsfile   ! Output parameter file
       LOGICAL, INTENT(IN) :: hydro                 ! Is this a hydrodynamic run or not?
       INTEGER, INTENT(IN) :: m
-      INTEGER :: i, j, unit_number
+      INTEGER :: i, j, icos, unit_number
+      INTEGER :: na
       REAL :: fombest
-      REAL :: a(nz), pow_hmcode(nk, na)
+      REAL :: a(nz)
+      REAL, ALLOCATABLE :: pow_hmcode(:, :)
       TYPE(fitting) :: fitbest
       TYPE(halomod) :: hmodbest(ncos)
       INTEGER, PARAMETER :: screen_unit_number = 6
@@ -622,11 +680,13 @@ CONTAINS
       CALL print_halomod(hmod(1), cosm(1), verbose)
 
       ! HMcode calculation
-      a = scale_factor_z(z)
-      DO icos = 1, ncos
-         CALL calculate_HMcode(k, a, pow_hmcode, nk, na, cosm(icos))
-         CALL write_all_power(k, nk)
-      END DO
+      !a = scale_factor_z(z)
+      !na = nz
+      !DO icos = 1, ncos
+      !   CALL calculate_HMcode(k, a, pow_hmcode, nk, na, cosm(icos))
+      !   CALL write_all_power(k, nk)
+      !END DO
+      CALL write_HMcode_power(k, nk, z, nz, cosm, ncos, powbase, verbose)
 
       ! Call the fitting routine
       fombest = huge(fombest)
@@ -890,14 +950,14 @@ CONTAINS
       ! This should depend on z to ensure parameter has an effect at the higher z when 10^14 haloes are rare
       ! NOTE: This parameter is already log10
       fit%name(param_M0) = 'log_M0'
-      fit%original(param_M0) = 13.5-z(1)/2. ! Okay with z dependence as long as z(1)=0
+      fit%original(param_M0) = 13.5!-z(1)/2. ! Okay with z dependence as long as z(1)=0
       fit%sigma(param_M0) = 0.1
       fit%minimum(param_M0) = log10(1e11)
       fit%maximum(param_M0) = log10(1e16)
       fit%log(param_M0) = .FALSE.
 
       fit%name(param_Astar) = 'A_*'
-      fit%original(param_Astar) = 0.032-0.008*z(1) ! This is important to get the initial guess quite good
+      fit%original(param_Astar) = 0.032!-0.008*z(1) ! This is important to get the initial guess quite good
       fit%sigma(param_Astar) = 0.002
       fit%minimum(param_Astar) = 1e-3
       fit%maximum(param_Astar) = 1e-1
@@ -1346,6 +1406,7 @@ CONTAINS
    SUBROUTINE init_cosmologies(im, name, cosm, ncos)
 
       ! Set the number of and types of cosmology depending on imode
+      USE array_operations
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
       CHARACTER(len=*), INTENT(IN) :: name
@@ -1388,7 +1449,48 @@ CONTAINS
          ELSE IF (im == 4) THEN
             icosmo = 25    ! Random FrankenEmu cosmology
          ELSE IF (im == 5) THEN
-            icosmo = 4     ! WMAP9
+            IF(is_in_array(name, [&
+               'BAHAMAS_Theat7.6_nu0_WMAP9', &
+               'BAHAMAS_Theat8.0_nu0_WMAP9', &
+               'BAHAMAS_nu0_WMAP9         ', &
+               'BAHAMAS_nu0_WMAP9_v2      ', &
+               'BAHAMAS_nu0_WMAP9_v3      '])) THEN
+               icosmo = 4 ! WMAP9
+            ELSE IF(name == 'BAHAMAS_nu0.06_Planck2015') THEN
+               icosmo = 63 ! Planck 2015 with 0.06eV neutrinos
+            ELSE IF(name == 'BAHAMAS_nu0.12_Planck2015') THEN
+               icosmo = 79 ! Planck 2015 with 0.12eV neutrinos
+            ELSE IF(name == 'BAHAMAS_nu0.24_Planck2015') THEN
+               icosmo = 80 ! Planck 2015 with 0.24eV neutrinos
+            ELSE IF(name == 'BAHAMAS_nu0.48_Planck2015') THEN
+               icosmo = 81 ! Planck 2015 with 0.48eV neutrinos
+            ELSE IF(name == 'BAHAMAS_nu0.06_WMAP9') THEN
+               icosmo = 75 ! WMAP9 with 0.06eV neutrinos
+            ELSE IF(name == 'BAHAMAS_nu0.12_WMAP9') THEN
+               icosmo = 76 ! WMAP9 with 0.12eV neutrinos
+            ELSE IF(name == 'BAHAMAS_nu0.24_WMAP9') THEN
+               icosmo = 77 ! WMAP9 with 0.24eV neutrinos
+            ELSE IF(name == 'BAHAMAS_nu0.48_WMAP9') THEN
+               icosmo = 78 ! WMAP9 with 0.48eV neutrinos
+            ELSE IF (is_in_array(name, [&
+               'BAHAMAS_nu0_Planck2013        ', &
+               'C-OWLS_AGN_Planck2013         ', &
+               'C-OWLS_AGN_Theat8.5_Planck2013', &
+               'C-OWLS_AGN_Theat8.7_Planck2013', &
+               'C-OWLS_NOCOOL_UVB_Planck2013  ', &
+               'C-OWLS_REF_Planck2013         '])) THEN
+               icosmo = 3 ! Planck2013
+            ELSE IF (is_in_array(name, [&
+               'C-OWLS_AGN_WMAP7         ', &
+               'C-OWLS_AGN_Theat8.5_WMAP7', &
+               'C-OWLS_AGN_Theat8.7_WMAP7', &
+               'C-OWLS_NOCOOL_UVB_WMAP7  ', &
+               'C-OWLS_REF_WMAP7         '])) THEN
+               icosmo = 2 ! WMAP7
+            ELSE
+               WRITE(*,*) 'HMx_FITTING: ', trim(name)
+               STOP 'HMx_FITTING: Error, BAHAMAS model not recognised'
+            END IF
          ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
             im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
             im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
@@ -1655,9 +1757,9 @@ CONTAINS
 
                   ! Read in power spectra
                   IF (im == 1 .OR. im == 3 .OR. im == 11 .OR. im == 17 .OR. im == 19) THEN
-                     CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im == 2 .OR. im == 4 .OR. im == 18) THEN
-                     CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im == 5) THEN
                      CALL VD20_get_more_power(k_sim, pow_sim, err_sim, nk, z(j), name, cosm(i), &
                         response=response, &
@@ -1840,9 +1942,9 @@ CONTAINS
          END IF
       ELSE IF (im == 5) THEN
          fit%set(param_HMcode_mbar) = .TRUE.
-         !fit%set(param_HMcode_nbar) = .TRUE.
+         fit%set(param_HMcode_nbar) = .TRUE.
          fit%set(param_HMcode_abar) = .TRUE.
-         !fit%set(param_HMcode_sbar) = .TRUE.
+         fit%set(param_HMcode_sbar) = .TRUE.
       ELSE IF (im == 26) THEN
          ! 26 - fixed z; basic parameterts; CDM
          fit%set(param_eps) = .TRUE.
