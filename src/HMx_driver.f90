@@ -126,7 +126,7 @@ PROGRAM HMx_driver
       WRITE (*, *) '72 - Run halo model over lots of random cosmological parameters'
       WRITE (*, *) '73 - Check halo-mass function amplitude parameter'
       WRITE (*, *) '74 - Matter, halo power spectra with non-linear bias (low sigma_8) Multidark comparison'
-      WRITE (*, *) '75 - Compare HMcode aginst CAMB'
+      WRITE (*, *) '75 - Compare HMcode 2016 HMx vs CAMB'
       WRITE (*, *) '76 - Comparison with massless neutrino Mira Titan nodes'
       WRITE (*, *) '77 - DMONLY comparison at z = 0 with regular halo model and user choice cosmology' 
       WRITE (*, *) '78 - DMONLY comparison at multiple z with regular halo model and user choice cosmology'    
@@ -141,6 +141,15 @@ PROGRAM HMx_driver
       WRITE (*, *) '87 - Hydro power with varying upper-mass limits on halo mass integrals'
       WRITE (*, *) '88 - Matter, pressure power as a function of sigma8'
       WRITE (*, *) '89 - Compare to Mira Titan as a function of neutrino mass'
+      WRITE (*, *) '90 - Compare HMcode 2015 HMx vs CAMB'
+      WRITE (*, *) '91 - Compare HALOFIT (Smith et al.) HMx vs CAMB'
+      WRITE (*, *) '92 - Compare HALOFIT (Bird et al.) HMx vs CAMB'
+      WRITE (*, *) '93 - Compare HALOFIT (Takahashi et al.) HMx vs CAMB'
+      WRITE (*, *) '94 - PAPER: Big Franken Emu node comparison'
+      WRITE (*, *) '95 - PAPER: Big Mira Titan node comparison'
+      WRITE (*, *) '96 - Big Cosmic Emu node comparison'
+      WRITE (*, *) '97 - Compare HALOFIT (CAMB parameters) HMx vs CAMB'
+      WRITE (*, *) '98 - Compare HMcode (2020) HMx vs CAMB'
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -155,7 +164,7 @@ PROGRAM HMx_driver
    ELSE IF (iimode == 6 .OR. iimode == 21 .OR. iimode == 22) THEN
       CALL hydro_across_temperature_range(iimode, iicosmo, iihm)
    ELSE IF (iimode == 15) THEN
-      CALL hydro_suppression_as_a_function_of_cosmology(iimode, iicosmo, iihm)
+      CALL hydro_suppression_as_a_function_of_cosmology(iicosmo, iihm)
    ELSE IF (iimode == 16) THEN
       CALL compare_matter_vs_DMONLY_implementation(iicosmo)
    ELSE IF (iimode == 3 .OR. iimode == 86) THEN
@@ -237,12 +246,14 @@ PROGRAM HMx_driver
       CALL halo_power_multidark(iimode, iicosmo, iihm)
    ELSE IF (iimode == 73) THEN
       CALL HMF_amplitude(iicosmo, iihm)
-   ELSE IF (iimode == 75) THEN
-      CALL compare_HMcode_CAMB(iicosmo)
+   ELSE IF (is_in_array(iimode, [75, 90, 91, 92, 93, 97, 98])) THEN
+      CALL compare_HMx_CAMB(iimode, iicosmo)
    ELSE IF (iimode == 77 .OR. iimode == 79 .OR. iimode == 81 .OR. iimode == 83) THEN
       CALL power_single_comparison(iimode, iicosmo, iihm)
    ELSE IF (iimode == 78 .OR. iimode == 80 .OR. iimode == 82 .OR. iimode == 84 .OR. iimode == 85) THEN
       CALL power_multiple_comparison(iimode, iicosmo, iihm)
+   ELSE IF (is_in_array(iimode, [94, 95, 96])) THEN
+      CALL big_emulator_comparison(iimode)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
@@ -305,9 +316,10 @@ CONTAINS
 
    END SUBROUTINE compare_matter_vs_DMONLY_implementation
 
-   SUBROUTINE compare_HMcode_CAMB(icosmo)
+   SUBROUTINE compare_HMx_CAMB(imode, icosmo)
 
       IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
       INTEGER, INTENT(INOUT) :: icosmo
       REAL, ALLOCATABLE :: a(:), k(:), Pk_HMx(:, :), Pk_CAMB(:, :)
       REAL, ALLOCATABLE :: k_Tk(:), Tk(:,:)
@@ -315,6 +327,7 @@ CONTAINS
       REAL :: crap, max_error, error
       INTEGER :: i, j, ii, nfail
       INTEGER :: nk, nTk
+      INTEGER :: HMx_version, HALOFIT_version, CAMB_nonlinear_version
       LOGICAL :: fail
 
       LOGICAL, PARAMETER :: verbose = .TRUE.
@@ -335,8 +348,41 @@ CONTAINS
       LOGICAL, PARAMETER :: verbose_test = .FALSE.
       LOGICAL, PARAMETER :: stop_on_fail = .TRUE.
 
+      IF (imode == 75) THEN
+         ! HMcode 2016
+         CAMB_nonlinear_version = CAMB_nonlinear_HMcode2016
+         HMx_version = HMcode2016_CAMB
+      ELSE IF (imode == 90) THEN
+         ! HMcode 2015
+         CAMB_nonlinear_version = CAMB_nonlinear_HMcode2015
+         HMx_version = HMcode2015_CAMB
+      ELSE IF (imode == 91) THEN
+         ! HALOFIT Smith et al. (2003)
+         CAMB_nonlinear_version = CAMB_nonlinear_HALOFIT_Smith
+         HALOFIT_version = HALOFIT_Smith
+      ELSE IF (imode == 92) THEN
+         ! HALOFIT Bird et al. (2003)
+         CAMB_nonlinear_version = CAMB_nonlinear_HALOFIT_Bird
+         HALOFIT_version = HALOFIT_Bird
+      ELSE IF (imode == 93) THEN
+         ! HALOFIT Takahashi et al. (2012)
+         CAMB_nonlinear_version = CAMB_nonlinear_HALOFIT_Takahashi
+         HALOFIT_version = HALOFIT_Takahashi
+      ELSE IF (imode == 97) THEN
+         ! HALOFIT CAMB parameters
+         CAMB_nonlinear_version = CAMB_nonlinear_HALOFIT_Takahashi
+         HALOFIT_version = HALOFIT_CAMB
+      ELSE IF (imode == 98) THEN
+         ! HMcode 2020
+         !CAMB_nonlinear_version = CAMB_nonlinear_HMcode2020
+         HMx_version = HMcode2020
+         STOP 'COMPARE_HMx_CAMB: Error, HMx 2020 needs to be implemented in CAMB'
+      ELSE
+         STOP 'COMPARE_HMx_CAMB: Error, something went wrong with imode'
+      END IF
+
       ! Set the random number generator
-      CALL RNG_set(iseed)
+      CALL RNG_set(iseed)   
 
       ! Loop over individual tests
       nfail = 0
@@ -355,12 +401,21 @@ CONTAINS
 
          ! Calculate HMcode power via CAMB
          CALL get_CAMB_power(a, na, k, Pk_CAMB, nk, k_Tk, Tk, nTk, &
-            non_linear=.TRUE., halofit_version=5, cosm=cosm)
+            non_linear=.TRUE., &
+            halofit_version=CAMB_nonlinear_version, &
+            cosm=cosm)
 
          ! Calculate HMcode power via HMx
          IF (ALLOCATED(Pk_HMx)) DEALLOCATE (Pk_HMx)
          ALLOCATE (Pk_HMx(nk, na))
-         CALL calculate_HMcode_CAMB(k, a, Pk_HMx, nk, na, cosm)
+
+         IF (is_in_array(imode, [75, 90, 98])) THEN
+            CALL calculate_HMcode(k, a, Pk_HMx, nk, na, cosm, HMx_version)
+         ELSE IF (is_in_array(imode, [91, 92, 93, 97])) THEN
+            CALL calculate_HALOFIT(k, a, Pk_HMx, nk, na, cosm, HALOFIT_version) 
+         ELSE
+            STOP 'COMPARE HMx CAMB: Error, imode not specified correctly'
+         END IF
 
          ! Write data
          CALL write_power_a(k, a, Pk_HMx, nk, na, outfile_HMx, verbose=.FALSE.)
@@ -376,12 +431,12 @@ CONTAINS
                   IF (error > max_error) max_error = error
                   IF (error > eps) THEN
                      IF (verbose_test) THEN
-                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test failing'
-                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: k [h/Mpc]:', k(i)
-                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: a:', a(j)
-                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Delta^2(k) [HMx]:', Pk_HMx(i, j)
-                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Delta^2(k) [CAMB]:', Pk_CAMB(i, j)
-                        WRITE (*, *) 'COMPARE_HMCODE_CAMB: Ratio:', Pk_HMx(i, j)/Pk_CAMB(i, j)
+                        WRITE (*, *) 'COMPARE_HMx_CAMB: Test failing'
+                        WRITE (*, *) 'COMPARE_HMx_CAMB: k [h/Mpc]:', k(i)
+                        WRITE (*, *) 'COMPARE_HMx_CAMB: a:', a(j)
+                        WRITE (*, *) 'COMPARE_HMx_CAMB: Delta^2(k) [HMx]:', Pk_HMx(i, j)
+                        WRITE (*, *) 'COMPARE_HMx_CAMB: Delta^2(k) [CAMB]:', Pk_CAMB(i, j)
+                        WRITE (*, *) 'COMPARE_HMx_CAMB: Ratio:', Pk_HMx(i, j)/Pk_CAMB(i, j)
                         WRITE (*, *)
                      END IF
                      fail = .TRUE.
@@ -391,34 +446,34 @@ CONTAINS
          END DO
 
          ! Write results to screen
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Seed:', iseed
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test:', ii, 'of', ntest
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Minimum k considered in test [h/Mpc]:', kmin_test
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Maximum k considered in test [h/Mpc]:', kmax_test
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Minimum a considered in test:', amin_test
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Maximum a considered in test:', amax_test
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Maximum error:', max_error
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Tolerance:', eps
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Seed:', iseed
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Test:', ii, 'of', ntest
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Minimum k considered in test [h/Mpc]:', kmin_test
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Maximum k considered in test [h/Mpc]:', kmax_test
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Minimum a considered in test:', amin_test
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Maximum a considered in test:', amax_test
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Maximum error:', max_error
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Tolerance:', eps
          IF (fail) THEN
             nfail = nfail+1
-            WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test failed'
+            WRITE (*, *) 'COMPARE_HMx_CAMB: Test failed'
             IF (stop_on_fail) STOP
          ELSE
-            WRITE (*, *) 'COMPARE_HMCODE_CAMB: Test passed'
+            WRITE (*, *) 'COMPARE_HMx_CAMB: Test passed'
          END IF
          WRITE (*, *)
 
       END DO
 
       IF (stop_on_fail) THEN
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: All tests passed'
+         WRITE (*, *) 'COMPARE_HMx_CAMB: All tests passed'
       ELSE
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Number of failed tests:', nfail
-         WRITE (*, *) 'COMPARE_HMCODE_CAMB: Total number of tests:', ntest
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Number of failed tests:', nfail
+         WRITE (*, *) 'COMPARE_HMx_CAMB: Total number of tests:', ntest
       END IF
       WRITE (*, *)
 
-   END SUBROUTINE compare_HMcode_CAMB
+   END SUBROUTINE compare_HMx_CAMB
 
    SUBROUTINE non_linear_halo_bias_integrand(icosmo, ihm)
 
@@ -1183,8 +1238,8 @@ CONTAINS
       REAL :: zmin, zmax
       INTEGER :: i, icos, na, ncos
       INTEGER :: icosmo_here
-      INTEGER :: ihm_here, ihm_base, ihm_test
-      CHARACTER(len=256) :: filebase, filebase_test
+      INTEGER :: ihm_here!, ihm_base, ihm_test
+      CHARACTER(len=256) :: filebase!, filebase_test
       TYPE(halomod) :: hmod
       TYPE(cosmology) :: cosm
 
@@ -1388,9 +1443,9 @@ CONTAINS
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
-      INTEGER, PARAMETER :: n = 50
+      INTEGER, PARAMETER :: n = 500
       LOGICAL, PARAMETER :: verbose = .TRUE.
-      INTEGER, PARAMETER :: iseed_tests = 4
+      INTEGER, PARAMETER :: iseed_tests = 0
 
       ! Tests to ensure that the code does not crash
       !  4 - Random baryon parameters
@@ -1802,13 +1857,13 @@ CONTAINS
 
    END SUBROUTINE hydro_across_temperature_range
 
-   SUBROUTINE hydro_suppression_as_a_function_of_cosmology(imode, icosmo, ihm)
+   SUBROUTINE hydro_suppression_as_a_function_of_cosmology(icosmo, ihm)
 
       ! Make cross power spectra of all different components of haloes as well as pressure
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: imode
-      INTEGER, INTENT(INOUT) :: ihm
+      !INTEGER, INTENT(IN) :: imode     
       INTEGER, INTENT(INOUT) :: icosmo
+      INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), zs(:)
       REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
       REAL, ALLOCATABLE :: suppression(:, :)
@@ -3825,9 +3880,7 @@ CONTAINS
       END IF
 
       ! Set scale factors
-      DO i = 1, na
-         a(i) = scale_factor_z(z(i))
-      END DO
+      a = scale_factor_z(z)
 
       ! Initiliasation for the halomodel calcualtion
       CALL assign_halomod(ihm, hmod, verbose)
@@ -3864,11 +3917,11 @@ CONTAINS
          DO j = 1, nz
 
             IF (imode == 27 .OR. imode == 29 .OR. imode == 76 .OR. imode == 89) THEN
-               CALL get_Mira_Titan_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
+               CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE IF (imode == 28 .OR. imode == 30) THEN
-               CALL get_Franken_Emu_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
+               CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE IF (imode == 70 .OR. imode == 71) THEN
-               CALL get_Cosmic_Emu_power(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
+               CALL get_CosmicEmu_power_z(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
             ELSE
                STOP 'EMULATOR_COMPARISON: Error, imode not specified correctly for EMU'
             END IF
@@ -3902,6 +3955,186 @@ CONTAINS
       END DO
 
    END SUBROUTINE emulator_comparison
+
+   SUBROUTINE big_emulator_comparison(imode)
+
+      ! Comparison with FrankenEmu or Mira Titan
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+      REAL, ALLOCATABLE :: z(:), a(:), k(:)
+      REAL, ALLOCATABLE :: Pk_emu(:, :), Pk(:, :)
+      INTEGER :: icosmo, icos, icomp, ik, iz
+      INTEGER :: nz, na, nk, ncos
+      INTEGER :: emulator_version
+      CHARACTER(len=256) :: outfile, zlab, base, emulator, comp
+      TYPE(cosmology) :: cosm
+
+      REAL, PARAMETER :: m_nu_min = 0.00 ! Minimum neutrino mass [eV]
+      REAL, PARAMETER :: m_nu_max = 0.94 ! Maximum neutrino mass [eV]
+      LOGICAL, PARAMETER :: verbose = .TRUE.
+      ! CHARACTER(len=256), PARAMETER :: base = 'data/cosmo'
+      ! CHARACTER(len=256), PARAMETER :: mid = '_z'
+      ! CHARACTER(len=256), PARAMETER :: ext = '.dat'
+      LOGICAL, PARAMETER :: rebin = .FALSE.
+      INTEGER, PARAMETER :: ihf = halofit_CAMB
+      INTEGER, PARAMETER :: ncomp = 8
+
+      ! Number of cosmological models
+      IF (imode == 96) THEN
+         ncos = 37 ! Cosmic Emu
+         emulator_version = emulator_CosmicEmu
+         emulator = 'CosmicEmu'
+      ELSE IF (imode == 94) THEN
+         ncos = 37 ! Franken Emu
+         emulator_version = emulator_FrankenEmu
+         emulator = 'FrankenEmu'
+      ELSE IF (imode == 95) THEN
+         ncos = 36 ! Mira Titan
+         emulator_version = emulator_MiraTitan
+         emulator = 'MiraTitan'
+      ELSE 
+         STOP 'BIG_EMULATOR_COMPARISON: Error, emulator_version not specified correctly'
+      END IF
+
+      ! Set number of redshifts
+      IF (emulator_version == emulator_CosmicEmu) THEN
+         nz = 3 ! Cosmic Emu
+      ELSE IF (emulator_version == emulator_FrankenEmu) THEN
+         nz = 6 ! Franken Emu
+      ELSE IF (emulator_version == emulator_MiraTitan) THEN
+         nz = 4 ! Mira Titan 
+      ELSE
+         STOP 'BIG_EMULATOR_COMPARISON:  Error, imode not specified correctly for EMU'
+      END IF
+
+      ! Allocate arrays
+      na = nz
+      ALLOCATE (z(nz), a(nz))
+
+      ! Set redshifts
+      IF (emulator_version == emulator_CosmicEmu) THEN
+         ! Cosmic Emu (z up to 1)
+         z(1) = 0.0
+         z(2) = 0.5
+         z(3) = 1.0
+      ELSE IF (emulator_version == emulator_FrankenEmu) THEN
+         ! Franken Emu (z up to 4)
+         z(1) = 0.0
+         z(2) = 0.5
+         z(3) = 1.0
+         z(4) = 2.0
+         z(5) = 3.0
+         z(6) = 4.0
+      ELSE IF (emulator_version == emulator_MiraTitan) THEN
+         ! Mira Titan (z up to 2)
+         z(1) = 0.0
+         z(2) = 0.5
+         z(3) = 1.0
+         z(4) = 2.0
+      ELSE
+         STOP 'BIG_EMULATOR_COMPARISON:  Error, imode not specified correctly for EMU'
+      END IF
+
+      ! Set scale factors
+      a = scale_factor_z(z)
+
+      ! Loop over cosmologies
+      DO icos = 0, ncos
+         
+         IF (emulator_version == emulator_CosmicEmu) THEN
+            icosmo = 300+icos ! Cosmic Emu nodes
+         ELSE IF (emulator_version == emulator_FrankenEmu) THEN
+            icosmo = 200+icos ! Franken Emu nodes
+         ELSE IF (emulator_version == emulator_MiraTitan) THEN
+            icosmo = 100+icos ! Mira Titan nodes 
+         ELSE
+            WRITE (*, *) 'BIG_EMULATOR_COMPARISON:', imode
+            STOP 'BIG_EMULATOR_COMPARISON: Error, imode not specified correctly'
+         END IF
+
+         ! Assign and init the cosmology
+         CALL assign_cosmology(icosmo, cosm, verbose)
+         CALL init_cosmology(cosm)
+         CALL print_cosmology(cosm)
+
+         ! Get the emulator power
+         CALL get_emulator_power(k, a, Pk_emu, nk, na, cosm, rebin, emulator_version)
+
+         ! Loop over the different comparisons to be made
+         DO icomp = 1, ncomp
+
+            IF (icomp == 1) THEN
+               CALL calculate_plin(k, a, Pk, nk, na, cosm)
+               !base = 'data/power_linear_cos'//trim(integer_to_string(icos))
+               comp = 'linear'
+            ELSE IF (icomp == 2) THEN
+               CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_Smith)
+               !base = 'data/power_Smith_cos'//trim(integer_to_string(icos))
+               comp = 'HALOFIT_Smith'
+            ELSE IF (icomp == 3) THEN
+               CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_Bird)
+               !base = 'data/power_Bird_cos'//trim(integer_to_string(icos))
+               comp = 'HALOFIT_Bird'
+            ELSE IF (icomp == 4) THEN
+               CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_Takahashi)
+               !base = 'data/power_Takahashi_cos'//trim(integer_to_string(icos))
+               comp = 'HALOFIT_Takahashi'
+            ELSE IF (icomp == 5) THEN
+               CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_CAMB)
+               !base = 'data/power_HALOFIT_CAMB_cos'//trim(integer_to_string(icos))
+               comp = 'HALOFIT_CAMB'
+            ELSE IF (icomp == 6) THEN
+               CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2015)
+               !base = 'data/power_HMcode2015_cos'//trim(integer_to_string(icos))
+               comp = 'HMcode_2015'
+            ELSE IF (icomp == 7) THEN
+               CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2016)
+               !base = 'data/power_HMcode2016_cos'//trim(integer_to_string(icos))
+               comp = 'HMcode_2016'
+            ELSE IF (icomp == 8) THEN
+               CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2020)
+               !base = 'data/power_HMcode2020_cos'//trim(integer_to_string(icos))
+               comp = 'HMcode_2020'
+            ELSE
+               STOP 'BIG_EMULATOR_COMPARION: Error, icomp not supported'
+            END IF
+
+            base = 'data/power_'//trim(comp)//'_'//trim(emulator)//'_cos'//trim(integer_to_string(icos))
+
+            ! Loop over redshift
+            DO iz = 1, nz
+
+               IF (z(iz) == 0.0) THEN
+                  zlab = '0p0'
+               ELSE IF (z(iz) == 0.5) THEN
+                  zlab = '0p5'
+               ELSE IF (z(iz) == 1.0) THEN
+                  zlab = '1p0'
+               ELSE IF (z(iz) == 2.0) THEN
+                  zlab = '2p0'
+               ELSE IF (z(iz) == 3.0) THEN
+                  zlab = '3p0'
+               ELSE IF (z(iz) == 4.0) THEN
+                  zlab = '4p0'
+               ELSE
+                  STOP 'BIG_EMULATOR_COMPARISON: Error, z could not be converted into label'
+               END IF
+
+               ! Write data
+               outfile = trim(base)//'_z'//trim(zlab)//'.dat'
+               OPEN (7, file=outfile)
+               DO ik = 1, nk
+                  WRITE (7, *) k(ik), Pk(ik, iz), Pk_emu(ik, iz), cosm%m_nu
+               END DO
+               CLOSE (7)
+
+            END DO
+
+         END DO
+
+      END DO
+
+   END SUBROUTINE big_emulator_comparison
 
    SUBROUTINE power_breakdown_halomass(imode, icosmo, ihm)
 
@@ -5167,7 +5400,7 @@ CONTAINS
       CALL print_cosmology(cosm)
 
       ! Get the emulator power
-      CALL get_Franken_Emu_power(k, pow_sim, nk, z, cosm, rebin=.FALSE.)
+      CALL get_FrankenEmu_power_z(k, pow_sim, nk, z, cosm, rebin=.FALSE.)
       outfile = 'data/power_emu.dat'
       OPEN (7, file=outfile)
       DO i = 1, nk
