@@ -1,12 +1,26 @@
 module HMx_wrapper
     use iso_c_binding,  only : c_int, c_double, c_float, c_bool, c_loc, c_ptr, c_f_pointer
-    use HMx, only: calculate_HMx, halomod, assign_halomod, init_halomod
+    use HMx, only: calculate_HMx, halomod, assign_halomod, init_halomod, &
+                   HMCode2016, HMCode2016_CAMB, HMCode2020, &
+                   field_dmonly, field_matter, field_cdm, field_gas, field_stars, field_electron_pressure
     use cosmology_functions, only: cosmology, assign_cosmology, init_cosmology, norm_none, itk_external
     use constants
 
-    implicit none
+    IMPLICIT NONE
+
+    INTEGER(kind=c_int), BIND(c) :: constant_HMCode2016 = HMCode2016
+    INTEGER(kind=c_int), BIND(c) :: constant_HMCode2016_CAMB = HMCode2016_CAMB
+    INTEGER(kind=c_int), BIND(c) :: constant_HMCode2020 = HMCode2020
+    INTEGER(kind=c_int), BIND(c) :: constant_field_dmonly = field_dmonly
+    INTEGER(kind=c_int), BIND(c) :: constant_field_matter = field_matter
+    INTEGER(kind=c_int), BIND(c) :: constant_field_cdm = field_cdm
+    INTEGER(kind=c_int), BIND(c) :: constant_field_gas = field_gas
+    INTEGER(kind=c_int), BIND(c) :: constant_field_stars = field_stars
+    INTEGER(kind=c_int), BIND(c) :: constant_field_electron_pressure = field_electron_pressure
 
     contains
+
+
         function run_HMx(Om_m, Om_b, Om_w, m_nu, &
                            h, ns, sigma8, w, wa, &
                            halo_model_mode, Theat, eta0, As, &
@@ -15,8 +29,6 @@ module HMx_wrapper
                            na, a, &
                            nk_a_plin, k_plin, na_a_plin, a_plin, &
                            nk_plin, na_plin, pk_lin, &
-                        !    nq, q, &
-                        !    nk_Tcold, na_Tcold, Tcold, &
                            nf1_pk, nf2_pk, nk_pk, na_pk, pk_hmx, &
                            verbose) result(status) bind(c, name="run_HMx") 
             
@@ -36,10 +48,6 @@ module HMx_wrapper
             REAL(kind=c_double), INTENT(IN) :: k_plin(nk_a_plin), a_plin(na_a_plin)  ! plin k and a arrays
             INTEGER(kind=c_int), INTENT(IN) :: nk_plin, na_plin         ! Number of p_lin points
             REAL(kind=c_double), INTENT(IN) :: pk_lin(nk_plin, na_plin) ! p_lin array
-            ! INTEGER(kind=c_int), INTENT(IN) :: nq         ! Number of q points
-            ! REAL(kind=c_double), INTENT(IN) :: q(nq)         ! q array [h/Mpc]
-            ! INTEGER(kind=c_int), INTENT(IN) :: nk_Tcold, na_Tcold        ! Number of Tcold points
-            ! REAL(kind=c_double), INTENT(IN) :: Tcold(nk_Tcold, na_Tcold)         ! Tcold array
             INTEGER(kind=c_int), INTENT(IN) :: nf1_pk, nf2_pk, nk_pk, na_pk
             REAL(kind=c_double), INTENT(OUT) :: pk_hmx(nf1_pk, nf2_pk, nk_pk, na_pk) ! Pow(f1,f2,k,a)
 
@@ -161,6 +169,13 @@ module HMx_wrapper
             hmod%eta0 = eta0
             hmod%As = As
 
+            ! Try to match to the CAMB version of HMCode
+            ! CAMB version of HMcode (July 2019)
+            hmod%mmin = 1e0  ! Lower mass limit for integration [Msun/h]
+            hmod%mmax = 1e18 ! Upper mass limit for integration [Msun/h]  
+            hmod%n = 256     ! Number of points in halo mass
+        
+
             write(*,*) "Internal sigma8:", cosm%sig8
 
             call calculate_HMx(ifield, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, LOGICAL(verbose))
@@ -168,7 +183,10 @@ module HMx_wrapper
 
             forall (i=1:nk_pk) pk_hmx(:,:,i,:) = pow_hm(:,:,i,:)/(k(i)**3/(2*pi**2))
 
-
+            if(allocated(pow_li)) deallocate(pow_li)
+            if(allocated(pow_2h)) deallocate(pow_2h)
+            if(allocated(pow_1h)) deallocate(pow_1h)
+            if(allocated(pow_hm)) deallocate(pow_hm)
 
             status = 0
         end function

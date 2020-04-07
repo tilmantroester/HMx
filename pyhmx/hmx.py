@@ -9,12 +9,14 @@ def array_arg(a):
     arr = a
     return (*(ct.c_int(s) for s in arr.shape), arr)
 
-class HMxModule:
+class HMx:
     libname = "libhmx_wrapper.so"
     module_name = "HMx_wrapper"
 
     def __init__(self):
         self.load_lib()
+
+        self.constants = HMxConstants(self.lib)
 
     def load_lib(self, path=None):
         if path is None:
@@ -90,9 +92,16 @@ class HMxModule:
             raise RuntimeError("HMx failed.")
         return Pk_hmx
 
+class HMxConstants:
+    def __init__(self, lib):
+        for c in ["HMCode2016", "HMCode2020", 
+                  "field_dmonly", "field_matter", "field_cdm", "field_gas", "field_stars", "field_electron_pressure"]:
+            setattr(self, c, ct.c_int.in_dll(lib, f"constant_{c.lower()}").value)
 
 if __name__ == "__main__":
     import camb
+
+    hmx = HMx()
 
     h = 0.7
     omc = 0.25
@@ -103,12 +112,12 @@ if __name__ == "__main__":
     ns = 0.97
     As = 2.1e-9
 
-    halo_model_mode = 1 #HMCode
+    halo_model_mode = hmx.constants.HMCode2016
     Theat = 10**7.8
     A = 2.6
     eta0 = 0.98 - 0.12*As
 
-    fields = np.array([1])
+    fields = np.array([hmx.constants.field_dmonly])
 
     # Get linear power spectrum
     camb.set_feedback_level(2)
@@ -137,8 +146,7 @@ if __name__ == "__main__":
     k = np.logspace(-3, 1, 100)
     a = np.linspace(0.2, 1.0, 5)
 
-    mod = HMxModule()
-    Pk_HMx = mod._run_hmx(omm, omb, omv, h, ns, sigma8, mnu, w, wa,
+    Pk_HMx = hmx._run_hmx(omm, omb, omv, h, ns, sigma8, mnu, w, wa,
                           halo_model_mode, Theat, eta0, A,
                           fields=fields,
                           k=k,
