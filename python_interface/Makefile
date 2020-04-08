@@ -70,7 +70,7 @@ debug: FFLAGS += $(DEBUGFLAGS)
 debug: $(LIB_DIR)/libhmx_wrapper.so
 
 # Rule to make object files
-$(BUILD_DIR)/%.o: $(LIB_SRC_DIR)/%.f90
+$(BUILD_DIR)/%.o: $(LIB_SRC_DIR)/%.f90 $(INCLUDE_DIR)
 	$(make_dirs)
 	$(FC) -c -o $@ $< $(MODOUT) $(LDFLAGS) $(FFLAGS)
 
@@ -79,7 +79,10 @@ $(DEBUG_BUILD_DIR)/%.o: $(LIB_SRC_DIR)/%.f90
 	$(make_dirs)
 	$(FC) -c -o $@ $< $(DEBUG_MODOUT) $(LDFLAGS) $(FFLAGS)
 
-
+# Create include directory for .mod files
+$(INCLUDE_DIR):
+	@mkdir -p $(INCLUDE_DIR)
+	
 # Rule to make HMx static library
 $(LIB_DIR)/libhmx.a: $(OBJ)
 	@echo "\nBuilding static library.\n"
