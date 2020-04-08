@@ -1,7 +1,8 @@
 module HMx_wrapper
     use iso_c_binding,  only : c_int, c_double, c_float, c_bool, c_loc, c_ptr, c_f_pointer
+    use array_operations, only: is_in_array
     use HMx, only: calculate_HMx, halomod, assign_halomod, init_halomod, &
-                   HMCode2016, HMCode2016_CAMB, HMCode2020, &
+                   HMCode2016, HMCode2016_CAMB, HMCode2020, HMx2020_matter_with_temperature_scaling, HMx2020_matter_pressure_with_temperature_scaling, &
                    field_dmonly, field_matter, field_cdm, field_gas, field_stars, field_electron_pressure
     use cosmology_functions, only: cosmology, assign_cosmology, init_cosmology, norm_none, itk_external
     use constants
@@ -11,6 +12,8 @@ module HMx_wrapper
     INTEGER(kind=c_int), BIND(c) :: constant_HMCode2016 = HMCode2016
     INTEGER(kind=c_int), BIND(c) :: constant_HMCode2016_CAMB = HMCode2016_CAMB
     INTEGER(kind=c_int), BIND(c) :: constant_HMCode2020 = HMCode2020
+    INTEGER(kind=c_int), BIND(c) :: constant_HMx2020_matter_with_temperature_scaling = HMx2020_matter_with_temperature_scaling
+    INTEGER(kind=c_int), BIND(c) :: constant_HMx2020_matter_pressure_with_temperature_scaling = HMx2020_matter_pressure_with_temperature_scaling
     INTEGER(kind=c_int), BIND(c) :: constant_field_dmonly = field_dmonly
     INTEGER(kind=c_int), BIND(c) :: constant_field_matter = field_matter
     INTEGER(kind=c_int), BIND(c) :: constant_field_cdm = field_cdm
@@ -166,14 +169,18 @@ module HMx_wrapper
             ihm = halo_model_mode
             CALL assign_halomod(ihm, hmod, LOGICAL(verbose))
 
-            hmod%eta0 = eta0
-            hmod%As = As
+            if(is_in_array(halo_model_mode, [HMCode2016, HMCode2016_CAMB, HMCode2020])) then
+                hmod%eta0 = eta0
+                hmod%As = As
+            end if
 
-            ! Try to match to the CAMB version of HMCode
-            ! CAMB version of HMcode (July 2019)
-            hmod%mmin = 1e0  ! Lower mass limit for integration [Msun/h]
-            hmod%mmax = 1e18 ! Upper mass limit for integration [Msun/h]  
-            hmod%n = 256     ! Number of points in halo mass
+            if(halo_model_mode == HMCode2016_CAMB) then
+                ! Try to match to the CAMB version of HMCode
+                ! CAMB version of HMcode (July 2019)
+                hmod%mmin = 1e0  ! Lower mass limit for integration [Msun/h]
+                hmod%mmax = 1e18 ! Upper mass limit for integration [Msun/h]  
+                hmod%n = 256     ! Number of points in halo mass
+            end if
         
 
             write(*,*) "Internal sigma8:", cosm%sig8

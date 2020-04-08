@@ -94,7 +94,8 @@ class HMx:
 
 class HMxConstants:
     def __init__(self, lib):
-        for c in ["HMCode2016", "HMCode2020", 
+        for c in ["HMCode2016", "HMCode2016_CAMB", "HMCode2020", 
+                  "HMx2020_matter_with_temperature_scaling", "HMx2020_matter_pressure_with_temperature_scaling",
                   "field_dmonly", "field_matter", "field_cdm", "field_gas", "field_stars", "field_electron_pressure"]:
             setattr(self, c, ct.c_int.in_dll(lib, f"constant_{c.lower()}").value)
 
