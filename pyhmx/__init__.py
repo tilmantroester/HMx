@@ -1,1 +1,1 @@
-from .hmx import HMx
+from .hmx import HMx, constants

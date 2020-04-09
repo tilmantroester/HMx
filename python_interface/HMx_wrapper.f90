@@ -2,7 +2,8 @@ module HMx_wrapper
     use iso_c_binding,  only : c_int, c_double, c_float, c_bool, c_loc, c_ptr, c_f_pointer
     use array_operations, only: is_in_array
     use HMx, only: calculate_HMx, halomod, assign_halomod, init_halomod, &
-                   HMCode2016, HMCode2016_CAMB, HMCode2020, HMx2020_matter_with_temperature_scaling, HMx2020_matter_pressure_with_temperature_scaling, &
+                   HMCode2016, HMCode2016_CAMB, HMCode2020, &
+                   HMx2020_matter_with_temperature_scaling, HMx2020_matter_pressure_with_temperature_scaling, &
                    field_dmonly, field_matter, field_cdm, field_gas, field_stars, field_electron_pressure
     use cosmology_functions, only: cosmology, assign_cosmology, init_cosmology, norm_none, itk_external
     use constants
@@ -30,7 +31,6 @@ module HMx_wrapper
                            nf, ifield, &
                            nk, k, &
                            na, a, &
-                           nk_a_plin, k_plin, na_a_plin, a_plin, &
                            nk_plin, na_plin, pk_lin, &
                            nf1_pk, nf2_pk, nk_pk, na_pk, pk_hmx, &
                            verbose) result(status) bind(c, name="run_HMx") 
@@ -47,8 +47,6 @@ module HMx_wrapper
             REAL(kind=c_double), INTENT(IN) :: k(nk)                    ! Requested k array [h/Mpc]
             INTEGER(kind=c_int), INTENT(IN) :: na                       ! Number of requested a points
             REAL(kind=c_double), INTENT(IN) :: a(na)                    ! Requested a array
-            INTEGER(kind=c_int), INTENT(IN) :: nk_a_plin, na_a_plin     ! Number of k, a arrays for p_lin
-            REAL(kind=c_double), INTENT(IN) :: k_plin(nk_a_plin), a_plin(na_a_plin)  ! plin k and a arrays
             INTEGER(kind=c_int), INTENT(IN) :: nk_plin, na_plin         ! Number of p_lin points
             REAL(kind=c_double), INTENT(IN) :: pk_lin(nk_plin, na_plin) ! p_lin array
             INTEGER(kind=c_int), INTENT(IN) :: nf1_pk, nf2_pk, nk_pk, na_pk
@@ -82,14 +80,14 @@ module HMx_wrapper
                 return
             end if
 
-            if(nk_a_plin /= nk_plin) then
-                write(*,*) "Inconsistent plin k array sizes:", nk_a_plin, nk_plin
+            if(nk /= nk_plin) then
+                write(*,*) "Inconsistent plin k array sizes:", nk, nk_plin
                 status = 1
                 return
             end if
 
-            if(na_a_plin /= na_plin) then
-                write(*,*) "Inconsistent plin a array sizes:", na_a_plin, na_plin
+            if(na /= na_plin) then
+                write(*,*) "Inconsistent plin a array sizes:", na, na_plin
                 status = 1
                 return
             end if
@@ -127,14 +125,14 @@ module HMx_wrapper
             cosm%nk_plin = nk_plin
             cosm%na_plin = na_plin
 
-            if(.not. allocated(cosm%log_k_plin)) allocate(cosm%log_k_plin(nk_a_plin))
-            if(.not. allocated(cosm%log_a_plin)) allocate(cosm%log_a_plin(na_a_plin))
+            if(.not. allocated(cosm%log_k_plin)) allocate(cosm%log_k_plin(nk))
+            if(.not. allocated(cosm%log_a_plin)) allocate(cosm%log_a_plin(na))
             if(.not. allocated(cosm%log_plin)) allocate(cosm%log_plin(nk_plin))
             if(.not. allocated(cosm%log_plina)) allocate(cosm%log_plina(nk_plin, na_plin))
-            cosm%log_k_plin = log(k_plin)
-            cosm%log_plin = log(pk_lin(:,na_plin)*k_plin**3/(2*pi**2))
-            cosm%log_a_plin = log(a_plin)
-            forall (i=1:nk_plin) cosm%log_plina(i,:) = log(pk_lin(i,:)*k_plin(i)**3/(2*pi**2))
+            cosm%log_k_plin = log(k)
+            cosm%log_plin = log(pk_lin(:,na_plin)*k**3/(2*pi**2))
+            cosm%log_a_plin = log(a)
+            forall (i=1:nk_plin) cosm%log_plina(i,:) = log(pk_lin(i,:)*k(i)**3/(2*pi**2))
 
             ! if(m_nu > 0.0) then
             !     ! Need to deal with scale-depedent growth
@@ -183,10 +181,7 @@ module HMx_wrapper
             end if
         
 
-            write(*,*) "Internal sigma8:", cosm%sig8
-
             call calculate_HMx(ifield, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, LOGICAL(verbose))
-            write(*,*) "pow_hm shape:", shape(pow_hm)
 
             forall (i=1:nk_pk) pk_hmx(:,:,i,:) = pow_hm(:,:,i,:)/(k(i)**3/(2*pi**2))
 
