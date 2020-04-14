@@ -51,105 +51,107 @@ PROGRAM HMx_driver
    IF (iimode == -1) THEN
       WRITE (*, *) 'HMx_DRIVER: Choose what to do'
       WRITE (*, *) '============================='
-      WRITE (*, *) ' 0 - Gravity-only power spectrum at z=0'
-      WRITE (*, *) ' 1 - 3D Matter power spectrum over multiple z'
-      WRITE (*, *) ' 2 - Hydrodynamical halo model'
-      WRITE (*, *) ' 3 - Run diagnostics for haloes'
-      WRITE (*, *) ' 4 - Do random baryon parameters for bug testing'
-      WRITE (*, *) ' 5 - HMx2020'
-      WRITE (*, *) ' 6 - HMx2020 as a function of AGN temperature'
-      WRITE (*, *) ' 7 - Do general angular cross correlation'
-      WRITE (*, *) ' 8 - Angular cross correlation as a function of cosmology'
-      WRITE (*, *) ' 9 - Breakdown angular correlations in halo mass'
-      WRITE (*, *) '10 - Breakdown angular correlations in redshift'
-      WRITE (*, *) '11 - Do general angular cross correlation and correlation functions'
-      WRITE (*, *) '12 - Triad'
-      WRITE (*, *) '13 - Cross-correlation coefficient'
-      WRITE (*, *) '14 - Effect of parameter variations on hydro power'
-      WRITE (*, *) '15 - HMx2020 matter-matter suppression as a function of cosmology'
-      WRITE (*, *) '16 - TEST: Equality of matter vs. DMONLY implementation'
-      WRITE (*, *) '17 - 3D spectra for user choice of fields'
-      WRITE (*, *) '18 - 3D bias'
-      WRITE (*, *) '19 - Make CCL benchmark data'
-      WRITE (*, *) '20 - Make data for Ma et al. (2015) Fig. 1'
-      WRITE (*, *) '21 - PAPER: HMx2020 across AGN temperature range for matter'
-      WRITE (*, *) '22 - PAPER: HMx2020 across AGN temperature range for matter, electron pressure'
-      WRITE (*, *) '23 - Produce DE response results from Mead (2017)'
-      WRITE (*, *) '24 - TEST: Projection'
-      WRITE (*, *) '25 - Halo-void model'
-      WRITE (*, *) '26 - TEST: DMONLY spectra; HMcode'
-      WRITE (*, *) '27 - Comparison with Mira Titan nodes'
-      WRITE (*, *) '28 - Comparison with FrankenEmu nodes'
-      WRITE (*, *) '29 - Comparison with random Mira Titan cosmology'
-      WRITE (*, *) '30 - Comparison with random FrankenEmu cosmology'
-      WRITE (*, *) '31 - PAPER: Hydro power with varying upper-mass limits on halo mass integrals'
-      WRITE (*, *) '32 - PAPER: Hydrodynamical halo model power for baseline model'
-      WRITE (*, *) '33 - PAPER: Effect of parameter variations on baseline model hydro power'
-      WRITE (*, *) '34 - Write Tilman HMx hydro parameters as a function of T_AGN and z'
-      WRITE (*, *) '35 - Power spectra of cored halo profiles'
-      WRITE (*, *) '36 - TEST: hydro spectra'
-      WRITE (*, *) '37 - CFHTLenS correlation functions (Kilbinger et al. 2013)'
-      WRITE (*, *) '38 - Tilman AGN model triad for all feedback models'
-      WRITE (*, *) '39 - Tilman AGN model Triad for all feedback models (Triad 3 ell)'
-      WRITE (*, *) '40 - Halo bias'
-      WRITE (*, *) '41 - PAPER: Matter, pressure power as a function of sigma8'
-      WRITE (*, *) '42 - PAPER: Contributions to k-k C(l) integral'
-      WRITE (*, *) '43 - PAPER: Contributions to k-y C(l) integral'
-      WRITE (*, *) '44 - Triad with Tilman model'
-      WRITE (*, *) '45 - Comparison of Sheth-Tormen vs. Tinker mass function'
-      WRITE (*, *) '46 - Mass function and bias plots'
-      WRITE (*, *) '47 - Make CMB lensing to compare with CAMB'
-      WRITE (*, *) '48 - HI bias'
-      WRITE (*, *) '49 - HI mass fractions'
-      WRITE (*, *) '50 - Mass function changes with Lbox'
-      WRITE (*, *) '51 - Compare power with and without scatter'
-      WRITE (*, *) '52 - Hydrodynamical halo model with BAHAMAS k range'
-      WRITE (*, *) '53 - Breakdown 3D hydro power in halo mass bins'
-      WRITE (*, *) '54 - Trispectrum test'
-      WRITE (*, *) '55 - Triad for all feedback models'
-      WRITE (*, *) '56 - Triad for all feedback models (Triad 3 ell)'
-      WRITE (*, *) '57 - Direct integration of measured 3D BAHAMAS spectra: Triad 3'
-      WRITE (*, *) '58 - Multiple same fields check'
-      WRITE (*, *) '59 - Tinker (2010) bias plot check'
-      WRITE (*, *) '60 - Make data for Limber comparison with CCL'
-      WRITE (*, *) '61 - Direct integration of measured 3D BAHAMAS spectra: Triad 4'
-      WRITE (*, *) '62 - Direct integration of measured 3D BAHAMAS spectra: Triad 5'
-      WRITE (*, *) '63 - Contributions to y-y C(l) integral'
-      WRITE (*, *) '64 - CIB 545 GHz'
-      WRITE (*, *) '65 - Contributions to Limber integrals from BAHAMAS'
-      WRITE (*, *) '66 - Direct integration of measured 3D BAHAMAS spectra: Triad 5 but larger ell range'
-      WRITE (*, *) '67 - Compute matter power using non-linear halo bias'
-      WRITE (*, *) '68 - Compute non-linear halo bias integrand'
-      WRITE (*, *) '69 - Matter, halo power spectra with non-linear bias Multidark comparison'
-      WRITE (*, *) '70 - Comparison with Cosmic Emu nodes'
-      WRITE (*, *) '71 - Comparison with random Cosmic Emu cosmology'
-      WRITE (*, *) '72 - Run halo model over lots of random cosmological parameters'
-      WRITE (*, *) '73 - Check halo-mass function amplitude parameter'
-      WRITE (*, *) '74 - Matter, halo power spectra with non-linear bias (low sigma_8) Multidark comparison'
-      WRITE (*, *) '75 - Compare HMcode 2016 HMx vs CAMB'
-      WRITE (*, *) '76 - Comparison with massless neutrino Mira Titan nodes'
-      WRITE (*, *) '77 - DMONLY comparison at z = 0 with regular halo model and user choice cosmology' 
-      WRITE (*, *) '78 - DMONLY comparison at multiple z with regular halo model and user choice cosmology'    
-      WRITE (*, *) '79 - DMONLY comparison at z = 0 with HMcode (2016) and user choice cosmology'
-      WRITE (*, *) '80 - DMONLY comparison at multiple z with HMcode (2016) and user choice cosmology'
-      WRITE (*, *) '81 - DMONLY comparison at z = 0 with regular halo model and boring cosmology'
-      WRITE (*, *) '82 - DMONLY comparison at multiple z with regular halo model and boring cosmology'
-      WRITE (*, *) '83 - DMONLY comparison at z = 0 with HMcode (2016) and boring cosmology'
-      WRITE (*, *) '84 - DMONLY comparison at multiple z with HMcode (2016) and boring cosmology'
-      WRITE (*, *) '85 - Power comparison at multiple z for bump cosmologies'
-      WRITE (*, *) '86 - PAPER: Run diagnostics for haloes'
-      WRITE (*, *) '87 - Hydro power with varying upper-mass limits on halo mass integrals'
-      WRITE (*, *) '88 - Matter, pressure power as a function of sigma8'
-      WRITE (*, *) '89 - Compare to Mira Titan as a function of neutrino mass'
-      WRITE (*, *) '90 - Compare HMcode 2015 HMx vs CAMB'
-      WRITE (*, *) '91 - Compare HALOFIT (Smith et al.) HMx vs CAMB'
-      WRITE (*, *) '92 - Compare HALOFIT (Bird et al.) HMx vs CAMB'
-      WRITE (*, *) '93 - Compare HALOFIT (Takahashi et al.) HMx vs CAMB'
-      WRITE (*, *) '94 - PAPER: Big Franken Emu node comparison'
-      WRITE (*, *) '95 - PAPER: Big Mira Titan node comparison'
-      WRITE (*, *) '96 - Big Cosmic Emu node comparison'
-      WRITE (*, *) '97 - Compare HALOFIT (CAMB parameters) HMx vs CAMB'
-      WRITE (*, *) '98 - Compare HMcode (2020) HMx vs CAMB'
+      WRITE (*, *) '  0 - Gravity-only power spectrum at z=0'
+      WRITE (*, *) '  1 - 3D Matter power spectrum over multiple z'
+      WRITE (*, *) '  2 - Hydrodynamical halo model'
+      WRITE (*, *) '  3 - Run diagnostics for haloes'
+      WRITE (*, *) '  4 - Do random baryon parameters for bug testing'
+      WRITE (*, *) '  5 - HMx2020'
+      WRITE (*, *) '  6 - HMx2020 as a function of AGN temperature'
+      WRITE (*, *) '  7 - Do general angular cross correlation'
+      WRITE (*, *) '  8 - Angular cross correlation as a function of cosmology'
+      WRITE (*, *) '  9 - Breakdown angular correlations in halo mass'
+      WRITE (*, *) ' 10 - Breakdown angular correlations in redshift'
+      WRITE (*, *) ' 11 - Do general angular cross correlation and correlation functions'
+      WRITE (*, *) ' 12 - Triad'
+      WRITE (*, *) ' 13 - Cross-correlation coefficient'
+      WRITE (*, *) ' 14 - Effect of parameter variations on hydro power'
+      WRITE (*, *) ' 15 - HMx2020 matter-matter suppression as a function of cosmology'
+      WRITE (*, *) ' 16 - TEST: Equality of matter vs. DMONLY implementation'
+      WRITE (*, *) ' 17 - 3D spectra for user choice of fields'
+      WRITE (*, *) ' 18 - 3D bias'
+      WRITE (*, *) ' 19 - Make CCL benchmark data'
+      WRITE (*, *) ' 20 - Make data for Ma et al. (2015) Fig. 1'
+      WRITE (*, *) ' 21 - PAPER: HMx2020 across AGN temperature range for matter'
+      WRITE (*, *) ' 22 - PAPER: HMx2020 across AGN temperature range for matter, electron pressure'
+      WRITE (*, *) ' 23 - Produce DE response results from Mead (2017)'
+      WRITE (*, *) ' 24 - TEST: Projection'
+      WRITE (*, *) ' 25 - Halo-void model'
+      WRITE (*, *) ' 26 - TEST: DMONLY spectra; HMcode'
+      WRITE (*, *) ' 27 - Comparison with Mira Titan nodes'
+      WRITE (*, *) ' 28 - Comparison with FrankenEmu nodes'
+      WRITE (*, *) ' 29 - Comparison with random Mira Titan cosmology'
+      WRITE (*, *) ' 30 - Comparison with random FrankenEmu cosmology'
+      WRITE (*, *) ' 31 - PAPER: Hydro power with varying upper-mass limits on halo mass integrals'
+      WRITE (*, *) ' 32 - PAPER: Hydrodynamical halo model power for baseline model'
+      WRITE (*, *) ' 33 - PAPER: Effect of parameter variations on baseline model hydro power'
+      WRITE (*, *) ' 34 - Write Tilman HMx hydro parameters as a function of T_AGN and z'
+      WRITE (*, *) ' 35 - Power spectra of cored halo profiles'
+      WRITE (*, *) ' 36 - TEST: hydro spectra'
+      WRITE (*, *) ' 37 - CFHTLenS correlation functions (Kilbinger et al. 2013)'
+      WRITE (*, *) ' 38 - Tilman AGN model triad for all feedback models'
+      WRITE (*, *) ' 39 - Tilman AGN model Triad for all feedback models (Triad 3 ell)'
+      WRITE (*, *) ' 40 - Halo bias'
+      WRITE (*, *) ' 41 - PAPER: Matter, pressure power as a function of sigma8'
+      WRITE (*, *) ' 42 - PAPER: Contributions to k-k C(l) integral'
+      WRITE (*, *) ' 43 - PAPER: Contributions to k-y C(l) integral'
+      WRITE (*, *) ' 44 - Triad with Tilman model'
+      WRITE (*, *) ' 45 - Comparison of Sheth-Tormen vs. Tinker mass function'
+      WRITE (*, *) ' 46 - Mass function and bias plots'
+      WRITE (*, *) ' 47 - Make CMB lensing to compare with CAMB'
+      WRITE (*, *) ' 48 - HI bias'
+      WRITE (*, *) ' 49 - HI mass fractions'
+      WRITE (*, *) ' 50 - Mass function changes with Lbox'
+      WRITE (*, *) ' 51 - Compare power with and without scatter'
+      WRITE (*, *) ' 52 - Hydrodynamical halo model with BAHAMAS k range'
+      WRITE (*, *) ' 53 - Breakdown 3D hydro power in halo mass bins'
+      WRITE (*, *) ' 54 - Trispectrum test'
+      WRITE (*, *) ' 55 - Triad for all feedback models'
+      WRITE (*, *) ' 56 - Triad for all feedback models (Triad 3 ell)'
+      WRITE (*, *) ' 57 - Direct integration of measured 3D BAHAMAS spectra: Triad 3'
+      WRITE (*, *) ' 58 - Multiple same fields check'
+      WRITE (*, *) ' 59 - Tinker (2010) bias plot check'
+      WRITE (*, *) ' 60 - Make data for Limber comparison with CCL'
+      WRITE (*, *) ' 61 - Direct integration of measured 3D BAHAMAS spectra: Triad 4'
+      WRITE (*, *) ' 62 - Direct integration of measured 3D BAHAMAS spectra: Triad 5'
+      WRITE (*, *) ' 63 - Contributions to y-y C(l) integral'
+      WRITE (*, *) ' 64 - CIB 545 GHz'
+      WRITE (*, *) ' 65 - Contributions to Limber integrals from BAHAMAS'
+      WRITE (*, *) ' 66 - Direct integration of measured 3D BAHAMAS spectra: Triad 5 but larger ell range'
+      WRITE (*, *) ' 67 - Compute matter power using non-linear halo bias'
+      WRITE (*, *) ' 68 - Compute non-linear halo bias integrand'
+      WRITE (*, *) ' 69 - Matter, halo power spectra with non-linear bias Multidark comparison'
+      WRITE (*, *) ' 70 - Comparison with Cosmic Emu nodes'
+      WRITE (*, *) ' 71 - Comparison with random Cosmic Emu cosmology'
+      WRITE (*, *) ' 72 - Run halo model over lots of random cosmological parameters'
+      WRITE (*, *) ' 73 - Check halo-mass function amplitude parameter'
+      WRITE (*, *) ' 74 - Matter, halo power spectra with non-linear bias (low sigma_8) Multidark comparison'
+      WRITE (*, *) ' 75 - Compare HMcode (2016) HMx vs CAMB'
+      WRITE (*, *) ' 76 - Comparison with massless neutrino Mira Titan nodes'
+      WRITE (*, *) ' 77 - DMONLY comparison at z = 0 with regular halo model and user choice cosmology' 
+      WRITE (*, *) ' 78 - DMONLY comparison at multiple z with regular halo model and user choice cosmology'    
+      WRITE (*, *) ' 79 - DMONLY comparison at z = 0 with HMcode (2016) and user choice cosmology'
+      WRITE (*, *) ' 80 - DMONLY comparison at multiple z with HMcode (2016) and user choice cosmology'
+      WRITE (*, *) ' 81 - DMONLY comparison at z = 0 with regular halo model and boring cosmology'
+      WRITE (*, *) ' 82 - DMONLY comparison at multiple z with regular halo model and boring cosmology'
+      WRITE (*, *) ' 83 - DMONLY comparison at z = 0 with HMcode (2016) and boring cosmology'
+      WRITE (*, *) ' 84 - DMONLY comparison at multiple z with HMcode (2016) and boring cosmology'
+      WRITE (*, *) ' 85 - Power comparison at multiple z for bump cosmologies'
+      WRITE (*, *) ' 86 - PAPER: Run diagnostics for haloes'
+      WRITE (*, *) ' 87 - Hydro power with varying upper-mass limits on halo mass integrals'
+      WRITE (*, *) ' 88 - Matter, pressure power as a function of sigma8'
+      WRITE (*, *) ' 89 - Compare to Mira Titan as a function of neutrino mass'
+      WRITE (*, *) ' 90 - Compare HMcode (2015) HMx vs CAMB'
+      WRITE (*, *) ' 91 - Compare HALOFIT (Smith et al.) HMx vs CAMB'
+      WRITE (*, *) ' 92 - Compare HALOFIT (Bird et al.) HMx vs CAMB'
+      WRITE (*, *) ' 93 - Compare HALOFIT (Takahashi et al.) HMx vs CAMB'
+      WRITE (*, *) ' 94 - PAPER: Big Franken Emu node comparison'
+      WRITE (*, *) ' 95 - PAPER: Big Mira Titan node comparison'
+      WRITE (*, *) ' 96 - Big Cosmic Emu node comparison'
+      WRITE (*, *) ' 97 - Compare HALOFIT (CAMB parameters) HMx vs CAMB'
+      WRITE (*, *) ' 98 - Compare HMcode (2020) HMx vs CAMB'
+      WRITE (*, *) ' 99 - Emulator mean and variance'
+      WRITE (*, *) '100 - Comparison with M000 of FrankenEmu'
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -171,19 +173,21 @@ PROGRAM HMx_driver
       CALL halo_stuff(iimode, iicosmo, iihm)
    ELSE IF (iimode == 4 .OR. iimode == 72) THEN
       CALL test_random_cosmologies(iimode, iicosmo, iihm)
-   ELSE IF (iimode == 7 .OR. &
-            iimode == 8 .OR. &
-            iimode == 9 .OR. &
-            iimode == 10 .OR. &
-            iimode == 11 .OR. &
-            iimode == 37 .OR. &
-            iimode == 42 .OR. &
-            iimode == 43 .OR. &
-            iimode == 47 .OR. &
-            iimode == 63 .OR. &
-            iimode == 64) THEN
+   !ELSE IF (iimode == 7 .OR. &
+   !         iimode == 8 .OR. &
+   !         iimode == 9 .OR. &
+   !         iimode == 10 .OR. &
+   !         iimode == 11 .OR. &
+   !         iimode == 37 .OR. &
+   !         iimode == 42 .OR. &
+   !         iimode == 43 .OR. &
+   !         iimode == 47 .OR. &
+   !         iimode == 63 .OR. &
+   !         iimode == 64) THEN
+   ELSE IF(is_in_array(iimode, [7, 8, 9, 10, 11, 37, 42, 43, 47, 63, 64])) THEN
       CALL general_projection(iimode, iicosmo, iihm)
-   ELSE IF (iimode == 12 .OR. iimode == 44 .OR. iimode == 38 .OR. iimode == 39 .OR. iimode == 55 .OR. iimode == 56) THEN
+   !ELSE IF (iimode == 12 .OR. iimode == 44 .OR. iimode == 38 .OR. iimode == 39 .OR. iimode == 55 .OR. iimode == 56) THEN
+   ELSE IF (is_in_array(iimode, [12, 38, 39, 44, 55, 56])) THEN
       CALL triad_stuff(iimode, iicosmo, iihm)
    ELSE IF (iimode == 13) THEN
       CALL cross_correlation_coefficient(iicosmo, iihm)
@@ -205,8 +209,7 @@ PROGRAM HMx_driver
       CALL halo_void_model(iicosmo, iihm)
    ELSE IF (iimode == 26) THEN
       CALL halo_model_tests(iicosmo, iihm)
-   ELSE IF (iimode == 27 .OR. iimode == 28 .OR. iimode == 29 .OR. iimode == 30 .OR. &
-      iimode == 70 .OR. iimode == 71 .OR.  iimode == 76 .OR. iimode == 89) THEN
+   ELSE IF (is_in_array(iimode, [27, 28, 29, 30, 70, 71, 76, 89, 100])) THEN
       CALL emulator_comparison(iimode, iicosmo, iihm)
    ELSE IF (iimode == 31 .OR. iimode == 53 .OR. iimode == 87) THEN
       CALL power_breakdown_halomass(iimode, iicosmo, iihm)
@@ -254,6 +257,8 @@ PROGRAM HMx_driver
       CALL power_multiple_comparison(iimode, iicosmo, iihm)
    ELSE IF (is_in_array(iimode, [94, 95, 96])) THEN
       CALL big_emulator_comparison(iimode)
+   ELSE IF (iimode == 99) THEN
+      CALL emulator_mean_variance(iimode)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
@@ -602,10 +607,10 @@ CONTAINS
          CALL assign_halomod(ihm, hmod, verbose)
 
          IF (i == 0) THEN
-            hmod%Amp_mf = 1.
+            hmod%Amf = 1.
             outfile = outfid
          ELSE
-            hmod%Amp_mf = progression(amp_min, amp_max, i, n_amp)
+            hmod%Amf = progression(amp_min, amp_max, i, n_amp)
             outfile = number_file(fbase, i, fext)
          END IF
 
@@ -3814,8 +3819,10 @@ CONTAINS
       REAL, ALLOCATABLE :: pow_ql(:), pow_oh(:), pow_hf(:)
       REAL, ALLOCATABLE :: k_sim(:), pow_sim(:)
       REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
-      INTEGER :: i, j, ii
-      INTEGER :: field(1), nz, na, nk, n
+      REAL, ALLOCATABLE :: pk_hm(:, :, :)
+      REAL :: HALOFIT_knl, HALOFIT_neff, HALOFIT_ncur
+      INTEGER :: icos, iz, ik
+      INTEGER :: field(1), nz, na, nk, ncos
       CHARACTER(len=256) :: outfile
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
@@ -3826,17 +3833,19 @@ CONTAINS
       CHARACTER(len=256), PARAMETER :: base = 'data/cosmo'
       CHARACTER(len=256), PARAMETER :: mid = '_z'
       CHARACTER(len=256), PARAMETER :: ext = '.dat'
+      !CHARACTER(len=256), PARAMETER :: cosmology_file = 'data/emulator_cosmologies.dat'
       INTEGER, PARAMETER :: ihf = halofit_CAMB
 
-      ! Number of cosmological models (+1)
-      IF (imode == 28 .OR. imode == 30) n = 37 ! Franken Emu
-      IF (imode == 27 .OR. imode == 29) n = 36 ! Mira Titan
-      IF (imode == 70 .OR. imode == 71) n = 37 ! Cosmic Emu
-      IF (imode == 76) n = 10 ! Mira Titan with massless neutrinos
-      IF (imode == 89) n = 10
+      ! Number of cosmological models
+      IF (imode == 28 .OR. imode == 30) ncos = 37 ! Franken Emu
+      IF (imode == 27 .OR. imode == 29) ncos = 36 ! Mira Titan
+      IF (imode == 70 .OR. imode == 71) ncos = 37 ! Cosmic Emu
+      IF (imode == 76) ncos = 10 ! Mira Titan with massless neutrinos
+      IF (imode == 89) ncos = 10
+      IF (imode == 100) ncos = 0
 
       ! Set number of redshifts
-      IF (imode == 28 .OR. imode == 30) THEN
+      IF (imode == 28 .OR. imode == 30 .OR. imode == 100) THEN
          nz = 6 ! Franken Emu
       ELSE IF (imode == 27 .OR. imode == 29 .OR. imode == 76 .OR. imode == 89) THEN
          nz = 4 ! Mira Titan
@@ -3856,7 +3865,7 @@ CONTAINS
       ALLOCATE (z(nz), a(nz))
 
       ! Set redshifts
-      IF (imode == 28 .OR. imode == 30) THEN
+      IF (imode == 28 .OR. imode == 30 .OR. imode == 100) THEN
          ! Franken Emu (z up to 4)
          z(1) = 0.0
          z(2) = 0.5
@@ -3886,20 +3895,21 @@ CONTAINS
       CALL assign_halomod(ihm, hmod, verbose)
 
       ! Loop over cosmologies
-      DO i = 0, n
+      !OPEN(8, file=cosmology_file)
+      DO icos = 0, ncos
 
          IF (imode == 27 .OR. imode == 76) THEN
-            icosmo = 100+i ! Mira Titan nodes
-         ELSE IF (imode == 28) THEN
-            icosmo = 200+i ! Franken Emu nodes (same as cosmic emu nodes)
+            icosmo = 100+icos ! Mira Titan nodes
+         ELSE IF (imode == 28 .OR. imode == 100) THEN
+            icosmo = 200+icos ! Franken Emu nodes (same as cosmic emu nodes)
          ELSE IF (imode == 70) THEN
-            icosmo = 300+i ! Cosmic Emu nodes
+            icosmo = 300+icos ! Cosmic Emu nodes
          ELSE IF (imode == 29) THEN
-            icosmo = 24    ! Random Mira Titan
+            icosmo = 24 ! Random Mira Titan
          ELSE IF (imode == 30) THEN
-            icosmo = 25    ! Random Franken Emu
+            icosmo = 25 ! Random Franken Emu
          ELSE IF (imode == 71) THEN
-            icosmo = 38    ! Random Cosmic Emu
+            icosmo = 38 ! Random Cosmic Emu
          ELSE IF (imode == 89) THEN
             icosmo = 100 ! Mira Titan central node
          ELSE
@@ -3908,41 +3918,47 @@ CONTAINS
          END IF
          CALL assign_cosmology(icosmo, cosm, verbose)
          IF (imode == 89) THEN
-            cosm%m_nu = progression(m_nu_min, m_nu_max, i+1, n+1)
+            cosm%m_nu = progression(m_nu_min, m_nu_max, icos+1, ncos+1)
          END IF
          CALL init_cosmology(cosm)
          CALL print_cosmology(cosm)
 
+         !WRITE(8, *) cosm%Om_m, cosm%Om_b, cosm%Om_nu, cosm%ns, cosm%h, cosm%sig8, cosm%w, cosm%wa
+
          ! Loop over redshift
-         DO j = 1, nz
+         DO iz = 1, nz
 
             IF (imode == 27 .OR. imode == 29 .OR. imode == 76 .OR. imode == 89) THEN
-               CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
-            ELSE IF (imode == 28 .OR. imode == 30) THEN
-               CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
+               CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(iz), cosm, rebin=.FALSE.)
+            ELSE IF (imode == 28 .OR. imode == 30 .OR. imode == 100) THEN
+               CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(iz), cosm, rebin=.FALSE.)
             ELSE IF (imode == 70 .OR. imode == 71) THEN
-               CALL get_CosmicEmu_power_z(k_sim, pow_sim, nk, z(j), cosm, rebin=.FALSE.)
+               CALL get_CosmicEmu_power_z(k_sim, pow_sim, nk, z(iz), cosm, rebin=.FALSE.)
             ELSE
                STOP 'EMULATOR_COMPARISON: Error, imode not specified correctly for EMU'
             END IF
 
             ALLOCATE (pow_li(nk), pow_2h(1, 1, nk), pow_1h(1, 1, nk), pow_hm(1, 1, nk))
 
-            CALL init_halomod(a(j), hmod, cosm, verbose=.TRUE.)
+            CALL init_halomod(a(iz), hmod, cosm, verbose=.TRUE.)
             CALL print_halomod(hmod, cosm, verbose=.TRUE.)
             field = field_dmonly
             CALL calculate_HMx_a(field, 1, k_sim, nk, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose=.FALSE.)
 
             ALLOCATE (pow_ql(nk), pow_oh(nk), pow_hf(nk))
-            CALL calculate_halofit_a(k_sim, a(j), pow_li, pow_ql, pow_oh, pow_hf, nk, cosm, verbose=.TRUE., ihf=ihf)
+            CALL calculate_halofit_a(k_sim, a(iz), pow_li, pow_ql, pow_oh, pow_hf, nk, cosm, verbose=.FALSE., ihf=ihf)
+
+            CALL HALOFIT_init(HALOFIT_knl, HALOFIT_neff, HALOFIT_ncur, a(iz), cosm, verbose=.FALSE.)
 
             ! Write data
-            outfile = number_file2(base, i, mid, j, ext)
+            outfile = number_file2(base, icos, mid, iz, ext)
             OPEN (7, file=outfile)
-            DO ii = 1, nk
-               WRITE (7, *) k_sim(ii), pow_li(ii), pow_sim(ii), &
-                  pow_ql(ii), pow_oh(ii), pow_hf(ii), &
-                  pow_2h(1, 1, ii), pow_1h(1, 1, ii), pow_hm(1, 1, ii)
+            DO ik = 1, nk
+               WRITE (7, *) k_sim(ik), pow_li(ik), pow_sim(ik), &
+                  pow_ql(ik), pow_oh(ik), pow_hf(ik), &
+                  pow_2h(1, 1, ik), pow_1h(1, 1, ik), pow_hm(1, 1, ik), &
+                  cosm%Om_m, cosm%Om_b, cosm%Om_nu, cosm%ns, cosm%h, cosm%sig8, cosm%w, cosm%wa, &
+                  HALOFIT_knl, HALOFIT_neff, HALOFIT_ncur
             END DO
             CLOSE (7)
 
@@ -3953,8 +3969,92 @@ CONTAINS
          END DO
 
       END DO
+      !CLOSE(8)
 
    END SUBROUTINE emulator_comparison
+
+   SUBROUTINE emulator_mean_variance(imode)
+
+      USE statistics
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
+      REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
+      REAL, ALLOCATABLE :: Pk_hm(:, :, :, :), Pk_emu(:, :, :)
+      REAL, ALLOCATABLE :: residual(:)
+      INTEGER, ALLOCATABLE :: ihms(:)
+      INTEGER :: icos, ik, ia, icosmo, ihm
+      INTEGER :: nk, na, ncos, nhm
+      CHARACTER(len=256) :: outfile
+      CHARACTER(len=32), ALLOCATABLE :: zlab(:)
+      TYPE(cosmology) :: cosm
+
+      INTEGER, PARAMETER :: emulator_version = emulator_FrankenEmu
+      LOGICAL, PARAMETER :: rebin = .TRUE.
+      LOGICAL, PARAMETER :: verbose = .FALSE.
+      CHARACTER(len=256), PARAMETER :: outbase = 'data/emulator_mean_variance'
+
+      ! Set redshifts
+      na = 4
+      ALLOCATE(a(na), zlab(na))
+      a(1) = scale_factor_z(0.0)
+      a(2) = scale_factor_z(0.5)
+      a(3) = scale_factor_z(1.0)
+      a(4) = scale_factor_z(2.0)
+      zlab(1) = '0p0'
+      zlab(2) = '0p5'
+      zlab(3) = '1p0'
+      zlab(4) = '2p0'
+
+      ! Set cosmologies
+      ncos = 37
+
+      ! Set number of halo models
+      nhm = 18
+      ALLOCATE(ihms(nhm))
+      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76]
+      
+      ! Loop over cosmologies
+      DO icos = 1, ncos
+
+         ! Set the cosmology
+         icosmo = 200+icos
+         CALL assign_cosmology(icosmo, cosm, verbose)
+         CALL init_cosmology(cosm)
+
+         ! Get emulator power
+         CALL get_emulator_power(k, a, Pk, nk, na, cosm, rebin, emulator_version)
+         IF(.NOT. ALLOCATED(Pk_emu)) ALLOCATE(Pk_emu(ncos, nk, na))
+         Pk_emu(icos, :, :) = Pk
+
+         ! Loop over halo models
+         DO ihm = 1, nhm
+
+            ! Calculate halo model power for each model
+            CALL calculate_HMx_DMONLY(k, a, Pk, nk, na, cosm, ihms(ihm))
+            IF(.NOT. ALLOCATED(Pk_hm)) THEN
+               ALLOCATE(Pk_hm(ncos, nhm, nk, na))
+               Pk_hm = 0.
+            END IF
+            Pk_hm(icos, ihm, :, :) = Pk
+
+         END DO
+
+      END DO
+
+      ALLOCATE(residual(ncos))
+      DO ihm = 1, nhm
+         DO ia = 1, na
+            outfile = trim(outbase)//'_hm'//trim(integer_to_string(ihms(ihm)))//'_z'//trim(zlab(ia))//'.dat'
+            OPEN(7, file=outfile)
+            DO ik = 1, nk
+               residual = Pk_hm(:, ihm, ik, ia)/Pk_emu(:, ik, ia)
+               WRITE(7, *) k(ik), mean(residual, ncos), standard_deviation(residual, ncos)
+            END DO
+            CLOSE(7)
+         END DO
+      END DO
+   
+   END SUBROUTINE
 
    SUBROUTINE big_emulator_comparison(imode)
 
@@ -5017,7 +5117,7 @@ CONTAINS
       END DO
       CLOSE (7)
 
-   END SUBROUTINE
+   END SUBROUTINE Trispectrum_test
 
    SUBROUTINE Cl_direct_integration(imode, icosmo)
 
