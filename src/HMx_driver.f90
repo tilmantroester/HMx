@@ -387,7 +387,7 @@ CONTAINS
       END IF
 
       ! Set the random number generator
-      CALL RNG_set(iseed)   
+      CALL RNG_set(iseed)  
 
       ! Loop over individual tests
       nfail = 0
@@ -4009,9 +4009,9 @@ CONTAINS
       ncos = 37
 
       ! Set number of halo models
-      nhm = 18
+      nhm = 19
       ALLOCATE(ihms(nhm))
-      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76]
+      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80]
       
       ! Loop over cosmologies
       DO icos = 1, ncos
@@ -4756,6 +4756,7 @@ CONTAINS
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
+      INTEGER, PARAMETER :: nhm = 4
       REAL, PARAMETER :: z = 0.0
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
@@ -4772,18 +4773,23 @@ CONTAINS
       CALL init_cosmology(cosm)
       CALL print_cosmology(cosm)
 
-      DO j = 1, 3
+      DO j = 1, nhm
 
          IF (j == 1) THEN
-            ! Sheth & Tormen (1999) mass function and bias
+            ! Sheth & Tormen (1999) mass function
             ihm = 3
             outfile = 'data/power_ShethTormen.dat'
          ELSE IF (j == 2) THEN
-            ihm = 23 ! Tinker et al. (2010) mass function and bias
+            ihm = 23 ! Tinker et al. (2010) mass function
             outfile = 'data/power_Tinker.dat'
          ELSE IF (j == 3) THEN
-            ihm = 27 ! Press & Schecter (1974) mass function and bias
+            ihm = 27 ! Press & Schecter (1974) mass function
             outfile = 'data/power_PressSchecter.dat'
+         ELSE IF (j == 4) THEN
+            ihm = 80 ! Jenkins mass function
+            outfile = 'data/power_Jenkins.dat'
+         ELSE
+            STOP 'POWER_DIFFERENT_MASS_FUNCTIONS: Something went wrong'
          END IF
 
          IF (j == 1) THEN
@@ -4821,7 +4827,7 @@ CONTAINS
       TYPE(halomod), ALLOCATABLE :: hmods(:)
 
       REAL, PARAMETER :: z = 0.0 ! Sets the redshift
-      INTEGER, PARAMETER :: nhm = 3 ! Number of halo models
+      INTEGER, PARAMETER :: nhm = 4 ! Number of halo models
       LOGICAL, PARAMETER :: verbose = .TRUE.
       REAL, PARAMETER :: numin = 0.1  ! Minimum value of nu
       REAL, PARAMETER :: numax = 6.   ! Maximum value of nu
@@ -4841,6 +4847,8 @@ CONTAINS
             ihm = 27 ! 27 - Press & Schecter mass function, virial mass haloes
          ELSE IF (i == 3) THEN
             ihm = 23 ! 23 - Tinker mass function, virial mass haloes
+         ELSE IF (i == 4) THEN
+            ihm = 80 ! 80 - Jenkins (2001) FoF b = 0.2 haloes
          ELSE
             STOP 'HMx_DRIVER: Error, something went wrong setting halo model'
          END IF
