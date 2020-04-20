@@ -40,7 +40,7 @@ zlab[4] = '2p0'
 # Set halomodels to compare
 if(imode == 1) {nhm = 3; dr = 0.10; ds = 0.05}
 if(imode == 2) {nhm = 3; dr = 0.30; ds = 0.20}
-if(imode == 3) {nhm = 8; dr = 0.50; ds = 0.20}
+if(imode == 3) {nhm = 9; dr = 0.50; ds = 0.20}
 if(imode == 4) {nhm = 5; dr = 0.30; ds = 0.20}
 array ihms[nhm]
 array hmlabel[nhm]
@@ -69,7 +69,7 @@ if (imode == 3){
    ihms[6] = 74
    ihms[7] = 75
    ihms[8] = 76
-   #ihms[9] = 52
+   ihms[9] = 80
    hmlabel[1] = 'Sheth & Tormen: virial'
    hmlabel[2] = 'Press & Schecter: virial'
    hmlabel[3] = 'Tinker mass function: virial'
@@ -78,6 +78,7 @@ if (imode == 3){
    hmlabel[6] = 'Sheth & Tormen: {/Symbol d}_c = 1.686 fixed'
    hmlabel[7] = 'Sheth & Tormen: {/Symbol d}_c from Mead fit'
    hmlabel[8] = 'Sheth & Tormen: {/Symbol D}_v from Mead fit'
+   hmlabel[9] = 'Jenkins: m178'
    #hmlabel[9] = 'Sheth & Tormen: {/Symbol d}_c and {/Symbol D}_v from Mead fit'
 }
 if (imode == 4){
