@@ -35,7 +35,8 @@ class HMx:
 
     def run_HMCode(self, cosmology=None, halo_model=None, 
                    k=None, z=None, 
-                   pk_lin=None):
+                   pk_lin=None,
+                   verbose=False):
         cosmology = cosmology or {}
         halo_model = halo_model or {}
 
@@ -47,7 +48,7 @@ class HMx:
                              fields=np.array([constants.field_dmonly]),
                              k=k, z=z,
                              pk_lin=pk_lin,
-                             verbose=True)
+                             verbose=verbose)
         return pofk
 
     def run_HMx(self, cosmology=None, halo_model=None, fields=None, mode=constants.HMx2020_matter_with_temperature_scaling,
