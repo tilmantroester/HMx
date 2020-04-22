@@ -1283,7 +1283,7 @@ CONTAINS
 
       ! Fix the total number of cosmologies
       ncos = 1
-      IF (imode == 85) ncos = 6
+      IF (imode == 85) ncos = 9
 
       ! Loop over cosmological models to compare
       DO icos = 0, ncos
@@ -1291,28 +1291,37 @@ CONTAINS
          ! Assigns the cosmological model
          IF (imode == 85) THEN
 
-            ihm_here = 1 ! 3 - Seljak (2000)             
+            ihm_here = ihm ! 3 - Seljak (2000)             
             IF (icos == 0) THEN
                icosmo_here = 69 ! Planck-ish
                filebase = 'data/power_nobump'
             ELSE IF(icos == 1) THEN
-               icosmo_here = 66 ! bump = 0.05 h/Mpc
-               filebase = 'data/power_bump_k0p05'
+               icosmo_here = 66 ! kbump = 0.05 h/Mpc; sigma = 1.0
+               filebase = 'data/power_fatbump_k0p05'
             ELSE IF(icos == 2) THEN
-               icosmo_here = 67 ! bump = 0.1 h/Mpc
-               filebase = 'data/power_bump_k0p1'
+               icosmo_here = 67 ! kbump = 0.10 h/Mpc; sigma = 1.0
+               filebase = 'data/power_fatbump_k0p1'
             ELSE IF(icos == 3) THEN
-               icosmo_here = 68 ! bump = 1 h/Mpc
-               filebase = 'data/power_bump_k1'
+               icosmo_here = 68 ! kbump = 1.00 h/Mpc; sigma = 1.0
+               filebase = 'data/power_fatbump_k1'
             ELSE IF(icos == 4) THEN
-               icosmo_here = 72 ! thinbump = 0.05 h/Mpc
+               icosmo_here = 72 ! kbump = 0.05 h/Mpc; sigma = 0.1
                filebase = 'data/power_thinbump_k0p05'
             ELSE IF(icos == 5) THEN
-               icosmo_here = 73 ! thinbump = 0.1 h/Mpc
+               icosmo_here = 73 ! kbump = 0.10 h/Mpc; sigma = 0.1
                filebase = 'data/power_thinbump_k0p1'
             ELSE IF(icos == 6) THEN
-               icosmo_here = 74 ! thinbump = 1 h/Mpc
+               icosmo_here = 74 ! kbump = 1.00 h/Mpc; sigma = 0.1
                filebase = 'data/power_thinbump_k1'
+            ELSE IF(icos == 7) THEN
+               icosmo_here = 79 ! kbump = 0.05 h/Mpc; sigma = 0.3
+               filebase = 'data/power_medbump_k0p05'
+            ELSE IF(icos == 8) THEN
+               icosmo_here = 80 ! kbump = 0.10 h/Mpc; sigma = 0.3
+               filebase = 'data/power_medbump_k0p1'
+            ELSE IF(icos == 9) THEN
+               icosmo_here = 81 ! kbump = 1.00 h/Mpc; sigma = 0.3
+               filebase = 'data/power_medbump_k1'
             ELSE
                STOP 'POWER_MULTIPLE_COMPARISON: Error, something went wrong with bumps'
             END IF
@@ -4030,7 +4039,7 @@ CONTAINS
          DO ihm = 1, nhm
 
             ! Calculate halo model power for each model
-            CALL calculate_HMx_DMONLY(k, a, Pk, nk, na, cosm, ihms(ihm))
+            CALL calculate_halomod(k, a, Pk, nk, na, cosm, ihms(ihm))
             IF(.NOT. ALLOCATED(Pk_hm)) THEN
                ALLOCATE(Pk_hm(ncos, nhm, nk, na))
                Pk_hm = 0.
