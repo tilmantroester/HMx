@@ -26,7 +26,7 @@ PROGRAM HMx_fitting
    INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
    !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
    INTEGER, PARAMETER :: random_seed = 0        ! Random-number seed
-   LOGICAL, PARAMETER :: random_start = .FALSE.  ! Start from a random point within the prior range
+   LOGICAL, PARAMETER :: random_start = .TRUE.  ! Start from a random point within the prior range
    LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
    INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
    LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
@@ -50,7 +50,7 @@ PROGRAM HMx_fitting
    LOGICAL, PARAMETER :: response_default = .TRUE.    ! Should I treat the BAHAMAS P(k) as HMcode response?
    LOGICAL, PARAMETER :: realisation_errors= .TRUE.   ! Do we use the errors from the individual simulations or across realisations?
    LOGICAL, PARAMETER :: weight_by_errors = .FALSE.   ! Do we weight by the inverse of the errors?
-   LOGICAL, PARAMETER :: default_parameters = .TRUE. ! Set varied paramters to default values from hmod structure
+   LOGICAL, PARAMETER :: default_parameters = .FALSE. ! Set varied paramters to default values from hmod structure
    CHARACTER(len=256), PARAMETER :: powbase_default = 'fitting/test' ! Default output file base
 
    ! Fitting method
@@ -118,39 +118,43 @@ CONTAINS
          WRITE (*, *) '18 - HMcode (2020): Franken Emu nodes'
          WRITE (*, *) '19 - HMcode (2020): Mira Titan nodes (no massive neutrinos)'
          WRITE (*, *) '======================================================='
-         WRITE (*, *) '20 - Hydro: fixed z; final parameters; matter, pressure (fixed star model; no pressure-pressure)'
+         WRITE (*, *) '20 - Hydro: fixed z; final parameters; fixed stars; no pressure-pressure: matter, pressure'
          WRITE (*, *) '21 - '
          WRITE (*, *) '22 - '
-         WRITE (*, *) '23 - Hydro: fixed z; final parameters: matter-pressure (fixed star model; cross spectrum only)'
+         WRITE (*, *) '23 - Hydro: fixed z; final parameters; fixed stars; no pressure-pressure: matter-pressure'
          WRITE (*, *) '24 - '
          WRITE (*, *) '25 - '
-         WRITE (*, *) '26 - Hydro: fixed z; basic parameters; CDM'
-         WRITE (*, *) '27 - Hydro: fixed z; basic parameters; matter, CDM, gas, stars'
-         WRITE (*, *) '28 - Hydro: fixed z; basic parameters; matter, CDM, gas, stars, pressure (no pressure-pressure)'
-         WRITE (*, *) '29 - Hydro: fixed z; basic parameters; matter'
-         WRITE (*, *) '30 - Hydro: fixed z; basic parameters; pressure'
-         WRITE (*, *) '31 - Hydro: fixed z; basic parameters; stars'
-         WRITE (*, *) '32 - Hydro: fixed z; basic parameters; gas'
-         WRITE (*, *) '33 - Hydro: fixed z; final parameters; CDM'
-         WRITE (*, *) '34 - Hydro: fixed z; final parameters; gas'
-         WRITE (*, *) '35 - Hydro: fixed z; final parameters; stars'
-         WRITE (*, *) '36 - Hydro: fixed z; final parameters; pressure'
-         WRITE (*, *) '37 - Hydro: fixed z; final parameters; CDM, gas, stars (fixed star model)'
-         WRITE (*, *) '38 - Hydro: fixed z; final parameters; matter, CDM, gas, stars (fixed star model)'
-         WRITE (*, *) '39 - Hydro: fixed z; final parameters; matter (fixed star model)'
-         WRITE (*, *) '40 - Hydro: fixed z; final parameters; matter, CDM, gas, stars, pressure (fixed star model; no pressure-pressure)'
-         WRITE (*, *) '41 - Hydro: final parameters; CDM'
-         WRITE (*, *) '42 - Hydro: final parameters; gas'
-         WRITE (*, *) '43 - Hydro: final parameters; stars'
-         WRITE (*, *) '44 - Hydro: final parameters; matter (fixed star model)'
-         WRITE (*, *) '45 - Hydro: final parameters; CDM, gas, stars (fixed star model)'
-         WRITE (*, *) '46 - Hydro: final parameters; matter, CDM, gas, stars (fixed star model)'
-         WRITE (*, *) '47 - Hydro: final parameters; matter, pressure (fixed star model; no pressure-pressure)'
-         WRITE (*, *) '48 - Hydro: final parameters; matter, CDM, gas, stars, pressure (fixed star model; no pressure-pressure)'
-         WRITE (*, *) '49 - Hydro: final parameters; matter, CDM, gas, stars'
-         WRITE (*, *) '50 - Hydro: final parameters; matter, CDM, gas, stars, pressure (no pressure-pressure)'
-         WRITE (*, *) '51 - Hydro: final parameters; matter, CDM, gas, stars (optimised weights)'
-         WRITE (*, *) '52 - Hydro: final parameters; matter, CDM, gas, stars, pressure (no pressure-pressure; optimised weights)'
+         WRITE (*, *) '26 - Hydro: fixed z; basic parameters: CDM'
+         WRITE (*, *) '27 - Hydro: fixed z; basic parameters: matter, CDM, gas, stars'
+         WRITE (*, *) '28 - Hydro: fixed z; basic parameters; no pressure-pressure: matter, CDM, gas, stars, pressure'
+         WRITE (*, *) '29 - Hydro: fixed z; basic parameters: matter'
+         WRITE (*, *) '30 - Hydro: fixed z; basic parameters: pressure'
+         WRITE (*, *) '31 - Hydro: fixed z; basic parameters: stars'
+         WRITE (*, *) '32 - Hydro: fixed z; basic parameters: gas'
+         WRITE (*, *) '33 - Hydro: fixed z; final parameters: CDM'
+         WRITE (*, *) '34 - Hydro: fixed z; final parameters: gas'
+         WRITE (*, *) '35 - Hydro: fixed z; final parameters: stars'
+         WRITE (*, *) '36 - Hydro: fixed z; final parameters: pressure'
+         WRITE (*, *) '37 - Hydro: fixed z; final parameters; fixed stars: CDM, gas, stars'
+         WRITE (*, *) '38 - Hydro: fixed z; final parameters; fixed stars: matter, CDM, gas, stars'
+         WRITE (*, *) '39 - Hydro: fixed z; final parameters; fixed stars: matter'
+         WRITE (*, *) '40 - Hydro: fixed z; final parameters; fixed stars; no pressure-pressure: matter, CDM, gas, stars, pressure'
+         WRITE (*, *) '41 - Hydro: final parameters: CDM'
+         WRITE (*, *) '42 - Hydro: final parameters: gas'
+         WRITE (*, *) '43 - Hydro: final parameters: stars'
+         WRITE (*, *) '44 - Hydro: final parameters; fixed stars: matter'
+         WRITE (*, *) '45 - Hydro: final parameters; fixed stars: CDM, gas, stars'
+         WRITE (*, *) '46 - Hydro: final parameters; fixed stars: matter, CDM, gas, stars'
+         WRITE (*, *) '47 - Hydro: final parameters; fixed stars; no pressure-pressure: matter, pressure'
+         WRITE (*, *) '48 - Hydro: final parameters; fixed stars; no pressure-pressure: matter, CDM, gas, stars, pressure'
+         WRITE (*, *) '49 - Hydro: final parameters: matter, CDM, gas, stars'
+         WRITE (*, *) '50 - Hydro: final parameters; no pressure-pressure: matter, CDM, gas, stars, pressure'
+         WRITE (*, *) '51 - Hydro: final parameters; optimised weights; no pressure-pressure: matter, CDM, gas, stars'
+         WRITE (*, *) '52 - Hydro: final parameters; optimised weights; no pressure-pressure: matter, CDM, gas, stars, pressure'
+         WRITE (*, *) '53 - Hydro: final parameters; optimised weights; no pressure-pressure: matter, pressure'
+         WRITE (*, *) '54 - Hydro: final parameters; Zamma; no pressure-pressure: matter, pressure'
+         WRITE (*, *) '55 - Hydro: final parameters; epsz; no pressure-pressure: matter, pressure'
+         WRITE (*, *) '56 - Hydro: final parameters; matter response; no pressure-pressure: matter, pressure'
          WRITE (*, *) '======================================================='
          READ (*, *) imode
          WRITE (*, *)
@@ -1684,7 +1688,8 @@ CONTAINS
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
          im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
-         im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
+         im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. im == 53 .OR. &
+         im == 54 .OR. im == 55 .OR. im == 56) THEN
          ! BAHAMAS
          ncos = 1
       END IF
@@ -1754,7 +1759,8 @@ CONTAINS
             im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
             im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
             im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
-            im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
+            im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. im == 53 .OR. &
+            im == 54 .OR. im == 55 .OR. im == 56) THEN
             ! All cosmologies are WMAP9
             IF(name == 'AGN_TUNED_nu0') THEN
                icosmo = 4 
@@ -1790,11 +1796,11 @@ CONTAINS
          nf = 1 ! DMONLY-DMONLY only
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          nf = 5
-      ELSE IF (im == 26 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. &
-               im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 39 .OR. im == 41 .OR. &
-               im == 42 .OR. im == 43 .OR. im == 44) THEN
+      ELSE IF (im == 26 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. &
+               im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 39 .OR. im == 41 .OR. im == 42 .OR. &
+               im == 43 .OR. im == 44) THEN
          nf = 1
-      ELSE IF (im == 20 .OR. im == 23 .OR. im == 47) THEN
+      ELSE IF (im == 20 .OR. im == 23 .OR. im == 47 .OR. im == 53 .OR. im == 54 .OR. im == 55 .OR. im == 56) THEN
          nf = 2
       ELSE IF (im == 27 .OR. im == 38 .OR. im == 46 .OR. im == 49 .OR. im == 51) THEN
          nf = 4
@@ -1844,7 +1850,7 @@ CONTAINS
          fields(1) = field_cdm
          fields(2) = field_gas
          fields(3) = field_stars
-      ELSE IF (im == 20 .OR. im == 23 .OR. im == 47) THEN
+      ELSE IF (im == 20 .OR. im == 23 .OR. im == 47 .OR. im == 53 .OR. im == 54 .OR. im == 55 .OR. im == 56) THEN
          ! Matter and pressure
          fields(1) = field_matter
          fields(2) = field_electron_pressure
@@ -1879,7 +1885,8 @@ CONTAINS
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40) THEN
          nz = 1
       ELSE IF (im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. &
-         im == 47 .OR. im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
+               im == 47 .OR. im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. &
+               im == 53 .OR. im == 54 .OR. im == 55 .OR. im == 56) THEN
          !nz = 11 ! Full z range 0 < z < 2
          nz = 7 ! Limited z range
       ELSE
@@ -1914,7 +1921,8 @@ CONTAINS
             READ (zin, *) z(1)
          END IF
       ELSE IF (im == 41 .OR. im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. &
-         im == 47 .OR. im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
+               im == 47 .OR. im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. &
+               im == 53 .OR. im == 54 .OR. im == 55 .OR. im == 56) THEN
          ! All 11 snapshots between z=0 and z=2 from BAHAMAS
          z(1) = 0.000
          z(2) = 0.125
@@ -1960,7 +1968,9 @@ CONTAINS
          !ihm = 20 ! 20 - Standard halo model in response
          ihm = 55 ! 55 - HMx 2020 (response)
       ELSE IF (im == 20 .OR. im == 23 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. &
-         im == 40 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. im == 48) THEN
+               im == 40 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. im == 48 .OR. &
+               im == 53 .OR. im == 55) THEN
+         ! HMx 2020 but with fixed star models
          ! Models that fit stars for the different AGN temperatures
          IF (name == 'AGN_7p6_nu0') THEN
             ihm = 56
@@ -1968,6 +1978,28 @@ CONTAINS
             ihm = 57
          ELSE IF (name == 'AGN_8p0_nu0') THEN
             ihm = 58
+         ELSE
+            STOP 'ASSIGN_HALOMODS: Error, BAHAMAS model name is not recognised'
+         END IF
+      ELSE IF (im == 56) THEN
+         ! HMx 2020 but with fixed star models and matter-only response
+         IF (name == 'AGN_7p6_nu0') THEN
+            ihm = 81
+         ELSE IF (name == 'AGN_TUNED_nu0') THEN
+            ihm = 82
+         ELSE IF (name == 'AGN_8p0_nu0') THEN
+            ihm = 83
+         ELSE
+            STOP 'ASSIGN_HALOMODS: Error, BAHAMAS model name is not recognised'
+         END IF
+      ELSE IF (im == 54) THEN
+         ! HMx 2020 with fixed star models and different Gamams
+         IF (name == 'AGN_7p6_nu0') THEN
+            ihm = 84
+         ELSE IF (name == 'AGN_TUNED_nu0') THEN
+            ihm = 85
+         ELSE IF (name == 'AGN_8p0_nu0') THEN
+            ihm = 86
          ELSE
             STOP 'ASSIGN_HALOMODS: Error, BAHAMAS model name is not recognised'
          END IF
@@ -2036,7 +2068,8 @@ CONTAINS
                      im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
                      im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
                      im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
-                     im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
+                     im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. im == 53 .OR. &
+                     im == 54 .OR. im == 55 .OR. im == 56) THEN
                      ip(1) = fields(j1)
                      ip(2) = fields(j2)
                      CALL BAHAMAS_read_power(k_sim, pow_sim, err_sim, nk, z(j), name, mesh, ip, cosm(i), &
@@ -2104,8 +2137,14 @@ CONTAINS
       END IF
 
       ! No weight to pressure-pressure
-      IF (im == 20 .OR. im == 47) THEN
+      IF (im == 20 .OR. im == 47 .OR. im == 53 .OR. im == 54 .OR. im == 55 .OR. im == 56) THEN
          weight(:, 2, 2, :, :) = 0.
+      END IF
+
+      ! Optimised weight to matter-pressure
+      IF (im == 47 .OR. im == 53) THEN
+         weight(:, 1, 2, :, :) = 0.5
+         weight(:, 2, 1, :, :) = weight(:, 1, 2, :, :)
       END IF
 
       ! No weight to matter-matter or pressure-pressure, so only the cross spectrum is fitted
@@ -2126,9 +2165,9 @@ CONTAINS
          weight(:, 1, 2, :, :) = fac
          weight(:, 1, 3, :, :) = fac
          weight(:, 1, 4, :, :) = fac
-         weight(:, 2, 1, :, :) = fac
-         weight(:, 3, 1, :, :) = fac
-         weight(:, 4, 1, :, :) = fac
+         weight(:, 2, 1, :, :) = weight(:, 1, 2, :, :)
+         weight(:, 3, 1, :, :) = weight(:, 1, 3, :, :)
+         weight(:, 4, 1, :, :) = weight(:, 1, 4, :, :)
       END IF
 
       ! Matter, CDM, gas, stars, pressure, but downweight pressure
@@ -2150,7 +2189,8 @@ CONTAINS
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
          im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
-         im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
+         im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. im == 53 .OR. &
+         im == 54 .OR. im == 55 .OR. im == 56) THEN
 
          DO j = 1, nz
 
@@ -2415,15 +2455,18 @@ CONTAINS
          fit%set(param_Gamma) = .TRUE.
          !fit%set(param_Gammap) = .TRUE.
          fit%set(param_M0) = .TRUE.
-      ELSE IF (im == 47 .OR. im == 48) THEN
-         ! 47 - extended z; final parameters; matter, electron pressure
+      ELSE IF (im == 47 .OR. im == 48 .OR. im == 53 .OR. im == 54 .OR. im == 55 .OR. im == 56) THEN
+         ! 47 - extended z; final parameters; matter, electron pressure (fixed star model)
          ! 48 - extended z; final parameters; matter, CDM, gas, stars, electron pressure (fixed star model)
          fit%set(param_alpha) = .TRUE.
          fit%set(param_Twhim) = .TRUE.
          fit%set(param_Twhimz) = .TRUE.
          fit%set(param_eps) = .TRUE.
+         fit%set(param_epsz) = .TRUE.
          fit%set(param_Gamma) = .TRUE.
          fit%set(param_M0) = .TRUE.
+         IF (im == 54) fit%set(param_Zamma) = .TRUE.
+         IF (im == 55) fit%set(param_epsz) = .TRUE.
       ELSE IF (im == 28) THEN
          ! 28 - fixed z; basic parameters; matter, CDM, gas, stars, electron pressure
          fit%set(param_alpha) = .TRUE.
@@ -2557,7 +2600,7 @@ CONTAINS
       IF (fit%set(param_eps))   hmod%eps = p_out(param_eps)
       IF (fit%set(param_eps2))  hmod%eps2 = p_out(param_eps2)
       IF (fit%set(param_Gamma)) hmod%Gamma = 1.+p_out(param_Gamma)   ! NOTE: 1.+ : Internal parameter is Gamma-1
-      IF (fit%set(param_Zamma)) hmod%Zamma = 1.+p_out(param_Zamma)   ! NOTE: 1.+ : Internal parameter is Gamma-1
+      IF (fit%set(param_Zamma)) hmod%Zamma = 1.+p_out(param_Zamma)   ! NOTE: 1.+ : Internal parameter is Zamma-1
       IF (fit%set(param_M0))    hmod%M0 = 10.**p_out(param_M0)       ! NOTE: 10**, internal parameter is log10(M0)
       IF (fit%set(param_Astar)) hmod%Astar = p_out(param_Astar)
       IF (fit%set(param_Twhim)) hmod%Twhim = 10.**p_out(param_Twhim) ! NOTE: 10**, internal parameter is log10(Twhim)
