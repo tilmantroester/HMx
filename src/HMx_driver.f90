@@ -152,6 +152,7 @@ PROGRAM HMx_driver
       WRITE (*, *) ' 98 - Compare HMcode (2020) HMx vs CAMB'
       WRITE (*, *) ' 99 - Emulator mean and variance'
       WRITE (*, *) '100 - Comparison with M000 of FrankenEmu'
+      WRITE (*, *) '101 - HMcode speed tests'
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -173,20 +174,8 @@ PROGRAM HMx_driver
       CALL halo_stuff(iimode, iicosmo, iihm)
    ELSE IF (iimode == 4 .OR. iimode == 72) THEN
       CALL test_random_cosmologies(iimode, iicosmo, iihm)
-   !ELSE IF (iimode == 7 .OR. &
-   !         iimode == 8 .OR. &
-   !         iimode == 9 .OR. &
-   !         iimode == 10 .OR. &
-   !         iimode == 11 .OR. &
-   !         iimode == 37 .OR. &
-   !         iimode == 42 .OR. &
-   !         iimode == 43 .OR. &
-   !         iimode == 47 .OR. &
-   !         iimode == 63 .OR. &
-   !         iimode == 64) THEN
    ELSE IF(is_in_array(iimode, [7, 8, 9, 10, 11, 37, 42, 43, 47, 63, 64])) THEN
       CALL general_projection(iimode, iicosmo, iihm)
-   !ELSE IF (iimode == 12 .OR. iimode == 44 .OR. iimode == 38 .OR. iimode == 39 .OR. iimode == 55 .OR. iimode == 56) THEN
    ELSE IF (is_in_array(iimode, [12, 38, 39, 44, 55, 56])) THEN
       CALL triad_stuff(iimode, iicosmo, iihm)
    ELSE IF (iimode == 13) THEN
@@ -259,11 +248,83 @@ PROGRAM HMx_driver
       CALL big_emulator_comparison(iimode)
    ELSE IF (iimode == 99) THEN
       CALL emulator_mean_variance(iimode)
+   ELSE IF (iimode == 101) THEN
+      CALL hmcode_speed_tests(iicosmo)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
 
 CONTAINS
+
+   SUBROUTINE hmcode_speed_tests(icos)
+
+      IMPLICIT NONE
+      INTEGER, INTENT(INOUT) :: icos
+      REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
+      REAL :: t1, t2, t
+      INTEGER :: ia, na
+      TYPE(cosmology) :: cosm
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: amin = 0.1
+      REAL, PARAMETER :: amax = 1.0
+      INTEGER, PARAMETER :: naa = 7
+      INTEGER, PARAMETER :: version = HMcode2016
+      LOGICAL, PARAMETER :: verbose = .FALSE.
+      INTEGER, PARAMETER :: unit = 7
+      CHARACTER(len=256), PARAMETER :: outfile = 'data/HMcode_timing.dat'
+
+      ! Fill arrays for k
+      CALL fill_array(kmin, kmax, k, nk)
+
+      ! Loop over different number of a required
+      OPEN(unit, file=outfile)
+      DO ia = 0, naa
+
+         ! Number of a at this point in the loop
+         na = 2**ia
+
+         ! Fill array for a
+         IF (na == 1) THEN
+            ALLOCATE (a(na))
+            a(1) = 1.
+         ELSE
+            CALL fill_array(amin, amax, a, na)
+         END IF
+
+         ! Get the intial time
+         CALL cpu_time(t1)
+
+         ! Assign cosmology and do the HMcode calculation
+         !CALL assign_cosmology(icos, cosm, verbose)
+         !CALL init_cosmology(cosm)
+         CALL assign_init_cosmology(icos, cosm, verbose)
+         CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version)
+
+         ! Get the final time
+         CALL cpu_time(t2)
+
+         ! Total time for calculation
+         t = t2-t1
+
+         ! Write to screen
+         WRITE(*, *) 'HMCODE_SPEED_TESTS: kmin [h/Mpc]:', kmin
+         WRITE(*, *) 'HMCODE_SPEED_TESTS: kmax [h/Mpc]:', kmax
+         WRITE(*, *) 'HMCODE_SPEED_TESTS: nk:', nk
+         WRITE(*, *) 'HMCODE_SPEED_TESTS: amin:', amin
+         WRITE(*, *) 'HMCODE_SPEED_TESTS: amax:', amax
+         WRITE(*, *) 'HMCODE_SPEED_TESTS: na:', na
+         WRITE(*, *) 'HMCODE_SPEED_TESTS: Total time [s]:', t
+         WRITE(*, *)
+
+         ! Write to file
+         WRITE(unit, *) na, t
+
+      END DO
+      CLOSE(unit)
+
+   END SUBROUTINE hmcode_speed_tests
 
    SUBROUTINE compare_matter_vs_DMONLY_implementation(icosmo)
 
@@ -3828,7 +3889,6 @@ CONTAINS
       REAL, ALLOCATABLE :: pow_ql(:), pow_oh(:), pow_hf(:)
       REAL, ALLOCATABLE :: k_sim(:), pow_sim(:)
       REAL, ALLOCATABLE :: pow_li(:), pow_2h(:, :, :), pow_1h(:, :, :), pow_hm(:, :, :)
-      REAL, ALLOCATABLE :: pk_hm(:, :, :)
       REAL :: HALOFIT_knl, HALOFIT_neff, HALOFIT_ncur
       INTEGER :: icos, iz, ik
       INTEGER :: field(1), nz, na, nk, ncos
