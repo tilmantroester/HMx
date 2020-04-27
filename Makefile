@@ -24,8 +24,8 @@ DEBUG_FLAGS = \
 	-Og
 
 # Extra profiling flags
-PROFILE_FLAGS = \
-	-pg
+#PROFILE_FLAGS = \
+#	-lprofiler
 
 ifeq ($(COSMOSIS_SRC_DIR),)
 # No cosmosis
@@ -116,7 +116,7 @@ debug: FFLAGS += $(DEBUG_FLAGS)
 debug: $(BIN_DIR)/HMx_debug
 
 # HMx profile rules
-profile: FFLAGS += $(PROFILE_FLAGS)
+#profile: FFLAGS += $(PROFILE_FLAGS)
 profile: $(BIN_DIR)/HMx_profile
 
 # Fitting
@@ -155,12 +155,12 @@ $(BIN_DIR)/HMx_debug: $(DEBUG_OBJ) $(SRC_DIR)/HMx_driver.f90
 # Rule to make profiling objects
 $(PROFILE_BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
 	$(make_dirs)
-	$(FC) -c -o $@ $< -J$(PROFILE_BUILD_DIR) $(LDFLAGS) $(FFLAGS)
+	$(FC) -c -o $@ $< -J$(PROFILE_BUILD_DIR) $(LDFLAGS) -lprofiler $(FFLAGS)
 
 # Rule to make profile executable
 $(BIN_DIR)/HMx_profile: $(PROFILE_OBJ) $(SRC_DIR)/HMx_driver.f90
 	@echo "\nBuilding profiling executable.\n"
-	$(FC) -o $@ $^ -J$(PROFILE_BUILD_DIR) $(LDFLAGS) $(FFLAGS)
+	$(FC) -o $@ $^ -J$(PROFILE_BUILD_DIR) $(LDFLAGS) -lprofiler $(FFLAGS)
 
 # Rules to make fitting executables
 $(BIN_DIR)/HMx_fitting: $(OBJ) $(SRC_DIR)/HMx_fitting.f90

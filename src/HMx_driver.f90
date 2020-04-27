@@ -3417,7 +3417,7 @@ CONTAINS
       DO i = 1, nr
          r = progression(rmin, rmax, i, nr) ! Radius [Mpc]
          rh = r*cosm%h ! Convert [Mpc/h]
-         WRITE (7, *) r, UPP(real_space, rh, Mh, rv, rs, hmod, cosm)*r**2, win_type(real_space, itype, rh, Mh, rv, rs, hmod, cosm)*r**2
+         WRITE (7, *) r, UPP(real_space, rh, Mh, rv, rs, hmod, cosm)*r**2, win(real_space, itype, rh, Mh, rv, rs, hmod, cosm)*r**2
       END DO
       CLOSE (7)
 
@@ -3774,6 +3774,8 @@ CONTAINS
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
+      REAL, PARAMETER :: kmin_test = 1e-3
+      REAL, PARAMETER :: kmax_test = 1e2
       REAL, PARAMETER :: tolerance = 3e-3
       INTEGER, PARAMETER :: field(1) = field_dmonly
       LOGICAL :: ifail = .FALSE.
@@ -3838,17 +3840,19 @@ CONTAINS
          DO j = 1, na
             DO i = 1, nk
                error = ABS(-1.+pows_hm(1, 1, i, j)/pow_ka(i, j))
-               IF (error > error_max) error_max = error
-               IF (error > tolerance) THEN
-                  WRITE (*, *) 'HMx_DRIVER: Test:', itest
-                  WRITE (*, *) 'HMx_DRIVER: Wavenumber [h/Mpc]:', k(i)
-                  WRITE (*, *) 'HMx_DRIVER: Scale-factor:', a(j)
-                  WRITE (*, *) 'HMx_DRIVER: Expected power:', pow_ka(i, j)
-                  WRITE (*, *) 'HMx_DRIVER: Model power:', pows_hm(1, 1, i, j)
-                  WRITE (*, *) 'HMx_DRIVER: Tolerance:', tolerance
-                  WRITE (*, *) 'HMx_DRIVER: Error:', error
-                  WRITE (*, *)
-                  ifail = .TRUE.
+               IF (kmin_test <= k(i) .AND. k(i) <= kmax_test) THEN
+                  IF (error > error_max) error_max = error
+                  IF (error > tolerance) THEN
+                     WRITE (*, *) 'HMx_DRIVER: Test:', itest
+                     WRITE (*, *) 'HMx_DRIVER: Wavenumber [h/Mpc]:', k(i)
+                     WRITE (*, *) 'HMx_DRIVER: Scale-factor:', a(j)
+                     WRITE (*, *) 'HMx_DRIVER: Expected power:', pow_ka(i, j)
+                     WRITE (*, *) 'HMx_DRIVER: Model power:', pows_hm(1, 1, i, j)
+                     WRITE (*, *) 'HMx_DRIVER: Tolerance:', tolerance
+                     WRITE (*, *) 'HMx_DRIVER: Error:', error
+                     WRITE (*, *)
+                     ifail = .TRUE.
+                  END IF
                END IF
             END DO
          END DO
@@ -4566,6 +4570,8 @@ CONTAINS
       TYPE(cosmology) :: cosm
       TYPE(halomod) :: hmod
 
+      REAL, PARAMETER :: kmin_test = 1e-3
+      REAL, PARAMETER :: kmax_test = 10.
       REAL, PARAMETER :: tolerance = 3e-3
       INTEGER, PARAMETER :: nf = 5 ! Number of fields
       INTEGER, PARAMETER :: na = 4 ! Number of redshifts
@@ -4687,22 +4693,26 @@ CONTAINS
                   ! This is what I use as the error
                   error = ABS(-1.+pows_hm(itest, jtest, i, j)/powb_hm(itest, jtest, i, j))
 
-                  ! Update the maximium error if it is exceeded
-                  IF (error > error_max) error_max = error
+                  IF (kmin_test <= k(i) .AND. k(i) <= kmax_test) THEN
 
-                  ! If the test has failed then write out this diagnostic stuff
-                  IF (verbose_tests .AND. error > tolerance) THEN
-                     WRITE (*, *) 'HMx_DRIVER: Test failing'
-                     WRITE (*, *) 'HMx_DRIVER: Test fields:', fields(itest), fields(jtest)
-                     WRITE (*, *) 'HMx_DRIVER: Wavenumber [h/Mpc]:', k(i)
-                     WRITE (*, *) 'HMx_DRIVER: Redshift:', redshift_a(a(j))
-                     WRITE (*, *) 'HMx_DRIVER: Benchmark power:', powb_hm(itest, jtest, i, j)
-                     WRITE (*, *) 'HMx_DRIVER: HMx power:', pows_hm(itest, jtest, i, j)
-                     WRITE (*, *) 'HMx_DRIVER: Tolerance:', tolerance
-                     WRITE (*, *) 'HMx_DRIVER: Error:', error
-                     WRITE (*, *)
-                     verbose_tests = .FALSE.
-                     ifail = .TRUE.
+                     ! Update the maximium error if it is exceeded
+                     IF (error > error_max) error_max = error
+
+                     ! If the test has failed then write out this diagnostic stuff
+                     IF (verbose_tests .AND. error > tolerance) THEN
+                        WRITE (*, *) 'HMx_DRIVER: Test failing'
+                        WRITE (*, *) 'HMx_DRIVER: Test fields:', fields(itest), fields(jtest)
+                        WRITE (*, *) 'HMx_DRIVER: Wavenumber [h/Mpc]:', k(i)
+                        WRITE (*, *) 'HMx_DRIVER: Redshift:', redshift_a(a(j))
+                        WRITE (*, *) 'HMx_DRIVER: Benchmark power:', powb_hm(itest, jtest, i, j)
+                        WRITE (*, *) 'HMx_DRIVER: HMx power:', pows_hm(itest, jtest, i, j)
+                        WRITE (*, *) 'HMx_DRIVER: Tolerance:', tolerance
+                        WRITE (*, *) 'HMx_DRIVER: Error:', error
+                        WRITE (*, *)
+                        verbose_tests = .FALSE.
+                        ifail = .TRUE.
+                     END IF
+                     
                   END IF
 
                END DO
