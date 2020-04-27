@@ -247,19 +247,20 @@ PROGRAM HMx_driver
    ELSE IF (is_in_array(iimode, [94, 95, 96])) THEN
       CALL big_emulator_comparison(iimode)
    ELSE IF (iimode == 99) THEN
-      CALL emulator_mean_variance(iimode)
+      CALL emulator_mean_variance()
    ELSE IF (iimode == 101) THEN
-      CALL hmcode_speed_tests(iicosmo)
+      CALL halomod_speed_tests(iicosmo, iihm)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
 
 CONTAINS
 
-   SUBROUTINE hmcode_speed_tests(icos)
+   SUBROUTINE halomod_speed_tests(icos, ihm)
 
       IMPLICIT NONE
       INTEGER, INTENT(INOUT) :: icos
+      INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
       REAL :: t1, t2, t
       INTEGER :: ia, na
@@ -273,7 +274,7 @@ CONTAINS
       INTEGER, PARAMETER :: version = HMcode2016
       LOGICAL, PARAMETER :: verbose = .FALSE.
       INTEGER, PARAMETER :: unit = 7
-      CHARACTER(len=256), PARAMETER :: outfile = 'data/HMcode_timing.dat'
+      CHARACTER(len=256), PARAMETER :: outfile = 'data/halomod_timing.dat'
 
       ! Fill arrays for k
       CALL fill_array(kmin, kmax, k, nk)
@@ -300,7 +301,7 @@ CONTAINS
          !CALL assign_cosmology(icos, cosm, verbose)
          !CALL init_cosmology(cosm)
          CALL assign_init_cosmology(icos, cosm, verbose)
-         CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version)
+         CALL calculate_halomod(k, a, Pk, nk, na, cosm, ihm)
 
          ! Get the final time
          CALL cpu_time(t2)
@@ -309,13 +310,13 @@ CONTAINS
          t = t2-t1
 
          ! Write to screen
-         WRITE(*, *) 'HMCODE_SPEED_TESTS: kmin [h/Mpc]:', kmin
-         WRITE(*, *) 'HMCODE_SPEED_TESTS: kmax [h/Mpc]:', kmax
-         WRITE(*, *) 'HMCODE_SPEED_TESTS: nk:', nk
-         WRITE(*, *) 'HMCODE_SPEED_TESTS: amin:', amin
-         WRITE(*, *) 'HMCODE_SPEED_TESTS: amax:', amax
-         WRITE(*, *) 'HMCODE_SPEED_TESTS: na:', na
-         WRITE(*, *) 'HMCODE_SPEED_TESTS: Total time [s]:', t
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: kmin [h/Mpc]:', kmin
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: kmax [h/Mpc]:', kmax
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: nk:', nk
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: amin:', amin
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: amax:', amax
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: na:', na
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: Total time [s]:', t
          WRITE(*, *)
 
          ! Write to file
@@ -324,7 +325,7 @@ CONTAINS
       END DO
       CLOSE(unit)
 
-   END SUBROUTINE hmcode_speed_tests
+   END SUBROUTINE halomod_speed_tests
 
    SUBROUTINE compare_matter_vs_DMONLY_implementation(icosmo)
 
@@ -1302,7 +1303,7 @@ CONTAINS
       REAL, ALLOCATABLE :: k(:), a(:)
       REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
       REAL :: zmin, zmax
-      INTEGER :: i, icos, na, ncos
+      INTEGER :: icos, na, ncos
       INTEGER :: icosmo_here
       INTEGER :: ihm_here!, ihm_base, ihm_test
       CHARACTER(len=256) :: filebase!, filebase_test
@@ -1337,9 +1338,7 @@ CONTAINS
          zmax = 4.
          na = 16
          CALL fill_array(zmin, zmax, a, na)
-         DO i = 1, na
-            a(i) = scale_factor_z(a(i)) ! Note that this is correct because 'a' here is actually 'z'
-         END DO
+         a = scale_factor_z(a) ! Note that this is correct because 'a' here is actually 'z'
       END IF
 
       ! Fix the total number of cosmologies
@@ -3871,7 +3870,7 @@ CONTAINS
       IF (ifail) THEN
          STOP 'HMx_DRIVER: Error, tests failed'
       ELSE
-         WRITE (*, *) 'HMx_DRIVER: Tests should take around 0.55 seconds to run'
+         WRITE (*, *) 'HMx_DRIVER: Tests should take around 0.57 seconds to run'
          WRITE (*, *) 'HMx_DRIVER: Tests passed'
          WRITE (*, *)
       END IF
@@ -4042,11 +4041,10 @@ CONTAINS
 
    END SUBROUTINE emulator_comparison
 
-   SUBROUTINE emulator_mean_variance(imode)
+   SUBROUTINE emulator_mean_variance()
 
       USE statistics
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: imode
       REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
       REAL, ALLOCATABLE :: Pk_hm(:, :, :, :), Pk_emu(:, :, :)
       REAL, ALLOCATABLE :: residual(:)
@@ -4725,7 +4723,7 @@ CONTAINS
       IF (ifail) THEN
          WRITE (*, *) 'HMx_DRIVER: Hydro tests failed'
       ELSE
-         WRITE (*, *) 'HMx_DRIVER: Hydro tests should take around 2.10 seconds to run'
+         WRITE (*, *) 'HMx_DRIVER: Hydro tests should take around 2.20 seconds to run'
          WRITE (*, *) 'HMx_DRIVER: Hydro tests passed'
       END IF
       WRITE (*, *)

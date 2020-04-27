@@ -1,6 +1,6 @@
 reset
 
-file = 'data/HMcode_timing.dat'
+file = 'data/halomod_timing.dat'
 
 tmin = 0.05
 tmax = 2.
@@ -14,7 +14,7 @@ set ylabel 'Runtime [s]'
 set yrange [tmin:tmax]
 
 # Rough model
-t_cos = 0.06
+t_cos = 0.05
 t_hmx = 0.008
 model(n) = t_cos+t_hmx*n
 

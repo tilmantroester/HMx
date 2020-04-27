@@ -1325,16 +1325,16 @@ CONTAINS
       fit%maximum(param_HMcode_Dv0) = 1000.
       fit%log(param_HMcode_Dv0) = .FALSE.
 
-      fit%name(param_HMcode_Dvp) = 'Dvp'
+      fit%name(param_HMcode_Dv1) = 'Dvp'
       IF (default_parameters) THEN
-         fit%original(param_HMcode_Dvp) = hmod%Dv1
+         fit%original(param_HMcode_Dv1) = hmod%Dv1
       ELSE
-         fit%original(param_HMcode_Dvp) = -0.352
+         fit%original(param_HMcode_Dv1) = -0.352
       END IF
-      fit%sigma(param_HMcode_Dvp) = 0.02
-      fit%minimum(param_HMcode_Dvp) = -5.
-      fit%maximum(param_HMcode_Dvp) = 5.
-      fit%log(param_HMcode_Dvp) = .FALSE.
+      fit%sigma(param_HMcode_Dv1) = 0.02
+      fit%minimum(param_HMcode_Dv1) = -5.
+      fit%maximum(param_HMcode_Dv1) = 5.
+      fit%log(param_HMcode_Dv1) = .FALSE.
 
       fit%name(param_HMcode_dc0) = 'dc0'
       IF (default_parameters) THEN
@@ -1347,16 +1347,16 @@ CONTAINS
       fit%maximum(param_HMcode_dc0) = 2.
       fit%log(param_HMcode_dc0) = .FALSE.
 
-      fit%name(param_HMcode_dcp) = 'dcp'
+      fit%name(param_HMcode_dc1) = 'dcp'
       IF (default_parameters) THEN
-         fit%original(param_HMcode_dcp) = hmod%dc1
+         fit%original(param_HMcode_dc1) = hmod%dc1
       ELSE
-         fit%original(param_HMcode_dcp) = 0.0314
+         fit%original(param_HMcode_dc1) = 0.0314
       END IF
-      fit%sigma(param_HMcode_dcp) = 0.002
-      fit%minimum(param_HMcode_dcp) = -0.1
-      fit%maximum(param_HMcode_dcp) = 0.1
-      fit%log(param_HMcode_dcp) = .FALSE.
+      fit%sigma(param_HMcode_dc1) = 0.002
+      fit%minimum(param_HMcode_dc1) = -0.1
+      fit%maximum(param_HMcode_dc1) = 0.1
+      fit%log(param_HMcode_dc1) = .FALSE.
 
       fit%name(param_HMcode_eta0) = 'eta0'
       IF (default_parameters) THEN
@@ -1392,17 +1392,17 @@ CONTAINS
       fit%maximum(param_HMcode_f0) = 1.
       fit%log(param_HMcode_f0) = .FALSE.
 
-      fit%name(param_HMcode_fp) = 'fp'
+      fit%name(param_HMcode_f1) = 'fp'
       IF (default_parameters) THEN
-         fit%original(param_HMcode_fp) = hmod%f1
+         fit%original(param_HMcode_f1) = hmod%f1
       ELSE        
-         !fit%original(param_HMcode_fp) = 4.29 ! HMcode (2015)
-         fit%original(param_HMcode_fp) = 1.37 ! HMcode (2016)
+         !fit%original(param_HMcode_f1) = 4.29 ! HMcode (2015)
+         fit%original(param_HMcode_f1) = 1.37 ! HMcode (2016)
       END IF
-      fit%sigma(param_HMcode_fp) = 0.1
-      fit%minimum(param_HMcode_fp) = -10.
-      fit%maximum(param_HMcode_fp) = 10.
-      fit%log(param_HMcode_fp) = .FALSE.
+      fit%sigma(param_HMcode_f1) = 0.1
+      fit%minimum(param_HMcode_f1) = -10.
+      fit%maximum(param_HMcode_f1) = 10.
+      fit%log(param_HMcode_f1) = .FALSE.
 
       fit%name(param_HMcode_kstar) = 'kstar'
       IF (default_parameters) THEN
@@ -2230,13 +2230,13 @@ CONTAINS
       IF (is_in_array(im, [1, 2, 3, 4, 11, 17, 18, 19])) THEN
          ! HMcode
          !fit%set(param_HMcode_Dv0) = .TRUE.
-         !fit%set(param_HMcode_Dvp) = .TRUE.
+         !fit%set(param_HMcode_Dv1) = .TRUE.
          !fit%set(param_HMcode_dc0) = .TRUE.
-         !fit%set(param_HMcode_dcp) = .TRUE.
+         !fit%set(param_HMcode_dc1) = .TRUE.
          !fit%set(param_HMcode_eta0) = .TRUE.
          !fit%set(param_HMcode_eta1) = .TRUE.
          !fit%set(param_HMcode_f0) = .TRUE.
-         !fit%set(param_HMcode_fp) = .TRUE.
+         !fit%set(param_HMcode_f1) = .TRUE.
          fit%set(param_HMcode_kstar) = .TRUE.
          !fit%set(param_HMcode_As) = .TRUE.
          !fit%set(param_HMcode_alpha0) = .TRUE.
@@ -2253,7 +2253,7 @@ CONTAINS
          ! 16 - Cosmice Emu nodes
          fit%set(param_HMcode_kstar) = .TRUE.   
          fit%set(param_HMcode_f0) = .TRUE.
-         fit%set(param_HMcode_fp) = .TRUE.
+         fit%set(param_HMcode_f1) = .TRUE.
          fit%set(param_HMcode_kdamp) = .TRUE.
          fit%set(param_HMcode_alpha0) = .TRUE.
          fit%set(param_HMcode_alpha1) = .TRUE.
@@ -2571,13 +2571,13 @@ CONTAINS
 
       ! HMcode
       IF (fit%set(param_HMcode_Dv0))    hmod%Dv0 = p_out(param_HMcode_Dv0)
-      IF (fit%set(param_HMcode_Dvp))    hmod%Dv1 = p_out(param_HMcode_Dvp)
+      IF (fit%set(param_HMcode_Dv1))    hmod%Dv1 = p_out(param_HMcode_Dv1)
       IF (fit%set(param_HMcode_dc0))    hmod%dc0 = p_out(param_HMcode_dc0)
-      IF (fit%set(param_HMcode_dcp))    hmod%dc1 = p_out(param_HMcode_dcp)
+      IF (fit%set(param_HMcode_dc1))    hmod%dc1 = p_out(param_HMcode_dc1)
       IF (fit%set(param_HMcode_eta0))   hmod%eta0 = p_out(param_HMcode_eta0)
       IF (fit%set(param_HMcode_eta1))   hmod%eta1 = p_out(param_HMcode_eta1)
       IF (fit%set(param_HMcode_f0))     hmod%f0 = p_out(param_HMcode_f0)
-      IF (fit%set(param_HMcode_fp))     hmod%f1 = p_out(param_HMcode_fp)
+      IF (fit%set(param_HMcode_f1))     hmod%f1 = p_out(param_HMcode_f1)
       IF (fit%set(param_HMcode_kstar))  hmod%ks = p_out(param_HMcode_kstar)
       IF (fit%set(param_HMcode_As))     hmod%As = p_out(param_HMcode_As)
       IF (fit%set(param_HMcode_alpha0)) hmod%alp0 = p_out(param_HMcode_alpha0)

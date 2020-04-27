@@ -123,8 +123,8 @@ profile: $(BIN_DIR)/HMx_profile
 fitting: $(BIN_DIR)/HMx_fitting
 
 # Fitting debugging
-fitting-debug: FFLAGS += $(DEBUG_FLAGS)
-fitting-debug: $(BIN_DIR)/HMx_fitting_debug
+fitting_debug: FFLAGS += $(DEBUG_FLAGS)
+fitting_debug: $(BIN_DIR)/HMx_fitting_debug
 
 # Rule to make object files
 $(BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
