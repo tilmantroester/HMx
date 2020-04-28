@@ -298,7 +298,7 @@ CONTAINS
             base = trim(outbase)//'_z'//trim(zstring)//'_cos'//trim(cosstring)//'_'//trim(label)//'_power_'
 
             ALLOCATE(pow_li(nk, na), pow_2h(nf, nf, nk, na), pow_1h(nf, nf, nk, na), pow_hm(nf, nf, nk, na))
-            CALL calculate_HMx(fields, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod(icos), cosm(icos), verbose=.FALSE.) 
+            CALL calculate_HMx_old(fields, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod(icos), cosm(icos), verbose=.FALSE.) 
             CALL write_power_fields(k, pow_li(:,1), pow_2h(:,:,:,1), pow_1h(:,:,:,1), pow_hm(:,:,:,1), nk, fields, nf, base, verbose)
             DEALLOCATE(pow_li, pow_2h, pow_1h, pow_hm)
 
