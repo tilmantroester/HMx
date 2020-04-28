@@ -3043,7 +3043,8 @@ CONTAINS
 
             CALL assign_halomod(ihm, hmod, verbose)
 
-            IF (hmod%HMx_mode == 1 .OR. hmod%HMx_mode == 2 .OR. hmod%HMx_mode == 3 .OR. hmod%HMx_mode == 5 .OR. hmod%HMx_mode == 6) THEN
+            !IF (hmod%HMx_mode == 1 .OR. hmod%HMx_mode == 2 .OR. hmod%HMx_mode == 3 .OR. hmod%HMx_mode == 5 .OR. hmod%HMx_mode == 6) THEN
+            IF (is_in_array(hmod%HMx_mode, [1, 2, 3, 4, 5, 6])) THEN  
                IF (ipa == param_alpha)  hmod%alpha = param
                IF (ipa == param_eps)    hmod%eps = param
                IF (ipa == param_Gamma)  hmod%Gamma = param
@@ -5194,6 +5195,7 @@ CONTAINS
       END DO
 
       !outfile = 'data/p_conc.dat'
+      CALL assign_halomod(ihm, hmod, verbose)
       OPEN (7, file=outfile)
       DO i = 1, n
          c = progression(cmin, cmax, i, n)
