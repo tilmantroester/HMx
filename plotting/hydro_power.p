@@ -468,8 +468,8 @@ set key bottom left
 
 if(i==1){snap='snap32'; zlab='z = 0.0'; set format x ''; set xlabel ''; set format y; set ylabel 'P(k) / P_{DMONLY}(k)'}
 if(i==2){snap='snap28'; zlab='z = 0.5'; set format x ''; set xlabel ''; set format y ''; set ylabel ''}
-if(i==3){snap='snap26'; zlab='z = 1.0'; set format x; set xlabel 'k / h^{-1} Mpc'; set format y; set ylabel 'P(k) / P_{DMONLY}(k)'}
-if(i==4){snap='snap22'; zlab='z = 2.0'; set format x; set xlabel 'k / h^{-1} Mpc'; set format y ''; set ylabel ''}
+if(i==3){snap='snap26'; zlab='z = 1.0'; set format x; set xlabel 'k / h Mpc^{-1}'; set format y; set ylabel 'P(k) / P_{DMONLY}(k)'}
+if(i==4){snap='snap22'; zlab='z = 2.0'; set format x; set xlabel 'k / h Mpc^{-1}'; set format y ''; set ylabel ''}
 
 if(i==1){set tmargin at screen top; set bmargin at screen miy; set lmargin at screen lef; set rmargin at screen mix}
 if(i==2){set tmargin at screen top; set bmargin at screen miy; set lmargin at screen mix; set rmargin at screen rig}
@@ -700,7 +700,7 @@ pmax=1e2
 set log y
 set yrange [pmin:pmax]
 set format y '10^{%T}'
-set ylabel '{/Symbol D}@^2_{uv}(k) / [k / h^{-1} Mpc]^{1.5}'
+set ylabel '{/Symbol D}@^2_{uv}(k) / [k / h Mpc^{-1}]^{1.5}'
 set mytics 10
 
 if(print==1){
@@ -899,7 +899,7 @@ if(iz==3){set tmargin at screen top-2*dy; set bmargin at screen top-3*dy}
 if(iz==4){set tmargin at screen top-3*dy; set bmargin at screen top-4*dy}
 
 if(iz==1 || iz==2 || iz==3){set xlabel ''; set format x ''; unset key}
-if(iz==4){set xlabel 'k / h^{-1} Mpc'; set format x}
+if(iz==4){set xlabel 'k / h Mpc^{-1}'; set format x}
 
 set label ''.word(hmpk_names,isim).'; '.word(z_names,iz).'' at graph labx,laby
 
@@ -944,7 +944,7 @@ set output outfile(sim,z)
 if(iplot==11) {pmin=1e-4; pmax=1e-2}
 if(iplot==12) {pmin=1e-8; pmax=1e-5}
 set yrange[pmin:pmax]
-set ylabel '{/Symbol D}^2(k) / (k/h^{-1} Mpc)^{1.5}'
+set ylabel '{/Symbol D}^2(k) / [k / h Mpc^{-1}]^{1.5}'
 
 if(iplot==11) {f1='all';       f2='epressure'; i1=0; i2=6; set title 'matter-electron pressure BAHAMAS spectra'}
 if(iplot==12) {f1='epressure'; f2='epressure'; i1=6; i2=6; set title 'electron pressure-electron pressure BAHAMAS spectra'}
@@ -1073,7 +1073,7 @@ set xrange [kmin:kmax]
 # Delta^2(k)/k^1.5 range
 unset log y
 set format y
-if(iplot==20 || iplot==21 || iplot==22 || iplot==23 || iplot==25) {set ylabel '{/Symbol D}_{uv}^2(k) / [k / h^{-1} Mpc]^{1.5}'}
+if(iplot==20 || iplot==21 || iplot==22 || iplot==23 || iplot==25) {set ylabel '{/Symbol D}_{uv}^2(k) / [k / h Mpc^{-1}]^{1.5}'}
 if(iplot==25 || iplot==26 || iplot==27 || iplot==28 || iplot==29) {set ylabel 'P_{uv}(k) / P_{mm-dmony}(k)'}
 set mytics 10
 

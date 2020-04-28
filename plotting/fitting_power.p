@@ -28,7 +28,7 @@ if(!exist('c')){c=1}
 print 'Chain: ', c
 print ''
 
-klab='k / h^{-1} Mpc'
+klab='k / h Mpc^{-1}'
 
 plab='{/Symbol D}^2(k)'
 
