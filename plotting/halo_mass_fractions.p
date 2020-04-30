@@ -6,7 +6,7 @@ cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 # Output options
 if(!exists('print')){print=0}
 if(print==0){set term qt dashed font ',16'; sun='sun'; width=3}
-if(print==1){set term post enh col font ',16' fontfile cmsy; set output 'paper/halo_mass_fractions.eps'; sun='{/cmsy10 \014}'; width=5}
+if(print==1){set term post enh col font ',16' fontfile cmsy; set output 'paper/halo_mass_fractions.eps'; sun='{/cmsy10 \014}'; width=6}
 
 # File to plot
 file='data/mass_fractions.dat'
@@ -40,7 +40,8 @@ om_b=0.0463
 om_m=0.2793
 
 # Ploty plot plot
-plot 1 w l lt -1 lw width ti 'Total',\
+plot 1 w l lc -1 lw width noti 'Total',\
+   file u 1:(1.-column(5)) w l lw width dt 1 lc 1 ti 'Total',\
    om_b/om_m  w l lw width dt 2 lc -1 ti 'Universal baryon',\
    file u 1:2 w l lw width dt 1 lc 2  ti 'CDM',\
    file u 1:3 w l lw width dt 2 lc 3  ti 'Total gas',\
