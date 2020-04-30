@@ -658,7 +658,7 @@ CONTAINS
 
       END DO
 
-   END SUBROUTINE
+   END SUBROUTINE non_linear_halo_bias_integrand
 
    SUBROUTINE HMF_amplitude(icosmo, ihm)
 
