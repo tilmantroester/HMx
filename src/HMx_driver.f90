@@ -1292,9 +1292,7 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: icosmo
       INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), a(:)
-      !REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :, :, :), pow_1h(:, :, :, :), pow_hm(:, :, :, :)
       REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :), pow_1h(:, :), pow_hm(:, :)
-      !INTEGER :: field(1)
       INTEGER :: i
       CHARACTER(len=256) :: base
       TYPE(halomod) :: hmod
@@ -1303,10 +1301,16 @@ CONTAINS
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
-      REAL, PARAMETER :: zmin = 0.
-      REAL, PARAMETER :: zmax = 4.
+      REAL, PARAMETER :: amin = 0.2
+      REAL, PARAMETER :: amax = 1.
       INTEGER, PARAMETER :: na = 16
       LOGICAL, PARAMETER :: verbose = .TRUE.
+
+      ! Set number of k points and k range (log spaced)
+      CALL fill_array_log(kmin, kmax, k, nk)
+
+      ! Set the number of scale factors and range
+      CALL fill_array(amin, amax, a, na)
 
       ! Assigns the cosmological model
       CALL assign_cosmology(icosmo, cosm, verbose)
@@ -1315,19 +1319,6 @@ CONTAINS
 
       ! Assign the halo model
       CALL assign_halomod(ihm, hmod, verbose)
-
-      ! Set number of k points and k range (log spaced)
-      CALL fill_array(log(kmin), log(kmax), k, nk)
-      k = exp(k)
-
-      ! Set the number of redshifts and range (linearly spaced) and convert z -> a
-      CALL fill_array(zmin, zmax, a, na)
-      DO i = 1, na
-         a(i) = scale_factor_z(a(i)) ! Note that this is correct because 'a' here is actually 'z'
-      END DO
-
-      !field = field_dmonly
-      !CALL calculate_HMx(field, 1, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, verbose)
       CALL calculate_halomod_full(k, a, pow_li, pow_2h, pow_1h, pow_hm, nk, na, cosm, ihm)
 
       base = 'data/power'
@@ -4127,9 +4118,9 @@ CONTAINS
       ncos = 37
 
       ! Set number of halo models
-      nhm = 19
+      nhm = 21
       ALLOCATE(ihms(nhm))
-      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80]
+      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80, 87, 88]
       
       ! Loop over cosmologies
       DO icos = 1, ncos
