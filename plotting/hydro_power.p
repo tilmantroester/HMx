@@ -729,7 +729,8 @@ if(print==0){set term qt dashed size 1200,800}
 
 if(print==1){
 #outfile(name,z)=sprintf('%s_z%1.1f_power.eps',name,z)
-outfile='paper/hydro.eps'
+if(iplot == 8)  {outfile='paper/hydro.eps'}
+if(iplot == 10) {outfile='plots/hydro.eps'}
 set output outfile
 print 'Outfile: ', outfile
 print ''

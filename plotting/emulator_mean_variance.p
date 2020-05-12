@@ -2,7 +2,9 @@ reset
 unset multiplot
 
 # Set terminal
-set term qt dashed
+if(!exists('print')) {print=0}
+if(print == 0) {set term qt dashed}
+if(print == 1) {set term post enh col}
 
 # Initial white space
 print('')
@@ -42,7 +44,7 @@ zlab[4] = '2p0'
 # Set halomodels to compare
 if(imode == 1) {nhm = 3; dr = 0.10; ds = 0.05}
 if(imode == 2) {nhm = 3; dr = 0.30; ds = 0.20}
-if(imode == 3) {nhm = 5; dr = 0.50; ds = 0.20}
+if(imode == 3) {nhm = 4; dr = 0.50; ds = 0.20}
 if(imode == 4) {nhm = 6; dr = 0.30; ds = 0.20}
 if(imode == 5) {nhm = 4; dr = 0.50; ds = 0.20}
 if(imode == 6) {nhm = 4; dr = 0.50; ds = 0.20}
@@ -55,6 +57,7 @@ if (imode == 1){
    hmlabel[1] = 'HMcode (2015)'
    hmlabel[2] = 'HMcode (2016)'
    hmlabel[3] = 'HMcode (2020)'
+   outfile = 'plots/emulator_mean_variance_HMcode.eps'
 }
 if (imode == 2){
    ihms[1] = 3
@@ -63,18 +66,20 @@ if (imode == 2){
    hmlabel[1] = 'Standard two-halo term'
    hmlabel[2] = 'Linear two-halo term'
    hmlabel[3] = 'Linear two-halo term with damped wiggles'
+   outfile = 'plots/emulator_mean_variance_twohalo.eps'
 }
 if (imode == 3){
    ihms[1] = 3
    ihms[2] = 27
    ihms[3] = 23
-   ihms[4] = 80
-   ihms[5] = 87
+   #ihms[4] = 80
+   ihms[4] = 87
    hmlabel[1] = 'Sheth & Tormen: virial'
    hmlabel[2] = 'Press & Schecter: virial'
    hmlabel[3] = 'Tinker mass function: virial'
-   hmlabel[4] = 'Jenkins: m178'
-   hmlabel[5] = 'Despali: virial'
+   #hmlabel[4] = 'Jenkins: m178'
+   hmlabel[4] = 'Despali: virial'
+   outfile = 'plots/emulator_mean_variance_massfunctions.eps'
 }
 if (imode == 4){
    ihms[1] = 3
@@ -89,6 +94,7 @@ if (imode == 4){
    hmlabel[4] = 'Duffy et al. with no Dolag correction'
    hmlabel[5] = 'Duffy et al. with Dolag with 1.5 exponent'
    hmlabel[6] = 'Child et al. (2018)'
+   outfile = 'plots/emulator_mean_variance_concentration.eps'
 }
 if (imode == 5){
    hmlabel[1] = 'Sheth & Tormen: virial'
@@ -99,6 +105,7 @@ if (imode == 5){
    ihms[2] = 23
    ihms[3] = 44
    ihms[4] = 42
+   outfile = 'plots/emulator_mean_variance_halodefinition.eps'
 }
 if (imode == 6){
    hmlabel[1] = 'Sheth & Tormen: {/Symbol d}_c: Nakamura & Suto; {/Symbol D}_v: Bryan & Norman'
@@ -109,7 +116,10 @@ if (imode == 6){
    ihms[2] = 74
    ihms[3] = 75
    ihms[4] = 76
+   outfile = 'plots/emulator_mean_variance_dcDv.eps'
 }
+
+if (print == 1) {set output outfile}
 
 # x axis stuff
 rmin = 1.-dr
@@ -150,3 +160,5 @@ set multiplot layout nz, 2 margins 0.09, 0.99, 0.07, 0.99 spacing 0.05, 0.02
    }
 
 unset multiplot
+
+show output
