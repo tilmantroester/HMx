@@ -150,10 +150,11 @@ PROGRAM HMx_driver
       WRITE (*, *) ' 96 - Big Cosmic Emu node comparison'
       WRITE (*, *) ' 97 - Compare HALOFIT (CAMB parameters) HMx vs CAMB'
       WRITE (*, *) ' 98 - Compare HMcode (2020) HMx vs CAMB'
-      WRITE (*, *) ' 99 - Emulator mean and variance'
+      WRITE (*, *) ' 99 - PAPER: Emulator mean and variance'
       WRITE (*, *) '100 - Comparison with M000 of FrankenEmu'
       WRITE (*, *) '101 - HMcode speed tests'
       WRITE (*, *) '102 - Gas power spectra in bound and ejected'
+      WRITE (*, *) '103 - Compare HMcode (2016) with neutrino fix HMx vs CAMB'
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -239,7 +240,7 @@ PROGRAM HMx_driver
       CALL halo_power_multidark(iimode, iicosmo, iihm)
    ELSE IF (iimode == 73) THEN
       CALL HMF_amplitude(iicosmo, iihm)
-   ELSE IF (is_in_array(iimode, [75, 90, 91, 92, 93, 97, 98])) THEN
+   ELSE IF (is_in_array(iimode, [75, 90, 91, 92, 93, 97, 98, 103])) THEN
       CALL compare_HMx_CAMB(iimode, iicosmo)
    ELSE IF (iimode == 77 .OR. iimode == 79 .OR. iimode == 81 .OR. iimode == 83) THEN
       CALL power_single_comparison(iimode, iicosmo, iihm)
@@ -449,7 +450,7 @@ CONTAINS
       REAL, PARAMETER :: kmax_test = 1e1   ! Minimum wavenumber for the tests [h/Mpc]
       REAL, PARAMETER :: amin_test = 1./3. ! Minimum scale factor for test
       REAL, PARAMETER :: amax_test = 1.    ! Maximum scale factor for test
-      INTEGER, PARAMETER :: iseed = 0      ! Seed for random number generator for tests
+      INTEGER, PARAMETER :: iseed = 1      ! Seed for random number generator for tests
       INTEGER, PARAMETER :: ntest = 100    ! Number of tests to run
       LOGICAL, PARAMETER :: verbose_test = .FALSE.
       LOGICAL, PARAMETER :: stop_on_fail = .TRUE.
@@ -483,6 +484,10 @@ CONTAINS
          !CAMB_nonlinear_version = CAMB_nonlinear_HMcode2020
          HMx_version = HMcode2020
          STOP 'COMPARE_HMx_CAMB: Error, HMx 2020 needs to be implemented in CAMB'
+      ELSE IF (imode == 103) THEN
+         ! HMcode 2016 with neutrino fix
+         CAMB_nonlinear_version = CAMB_nonlinear_HMcode2016_neutrinofix
+         HMx_version = HMcode2016_neutrinofix_CAMB
       ELSE
          STOP 'COMPARE_HMx_CAMB: Error, something went wrong with imode'
       END IF
@@ -515,7 +520,7 @@ CONTAINS
          IF (ALLOCATED(Pk_HMx)) DEALLOCATE (Pk_HMx)
          ALLOCATE (Pk_HMx(nk, na))
 
-         IF (is_in_array(imode, [75, 90, 98])) THEN
+         IF (is_in_array(imode, [75, 90, 98, 103])) THEN
             CALL calculate_HMcode(k, a, Pk_HMx, nk, na, cosm, HMx_version)
          ELSE IF (is_in_array(imode, [91, 92, 93, 97])) THEN
             CALL calculate_HALOFIT(k, a, Pk_HMx, nk, na, cosm, HALOFIT_version) 
@@ -1293,7 +1298,6 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), a(:)
       REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :), pow_1h(:, :), pow_hm(:, :)
-      INTEGER :: i
       CHARACTER(len=256) :: base
       TYPE(halomod) :: hmod
       TYPE(cosmology) :: cosm
@@ -3912,7 +3916,7 @@ CONTAINS
       IF (ifail) THEN
          STOP 'HMx_DRIVER: Error, tests failed'
       ELSE
-         WRITE (*, *) 'HMx_DRIVER: Tests should take around 0.57 seconds to run'
+         WRITE (*, *) 'HMx_DRIVER: Tests should take around 0.50 seconds to run'
          WRITE (*, *) 'HMx_DRIVER: Tests passed'
          WRITE (*, *)
       END IF
@@ -4118,9 +4122,9 @@ CONTAINS
       ncos = 37
 
       ! Set number of halo models
-      nhm = 21
+      nhm = 23
       ALLOCATE(ihms(nhm))
-      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80, 87, 88]
+      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80, 87, 88, 90, 91]
       
       ! Loop over cosmologies
       DO icos = 1, ncos
@@ -4186,7 +4190,7 @@ CONTAINS
       ! CHARACTER(len=256), PARAMETER :: ext = '.dat'
       LOGICAL, PARAMETER :: rebin = .FALSE.
       INTEGER, PARAMETER :: ihf = halofit_CAMB
-      INTEGER, PARAMETER :: ncomp = 8
+      INTEGER, PARAMETER :: ncomp = 10
 
       ! Number of cosmological models
       IF (imode == 96) THEN
@@ -4274,35 +4278,33 @@ CONTAINS
 
             IF (icomp == 1) THEN
                CALL calculate_plin(k, a, Pk, nk, na, cosm)
-               !base = 'data/power_linear_cos'//trim(integer_to_string(icos))
                comp = 'linear'
             ELSE IF (icomp == 2) THEN
                CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_Smith)
-               !base = 'data/power_Smith_cos'//trim(integer_to_string(icos))
                comp = 'HALOFIT_Smith'
             ELSE IF (icomp == 3) THEN
                CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_Bird)
-               !base = 'data/power_Bird_cos'//trim(integer_to_string(icos))
                comp = 'HALOFIT_Bird'
             ELSE IF (icomp == 4) THEN
                CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_Takahashi)
-               !base = 'data/power_Takahashi_cos'//trim(integer_to_string(icos))
                comp = 'HALOFIT_Takahashi'
             ELSE IF (icomp == 5) THEN
                CALL calculate_HALOFIT(k, a, Pk, nk, na, cosm, version=HALOFIT_CAMB)
-               !base = 'data/power_HALOFIT_CAMB_cos'//trim(integer_to_string(icos))
                comp = 'HALOFIT_CAMB'
             ELSE IF (icomp == 6) THEN
                CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2015)
-               !base = 'data/power_HMcode2015_cos'//trim(integer_to_string(icos))
                comp = 'HMcode_2015'
             ELSE IF (icomp == 7) THEN
                CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2016)
-               !base = 'data/power_HMcode2016_cos'//trim(integer_to_string(icos))
                comp = 'HMcode_2016'
             ELSE IF (icomp == 8) THEN
+               CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2016_neutrinofix)
+               comp = 'HMcode_2016_neutrinofix'
+            ELSE IF (icomp == 9) THEN
+               CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2019)
+               comp = 'HMcode_2019'
+            ELSE IF (icomp == 10) THEN
                CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2020)
-               !base = 'data/power_HMcode2020_cos'//trim(integer_to_string(icos))
                comp = 'HMcode_2020'
             ELSE
                STOP 'BIG_EMULATOR_COMPARION: Error, icomp not supported'
@@ -4772,7 +4774,7 @@ CONTAINS
       IF (ifail) THEN
          WRITE (*, *) 'HMx_DRIVER: Hydro tests failed'
       ELSE
-         WRITE (*, *) 'HMx_DRIVER: Hydro tests should take around 2.20 seconds to run'
+         WRITE (*, *) 'HMx_DRIVER: Hydro tests should take around 2.16 seconds to run'
          WRITE (*, *) 'HMx_DRIVER: Hydro tests passed'
       END IF
       WRITE (*, *)
