@@ -39,10 +39,10 @@ do for [imode = 1:nmode] {
    # Set halomodels to compare
    #if(imode == 1) {nhm = 3; dr = 0.10; ds = 0.05}
    if(imode == 1) {nhm = 3}#; dr = 0.30; ds = 0.20}
-   if(imode == 2) {nhm = 4}#; dr = 0.50; ds = 0.20} 
+   if(imode == 2) {nhm = 5}#; dr = 0.50; ds = 0.20} 
    if(imode == 3) {nhm = 4}#; dr = 0.50; ds = 0.20}
    if(imode == 4) {nhm = 4}#; dr = 0.50; ds = 0.20}
-   if(imode == 5) {nhm = 4}#; dr = 0.30; ds = 0.20}
+   if(imode == 5) {nhm = 5}#; dr = 0.30; ds = 0.20}
    array ihms[nhm]
    array hmlabel[nhm]
    #if (imode == 1){
@@ -67,12 +67,14 @@ do for [imode = 1:nmode] {
       # Mass functions with virial definition
       ihms[1] = 3
       ihms[2] = 27
-      ihms[3] = 23
-      ihms[4] = 87
+      ihms[3] = 91
+      ihms[4] = 23
+      ihms[5] = 87
       hmlabel[1] = 'Sheth (1999): virial'
       hmlabel[2] = 'Press (1974): virial'
-      hmlabel[3] = 'Tinker (2010): virial'
-      hmlabel[4] = 'Despali (2016): virial'
+      hmlabel[3] = 'Tinker (2008): virial'
+      hmlabel[4] = 'Tinker (2010): virial'
+      hmlabel[5] = 'Despali (2016): virial'
    }
    if (imode == 3){
       # Mass functions with non-virial definitions
@@ -87,10 +89,10 @@ do for [imode = 1:nmode] {
    }
    if (imode == 4){
       # Halo definitions
-      hmlabel[1] = '{/Symbol d}_c: Nakamura (1998); {/Symbol D}_v: Bryan (1998)'
+      hmlabel[1] = '{/Symbol d}_c: Nakamura (1997); {/Symbol D}_v: Bryan (1998)'
       hmlabel[2] = '{/Symbol d}_c = 1.686; {/Symbol D}_v: Bryan (1998)'
-      hmlabel[3] = '{/Symbol d}_c: Mead (2017); {/Symbol D}_v: Bryan & Norman (1998)'
-      hmlabel[4] = '{/Symbol d}_c: Nakamura (1998); {/Symbol D}_v: Mead (2017)'
+      hmlabel[3] = '{/Symbol d}_c: Mead (2017); {/Symbol D}_v: Bryan (1998)'
+      hmlabel[4] = '{/Symbol d}_c: Nakamura (1997); {/Symbol D}_v: Mead (2017)'
       ihms[1] = 3
       ihms[2] = 74
       ihms[3] = 75
@@ -104,12 +106,14 @@ do for [imode = 1:nmode] {
       ihms[4] = 70
       #ihms[5] = 71
       #ihms[5] = 88
+      ihms[5] = 90
       hmlabel[1] = 'Duffy (2008)'
       hmlabel[2] = 'Bullock (2001)'
       hmlabel[3] = 'Simple Bullock (2001)'
       hmlabel[4] = 'Duffy (2008) with no Dolag (2004) correction'
       #hmlabel[5] = 'Duffy et al. with Dolag with 1.5 exponent'
       #hmlabel[5] = 'Child (2018)'
+      hmlabel[5] = 'Duffy (2008) with z-dependent Dolag (2004) correction'
    }
 
    # x axis stuff

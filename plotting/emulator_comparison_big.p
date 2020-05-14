@@ -28,8 +28,8 @@ if(imode==4) {emulator = 'MiraTitan';  icos1=11; icos2=36}
 if(print == 1){
    if(imode == 1) {set output 'plots/CosmicEmu_comparison.eps'}
    if(imode == 2) {set output 'paper/FrankenEmu_comparison.eps'}
-   if(imode == 3) {set output 'plots/MiraTitan_comparison.eps'}
-   if(imode == 4) {set output 'paper/MiraTitan_comparison.eps'}
+   if(imode == 3) {set output 'paper/MiraTitan_comparison.eps'}
+   if(imode == 4) {set output 'paper/MiraTitan_comparison_neutrinos.eps'}
 }
 
 # Input file name
@@ -51,17 +51,12 @@ klab = 'k / h Mpc^{-1}'
 set log x
 set xrange [kmin:kmax]
 
-# Number of comparisons
-ncom = 6
-
 # Number of redshifts
 if(!exists('nz')) {nz = 4}
 print 'Number of redshifts: nz: ', nz
 print ''
 
 # Number of cosmologies
-#if(!exists('icos1')) {icos1 = 1}
-#if(!exists('icos2')) {icos2 = 37}
 print 'First cosmology to plot: icos1: ', icos1
 print 'Last cosmology to plot: icos2: ', icos2
 print 'Total number of cosmologies to plot: ', icos2-icos1+1
@@ -71,6 +66,9 @@ print ''
 dy = 0.17
 ddy = 0.05
 set yrange [1.-dy:1+dy]
+
+# Number of comparisons
+ncom = 8
 
 # Setup multiplot
 set multiplot layout ncom, nz margins 0.09, 0.99, 0.07, 0.99 spacing 0.0, 0.0
@@ -83,12 +81,14 @@ unset colorbox
 do for [icom = 1:ncom]{
 
    # Columns for comparison 
-   if(icom == 1) {comp = 'HMcode_2020';       comp_title = 'This paper'}
-   if(icom == 2) {comp = 'HMcode_2016';       comp_title = 'Mead et al. (2016)'}
-   if(icom == 3) {comp = 'HMcode_2015';       comp_title = 'Mead et al. (2015)'}
-   if(icom == 4) {comp = 'HALOFIT_Takahashi'; comp_title = 'Takahashi et al. (2012)'}
-   if(icom == 5) {comp = 'HALOFIT_Smith';     comp_title = 'Smith et al. (2003)'}
-   if(icom == 6) {comp = 'linear';            comp_title = 'Linear theory'}
+   if(icom == 1) {comp = 'HMcode_2020';             comp_title = 'HMcode (2020)'}
+   if(icom == 2) {comp = 'HMcode_2019';             comp_title = 'HMcode (2019)'}
+   if(icom == 3) {comp = 'HMcode_2016_neutrinofix'; comp_title = 'HMcode (2016) with neutrino fix'}
+   if(icom == 4) {comp = 'HMcode_2016';             comp_title = 'Mead et al. (2016)'}
+   if(icom == 5) {comp = 'HMcode_2015';             comp_title = 'Mead et al. (2015)'}
+   if(icom == 6) {comp = 'HALOFIT_Takahashi';       comp_title = 'Takahashi et al. (2012)'}
+   if(icom == 7) {comp = 'HALOFIT_Smith';           comp_title = 'Smith et al. (2003)'}
+   if(icom == 8) {comp = 'linear';                  comp_title = 'Linear theory'}
 
    # Loop over redshifts (columns)
    do for [iz = 1:nz]{
