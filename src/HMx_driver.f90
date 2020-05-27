@@ -450,7 +450,7 @@ CONTAINS
       REAL, PARAMETER :: kmax_test = 1e1   ! Minimum wavenumber for the tests [h/Mpc]
       REAL, PARAMETER :: amin_test = 1./3. ! Minimum scale factor for test
       REAL, PARAMETER :: amax_test = 1.    ! Maximum scale factor for test
-      INTEGER, PARAMETER :: iseed = 1      ! Seed for random number generator for tests
+      INTEGER, PARAMETER :: iseed = 0      ! Seed for random number generator for tests
       INTEGER, PARAMETER :: ntest = 100    ! Number of tests to run
       LOGICAL, PARAMETER :: verbose_test = .FALSE.
       LOGICAL, PARAMETER :: stop_on_fail = .TRUE.
@@ -1236,13 +1236,13 @@ CONTAINS
          ihm_baseline = 3 ! 3 - Seljak (2000)
          icosmo_baseline = icosmo ! User choice
       ELSE IF (imode == 79) THEN
-         ihm_baseline = 1 ! 1 - HMcode (2016)
+         ihm_baseline = HMcode2016
          icosmo_baseline = icosmo ! User choice
       ELSE IF (imode == 81) THEN
          ihm_baseline = 3 ! 3 - Seljak (2000)
          icosmo_baseline = 1 ! 1 - Boring
       ELSE IF (imode == 83) THEN
-         ihm_baseline = 1 ! 1 - HMcode (2016)
+         ihm_baseline = HMcode2016
          icosmo_baseline = 1 ! 1 - Boring
       ELSE
          STOP 'POWER_SINGLE_COMPARISON: Error, imode not specified correctly'
@@ -1432,13 +1432,13 @@ CONTAINS
                   ihm_here = 3 ! 3 - Seljak (2000)        
                   icosmo_here = icosmo ! User choice        
                ELSE IF (imode == 80) THEN
-                  ihm_here = 1 ! 1 - HMcode (2016)         
+                  ihm_here = HMcode2016
                   icosmo_here = icosmo ! User choice       
                ELSE IF (imode == 82) THEN
                   ihm_here = 3 ! 3 - Seljak (2000)
                   icosmo_here = 1 ! 1 - Boring        
                ELSE IF (imode == 84) THEN
-                  ihm_here = 1 ! 1 - HMcode (2016)        
+                  ihm_here = HMcode2016
                   icosmo_here = 1 ! 1 - Boring        
                ELSE IF (imode == 85) THEN
                   ihm_here = ihm
@@ -2216,7 +2216,7 @@ CONTAINS
          CALL print_cosmology(cosm)
 
          ! Write out diagnostics
-         IF (imode == 47) ihm = 1 ! 1 - HMcode (2016)
+         IF (imode == 47) ihm = HMcode2016
          IF (imode == 63 .OR. imode == 64) ihm = 3  ! 3 - Standard halo model
          IF (imode == 42 .OR. imode == 43) ihm = 61 ! 55 - HMx2020
          !CALL assign_halomod(ihm, hmod, verbose)
@@ -4190,7 +4190,7 @@ CONTAINS
       ! CHARACTER(len=256), PARAMETER :: ext = '.dat'
       LOGICAL, PARAMETER :: rebin = .FALSE.
       INTEGER, PARAMETER :: ihf = halofit_CAMB
-      INTEGER, PARAMETER :: ncomp = 10
+      INTEGER, PARAMETER :: ncomp = 11
 
       ! Number of cosmological models
       IF (imode == 96) THEN
@@ -4301,9 +4301,12 @@ CONTAINS
                CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2016_neutrinofix)
                comp = 'HMcode_2016_neutrinofix'
             ELSE IF (icomp == 9) THEN
+               CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2018)
+               comp = 'HMcode_2018'
+            ELSE IF (icomp == 10) THEN
                CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2019)
                comp = 'HMcode_2019'
-            ELSE IF (icomp == 10) THEN
+            ELSE IF (icomp == 11) THEN
                CALL calculate_HMcode(k, a, Pk, nk, na, cosm, version=HMcode2020)
                comp = 'HMcode_2020'
             ELSE

@@ -26,7 +26,7 @@ PROGRAM HMx_fitting
    INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
    !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
    INTEGER, PARAMETER :: random_seed = 0        ! Random-number seed
-   LOGICAL, PARAMETER :: random_start = .TRUE.  ! Start from a random point within the prior range
+   LOGICAL, PARAMETER :: random_start = .FALSE.  ! Start from a random point within the prior range
    LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
    INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
    LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
@@ -50,7 +50,7 @@ PROGRAM HMx_fitting
    LOGICAL, PARAMETER :: response_default = .TRUE.    ! Should I treat the BAHAMAS P(k) as HMcode response?
    LOGICAL, PARAMETER :: realisation_errors= .TRUE.   ! Do we use the errors from the individual simulations or across realisations?
    LOGICAL, PARAMETER :: weight_by_errors = .FALSE.   ! Do we weight by the inverse of the errors?
-   LOGICAL, PARAMETER :: default_parameters = .FALSE. ! Set varied paramters to default values from hmod structure
+   LOGICAL, PARAMETER :: default_parameters = .TRUE. ! Set varied paramters to default values from hmod structure
    CHARACTER(len=256), PARAMETER :: powbase_default = 'fitting/test' ! Default output file base
 
    ! Fitting method
@@ -109,14 +109,14 @@ CONTAINS
          WRITE (*, *) ' 9 - '
          WRITE (*, *) '10 - '
          WRITE (*, *) '11 - HMcode (2016): Mira Titan nodes (no massive neutrinos)'
-         WRITE (*, *) '12 - '
-         WRITE (*, *) '13 - '
-         WRITE (*, *) '14 - HMcode (test): M000 Cosmic Emu'
-         WRITE (*, *) '15 - HMcode (test): Franken Emu nodes'
-         WRITE (*, *) '16 - HMcode (test): Cosmic Emu nodes'
-         WRITE (*, *) '17 - HMcode (2020): Mira Titan nodes'
-         WRITE (*, *) '18 - HMcode (2020): Franken Emu nodes'
-         WRITE (*, *) '19 - HMcode (2020): Mira Titan nodes (no massive neutrinos)'
+         WRITE (*, *) '12 - HMcode (2020): Franken Emu and Mira Titan nodes'
+         WRITE (*, *) '13 - HMcode (2020): Mira Titan nodes'
+         WRITE (*, *) '14 - HMcode (2020): M000 Cosmic Emu'
+         WRITE (*, *) '15 - HMcode (2020): Franken Emu nodes'
+         WRITE (*, *) '16 - HMcode (2020): Cosmic Emu nodes'
+         WRITE (*, *) '17 - HMcode (2019): Mira Titan nodes'
+         WRITE (*, *) '18 - HMcode (2019): Franken Emu nodes'
+         WRITE (*, *) '19 - HMcode (2019): Mira Titan nodes (no massive neutrinos)'
          WRITE (*, *) '======================================================='
          WRITE (*, *) '20 - Hydro: fixed z; final parameters; fixed stars; no pressure-pressure: matter, pressure'
          WRITE (*, *) '21 - '
@@ -171,6 +171,10 @@ CONTAINS
       CALL read_command_argument(9, response, '', response_default)
       CALL read_command_argument(10, zin, '', '') ! TODO: Remove this, or make it more sensible
 
+      IF ((.NOT. random_start) .AND. nchain /= 1) THEN
+         STOP 'HMx_FITTING: It is strange to do more than one chain without doing a random start'
+      END IF
+
       ! Set the random-number generator
       CALL RNG_set(random_seed)
 
@@ -178,7 +182,7 @@ CONTAINS
       WRITE (*, *)
 
       ! Is this fitting hydro or not
-      IF(is_in_array(imode, [1, 2, 3, 4, 5, 11, 14, 15, 16, 17, 18, 19])) THEN
+      IF(is_in_array(imode, [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          ! HMcode
          hydro = .FALSE.
       ELSE
@@ -406,7 +410,7 @@ CONTAINS
       INTEGER, PARAMETER :: out_screen = 6
       INTEGER, PARAMETER :: out_file = 77
 
-      reason = 'TODO: Need to implment reason for finishing in MCMC'
+      reason = 'TODO: Need to implement reason for finishing in MCMC'
 
       ! Fix the starting value of the parameters to the 'new' and 'old' values to make sure they are initialised
       p_start = fit%original
@@ -1415,16 +1419,38 @@ CONTAINS
       fit%maximum(param_HMcode_kstar) = 1e1
       fit%log(param_HMcode_kstar) = .TRUE.
 
-      fit%name(param_HMcode_kdamp) = 'kdamp'
+      fit%name(param_HMcode_kp) = 'kp'
       IF (default_parameters) THEN
-         fit%original(param_HMcode_kdamp) = hmod%kdamp
+         fit%original(param_HMcode_kp) = hmod%kp
       ELSE
-         fit%original(param_HMcode_kdamp) = 1e-2
+         fit%original(param_HMcode_kp) = 0.
       END IF
-      fit%sigma(param_HMcode_kdamp) = 0.1
-      fit%minimum(param_HMcode_kdamp) = 1e-3
-      fit%maximum(param_HMcode_kdamp) = 1e1
-      fit%log(param_HMcode_kdamp) = .TRUE.
+      fit%sigma(param_HMcode_kp) = 0.1
+      fit%minimum(param_HMcode_kp) = -3.
+      fit%maximum(param_HMcode_kp) = 3.
+      fit%log(param_HMcode_kp) = .FALSE.
+
+      fit%name(param_HMcode_kd) = 'kd'
+      IF (default_parameters) THEN
+         fit%original(param_HMcode_kd) = hmod%kd
+      ELSE
+         fit%original(param_HMcode_kd) = 1e-2
+      END IF
+      fit%sigma(param_HMcode_kd) = 0.1
+      fit%minimum(param_HMcode_kd) = 1e-3
+      fit%maximum(param_HMcode_kd) = 1e1
+      fit%log(param_HMcode_kd) = .TRUE.
+
+      fit%name(param_HMcode_kdp) = 'kdp'
+      IF (default_parameters) THEN
+         fit%original(param_HMcode_kdp) = hmod%kdp
+      ELSE
+         fit%original(param_HMcode_kdp) = 0.
+      END IF
+      fit%sigma(param_HMcode_kdp) = 0.1
+      fit%minimum(param_HMcode_kdp) = -3.
+      fit%maximum(param_HMcode_kdp) = 3.
+      fit%log(param_HMcode_kdp) = .FALSE.
 
       fit%name(param_HMcode_As) = 'As'
       IF (default_parameters) THEN
@@ -1671,7 +1697,7 @@ CONTAINS
       INTEGER :: i, icosmo
 
       ! Set the number of cosmological models
-      IF (im == 1 .OR. im == 3 .OR. im == 17) THEN
+      IF (im == 1 .OR. im == 3 .OR. im == 13 .OR. im == 17) THEN
          ! Number of Mira Titan nodes
          ncos = 36 ! Number of Mita Titan nodes
       ELSE IF (im == 2 .OR. im == 4 .OR. im == 15 .OR. im == 16 .OR. im == 18) THEN
@@ -1683,6 +1709,9 @@ CONTAINS
       ELSE IF (im == 14) THEN
          ! Single M000
          ncos = 1
+      ELSE IF (im == 12) THEN
+         ! Mira Titan and FrankenEmu nodes
+         ncos = 36+37
       ELSE IF (im == 5 .OR. &
          im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
@@ -1700,7 +1729,7 @@ CONTAINS
       ! Assign the cosmological models
       DO i = 1, ncos
 
-         IF (im == 1 .OR. im == 11 .OR. im == 17 .OR. im == 19) THEN
+         IF (im == 1 .OR. im == 11 .OR. im == 13 .OR. im == 17 .OR. im == 19) THEN
             icosmo = 100+i ! Set Mira Titan node
          ELSE IF (im == 2 .OR. im == 15 .OR. im == 18) THEN
             icosmo = 200+i ! Set set FrankenEmu node
@@ -1712,6 +1741,13 @@ CONTAINS
             icosmo = 25    ! Random FrankenEmu cosmology
          ELSE IF (im == 14) THEN
             icosmo = 200   ! M000 of FrankenEmu
+         ELSE IF (im == 12) THEN
+            ! Franken Emu (first) and Mira Titan nodes
+            IF (i <= 37) THEN
+               icosmo = 200+i
+            ELSE
+               icosmo = 100+i-37
+            END IF
          ELSE IF (im == 5) THEN
             IF(is_in_array(name, [&
                'BAHAMAS_Theat7.6_nu0_WMAP9', &
@@ -1792,7 +1828,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, INTENT(OUT) :: fields(:)
       INTEGER, INTENT(OUT) :: nf
 
-      IF (is_in_array(im, [1, 2, 3, 4, 5, 11, 14, 15, 16, 17, 18, 19])) THEN
+      IF (is_in_array(im, [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          nf = 1 ! DMONLY-DMONLY only
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          nf = 5
@@ -1813,7 +1849,7 @@ CONTAINS
       ALLOCATE (fields(nf))
 
       ! Set the fields
-      IF (is_in_array(im, [1, 2, 3, 4, 11, 14, 15, 16, 17, 18, 19])) THEN
+      IF (is_in_array(im, [1, 2, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          fields(1) = field_dmonly ! NOTE: DMONLY
       ELSE IF (im == 5) THEN
          fields(1) = field_matter
@@ -1872,7 +1908,7 @@ CONTAINS
       INTEGER :: i
    
       ! Set the number of redshifts
-      IF (is_in_array(im, [1, 2, 3, 4, 11, 15, 17, 18, 19])) THEN
+      IF (is_in_array(im, [1, 2, 3, 4, 11, 12, 13, 15, 17, 18, 19])) THEN
          ! Mira Titan or FrankenEmu
          nz = 4 ! z = 0, 0.5, 1, 2
          !nz = 1 ! For testing
@@ -1897,7 +1933,7 @@ CONTAINS
       ALLOCATE (z(nz))
 
       ! Set the actual redshifts
-      IF (is_in_array(im, [1, 2, 3, 4, 11, 14, 15, 16, 17, 18, 19])) THEN
+      IF (is_in_array(im, [1, 2, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          ! Mira Titan or FrankenEmu
          DO i = 1, nz
             IF (i == 1) z(i) = 0.0
@@ -1956,14 +1992,14 @@ CONTAINS
          ihm = 1  ! 1 - HMcode (2016)
          !ihm = 7  ! 7 - HMcode (2015)
       ELSE IF (im == 17 .OR. im == 18 .OR. im == 19) THEN
-         ihm = 15 ! 15 - HMcode (2020)
-      ELSE IF (im == 14 .OR. im == 15 .OR. im == 16) THEN
-         ihm = 77 ! 77 - HMcode (test)
+         ihm = 15 ! 15 - HMcode (2019)
+      ELSE IF (im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
+         ihm = 79 ! 77 - HMcode (2020)
       ELSE IF (im == 5) THEN
          ihm = 64 ! 64 - ?
       ELSE IF (im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. &
-         im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 41 .OR. &
-         im == 42 .OR. im == 43 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
+               im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 41 .OR. &
+               im == 42 .OR. im == 43 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
          !ihm = 3  ! 3 - Standard halo-model
          !ihm = 20 ! 20 - Standard halo model in response
          ihm = 55 ! 55 - HMx 2020 (response)
@@ -2051,12 +2087,18 @@ CONTAINS
                DO j2 = j1, nf
 
                   ! Read in power spectra
-                  IF (im == 1 .OR. im == 3 .OR. im == 11 .OR. im == 17 .OR. im == 19) THEN
+                  IF (im == 1 .OR. im == 3 .OR. im == 11 .OR. im == 13 .OR. im == 17 .OR. im == 19) THEN
                      CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im == 2 .OR. im == 4 .OR. im == 15 .OR. im == 18) THEN
                      CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
                   ELSE IF (im == 14 .OR. im == 16) THEN
                      CALL get_CosmicEmu_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                  ELSE IF (im == 12) THEN
+                     IF (i <= 37) THEN
+                        CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     ELSE
+                        CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     END IF
                   ELSE IF (im == 5) THEN
                      CALL VD20_get_more_power(k_sim, pow_sim, err_sim, nk, z(j), name, cosm(i), &
                         response=response, &
@@ -2228,43 +2270,47 @@ CONTAINS
       TYPE(fitting), INTENT(INOUT) :: fit
 
       IF (is_in_array(im, [1, 2, 3, 4, 11, 17, 18, 19])) THEN
-         ! HMcode
-         !fit%set(param_HMcode_Dv0) = .TRUE.
-         !fit%set(param_HMcode_Dv1) = .TRUE.
-         !fit%set(param_HMcode_dc0) = .TRUE.
-         !fit%set(param_HMcode_dc1) = .TRUE.
-         !fit%set(param_HMcode_eta0) = .TRUE.
-         !fit%set(param_HMcode_eta1) = .TRUE.
-         !fit%set(param_HMcode_f0) = .TRUE.
-         !fit%set(param_HMcode_f1) = .TRUE.
+         ! HMcode (2015, 2016, 2018, 2019)
+         fit%set(param_HMcode_Dv0) = .TRUE.
+         fit%set(param_HMcode_Dv1) = .TRUE.
+         fit%set(param_HMcode_dc0) = .TRUE.
+         fit%set(param_HMcode_dc1) = .TRUE.
+         fit%set(param_HMcode_eta0) = .TRUE.
+         fit%set(param_HMcode_eta1) = .TRUE.
+         fit%set(param_HMcode_f0) = .TRUE.
+         fit%set(param_HMcode_f1) = .TRUE.
          fit%set(param_HMcode_kstar) = .TRUE.
-         !fit%set(param_HMcode_As) = .TRUE.
-         !fit%set(param_HMcode_alpha0) = .TRUE.
-         !fit%set(param_HMcode_alpha1) = .TRUE.
-         IF(im == 1 .OR. im == 3 .OR. im == 17) THEN
+         fit%set(param_HMcode_As) = .TRUE.
+         fit%set(param_HMcode_alpha0) = .TRUE.
+         fit%set(param_HMcode_alpha1) = .TRUE.
+         IF(im == 1 .OR. im == 3) THEN
             ! Massive neutrino parameters
             fit%set(param_HMcode_dcnu) = .TRUE.
             fit%set(param_HMcode_Dvnu) = .TRUE.
          END IF
-      ELSE IF (im == 14 .OR. im == 15 .OR. im == 16) THEN
-         ! HMcode (test)
+      ELSE IF (im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
+         ! HMcode (2020)
          ! 14 - Cosmic Emu M000
          ! 15 - Franken Emu nodes
          ! 16 - Cosmice Emu nodes
-         fit%set(param_HMcode_kstar) = .TRUE.   
-         fit%set(param_HMcode_f0) = .TRUE.
-         fit%set(param_HMcode_f1) = .TRUE.
-         fit%set(param_HMcode_kdamp) = .TRUE.
-         fit%set(param_HMcode_alpha0) = .TRUE.
-         fit%set(param_HMcode_alpha1) = .TRUE.
-         fit%set(param_HMcode_As) = .TRUE.
-         fit%set(param_HMcode_Ap) = .TRUE.
-         fit%set(param_HMcode_Ac) = .TRUE.
-         fit%set(param_HMcode_eta0) = .TRUE.
-         fit%set(param_HMcode_eta1) = .TRUE.
-         fit%set(param_HMcode_STp) = .TRUE.
-         fit%set(param_HMcode_STq) = .TRUE.
-         fit%set(param_HMcode_Amf) = .TRUE.
+         !fit%set(param_HMcode_kstar) = .TRUE.  
+         !fit%set(param_HMcode_kp) = .TRUE. 
+         !fit%set(param_HMcode_f0) = .TRUE.
+         !fit%set(param_HMcode_f1) = .TRUE.
+         !fit%set(param_HMcode_kd) = .TRUE.
+         !fit%set(param_HMcode_kdp) = .TRUE.
+         !fit%set(param_HMcode_alpha0) = .TRUE.
+         !fit%set(param_HMcode_alpha1) = .TRUE.
+         !fit%set(param_HMcode_As) = .TRUE.
+         !fit%set(param_HMcode_Ap) = .TRUE.
+         !fit%set(param_HMcode_Ac) = .TRUE.
+         !fit%set(param_HMcode_eta0) = .TRUE.
+         !fit%set(param_HMcode_eta1) = .TRUE.
+         !fit%set(param_HMcode_STp) = .TRUE.
+         !fit%set(param_HMcode_STq) = .TRUE.
+         !fit%set(param_HMcode_Amf) = .TRUE.
+         fit%set(param_HMcode_dcnu) = .TRUE.
+         fit%set(param_HMcode_Dvnu) = .TRUE.
       ELSE IF (im == 5) THEN
          ! HMcode baryon model
          fit%set(param_HMcode_mbar) = .TRUE.
@@ -2579,6 +2625,7 @@ CONTAINS
       IF (fit%set(param_HMcode_f0))     hmod%f0 = p_out(param_HMcode_f0)
       IF (fit%set(param_HMcode_f1))     hmod%f1 = p_out(param_HMcode_f1)
       IF (fit%set(param_HMcode_kstar))  hmod%ks = p_out(param_HMcode_kstar)
+      IF (fit%set(param_HMcode_kp))     hmod%kp = p_out(param_HMcode_kp)
       IF (fit%set(param_HMcode_As))     hmod%As = p_out(param_HMcode_As)
       IF (fit%set(param_HMcode_alpha0)) hmod%alp0 = p_out(param_HMcode_alpha0)
       IF (fit%set(param_HMcode_alpha1)) hmod%alp1 = p_out(param_HMcode_alpha1)
@@ -2590,7 +2637,8 @@ CONTAINS
       IF (fit%set(param_HMcode_sbar))   hmod%sbar = p_out(param_HMcode_sbar)
       IF (fit%set(param_HMcode_STp))    hmod%ST_p = p_out(param_HMcode_STp)
       IF (fit%set(param_HMcode_STq))    hmod%ST_q = p_out(param_HMcode_STq)
-      IF (fit%set(param_HMcode_kdamp))  hmod%kdamp = p_out(param_HMcode_kdamp)
+      IF (fit%set(param_HMcode_kd))     hmod%kd = p_out(param_HMcode_kd)
+      IF (fit%set(param_HMcode_kdp))    hmod%kdp = p_out(param_HMcode_kdp)
       IF (fit%set(param_HMcode_Ap))     hmod%Ap = p_out(param_HMcode_Ap)
       IF (fit%set(param_HMcode_Ac))     hmod%Ac = p_out(param_HMcode_Ac)
 
