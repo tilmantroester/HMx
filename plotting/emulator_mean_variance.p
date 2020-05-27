@@ -87,13 +87,13 @@ if (imode == 4){
    ihms[3] = 69
    ihms[4] = 70
    ihms[5] = 71
-   ihms[6] = 88
+   ihms[6] = 90
    hmlabel[1] = 'Duffy et al. (2008)'
    hmlabel[2] = 'Bullock et al. (2001)'
    hmlabel[3] = 'Simple Bullock et al. (2001)'
    hmlabel[4] = 'Duffy et al. with no Dolag correction'
    hmlabel[5] = 'Duffy et al. with Dolag with 1.5 exponent'
-   hmlabel[6] = 'Child et al. (2018)'
+   hmlabel[6] = 'Duffy et al. with z-dependent Dolag correction'
    outfile = 'plots/emulator_mean_variance_concentration.eps'
 }
 if (imode == 5){

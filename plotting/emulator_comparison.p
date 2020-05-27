@@ -31,14 +31,14 @@ print ''
 file(n,z)=sprintf('data/cosmo%d_z%d.dat',n,z)
 
 # Columns for power spectra
-c_li=2 # Linear
-c_em=3 # Emulator
-c_ql=4 # Quasi-linear halofit
-c_oh=5 # Non-linear halofit
-c_hf=6 # Halofit
-c_2h=7 # Two-halo term
-c_1h=8 # One-halo term
-c_hm=9 # Halo model
+c_li = 2 # Linear
+c_em = 3 # Emulator
+c_ql = 4 # Quasi-linear halofit
+c_oh = 5 # Non-linear halofit
+c_hf = 6 # Halofit
+c_2h = 7 # Two-halo term
+c_1h = 8 # One-halo term
+c_hm = 9 # Halo model
 
 # Columns for cosmological parameters
 c_Omega_m = 10  # Omega_m
@@ -57,11 +57,23 @@ c_ncur = 20     # HALOFIT n_cur
 c_colour = imode+6
 
 # Label for k axis
-klab='k / h Mpc^{-1}'
+klab = 'k / h Mpc^{-1}'
+
+if(imode == 4)  {cblab = '{/Symbol W}_m'}
+if(imode == 5)  {cblab = '{/Symbol W}_b'}
+if(imode == 6)  {cblab = '{/Symbol W}_{/Symbol n}'}
+if(imode == 7)  {cblab = 'n_s'}
+if(imode == 8)  {cblab = 'h'}
+if(imode == 9)  {cblab = '{/Symbol s}_8'}
+if(imode == 10) {cblab = 'w'}
+if(imode == 11) {cblab = 'w_a'}
+if(imode == 12) {cblab = 'k_{nl} / h Mpc^{-1}'}
+if(imode == 13) {cblab = 'n_{eff}'}
+if(imode == 14) {cblab = 'n_{cur}'}
 
 if(imode == 1 || imode == 2 || imode >= 4){
 
-   if(print==1) {set output 'power_emulator_many.eps'}
+   if(print==1) {set output 'plots/power_emulator_many.eps'}
 
    # k range
    kmin=2e-3
@@ -108,10 +120,22 @@ if(imode == 1 || imode == 2 || imode >= 4){
    #set palette cubehelix
    #set palette defined (1 'blue', 2 'yellow')
    set palette defined (1 'royalblue', 2 'grey', 3 'light-red')
-   unset colorbox # TODO: Nice to have a colorbar
+
+   # Margins
+   x1 = 0.06
+   if(imode == 1 || imode == 2) {x2 = 0.98}
+   if(imode >= 4) {x2 = 0.90}  
+   y1 = 0.06
+   y2 = 0.96
+   cbsep = 0.01
+   cbwid = 0.03
 
    # Setup multiplot
-   set multiplot layout nz,2 margins 0.06,0.98,0.06,0.96 spacing 0.0,0.00
+   set multiplot layout nz,2 margins x1, x2, y1, y2 spacing 0.0, 0.0
+
+   # Colour bar
+   set colorbox vertical user origin x2+cbsep, y1 size cbwid, y2-y1
+   set cblabel cblab
 
    # Loop over redshifts
    j = 1 # TODO: Fudge because this script winges about undefined j values sometimes
@@ -152,6 +176,7 @@ if(imode == 1 || imode == 2 || imode >= 4){
                1.+ddy w l lc -1 dt 2 noti,\
                1.-ddy w l lc -1 dt 2 noti,\
                for [icos=icos1:icos2] file(icos,j) u 1:(column(c)/column(c_em)):(column(c_colour)) w l lc palette noti
+            unset colorbox
          }
 
          # Plot with error blob
@@ -178,7 +203,7 @@ if(imode == 1 || imode == 2 || imode >= 4){
 
 if(imode==3){
 
-   if(print==1) {set output 'power_emulator.eps'}
+   if(print==1) {set output 'plots/power_emulator.eps'}
 
    # Set the cosmology
    icos=0
