@@ -67,6 +67,7 @@ TEST_DIR = tests
 
 # Objects
 _OBJ = \
+	precision.o \
 	constants.o \
 	physics.o \
 	sorting.o \
@@ -82,12 +83,14 @@ _OBJ = \
 	string_operations.o \
 	calculus_table.o \
 	statistics.o \
+	calculus.o \
+	minimization.o \
 	camb_stuff.o \
 	cosmology_functions.o \
 	hmx.o \
 	limber.o \
 	cosmic_emu_stuff.o \
-	owls.o \
+	owls_stuff.o \
 	owls_extras.o \
 	multidark_stuff.o
 

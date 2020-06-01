@@ -7,7 +7,8 @@ PROGRAM HMx_fitting
    USE string_operations
    USE random_numbers
    USE special_functions
-   USE owls
+   USE minimization
+   USE owls_stuff
    USE owls_extras
 
    TYPE fitting
@@ -79,7 +80,7 @@ CONTAINS
       IMPLICIT NONE
       INTEGER :: imode
       INTEGER :: ncos, nfields, nz, nk
-      REAL, ALLOCATABLE :: k(:), z(:), pow(:, :, :, :, :), weight(:, :, :, :, :), err(:,:,:,:,:)
+      REAL, ALLOCATABLE :: k(:, :), z(:), pow(:, :, :, :, :), weight(:, :, :, :, :), err(:,:,:,:,:)
       INTEGER, ALLOCATABLE :: fields(:)
       TYPE(fitting) :: fit
       TYPE(halomod), ALLOCATABLE :: hmod(:)
@@ -250,7 +251,7 @@ CONTAINS
    SUBROUTINE write_all_power(k, nk, z, nz, hmod, cosm, ncos, outbase, hydro, label, verbose)
 
       IMPLICIT NONE
-      REAL, INTENT(IN) :: k(nk)
+      REAL, INTENT(IN) :: k(ncos, nk)
       INTEGER, INTENT(IN) :: nk
       REAL, INTENT(IN) :: z(nz)
       INTEGER, INTENT(IN) :: nz
@@ -302,8 +303,8 @@ CONTAINS
             base = trim(outbase)//'_z'//trim(zstring)//'_cos'//trim(cosstring)//'_'//trim(label)//'_power_'
 
             ALLOCATE(pow_li(nk, na), pow_2h(nf, nf, nk, na), pow_1h(nf, nf, nk, na), pow_hm(nf, nf, nk, na))
-            CALL calculate_HMx_old(fields, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod(icos), cosm(icos), verbose=.FALSE.) 
-            CALL write_power_fields(k, pow_li(:,1), pow_2h(:,:,:,1), pow_1h(:,:,:,1), pow_hm(:,:,:,1), nk, fields, nf, base, verbose)
+            CALL calculate_HMx_old(fields, nf, k(icos, :), nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod(icos), cosm(icos), verbose=.FALSE.) 
+            CALL write_power_fields(k(icos, :), pow_li(:, 1), pow_2h(:, :, :, 1), pow_1h(:, :, :, 1), pow_hm(:, :, :, 1), nk, fields, nf, base, verbose)
             DEALLOCATE(pow_li, pow_2h, pow_1h, pow_hm)
 
          END DO
@@ -321,7 +322,7 @@ CONTAINS
    SUBROUTINE write_HMcode_power(k, nk, z, nz, cosm, ncos, outbase, verbose)
 
       IMPLICIT NONE
-      REAL, INTENT(IN) :: k(nk)
+      REAL, INTENT(IN) :: k(ncos, nk)
       INTEGER, INTENT(IN) :: nk
       REAL, INTENT(IN) :: z(nz)
       INTEGER, INTENT(IN) :: nz
@@ -345,7 +346,7 @@ CONTAINS
       DO icos = 1, ncos
 
          ! Calculate P(k, a)
-         CALL calculate_HMcode(k, a, Pk, nk, na, cosm(icos))
+         CALL calculate_HMcode(k(icos, :), a, Pk, nk, na, cosm(icos))
 
          ! Loop over z
          DO iz = 1, nz
@@ -358,7 +359,7 @@ CONTAINS
             ! Write file
             OPEN(unit, file=outfile)
             DO ik = 1, nk
-               WRITE(unit, *) k(ik), Pk(ik, iz)
+               WRITE(unit, *) k(icos, ik), Pk(ik, iz)
             END DO
             CLOSE(unit)
 
@@ -381,7 +382,7 @@ CONTAINS
       REAL, INTENT(IN) :: delta         ! Accuracy parameter
       REAL, INTENT(IN) :: tmax          ! Maximum time the fitting can run for [mins]
       INTEGER, INTENT(IN) :: nchain     ! Number of independent chains
-      REAL, INTENT(IN) :: k(nk)         ! Array of k values
+      REAL, INTENT(IN) :: k(ncos, nk)   ! Array of k values
       INTEGER, INTENT(IN) :: nk         ! Number of k values
       REAL, INTENT(IN) :: z(nz)         ! Array of z values
       INTEGER, INTENT(IN) :: nz         ! Number of z values
@@ -614,7 +615,7 @@ CONTAINS
       REAL, INTENT(IN) :: tol           ! Accuracy parameters
       REAL, INTENT(IN) :: tmax          ! Maximum time that can run for [mins]
       INTEGER, INTENT(IN) :: nmax       ! Maximum number of iterations
-      REAL, INTENT(IN) :: k(nk)         ! Array for wavenumbers [h/Mpc]
+      REAL, INTENT(IN) :: k(ncos, nk)   ! Array for wavenumbers [h/Mpc]
       INTEGER, INTENT(IN) :: nk         ! Number of wavenumbers
       REAL, INTENT(IN) :: z(nz)         ! Array for redshifts
       INTEGER, INTENT(IN) :: nz         ! Number of redshifts
@@ -657,7 +658,7 @@ CONTAINS
       DO i = 1, m
          IF(random_start) CALL random_starting_parameters(fit)
          IF (ifit == ifit_Nelder_Mead) THEN
-            CALL Nelder_Mead(tol, tmax, nmax, k, nk, z, nz, fields, nf, fom, weight, pow_sim, reason, &
+            CALL Nelder_Mead_HMx(tol, tmax, nmax, k, nk, z, nz, fields, nf, fom, weight, pow_sim, reason, &
                fit, hmod, cosm, ncos, verbose)
          ELSE IF (ifit == ifit_MCMC) THEN
             CALL MCMC_fit(tol, tmax, nmax, k, nk, z, nz, fields, nf, fom, weight, pow_sim, reason, &
@@ -687,21 +688,21 @@ CONTAINS
 
    END SUBROUTINE fitting_multiple
 
-   SUBROUTINE write_fitting_parameters(fit)
+   ! SUBROUTINE write_fitting_parameters(fit)
 
-      IMPLICIT NONE
-      TYPE(fitting), INTENT(IN) :: fit
-      INTEGER :: i
+   !    IMPLICIT NONE
+   !    TYPE(fitting), INTENT(IN) :: fit
+   !    INTEGER :: i
 
-      DO i = 1, fit%n
-         IF (fit%set(i)) THEN
-            WRITE(*, *) i, fit%log(i), fit%original(i), fit%best(i), fit%minimum(i), fit%maximum(i)
-         END IF
-      END DO
+   !    DO i = 1, fit%n
+   !       IF (fit%set(i)) THEN
+   !          WRITE(*, *) i, fit%log(i), fit%original(i), fit%best(i), fit%minimum(i), fit%maximum(i)
+   !       END IF
+   !    END DO
 
-   END SUBROUTINE write_fitting_parameters
+   ! END SUBROUTINE write_fitting_parameters
 
-   SUBROUTINE Nelder_Mead(tol, tmax, nmax, k, nk, z, nz, fields, nf, fom, weight, pow_sim, reason, &
+   SUBROUTINE Nelder_Mead_HMx(tol, tmax, nmax, k, nk, z, nz, fields, nf, fom, weight, pow_sim, reason, &
       fit, hmod, cosm, ncos, verbose)
 
       ! Nelder-Mead simplex for fiding minima of a function
@@ -711,7 +712,7 @@ CONTAINS
       REAL, INTENT(IN) :: tol           ! Accuracy parameters
       REAL, INTENT(IN) :: tmax          ! Maximum time that can run for [mins]
       INTEGER, INTENT(IN) :: nmax       ! Maximum number of iterations
-      REAL, INTENT(IN) :: k(nk)         ! Array for wavenumbers [h/Mpc]
+      REAL, INTENT(IN) :: k(ncos, nk)   ! Array for wavenumbers [h/Mpc]
       INTEGER, INTENT(IN) :: nk         ! Number of wavenumbers
       REAL, INTENT(IN) :: z(nz)         ! Array for redshifts
       INTEGER, INTENT(IN) :: nz         ! Number of redshifts
@@ -784,14 +785,16 @@ CONTAINS
          ii = ii+1
 
          ! Sort the points from best to worst
-         CALL Nelder_Mead_sort(xx, ff, n)
+         CALL Nelder_Mead_sort(xx, ff)
 
          IF (verbose) WRITE (*, '(A16,I10,'//trim(nstring)//'F15.7)') TRIM(operation), ii, ff(1), (xx(1, i), i=1, n)
 
          ! Decide on convergence
          CALL CPU_TIME(t2)
-         IF (Nelder_Mead_termination(ff, n, tol) .OR. ii == nmax .OR. (t2-t1) > tmax) THEN
-            IF (Nelder_Mead_termination(ff, n, tol)) THEN
+         !IF (Nelder_Mead_termination(ff, n, tol) .OR. ii == nmax .OR. (t2-t1) > tmax) THEN
+         !   IF (Nelder_Mead_termination(ff, n, tol)) THEN
+         IF (Nelder_Mead_termination(ff, tol) .OR. ii == nmax .OR. (t2-t1) > tmax) THEN
+            IF (Nelder_Mead_termination(ff, tol)) THEN
                reason = 'Nelder-Mead termination condition met'
             ELSE IF (ii == nmax) THEN
                reason = 'Maximum number of points reached'
@@ -807,7 +810,7 @@ CONTAINS
          END IF
 
          ! Calculate centroid of 1...n (not n+1; the worst point)
-         xo = Nelder_Mead_centroid(xx, n)
+         xo = Nelder_Mead_centroid(xx)
 
          ! Calculate the reflected point of n+1 about the centroid
          xr = xo+alpha*(xo-xx(n+1, :))
@@ -870,7 +873,7 @@ CONTAINS
       fit%best = p  
       CALL figure_of_merit(p, np, fields, nf, fom, k, nk, z, nz, pow_mod, pow_sim, weight, fit, hmod, cosm, ncos)
 
-   END SUBROUTINE Nelder_Mead
+   END SUBROUTINE Nelder_Mead_HMx
 
    SUBROUTINE init_parameters(fit, hmod)
 
@@ -2059,7 +2062,7 @@ CONTAINS
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
       CHARACTER(len=*), INTENT(IN) :: name
-      REAL, ALLOCATABLE, INTENT(OUT) :: k(:)
+      REAL, ALLOCATABLE, INTENT(OUT) :: k(:, :)
       INTEGER, INTENT(OUT) :: nk
       REAL, ALLOCATABLE, INTENT(OUT) :: pow(:, :, :, :, :)
       REAL, ALLOCATABLE, INTENT(OUT) :: err(:, :, :, :, :)
@@ -2070,7 +2073,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: fields(nf)
       INTEGER, INTENT(IN) :: nf
       LOGICAL, INTENT(IN) :: response
-      INTEGER :: i, j, j1, j2
+      INTEGER :: icos, iz, if1, if2
       INTEGER :: ip(2)
       REAL, ALLOCATABLE :: k_sim(:), pow_sim(:), err_sim(:)
 
@@ -2079,28 +2082,28 @@ CONTAINS
       LOGICAL, PARAMETER :: verbose_BAHAMAS = .TRUE.
 
       ! Loop over cosmologies and redshifts
-      DO i = 1, ncos
-         DO j = 1, nz
+      DO icos = 1, ncos
+         DO iz = 1, nz
 
             ! Loop over fields
-            DO j1 = 1, nf
-               DO j2 = j1, nf
+            DO if1 = 1, nf
+               DO if2 = if1, nf
 
                   ! Read in power spectra
                   IF (im == 1 .OR. im == 3 .OR. im == 11 .OR. im == 13 .OR. im == 17 .OR. im == 19) THEN
-                     CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(iz), cosm(icos), rebin=rebin_emu)
                   ELSE IF (im == 2 .OR. im == 4 .OR. im == 15 .OR. im == 18) THEN
-                     CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(iz), cosm(icos), rebin=rebin_emu)
                   ELSE IF (im == 14 .OR. im == 16) THEN
-                     CALL get_CosmicEmu_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     CALL get_CosmicEmu_power_z(k_sim, pow_sim, nk, z(iz), cosm(icos), rebin=rebin_emu)
                   ELSE IF (im == 12) THEN
-                     IF (i <= 37) THEN
-                        CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                     IF (icos <= 37) THEN
+                        CALL get_FrankenEmu_power_z(k_sim, pow_sim, nk, z(iz), cosm(icos), rebin=rebin_emu)
                      ELSE
-                        CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(j), cosm(i), rebin=rebin_emu)
+                        CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(iz), cosm(icos), rebin=rebin_emu)
                      END IF
                   ELSE IF (im == 5) THEN
-                     CALL VD20_get_more_power(k_sim, pow_sim, err_sim, nk, z(j), name, cosm(i), &
+                     CALL VD20_get_more_power(k_sim, pow_sim, err_sim, nk, z(iz), name, cosm(icos), &
                         response=response, &
                         kmin=kmin_VD20, &
                         kmax=kmax_VD20, &
@@ -2112,9 +2115,9 @@ CONTAINS
                      im == 42 .OR. im == 43 .OR. im == 44 .OR. im == 45 .OR. im == 46 .OR. im == 47 .OR. &
                      im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. im == 53 .OR. &
                      im == 54 .OR. im == 55 .OR. im == 56) THEN
-                     ip(1) = fields(j1)
-                     ip(2) = fields(j2)
-                     CALL BAHAMAS_read_power(k_sim, pow_sim, err_sim, nk, z(j), name, mesh, ip, cosm(i), &
+                     ip(1) = fields(if1)
+                     ip(2) = fields(if2)
+                     CALL BAHAMAS_read_power(k_sim, pow_sim, err_sim, nk, z(iz), name, mesh, ip, cosm(icos), &
                                              kmin=kmin_BAHAMAS, &
                                              kmax=kmax_BAHAMAS, &
                                              cut_nyquist=cut_nyquist, &
@@ -2128,16 +2131,16 @@ CONTAINS
                   END IF
 
                   ! Allocate big arrays for P(k,z,cosm)
-                  IF (.NOT. ALLOCATED(k))   ALLOCATE (k(nk))
+                  IF (.NOT. ALLOCATED(k))   ALLOCATE (k(ncos, nk))
                   IF (.NOT. ALLOCATED(pow)) ALLOCATE (pow(ncos, nf, nf, nk, nz))
                   IF (.NOT. ALLOCATED(err)) ALLOCATE (err(ncos, nf, nf, nk, nz))
                   IF (.NOT. ALLOCATED(err_sim)) THEN
                      ALLOCATE(err_sim(nk))
                      err_sim = 0.
                   END IF
-                  k = k_sim
-                  pow(i, j1, j2, :, j) = pow_sim
-                  err(i, j1, j2, :, j) = err_sim
+                  k(icos, :) = k_sim
+                  pow(icos, if1, if2, :, iz) = pow_sim
+                  err(icos, if1, if2, :, iz) = err_sim
 
                END DO
             END DO
@@ -2163,11 +2166,11 @@ CONTAINS
       REAL, INTENT(IN) :: err(ncos, nf, nf, nk, nz)
       INTEGER, INTENT(IN) :: ncos
       INTEGER, INTENT(IN) :: nf
-      REAL, INTENT(IN) :: k(nk)
+      REAL, INTENT(IN) :: k(ncos, nk)
       INTEGER, INTENT(IN) :: nk
       INTEGER, INTENT(IN) :: nz
       REAL :: kmin, kmax, fac
-      INTEGER :: i, j
+      INTEGER :: ik, iz, icos
 
       ! Standard to give equal weight to everything
       ALLOCATE (weight(ncos, nf, nf, nk, nz))
@@ -2234,24 +2237,28 @@ CONTAINS
          im == 48 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52 .OR. im == 53 .OR. &
          im == 54 .OR. im == 55 .OR. im == 56) THEN
 
-         DO j = 1, nz
+         DO icos = 1, ncos
 
-            kmin = kmin_BAHAMAS
-            kmax = kmax_BAHAMAS
-!!$        IF(z(j)==0.0) THEN
-!!$           kmax=kmax_BAHAMAS_z0p0
-!!$        ELSE IF(z(j)==0.5) THEN
-!!$           kmax=kmax_BAHAMAS_z0p5
-!!$        ELSE IF(z(j)==1.0) THEN
-!!$           kmax=kmax_BAHAMAS_z1p0
-!!$        ELSE IF(z(j)==2.0) THEN
-!!$           kmax=kmax_BAHAMAS_z2p0
-!!$        ELSE
-!!$           STOP 'HMx_FITTING: Error, something went wrong setting kmax for this z'
-!!$        END IF
+            DO iz = 1, nz
 
-            DO i = 1, nk
-               IF (k(i) < kmin .OR. k(i) > kmax) weight(:, :, :, i, j) = 0.
+               kmin = kmin_BAHAMAS
+               kmax = kmax_BAHAMAS
+   !!$        IF(z(j)==0.0) THEN
+   !!$           kmax=kmax_BAHAMAS_z0p0
+   !!$        ELSE IF(z(j)==0.5) THEN
+   !!$           kmax=kmax_BAHAMAS_z0p5
+   !!$        ELSE IF(z(j)==1.0) THEN
+   !!$           kmax=kmax_BAHAMAS_z1p0
+   !!$        ELSE IF(z(j)==2.0) THEN
+   !!$           kmax=kmax_BAHAMAS_z2p0
+   !!$        ELSE
+   !!$           STOP 'HMx_FITTING: Error, something went wrong setting kmax for this z'
+   !!$        END IF
+
+               DO ik = 1, nk
+                  IF (k(icos, ik) < kmin .OR. k(icos, ik) > kmax) weight(icos, :, :, ik, iz) = 0.
+               END DO
+
             END DO
 
          END DO
@@ -2293,22 +2300,22 @@ CONTAINS
          ! 14 - Cosmic Emu M000
          ! 15 - Franken Emu nodes
          ! 16 - Cosmice Emu nodes
-         !fit%set(param_HMcode_kstar) = .TRUE.  
-         !fit%set(param_HMcode_kp) = .TRUE. 
-         !fit%set(param_HMcode_f0) = .TRUE.
-         !fit%set(param_HMcode_f1) = .TRUE.
-         !fit%set(param_HMcode_kd) = .TRUE.
-         !fit%set(param_HMcode_kdp) = .TRUE.
-         !fit%set(param_HMcode_alpha0) = .TRUE.
-         !fit%set(param_HMcode_alpha1) = .TRUE.
-         !fit%set(param_HMcode_As) = .TRUE.
-         !fit%set(param_HMcode_Ap) = .TRUE.
-         !fit%set(param_HMcode_Ac) = .TRUE.
-         !fit%set(param_HMcode_eta0) = .TRUE.
-         !fit%set(param_HMcode_eta1) = .TRUE.
+         fit%set(param_HMcode_kstar) = .TRUE.  
+         fit%set(param_HMcode_kp) = .TRUE. 
+         fit%set(param_HMcode_f0) = .TRUE.
+         fit%set(param_HMcode_f1) = .TRUE.
+         fit%set(param_HMcode_kd) = .TRUE.
+         fit%set(param_HMcode_kdp) = .TRUE.
+         fit%set(param_HMcode_alpha0) = .TRUE.
+         fit%set(param_HMcode_alpha1) = .TRUE.
+         fit%set(param_HMcode_As) = .TRUE.
+         fit%set(param_HMcode_Ap) = .TRUE.
+         fit%set(param_HMcode_Ac) = .TRUE.
+         fit%set(param_HMcode_eta0) = .TRUE.
+         fit%set(param_HMcode_eta1) = .TRUE.
          !fit%set(param_HMcode_STp) = .TRUE.
          !fit%set(param_HMcode_STq) = .TRUE.
-         !fit%set(param_HMcode_Amf) = .TRUE.
+         fit%set(param_HMcode_Amf) = .TRUE.
          fit%set(param_HMcode_dcnu) = .TRUE.
          fit%set(param_HMcode_Dvnu) = .TRUE.
       ELSE IF (im == 5) THEN
@@ -2537,60 +2544,60 @@ CONTAINS
 
    END SUBROUTINE init_mode
 
-   SUBROUTINE check_parameters_have_an_effect(fields, nf, k, nk, z, nz, pow_sim, weight, fit, hmod, cosm, ncos)
+   ! SUBROUTINE check_parameters_have_an_effect(fields, nf, k, nk, z, nz, pow_sim, weight, fit, hmod, cosm, ncos)
 
-      IMPLICIT NONE
-      INTEGER, INTENT(IN) :: fields(nf)
-      INTEGER, INTENT(IN) :: nf
-      REAL, INTENT(IN) :: k(nk)
-      INTEGER, INTENT(IN) :: nk
-      REAL, INTENT(IN) :: z(nz)
-      INTEGER, INTENT(IN) :: nz
-      REAL, INTENT(IN) :: pow_sim(nf, nf, nk, nz)
-      REAL, INTENT(IN) :: weight(nf, nf, nk, nz)
-      TYPE(fitting), INTENT(INOUT) :: fit
-      TYPE(halomod), INTENT(INOUT) :: hmod(ncos)
-      TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
-      INTEGER, INTENT(IN) :: ncos
-      REAL :: fombase, fom, dfom
-      REAL :: pow(nf, nf, nk, nz)
-      INTEGER :: i, np
-      REAL :: p(fit%n), dp(fit%n)
+   !    IMPLICIT NONE
+   !    INTEGER, INTENT(IN) :: fields(nf)
+   !    INTEGER, INTENT(IN) :: nf
+   !    REAL, INTENT(IN) :: k(nk)
+   !    INTEGER, INTENT(IN) :: nk
+   !    REAL, INTENT(IN) :: z(nz)
+   !    INTEGER, INTENT(IN) :: nz
+   !    REAL, INTENT(IN) :: pow_sim(nf, nf, nk, nz)
+   !    REAL, INTENT(IN) :: weight(nf, nf, nk, nz)
+   !    TYPE(fitting), INTENT(INOUT) :: fit
+   !    TYPE(halomod), INTENT(INOUT) :: hmod(ncos)
+   !    TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
+   !    INTEGER, INTENT(IN) :: ncos
+   !    REAL :: fombase, fom, dfom
+   !    REAL :: pow(nf, nf, nk, nz)
+   !    INTEGER :: i, np
+   !    REAL :: p(fit%n), dp(fit%n)
 
-      np = fit%n
-      p = fit%original
-      dp = fit%sigma
+   !    np = fit%n
+   !    p = fit%original
+   !    dp = fit%sigma
 
-      CALL figure_of_merit(p, np, fields, nf, fombase, k, nk, z, nz, pow, pow_sim, weight, fit, hmod, cosm, ncos)
+   !    CALL figure_of_merit(p, np, fields, nf, fombase, k, nk, z, nz, pow, pow_sim, weight, fit, hmod, cosm, ncos)
 
-      ! Loop over number of attempts to find the correct jump
-      DO i = 1, np
+   !    ! Loop over number of attempts to find the correct jump
+   !    DO i = 1, np
 
-         IF(fit%set(i)) THEN
+   !       IF(fit%set(i)) THEN
 
-            p(i) = p(i)+dp(i)
+   !          p(i) = p(i)+dp(i)
 
-            ! Get the figure of merit for the updated parameter
-            CALL figure_of_merit(p, np, fields, nf, fom, k, nk, z, nz, pow, pow_sim, weight, fit, hmod, cosm, ncos)
+   !          ! Get the figure of merit for the updated parameter
+   !          CALL figure_of_merit(p, np, fields, nf, fom, k, nk, z, nz, pow, pow_sim, weight, fit, hmod, cosm, ncos)
 
-            ! Calculate the change in the figure of merit for this parameter
-            dfom = fom-fombase
+   !          ! Calculate the change in the figure of merit for this parameter
+   !          dfom = fom-fombase
 
-            IF (dfom == 0.) THEN
-               WRITE(*, *) 'HECK_PARAMETERS_HAVE_AN_EFFECT: Parameter: ', trim(fit%name(i))
-               STOP 'CHECK_PARAMETERS_HAVE_AN_EFFECT: Error, changing parameter has no effect'
-            END IF
+   !          IF (dfom == 0.) THEN
+   !             WRITE(*, *) 'HECK_PARAMETERS_HAVE_AN_EFFECT: Parameter: ', trim(fit%name(i))
+   !             STOP 'CHECK_PARAMETERS_HAVE_AN_EFFECT: Error, changing parameter has no effect'
+   !          END IF
 
-            p(i) = p(i)-dp(i)
+   !          p(i) = p(i)-dp(i)
 
-            WRITE(*,*) p(i), dp(i), fombase, fom
+   !          WRITE(*,*) p(i), dp(i), fombase, fom
 
-         END IF
+   !       END IF
 
-      END DO
-      STOP
+   !    END DO
+   !    STOP
 
-   END SUBROUTINE check_parameters_have_an_effect
+   ! END SUBROUTINE check_parameters_have_an_effect
 
    SUBROUTINE set_HMx_parameters(p_in, n, fit, hmod)
 
@@ -2697,7 +2704,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: fields(nf) ! Field types
       INTEGER, INTENT(IN) :: nf         ! Number of fields
       REAL, INTENT(OUT) :: fom          ! Output figure of merit
-      REAL, INTENT(IN) :: k(nk)         ! Array of k values for comparison data
+      REAL, INTENT(IN) :: k(ncos, nk)   ! Array of k values for comparison data
       INTEGER, INTENT(IN) :: nk         ! Number of k values for comparison data
       REAL, INTENT(IN) :: z(nz)         ! Array of z values for comparison data
       INTEGER, INTENT(IN) :: nz         ! Number of z values
@@ -2732,7 +2739,7 @@ CONTAINS
          CALL set_HMx_parameters(p, np, fit, hmod(icos))
 
          IF (ifom == least_squares_lin) THEN
-            CALL calculate_HMcode(k, a, pow_hmcode, nk, na, cosm(icos))
+            CALL calculate_HMcode(k(icos, :), a, pow_hmcode, nk, na, cosm(icos))
          END IF
 
          ! Loop over redshifts
@@ -2743,7 +2750,7 @@ CONTAINS
             CALL print_halomod(hmod(icos), cosm(icos), verbose=.FALSE.)
 
             ! Calculate the halo-model power spectrum
-            CALL calculate_HMx_a(fields, nf, k, nk, &
+            CALL calculate_HMx_a(fields, nf, k(icos, :), nk, &
                                  pow_li(icos, :, iz), &
                                  pow_2h(icos, :, :, :, iz), &
                                  pow_1h(icos, :, :, :, iz), &
@@ -2794,7 +2801,7 @@ CONTAINS
       REAL, INTENT(IN) :: delta                     ! Changed required in figure-of-merit by changing parameter
       INTEGER, INTENT(IN) :: fields(nf)             ! Array of all the fields
       INTEGER, INTENT(IN) :: nf                     ! Total number of fields
-      REAL, INTENT(IN) :: k(nk)                     ! Array of wavenumbers [h/Mpc]
+      REAL, INTENT(IN) :: k(ncos, nk)               ! Array of wavenumbers [h/Mpc]
       INTEGER, INTENT(IN) :: nk                     ! Number of wavenumbers
       REAL, INTENT(IN) :: z(nz)                     ! Array of redshifts
       INTEGER, INTENT(IN) :: nz                     ! Number of redshifts
@@ -2910,7 +2917,7 @@ CONTAINS
 
 !!$             IF(all(dfom==0.)) STOP 'SET_PARAM_SIGMA: Error, changing this parameter does not change power spectra'
 
-               IF (.NOT. within_array(delta, abs(dfom), nm)) THEN
+               IF (.NOT. within_array(delta, abs(dfom))) THEN
                   WRITE (*, *)
                   WRITE (*, *) 'SET_PARAMETER_SIGMA: Parameter:', i
                   WRITE (*, *) 'SET_PARAMETER_SIGMA: Name: ', trim(fit%name(i))
@@ -2932,7 +2939,7 @@ CONTAINS
                   ALLOCATE (dfom_unique(nm), sigmas_unique(nm))
                   dfom_unique = dfom
                   sigmas_unique = sigmas
-                  CALL remove_repeated_two_array_elements(dfom_unique, sigmas_unique, nm, nnm)
+                  CALL remove_repeated_two_array_elements(dfom_unique, sigmas_unique, nnm)
 
                   ! Use find to interpolate to get the sigma that results in the correct dfom
                   fit%sigma(i) = exp(find(log(delta), log(abs(dfom_unique)), log(abs(sigmas_unique)), nnm, &
@@ -3049,62 +3056,64 @@ CONTAINS
 
    END SUBROUTINE Nelder_Mead_init
 
-   FUNCTION Nelder_Mead_centroid(x, n)
+   ! FUNCTION Nelder_Mead_centroid(x, n)
 
-      ! Calculate the centroid of all points except n+1
-      USE statistics
-      IMPLICIT NONE
-      REAL :: Nelder_Mead_centroid(n)
-      REAL, INTENT(IN) :: x(n+1, n)
-      INTEGER, INTENT(IN) :: n
-      INTEGER :: i
+   !    ! Calculate the centroid of all points except n+1
+   !    USE statistics
+   !    IMPLICIT NONE
+   !    REAL :: Nelder_Mead_centroid(n)
+   !    REAL, INTENT(IN) :: x(n+1, n)
+   !    INTEGER, INTENT(IN) :: n
+   !    INTEGER :: i
 
-      DO i = 1, n
-         Nelder_Mead_centroid(i) = mean(x(:, i), n)
-      END DO
+   !    DO i = 1, n
+   !       Nelder_Mead_centroid(i) = mean(x(:, i), n)
+   !    END DO
 
-   END FUNCTION Nelder_Mead_centroid
+   ! END FUNCTION Nelder_Mead_centroid
 
-   SUBROUTINE Nelder_Mead_sort(x, f, n)
+   ! SUBROUTINE Nelder_Mead_sort(x, f, n)
 
-      ! Sort the points into order from best to worst
-      USE sorting
-      IMPLICIT NONE
-      REAL, INTENT(INOUT) :: x(n+1, n)
-      REAL, INTENT(INOUT) :: f(n+1)
-      INTEGER, INTENT(IN) :: n
-      INTEGER :: i, j(n+1)
-      INTEGER, PARAMETER :: isort = isort_bubble
+   !    ! Sort the points into order from best to worst
+   !    USE sorting
+   !    IMPLICIT NONE
+   !    REAL, INTENT(INOUT) :: x(n+1, n)
+   !    REAL, INTENT(INOUT) :: f(n+1)
+   !    INTEGER, INTENT(IN) :: n
+   !    INTEGER :: i, j(n+1)
+   !    INTEGER, PARAMETER :: isort = isort_bubble
 
-      CALL index(f, j, n+1, isort)
-      CALL reindex(f, j, n+1)
-      DO i = 1, n
-         CALL reindex(x(:, i), j, n+1)
-      END DO
+   !    n = size(x, 2)
+   !    IF (n+1 \= size(x, 1) .OR. n+1 \= size(f)) STOP
 
-   END SUBROUTINE Nelder_Mead_sort
+   !    CALL index(f, j, n+1, isort)
+   !    CALL reindex(f, j, n+1)
+   !    DO i = 1, n
+   !       CALL reindex(x(:, i), j, n+1)
+   !    END DO
 
-   LOGICAL FUNCTION Nelder_Mead_termination(f, n, tol)
+   ! END SUBROUTINE Nelder_Mead_sort
 
-      ! Determine if the minimization has converged
-      USE statistics
-      IMPLICIT NONE
-      REAL, INTENT(IN) :: f(n+1)
-      INTEGER, INTENT(IN) :: n
-      REAL, INTENT(IN) :: tol
-      REAL :: sigma
+   ! LOGICAL FUNCTION Nelder_Mead_termination(f, tol)
 
-      ! Calculate the standard deviation of all points
-      sigma = standard_deviation(f, n+1)
+   !    ! Determine if the minimization has converged
+   !    USE statistics
+   !    IMPLICIT NONE
+   !    REAL, INTENT(IN) :: f(:)
+   !    REAL, INTENT(IN) :: tol
+   !    REAL :: sigma
 
-      ! Decide on termination
-      IF (sigma <= tol) THEN
-         Nelder_Mead_termination = .TRUE.
-      ELSE
-         Nelder_Mead_termination = .FALSE.
-      END IF
+   !    ! Calculate the standard deviation of all points
+   !    sigma = standard_deviation(f)
 
-   END FUNCTION Nelder_Mead_termination
+   !    ! Decide on termination
+   !    IF (sigma <= tol) THEN
+   !       Nelder_Mead_termination = .TRUE.
+   !    ELSE
+   !       Nelder_Mead_termination = .FALSE.
+   !    END IF
+
+   ! END FUNCTION Nelder_Mead_termination
 
    SUBROUTINE Nelder_Mead_map_x_to_p(x, nx, p, np, fit)
 

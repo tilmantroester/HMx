@@ -10,7 +10,7 @@ if(print == 1) {set term post enh col font ',8'; set output 'paper/emulator_mean
 print('')
 
 # Function for file path
-file(ihm, zlab) = sprintf('data/emulator_mean_variance_hm%d_z%s.dat', ihm, zlab)
+file(emu, ihm, zlab) = sprintf('data/%s_mean_variance_hm%d_z%s.dat', emu, ihm, zlab)
 
 # Redshift label
 ztitle(z) = sprintf('z = %1.1f', z)
@@ -25,12 +25,12 @@ if(z == 1.0) {zlab = '1p0'}
 if(z == 2.0) {zlab = '2p0'}
 
 # Axis ranges
-rmin = 0.75
-rmax = 1.15
+rmin = 0.65
+rmax = 1.25
 ds = 0.12
 
 # Total number of different comparison plot pairs
-nmode = 5
+nmode = 6
 
 set multiplot layout nmode, 2 margins 0.09, 0.99, 0.07, 0.99 spacing 0.10, 0.02
 
@@ -43,6 +43,7 @@ do for [imode = 1:nmode] {
    if(imode == 3) {nhm = 4}#; dr = 0.50; ds = 0.20}
    if(imode == 4) {nhm = 4}#; dr = 0.50; ds = 0.20}
    if(imode == 5) {nhm = 5}#; dr = 0.30; ds = 0.20}
+   if(imode == 6) {nhm = 5}
    array ihms[nhm]
    array hmlabel[nhm]
    #if (imode == 1){
@@ -56,6 +57,7 @@ do for [imode = 1:nmode] {
    #}
    if (imode == 1){
       # Two-halo terms
+      emu = 'FrankenEmu'
       ihms[1] = 3
       ihms[2] = 72
       ihms[3] = 73
@@ -65,6 +67,7 @@ do for [imode = 1:nmode] {
    }
    if (imode == 2){
       # Mass functions with virial definition
+      emu = 'FrankenEmu'
       ihms[1] = 3
       ihms[2] = 27
       ihms[3] = 91
@@ -78,6 +81,7 @@ do for [imode = 1:nmode] {
    }
    if (imode == 3){
       # Mass functions with non-virial definitions
+      emu = 'FrankenEmu'
       hmlabel[1] = 'Sheth (1999): virial'
       hmlabel[2] = 'Tinker (2010): virial'
       hmlabel[3] = 'Tinker (2010): M_{200}'
@@ -89,6 +93,7 @@ do for [imode = 1:nmode] {
    }
    if (imode == 4){
       # Halo definitions
+      emu = 'FrankenEmu'
       hmlabel[1] = '{/Symbol d}_c: Nakamura (1997); {/Symbol D}_v: Bryan (1998)'
       hmlabel[2] = '{/Symbol d}_c = 1.686; {/Symbol D}_v: Bryan (1998)'
       hmlabel[3] = '{/Symbol d}_c: Mead (2017); {/Symbol D}_v: Bryan (1998)'
@@ -100,6 +105,7 @@ do for [imode = 1:nmode] {
    }
    if (imode == 5){
       # Concentration-mass relations
+      emu = 'FrankenEmu'
       ihms[1] = 3
       ihms[2] = 68
       ihms[3] = 69
@@ -115,6 +121,19 @@ do for [imode = 1:nmode] {
       #hmlabel[5] = 'Child (2018)'
       hmlabel[5] = 'Duffy (2008) with z-dependent Dolag (2004) correction'
    }
+   if (imode == 6){
+   emu = 'MiraTitan_neutrinos'
+   hmlabel[1] = 'Sigma from un-normalised cold'
+   hmlabel[2] = 'Sigma from total matter'
+   hmlabel[3] = 'No correction for halo mass for neutrinos'
+   hmlabel[4] = 'Neutrinos affect halo virial radius'
+   hmlabel[5] = 'Mead (2017) spherical collapse calculation'
+   ihms[1] = 3
+   ihms[2] = 97
+   ihms[3] = 98
+   ihms[4] = 100
+   ihms[5] = 52
+}
 
    # x axis stuff
    rlab = 'Mean deviation'
@@ -135,7 +154,7 @@ do for [imode = 1:nmode] {
    if(imode == 1) {set label ztitle(z) at graph labx, laby}
 
    plot 1 w l lt -1 noti,\
-      for [ihm = 1:nhm] file(ihms[nhm-ihm+1], zlab) u 1:2 w l lw 3 lc nhm-ihm+1 dt 1 noti  
+      for [ihm = 1:nhm] file(emu, ihms[nhm-ihm+1], zlab) u 1:2 w l lw 3 lc nhm-ihm+1 dt 1 noti  
 
    unset label
 
@@ -143,7 +162,7 @@ do for [imode = 1:nmode] {
    set ylabel slab
 
    plot for [ihm = 1:nhm] NaN lc nhm-ihm+1 lw 3 ti ''.hmlabel[nhm-ihm+1].'',\
-      for [ihm = 1:nhm] file(ihms[nhm-ihm+1], zlab) u 1:3 w l lw 3 lc nhm-ihm+1 dt 1 noti
+      for [ihm = 1:nhm] file(emu, ihms[nhm-ihm+1], zlab) u 1:3 w l lw 3 lc nhm-ihm+1 dt 1 noti
 
 }
 

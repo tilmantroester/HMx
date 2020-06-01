@@ -10,7 +10,7 @@ PROGRAM HMx_driver
    USE string_operations
    USE special_functions
    USE basic_operations
-   USE owls
+   USE owls_stuff
    USE owls_extras
    USE interpolate
    USE cosmology_functions
@@ -22,6 +22,7 @@ PROGRAM HMx_driver
    ! Parameter definitions
    CHARACTER(len=256) :: mode, halomodel, cosmo
    INTEGER :: iimode, iicosmo, iihm
+   LOGICAL :: ifail
 
    CALL get_command_argument(1, mode)
    IF (mode == '') THEN
@@ -150,11 +151,14 @@ PROGRAM HMx_driver
       WRITE (*, *) ' 96 - Big Cosmic Emu node comparison'
       WRITE (*, *) ' 97 - Compare HALOFIT (CAMB parameters) HMx vs CAMB'
       WRITE (*, *) ' 98 - Compare HMcode (2020) HMx vs CAMB'
-      WRITE (*, *) ' 99 - PAPER: Emulator mean and variance'
-      WRITE (*, *) '100 - Comparison with M000 of FrankenEmu'
+      WRITE (*, *) ' 99 - PAPER: Emulator mean and variance with Franken Emu'
+      WRITE (*, *) '100 - Comparison with M000 of Franken Emu'
       WRITE (*, *) '101 - HMcode speed tests'
       WRITE (*, *) '102 - Gas power spectra in bound and ejected'
       WRITE (*, *) '103 - Compare HMcode (2016) with neutrino fix HMx vs CAMB'
+      WRITE (*, *) '104 - PAPER: Emulator mean and variance with Mira Titan neutrino nodes'
+      WRITE (*, *) '105 - PAPER: Comparison of HMcode 2020 and regular halo model'
+      WRITE (*, *) '106 - Extended halo model tests'
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -249,16 +253,70 @@ PROGRAM HMx_driver
    ELSE IF (is_in_array(iimode, [94, 95, 96])) THEN
       CALL big_emulator_comparison(iimode)
    ELSE IF (iimode == 99) THEN
-      CALL emulator_mean_variance()
+      CALL emulator_mean_variance(iimode)
    ELSE IF (iimode == 101) THEN
       CALL halomod_speed_tests(iicosmo, iihm)
    ELSE IF (iimode == 102) THEN
       CALL gas_power_spectra(iicosmo, iihm)
+   ELSE IF (iimode == 104) THEN
+      CALL emulator_mean_variance(iimode)
+   ELSE IF (iimode == 105) THEN
+      CALL compare_HMcode_with_halomodel(iicosmo)
+   ELSE IF (iimode == 106) THEN
+      CALL extended_halo_model_tests(ifail)
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
 
 CONTAINS
+
+   SUBROUTINE compare_HMcode_with_halomodel(icosmo)
+
+      IMPLICIT NONE
+      INTEGER, INTENT(INOUT) :: icosmo
+      REAL, ALLOCATABLE :: k(:), a(:)
+      REAL, ALLOCATABLE :: pow_li(:, :), pow_2h(:, :), pow_1h(:, :), pow_hm(:, :)
+      TYPE(cosmology) :: cosm
+      INTEGER :: u, i, ik, ihm
+      CHARACTER(len=256) :: outfile
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: amin = 1.
+      REAL, PARAMETER :: amax = 1.
+      INTEGER, PARAMETER :: na = 1
+      INTEGER, PARAMETER :: HMcode = HMcode2020
+      LOGICAL, PARAMETER :: verbose = .FALSE.
+
+      CALL assign_cosmology(icosmo, cosm, verbose)
+      CALL init_cosmology(cosm)
+
+      CALL fill_array_log(kmin, kmax, k, nk)
+      CALL fill_array(amin, amax, a, na)
+
+      DO i = 1, 2
+
+         IF (i == 1) THEN
+            ihm = 77
+            outfile = 'data/power_halomodel.dat'
+         ELSE IF (i == 2) THEN
+            ihm = HMcode
+            outfile = 'data/power_HMcode.dat'
+         ELSE
+            STOP 'COMPARE_HMCODE_WITH_HALOMODEL: Error, something went wrong'
+         END IF
+
+         CALL calculate_halomod_full(k, a, pow_li, pow_2h, pow_1h, pow_hm, nk, na, cosm, ihm)
+
+         OPEN(newunit=u, file=outfile, status='replace')
+         DO ik = 1, nk
+            WRITE(u, *) k(ik), pow_li(ik, 1), pow_2h(ik, 1), pow_1h(ik, 1), pow_hm(ik, 1)
+         END DO
+         CLOSE(u)
+
+      END DO
+
+   END SUBROUTINE compare_HMcode_with_halomodel
 
    SUBROUTINE gas_power_spectra(icos, ihm)
 
@@ -493,7 +551,7 @@ CONTAINS
       END IF
 
       ! Set the random number generator
-      CALL RNG_set(iseed)  
+      CALL RNG_seed(iseed)  
 
       ! Loop over individual tests
       nfail = 0
@@ -1565,7 +1623,7 @@ CONTAINS
       ! 72 - Random cosmological parameters
 
       ! Set the random number generator
-      CALL RNG_set(iseed_tests)
+      CALL RNG_seed(iseed_tests)
 
       ! Set number of k points and k range (log spaced)
       !nk = 128
@@ -1604,7 +1662,7 @@ CONTAINS
 
       ! Set the cosmological model
       IF (imode == 72) THEN
-         CALL RNG_set(seed=0)
+         CALL RNG_seed(seed=0)
          !icosmo=39 ! 39 - Random cosmology
          icosmo = 40 ! Random CAMB cosmology
       END IF
@@ -3923,6 +3981,105 @@ CONTAINS
 
    END SUBROUTINE halo_model_tests
 
+   SUBROUTINE extended_halo_model_tests(fail)
+
+      IMPLICIT NONE
+      LOGICAL, INTENT(INOUT) :: fail
+      TYPE(cosmology) :: cosm
+      INTEGER :: icosmo, ihm, icosmo_here, ihm_here
+      INTEGER :: ik, ia
+      INTEGER :: u
+      CHARACTER(len=256) :: infile, outfile
+      REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
+      REAL, ALLOCATABLE :: kin(:), Pkin(:, :)
+      INTEGER, PARAMETER :: icosmos(10) = [1, 5, 6, 26, 22, 83, 16, 17, 18, 19]
+      INTEGER, PARAMETER :: ihms(6) = [1, 3, 2, 96, 90, 68]
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 128
+      REAL, PARAMETER :: amin = 0.1
+      REAL, PARAMETER :: amax = 1.0
+      INTEGER, PARAMETER :: na = 10
+      LOGICAL, PARAMETER :: verbose = .FALSE.  
+      LOGICAL, PARAMETER :: write_results = .FALSE. 
+      REAL, PARAMETER :: tol = 1e-3
+
+      fail = .FALSE.
+
+      CALL fill_array_log(kmin, kmax, k, nk)
+      CALL fill_array(amin, amax, a, na)
+
+      DO icosmo = 1, size(icosmos)
+
+         icosmo_here = icosmos(icosmo)
+         CALL assign_cosmology(icosmo_here, cosm, verbose)
+         CALL init_cosmology(cosm)
+
+         DO ihm = 1, size(ihms)
+
+            ihm_here = ihms(ihm)
+            CALL calculate_halomod(k, a, Pk, nk, na, cosm, ihm_here)
+
+            IF (write_results) THEN
+
+               outfile = 'benchmarks/power_cos'//trim(integer_to_string(icosmo_here))//'_hm'//trim(integer_to_string(ihm_here))//'.txt'
+               OPEN(newunit=u, file=outfile, status='replace')
+               DO ik = 1, nk
+                  WRITE(u, *) k(ik), (Pk(ik, ia), ia = 1, na)
+               END DO
+               CLOSE(u)
+
+            ELSE
+
+               infile = 'benchmarks/power_cos'//trim(integer_to_string(icosmo_here))//'_hm'//trim(integer_to_string(ihm_here))//'.txt'
+               ALLOCATE(kin(nk), Pkin(nk, na))
+               OPEN(newunit=u, file=infile, status='old')
+               DO ik = 1, nk
+                  READ(u, *) kin(ik), (Pkin(ik, ia), ia = 1, na)
+               END DO
+               CLOSE(u)
+
+               DO ia = 1, na
+                  DO ik = 1, nk
+                     IF (.NOT. requal(Pk(ik, ia), Pkin(ik, ia), tol)) THEN
+                        fail = .TRUE.
+                        WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Cosmology:', icosmo_here
+                        WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Halo model:', ihm_here
+                        WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Wavenumber [h/Mpc]:', k(ik)
+                        WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Scale factor:', a(ia)
+                        WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Benchmark:', Pkin(ik, ia)
+                        WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Calculation:', Pk(ik, ia)
+                        WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Ratio:', Pk(ik, ia)/Pkin(ik, ia)
+                        STOP 'EXTENDED_HALO_MODEL_TESTS: Failed'
+                        EXIT
+                     END IF
+                  END DO
+               END DO
+
+               IF (.NOT. fail) THEN
+                  WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Cosmology:', icosmo_here
+                  WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Halo model:', ihm_here
+                  WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Test passed'
+                  WRITE(*, *)
+               END IF
+
+               DEALLOCATE(kin, Pkin)
+
+            END IF
+
+         END DO
+
+      END DO
+
+      IF(fail) THEN
+         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Passed'
+         STOP
+      ELSE
+         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Passed'
+      END IF   
+
+   END SUBROUTINE extended_halo_model_tests
+
    SUBROUTINE emulator_comparison(imode, icosmo, ihm)
 
       ! Comparison with FrankenEmu or Mira Titan
@@ -3971,7 +4128,7 @@ CONTAINS
 
       ! Set the random number generator for the random cosmologies
       IF (imode == 30 .OR. imode == 29 .OR. imode == 71) THEN
-         CALL RNG_set(seed=0)
+         CALL RNG_seed(seed=0)
       END IF
 
       ! Allocate arrays
@@ -4087,23 +4244,27 @@ CONTAINS
 
    END SUBROUTINE emulator_comparison
 
-   SUBROUTINE emulator_mean_variance()
+   SUBROUTINE emulator_mean_variance(imode)
 
       USE statistics
       IMPLICIT NONE
+      INTEGER, INTENT(IN) :: imode
       REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
       REAL, ALLOCATABLE :: Pk_hm(:, :, :, :), Pk_emu(:, :, :)
       REAL, ALLOCATABLE :: residual(:)
       INTEGER, ALLOCATABLE :: ihms(:)
       INTEGER :: icos, ik, ia, icosmo, ihm
       INTEGER :: nk, na, ncos, nhm
+      INTEGER :: emulator_version
       CHARACTER(len=256) :: outfile
+      CHARACTER(len=64) :: emulator_name
       CHARACTER(len=32), ALLOCATABLE :: zlab(:)
       TYPE(cosmology) :: cosm
 
-      INTEGER, PARAMETER :: emulator_version = emulator_FrankenEmu
+      !INTEGER, PARAMETER :: emulator_version = emulator_FrankenEmu
       LOGICAL, PARAMETER :: rebin = .TRUE.
       LOGICAL, PARAMETER :: verbose = .FALSE.
+      CHARACTER(len=256), PARAMETER :: outdir = 'data'
       CHARACTER(len=256), PARAMETER :: outbase = 'data/emulator_mean_variance'
 
       ! Set redshifts
@@ -4119,23 +4280,53 @@ CONTAINS
       zlab(4) = '2p0'
 
       ! Set cosmologies
-      ncos = 37
+      IF (imode == 99) THEN
+         ncos = 37
+         emulator_name = 'FrankenEmu'
+         emulator_version = emulator_FrankenEmu
+      ELSE IF (imode == 104) THEN
+         ncos = 36-10
+         emulator_name = 'MiraTitan_neutrinos'
+         emulator_version = emulator_MiraTitan
+      ELSE
+         STOP 'EMULATOR_MEAN_VARIANCE: Error, imode specified incorrectly'
+      END IF
 
       ! Set number of halo models
-      nhm = 23
+      IF (imode == 99) THEN
+         nhm = 23
+      ELSE IF (imode == 104) THEN
+         nhm = 6
+      ELSE
+         STOP 'EMULATOR_MEAN_VARIANCE: Error, imode specified incorrectly'
+      END IF
       ALLOCATE(ihms(nhm))
-      ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80, 87, 88, 90, 91]
+
+      ! Set the halo models
+      IF (imode == 99) THEN
+         ihms = [1, 3, 7, 15, 23, 27, 42, 44, 52, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80, 87, 88, 90, 91]
+      ELSE IF (imode == 104) THEN
+         ihms = [3, 52, 97, 98, 99, 100]
+      ELSE
+         STOP 'EMULATOR_MEAN_VARIANCE: Error, imode specified incorrectly'
+      END IF
       
       ! Loop over cosmologies
       DO icos = 1, ncos
 
          ! Set the cosmology
-         icosmo = 200+icos
+         IF (imode == 99) THEN
+            icosmo = 200+icos
+         ELSE IF (imode == 104) THEN
+            icosmo = 110+icos
+         ELSE
+            STOP 'EMULATOR_MEAN_VARIANCE: Error, imode specified incorrectly'
+         END IF
          CALL assign_cosmology(icosmo, cosm, verbose)
          CALL init_cosmology(cosm)
 
          ! Get emulator power
-         CALL get_emulator_power(k, a, Pk, nk, na, cosm, rebin, emulator_version)
+         CALL get_emulator_power(k, a, Pk, nk, cosm, rebin, emulator_version)
          IF(.NOT. ALLOCATED(Pk_emu)) ALLOCATE(Pk_emu(ncos, nk, na))
          Pk_emu(icos, :, :) = Pk
 
@@ -4157,17 +4348,18 @@ CONTAINS
       ALLOCATE(residual(ncos))
       DO ihm = 1, nhm
          DO ia = 1, na
-            outfile = trim(outbase)//'_hm'//trim(integer_to_string(ihms(ihm)))//'_z'//trim(zlab(ia))//'.dat'
+            !outfile = trim(outbase)//'_hm'//trim(integer_to_string(ihms(ihm)))//'_z'//trim(zlab(ia))//'.dat'
+            outfile = trim(outdir)//'/'//trim(emulator_name)//'_mean_variance_hm'//trim(integer_to_string(ihms(ihm)))//'_z'//trim(zlab(ia))//'.dat'
             OPEN(7, file=outfile)
             DO ik = 1, nk
                residual = Pk_hm(:, ihm, ik, ia)/Pk_emu(:, ik, ia)
-               WRITE(7, *) k(ik), mean(residual, ncos), standard_deviation(residual, ncos)
+               WRITE(7, *) k(ik), mean(residual), standard_deviation(residual)
             END DO
             CLOSE(7)
          END DO
       END DO
    
-   END SUBROUTINE
+   END SUBROUTINE emulator_mean_variance
 
    SUBROUTINE big_emulator_comparison(imode)
 
@@ -4271,7 +4463,7 @@ CONTAINS
          CALL print_cosmology(cosm)
 
          ! Get the emulator power
-         CALL get_emulator_power(k, a, Pk_emu, nk, na, cosm, rebin, emulator_version)
+         CALL get_emulator_power(k, a, Pk_emu, nk, cosm, rebin, emulator_version)
 
          ! Loop over the different comparisons to be made
          DO icomp = 1, ncomp

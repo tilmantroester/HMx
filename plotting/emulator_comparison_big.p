@@ -16,9 +16,10 @@ print('imode = 2: Franken Emu (all)')
 print('imode = 3: Mira Titan (all)')
 print('imode = 4: Mira Titan (all; colour by neutrino mass)')
 print('imode = 5: Cosmic Emu')
-print('imode = 6: Franken Emu')
+print('imode = 6: PAPER: Franken Emu')
 print('imode = 7: Mira Titan')
-print('imode = 8: Mira Titan (colour by neutrino mass)')
+print('imode = 8: Mira Titan (neutrino nodes; colour by neutrino mass)')
+print('imode = 9: PAPER: Mira Titan (all nodes; colour by neutrino mass)')
 print('imode = ', imode)
 print('')
 
@@ -27,6 +28,7 @@ if(imode==1 || imode==5) {emulator = 'CosmicEmu';  icos1=1;  icos2=37}
 if(imode==2 || imode==6) {emulator = 'FrankenEmu'; icos1=1;  icos2=37}
 if(imode==3 || imode==7) {emulator = 'MiraTitan';  icos1=1;  icos2=36}
 if(imode==4 || imode==8) {emulator = 'MiraTitan';  icos1=11; icos2=36}
+if(imode==9) {emulator = 'MiraTitan';  icos1=1; icos2=36}
 
 # Set file if writing to disk
 if(print == 1){
@@ -36,8 +38,9 @@ if(print == 1){
    if(imode == 4) {set output 'plots/MiraTitan_comparison_neutrinos.eps'}
    if(imode == 5) {set output 'plots/CosmicEmu_comparison.eps'}
    if(imode == 6) {set output 'paper/FrankenEmu_comparison.eps'}
-   if(imode == 7) {set output 'paper/MiraTitan_comparison.eps'}
-   if(imode == 8) {set output 'paper/MiraTitan_comparison_neutrinos.eps'}
+   if(imode == 7) {set output 'plots/MiraTitan_comparison.eps'}
+   if(imode == 8) {set output 'plots/MiraTitan_comparison_neutrinos.eps'}
+   if(imode == 9) {set output 'paper/MiraTitan_comparison_neutrinos.eps'}
 }
 
 # Input file name
@@ -82,7 +85,7 @@ set cblabel 'm_{/Symbol n} / eV'
 # Margins
 x1 = 0.09
 if (imode == 1 || imode == 2 || imode == 3 || imode == 5 || imode == 6 || imode == 7) {x2 = 0.99}
-if (imode == 4 || imode == 8) {x2 = 0.91}
+if (imode == 4 || imode == 8 || imode == 9) {x2 = 0.91}
 y1 = 0.07
 y2 = 0.99
 cbsep = 0.01
@@ -90,7 +93,7 @@ cbwid = 0.03
 
 # Number of comparisons
 if(imode == 1 || imode == 2 || imode == 3 || imode == 4) {ncom = 9}
-if(imode == 5 || imode == 6 || imode == 7 || imode == 8) {ncom = 6}
+if(imode == 5 || imode == 6 || imode == 7 || imode == 8 || imode == 9) {ncom = 6}
 
 # Setup multiplot
 set multiplot layout ncom, nz margins x1, x2, y1, y2 spacing 0.0, 0.0
@@ -115,7 +118,7 @@ do for [icom = 1:ncom]{
       if(icom == 8) {comp = 'HALOFIT_Smith';           comp_title = 'Smith et al. (2003)'}
       if(icom == 9) {comp = 'linear';                  comp_title = 'Linear theory'}
    }
-   if(imode == 5 || imode == 6 || imode == 7 || imode == 8) {
+   if(imode == 5 || imode == 6 || imode == 7 || imode == 8 || imode == 9) {
       if(icom == 1) {comp = 'HMcode_2020';       comp_title = 'This paper'}
       if(icom == 2) {comp = 'HMcode_2016';       comp_title = 'Mead et al. (2016)'}
       if(icom == 3) {comp = 'HMcode_2015';       comp_title = 'Mead et al. (2015)'}
@@ -157,7 +160,7 @@ do for [icom = 1:ncom]{
             1.-ddy w l lc -1 dt 2 noti,\
             for [icos = icos1:icos2] file(comp, emulator, icos, zfile) u 1:(column(2)/column(3)) w l lc icos noti
       }
-      if(imode == 4 || imode == 8){
+      if(imode == 4 || imode == 8 || imode == 9){
          plot 1 w l lt -1 noti,\
             1.+ddy w l lc -1 dt 2 noti,\
             1.-ddy w l lc -1 dt 2 noti,\
