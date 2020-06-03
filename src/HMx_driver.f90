@@ -551,7 +551,7 @@ CONTAINS
       END IF
 
       ! Set the random number generator
-      CALL RNG_seed(iseed)  
+      CALL random_generator_seed(iseed)
 
       ! Loop over individual tests
       nfail = 0
@@ -1623,7 +1623,7 @@ CONTAINS
       ! 72 - Random cosmological parameters
 
       ! Set the random number generator
-      CALL RNG_seed(iseed_tests)
+      CALL random_generator_seed(iseed_tests)
 
       ! Set number of k points and k range (log spaced)
       !nk = 128
@@ -1662,7 +1662,7 @@ CONTAINS
 
       ! Set the cosmological model
       IF (imode == 72) THEN
-         CALL RNG_seed(seed=0)
+         CALL random_generator_seed(seed=0)
          !icosmo=39 ! 39 - Random cosmology
          icosmo = 40 ! Random CAMB cosmology
       END IF
@@ -4072,10 +4072,10 @@ CONTAINS
       END DO
 
       IF(fail) THEN
-         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Passed'
+         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Failed'
          STOP
       ELSE
-         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Passed'
+         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Passed (should take ~18s)'
       END IF   
 
    END SUBROUTINE extended_halo_model_tests
@@ -4128,7 +4128,7 @@ CONTAINS
 
       ! Set the random number generator for the random cosmologies
       IF (imode == 30 .OR. imode == 29 .OR. imode == 71) THEN
-         CALL RNG_seed(seed=0)
+         CALL random_generator_seed(seed=0)
       END IF
 
       ! Allocate arrays
