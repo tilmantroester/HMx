@@ -11,7 +11,7 @@ set xlabel 'Number of redshifts'
 set log y
 set ylabel 'Runtime [s]'
 
-set yrange [tmin:tmax]
+#set yrange [tmin:tmax]
 
 # Rough model
 t_cos = 0.05

@@ -361,8 +361,9 @@ CONTAINS
       INTEGER, INTENT(INOUT) :: icos
       INTEGER, INTENT(INOUT) :: ihm
       REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
-      REAL :: t1, t2, t
+      REAL :: t1, t2, t3, tt, th, tc
       INTEGER :: ia, na
+      INTEGER :: unit
       TYPE(cosmology) :: cosm
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
@@ -372,14 +373,13 @@ CONTAINS
       INTEGER, PARAMETER :: naa = 7
       INTEGER, PARAMETER :: version = HMcode2016
       LOGICAL, PARAMETER :: verbose = .FALSE.
-      INTEGER, PARAMETER :: unit = 7
       CHARACTER(len=256), PARAMETER :: outfile = 'data/halomod_timing.dat'
 
       ! Fill arrays for k
       CALL fill_array(kmin, kmax, k, nk)
 
       ! Loop over different number of a required
-      OPEN(unit, file=outfile)
+      OPEN(newunit=unit, file=outfile)
       DO ia = 0, naa
 
          ! Number of a at this point in the loop
@@ -397,16 +397,19 @@ CONTAINS
          CALL cpu_time(t1)
 
          ! Assign cosmology and do the HMcode calculation
-         !CALL assign_cosmology(icos, cosm, verbose)
-         !CALL init_cosmology(cosm)
          CALL assign_init_cosmology(icos, cosm, verbose)
+
+         CALL cpu_time(t2)
+
          CALL calculate_halomod(k, a, Pk, nk, na, cosm, ihm)
 
          ! Get the final time
-         CALL cpu_time(t2)
+         CALL cpu_time(t3)
 
          ! Total time for calculation
-         t = t2-t1
+         tt = t3-t1
+         tc = t2-t1
+         th = t3-t2
 
          ! Write to screen
          WRITE(*, *) 'HALOMOD_SPEED_TESTS: kmin [h/Mpc]:', kmin
@@ -415,11 +418,13 @@ CONTAINS
          WRITE(*, *) 'HALOMOD_SPEED_TESTS: amin:', amin
          WRITE(*, *) 'HALOMOD_SPEED_TESTS: amax:', amax
          WRITE(*, *) 'HALOMOD_SPEED_TESTS: na:', na
-         WRITE(*, *) 'HALOMOD_SPEED_TESTS: Total time [s]:', t
+         !WRITE(*, *) 'HALOMOD_SPEED_TESTS: Cosmology time [s]:', tc
+         !WRITE(*, *) 'HALOMOD_SPEED_TESTS: Halo model time [s]:', th
+         WRITE(*, *) 'HALOMOD_SPEED_TESTS: Total time [s]:', tt
          WRITE(*, *)
 
          ! Write to file
-         WRITE(unit, *) na, t
+         WRITE(unit, *) na, tt
 
       END DO
       CLOSE(unit)
