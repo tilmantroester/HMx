@@ -134,8 +134,10 @@ if(imode == 1 || imode == 2 || imode >= 4){
    set multiplot layout nz,2 margins x1, x2, y1, y2 spacing 0.0, 0.0
 
    # Colour bar
-   set colorbox vertical user origin x2+cbsep, y1 size cbwid, y2-y1
-   set cblabel cblab
+   if(imode >= 4){
+      set colorbox vertical user origin x2+cbsep, y1 size cbwid, y2-y1
+      set cblabel cblab
+      }
 
    # Loop over redshifts
    j = 1 # TODO: Fudge because this script winges about undefined j values sometimes

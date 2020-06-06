@@ -51,7 +51,7 @@ PROGRAM HMx_fitting
    LOGICAL, PARAMETER :: response_default = .TRUE.    ! Should I treat the BAHAMAS P(k) as HMcode response?
    LOGICAL, PARAMETER :: realisation_errors= .TRUE.   ! Do we use the errors from the individual simulations or across realisations?
    LOGICAL, PARAMETER :: weight_by_errors = .FALSE.   ! Do we weight by the inverse of the errors?
-   LOGICAL, PARAMETER :: default_parameters = .TRUE. ! Set varied paramters to default values from hmod structure
+   LOGICAL, PARAMETER :: default_parameters = .FALSE. ! Set varied paramters to default values from hmod structure
    CHARACTER(len=256), PARAMETER :: powbase_default = 'fitting/test' ! Default output file base
 
    ! Fitting method
@@ -177,7 +177,8 @@ CONTAINS
       END IF
 
       ! Set the random-number generator
-      CALL RNG_set(random_seed)
+      !CALL RNG_set(random_seed)
+      CALL random_generator_seed(random_seed)
 
       ! Initial white space
       WRITE (*, *)
@@ -2337,6 +2338,9 @@ CONTAINS
          ! 41 - extended z; final parameters; CDM
          fit%set(param_eps) = .TRUE.
          fit%set(param_epsz) = .TRUE.
+         fit%set(param_eps2) = .TRUE.
+         fit%set(param_eps2z) = .TRUE.
+         !fit%set(param_M0) = .TRUE.
       ELSE IF (im == 32) THEN
          ! 32 - fixed z; basic parameters; gas
          fit%set(param_eps) = .TRUE.

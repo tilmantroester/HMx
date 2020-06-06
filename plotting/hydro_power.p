@@ -278,7 +278,7 @@ if(iplot==0){
 
 if(print==1){
 outfile=sprintf('paper/power_components.eps')
-set term post enh col sol font ',14' size 8,8
+set term post enh col sol font ',16' size 8,8
 set output outfile
 print 'Outfile: ', outfile
 print ''
@@ -330,7 +330,7 @@ z=0
 
 unset title
 
-set key at screen 0.55,0.96
+set key at screen 0.55,0.96 font ',14'
 
 set label 'z = 0.0' at screen 0.85,0.15
 plot NaN w l lw 5 dt 1 lc -1 ti 'Halo model',\

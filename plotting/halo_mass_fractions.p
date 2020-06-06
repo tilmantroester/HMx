@@ -6,7 +6,7 @@ cmsy='/Users/Mead/Fonts/cmsy10.pfb'
 # Output options
 if(!exists('print')){print=0}
 if(print==0){set term qt dashed font ',16'; sun='sun'; width=3}
-if(print==1){set term post enh col font ',16' fontfile cmsy; set output 'paper/halo_mass_fractions.eps'; sun='{/cmsy10 \014}'; width=6}
+if(print==1){set term post enh col font ',20' fontfile cmsy; set output 'paper/halo_mass_fractions.eps'; sun='{/cmsy10 \014}'; width=6}
 
 # File to plot
 file='data/mass_fractions.dat'
@@ -33,7 +33,7 @@ set yrange [rmin:rmax]
 set format y
 
 #set key outside left box
-set key top left box opaque
+set key top left box opaque font ',15'
 
 # Cosmological paarameters taken from WMAP9
 om_b=0.0463

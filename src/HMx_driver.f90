@@ -3733,7 +3733,7 @@ CONTAINS
       LOGICAL, PARAMETER :: verbose = .TRUE.
       INTEGER, PARAMETER :: nx = 3 ! Number of tests
       REAL, PARAMETER :: tolerance = 3e-3
-      LOGICAL :: ifail = .FALSE. ! Initially assume tests pass
+      LOGICAL :: fail = .FALSE. ! Initially assume tests pass
 
       ALLOCATE (ixx(nx))
       ixx(1) = tracer_RCSLenS
@@ -3792,7 +3792,7 @@ CONTAINS
                   WRITE (*, *) 'HMx_DRIVER: Calculated C(l):', Cl(i, ii, jj)
                   WRITE (*, *) 'HMx_DRIVER: Error:', error
                   WRITE (*, *)
-                  ifail = .TRUE.
+                  fail = .TRUE.
                END IF
             END DO
 
@@ -3800,7 +3800,7 @@ CONTAINS
       END DO
 
       WRITE (*, *) 'HMx_DRIVER: Limber tests should take ~18s to run'
-      IF (ifail) THEN
+      IF (fail) THEN
          WRITE (*, *) 'HMx_DRIVER: Limber tests failed'
       ELSE
          WRITE (*, *) 'HMx_DRIVER: Limber tests passed'
@@ -3873,13 +3873,12 @@ CONTAINS
       CHARACTER(len=1) :: crap
       CHARACTER(len=256) :: base, infile
       TYPE(cosmology) :: cosm
-      !TYPE(halomod) :: hmod
 
       REAL, PARAMETER :: kmin_test = 1e-3
       REAL, PARAMETER :: kmax_test = 1e2
       REAL, PARAMETER :: tolerance = 3e-3
       INTEGER, PARAMETER :: field(1) = field_dmonly
-      LOGICAL :: ifail = .FALSE.
+      LOGICAL :: fail = .FALSE.
       LOGICAL, PARAMETER :: verbose = .FALSE.
 
       ! Loop over different tests
@@ -3930,9 +3929,6 @@ CONTAINS
          CALL print_cosmology(cosm)
 
          ! Assign the halo model
-         !CALL assign_halomod(ihm, hmod, verbose)
-         !field = field_dmonly
-         !CALL calculate_HMx(field, 1, k, nk, a, na, pows_li, pows_2h, pows_1h, pows_hm, hmod, cosm, verbose)
          CALL calculate_halomod_full(k, a, pow_li, pow_2h, pow_1h, pow_hm, nk, na, cosm, ihm)
 
          ! Loop over k and a
@@ -3951,7 +3947,7 @@ CONTAINS
                      WRITE (*, *) 'HMx_DRIVER: Tolerance:', tolerance
                      WRITE (*, *) 'HMx_DRIVER: Error:', error
                      WRITE (*, *)
-                     ifail = .TRUE.
+                     fail = .TRUE.
                   END IF
                END IF
             END DO
@@ -3971,7 +3967,7 @@ CONTAINS
 
       END DO
 
-      IF (ifail) THEN
+      IF (fail) THEN
          STOP 'HMx_DRIVER: Error, tests failed'
       ELSE
          WRITE (*, *) 'HMx_DRIVER: Tests should take around 0.50 seconds to run'
@@ -3989,11 +3985,11 @@ CONTAINS
       INTEGER :: icosmo, ihm, icosmo_here, ihm_here
       INTEGER :: ik, ia
       INTEGER :: u
-      CHARACTER(len=256) :: infile, outfile
+      CHARACTER(len=256) :: testfile
       REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
       REAL, ALLOCATABLE :: kin(:), Pkin(:, :)
-      INTEGER, PARAMETER :: icosmos(10) = [1, 5, 6, 26, 22, 83, 16, 17, 18, 19]
-      INTEGER, PARAMETER :: ihms(6) = [1, 3, 2, 96, 90, 68]
+      INTEGER, PARAMETER :: icosmos(10) = [1, 83, 5, 6, 26, 22, 16, 17, 18, 19]
+      INTEGER, PARAMETER :: ihms(7) = [1, 3, 2, 96, 90, 68, 52]
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
@@ -4012,18 +4008,21 @@ CONTAINS
       DO icosmo = 1, size(icosmos)
 
          icosmo_here = icosmos(icosmo)
+         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Cosmology', icosmo_here
          CALL assign_cosmology(icosmo_here, cosm, verbose)
          CALL init_cosmology(cosm)
 
          DO ihm = 1, size(ihms)
 
             ihm_here = ihms(ihm)
+            WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Halo model:', ihm_here
             CALL calculate_halomod(k, a, Pk, nk, na, cosm, ihm_here)
+
+            testfile = 'benchmarks/power_cos'//trim(integer_to_string(icosmo_here))//'_hm'//trim(integer_to_string(ihm_here))//'.txt'
 
             IF (write_results) THEN
 
-               outfile = 'benchmarks/power_cos'//trim(integer_to_string(icosmo_here))//'_hm'//trim(integer_to_string(ihm_here))//'.txt'
-               OPEN(newunit=u, file=outfile, status='replace')
+               OPEN(newunit=u, file=testfile, status='new')
                DO ik = 1, nk
                   WRITE(u, *) k(ik), (Pk(ik, ia), ia = 1, na)
                END DO
@@ -4031,9 +4030,8 @@ CONTAINS
 
             ELSE
 
-               infile = 'benchmarks/power_cos'//trim(integer_to_string(icosmo_here))//'_hm'//trim(integer_to_string(ihm_here))//'.txt'
                ALLOCATE(kin(nk), Pkin(nk, na))
-               OPEN(newunit=u, file=infile, status='old')
+               OPEN(newunit=u, file=testfile, status='old')
                DO ik = 1, nk
                   READ(u, *) kin(ik), (Pkin(ik, ia), ia = 1, na)
                END DO
@@ -4056,18 +4054,16 @@ CONTAINS
                   END DO
                END DO
 
-               IF (.NOT. fail) THEN
-                  WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Cosmology:', icosmo_here
-                  WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Halo model:', ihm_here
-                  WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Test passed'
-                  WRITE(*, *)
-               END IF
-
                DEALLOCATE(kin, Pkin)
 
             END IF
 
          END DO
+
+         IF ((.NOT. write_results) .AND. (.NOT. fail)) THEN
+            WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Test passed'
+            WRITE(*, *)
+         END IF
 
       END DO
 
@@ -4075,7 +4071,7 @@ CONTAINS
          WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Failed'
          STOP
       ELSE
-         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Passed (should take ~18s)'
+         WRITE(*, *) 'EXTENDED_HALO_MODEL_TESTS: Passed (should take ~14s)'
       END IF   
 
    END SUBROUTINE extended_halo_model_tests
@@ -4810,7 +4806,7 @@ CONTAINS
       REAL, PARAMETER :: tolerance = 3e-3
       INTEGER, PARAMETER :: nf = 5 ! Number of fields
       INTEGER, PARAMETER :: na = 4 ! Number of redshifts
-      LOGICAL :: ifail = .FALSE.
+      LOGICAL :: fail = .FALSE.
       LOGICAL, PARAMETER :: verbose = .TRUE.
 
       ! Assigns the cosmological model
@@ -4946,7 +4942,7 @@ CONTAINS
                         WRITE (*, *) 'HMx_DRIVER: Error:', error
                         WRITE (*, *)
                         verbose_tests = .FALSE.
-                        ifail = .TRUE.
+                        fail = .TRUE.
                      END IF
                      
                   END IF
@@ -4966,7 +4962,7 @@ CONTAINS
       END DO
 
       ! Write pass/fail information to the screen
-      IF (ifail) THEN
+      IF (fail) THEN
          WRITE (*, *) 'HMx_DRIVER: Hydro tests failed'
       ELSE
          WRITE (*, *) 'HMx_DRIVER: Hydro tests should take around 2.16 seconds to run'
@@ -5387,7 +5383,7 @@ CONTAINS
       OPEN (7, file=outfile)
       DO i = 1, n
          c = progression(cmin, cmax, i, n)
-         WRITE (7, *) c, lognormal(c, cbar, hmod%dlnc)
+         WRITE (7, *) c, lognormal_distribution(c, cbar, hmod%dlnc)
       END DO
       CLOSE (7)
 
