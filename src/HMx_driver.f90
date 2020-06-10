@@ -3993,8 +3993,8 @@ CONTAINS
       CHARACTER(len=256) :: testfile
       REAL, ALLOCATABLE :: k(:), a(:), Pk(:, :)
       REAL, ALLOCATABLE :: kin(:), Pkin(:, :)
-      INTEGER, PARAMETER :: icosmos(10) = [1, 83, 5, 6, 26, 22, 16, 17, 18, 19]
-      INTEGER, PARAMETER :: ihms(7) = [1, 3, 2, 96, 90, 68, 52]
+      INTEGER, PARAMETER :: icosmos(10) = [1, 26, 83, 5, 6, 22, 16, 17, 18, 19]
+      INTEGER, PARAMETER :: ihms(8) = [1, 3, 2, 96, 90, 68, 52, 73]
       REAL, PARAMETER :: kmin = 1e-3
       REAL, PARAMETER :: kmax = 1e2
       INTEGER, PARAMETER :: nk = 128
@@ -4378,9 +4378,6 @@ CONTAINS
       REAL, PARAMETER :: m_nu_min = 0.00 ! Minimum neutrino mass [eV]
       REAL, PARAMETER :: m_nu_max = 0.94 ! Maximum neutrino mass [eV]
       LOGICAL, PARAMETER :: verbose = .TRUE.
-      ! CHARACTER(len=256), PARAMETER :: base = 'data/cosmo'
-      ! CHARACTER(len=256), PARAMETER :: mid = '_z'
-      ! CHARACTER(len=256), PARAMETER :: ext = '.dat'
       LOGICAL, PARAMETER :: rebin = .FALSE.
       INTEGER, PARAMETER :: ihf = halofit_CAMB
       INTEGER, PARAMETER :: ncomp = 11
