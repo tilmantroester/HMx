@@ -18,7 +18,7 @@ if __name__ == "__main__":
     hmx = pyhmx.HMx()
     camb.set_feedback_level(4)
 
-    # Cosmological parameters for CAMV
+    # Cosmological parameters for CAMB
     h = 0.7
     omc = 0.25
     omb = 0.048
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     As = 2.1e-9
 
     z_max = 3.0
-    n_z = 32
+    n_z = 128
 
     k_max = 20.0
 
@@ -42,6 +42,7 @@ if __name__ == "__main__":
                         WantCls=False, 
                         Want_CMB_lensing=False, 
                         DoLensing=False,
+                        NonLinearModel=None,
                         )
     p.set_cosmology(H0=h*100, omch2=omc*h**2, ombh2=omb*h**2, mnu=mnu)
     p.set_dark_energy(w=w, wa=wa)

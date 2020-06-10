@@ -1,7 +1,7 @@
 module HMx_wrapper
     use iso_c_binding,  only : c_int, c_double, c_float, c_bool, c_loc, c_ptr, c_f_pointer
     use array_operations, only: is_in_array
-    use HMx, only: calculate_HMx, halomod, assign_halomod, init_halomod, &
+    use HMx, only: calculate_HMx, calculate_HMx_old, halomod, assign_halomod, init_halomod, &
                    HMCode2016, HMCode2016_CAMB, HMCode2020, &
                    HMx2020_matter_with_temperature_scaling, HMx2020_matter_pressure_with_temperature_scaling, &
                    field_dmonly, field_matter, field_cdm, field_gas, field_stars, field_electron_pressure
@@ -181,7 +181,7 @@ module HMx_wrapper
             end if
         
 
-            call calculate_HMx(ifield, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, LOGICAL(verbose))
+            call calculate_HMx_old(ifield, nf, k, nk, a, na, pow_li, pow_2h, pow_1h, pow_hm, hmod, cosm, LOGICAL(verbose))
 
             forall (i=1:nk_pk) pk_hmx(:,:,i,:) = pow_hm(:,:,i,:)/(k(i)**3/(2*pi**2))
 

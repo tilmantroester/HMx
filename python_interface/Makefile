@@ -18,12 +18,12 @@ INCLUDE_DIR = include
 DEBUG_BUILD_DIR = debug_build
 
 ifneq (${FC},gfortran)
-FFLAGS = -fpic -fpp -qopenmp -fp-model precise -W0 -WB -O3 -ipo -axCORE-AVX2 -fdefault-real-8 -ffpe-trap=invalid,zero,overflow
+FFLAGS = -fpic -fpp -qopenmp -fp-model precise -W0 -WB -O3 -ipo -axCORE-AVX2 -fdefault-real-8 -fdefault-double-8 -ffpe-trap=invalid,zero,overflow
 DEBUGFLAGS = -fpp -qopenmp -g -check all -check noarg_temp_created -traceback -fpe0
 MODOUT = -module $(INCLUDE_DIR)
 DEBUG_MODOUT = -module $(INCLUDE_DIR)
 else
-FFLAGS =  -fPIC -cpp -fopenmp -O3 -ffree-line-length-none -std=gnu -fdefault-real-8
+FFLAGS =  -fPIC -cpp -fopenmp -O3 -ffree-line-length-none -std=gnu -fdefault-real-8 -fdefault-double-8
 DEBUGFLAGS = -g -O0 -fcheck=all -fbacktrace -cpp -fdec -fopenmp -ffree-line-length-none -Wall -fbounds-check -ffpe-trap=invalid,zero,overflow
 #add -fpe0 to check for floating point errors (think lowLike also throws these harmlessly)
 MODOUT = -J$(INCLUDE_DIR)
@@ -32,21 +32,23 @@ endif
 
 # Objects
 _OBJ = \
+	precision.o \
 	constants.o \
 	physics.o \
 	sorting.o \
-	fix_polynomial.o \
 	basic_operations.o \
+	special_functions.o \
 	array_operations.o \
 	file_info.o \
 	random_numbers.o \
 	table_integer.o \
-	special_functions.o \
 	interpolate.o \
 	solve_equations.o \
 	string_operations.o \
 	calculus_table.o \
 	statistics.o \
+	calculus.o \
+	minimization.o \
 	camb_stuff.o \
 	cosmology_functions.o \
 	hmx.o \

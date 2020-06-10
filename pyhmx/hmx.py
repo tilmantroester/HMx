@@ -56,7 +56,8 @@ class HMx:
                 pk_lin=None):
         cosmology = cosmology or {}
         halo_model = halo_model or {}
-        fields = fields or np.array([constants.field_matter])
+        fields = fields or [constants.field_matter]
+        fields = np.array(fields)
 
         pofk = self._run_hmx(cosmology.get("Omega_m"), cosmology.get("Omega_b"), cosmology.get("Omega_v"), 
                              cosmology.get("h"), cosmology.get("n_s"), cosmology.get("sigma_8"), 
@@ -96,7 +97,7 @@ class HMx:
                       ct.POINTER(ct.c_double),     # Theat
                       ct.POINTER(ct.c_double),     # eta0
                       ct.POINTER(ct.c_double),     # As
-                      *_array_ctype(ndim=1, dtype=np.int), # fields
+                      *_array_ctype(ndim=1, dtype=np.int32), # fields
                       *_array_ctype(ndim=1, dtype=np.float64), # k
                       *_array_ctype(ndim=1, dtype=np.float64), # a
                       *_array_ctype(ndim=2, dtype=np.float64), # Pk_lin
@@ -120,7 +121,7 @@ class HMx:
         status = f(ct.c_double(omm), ct.c_double(omb), ct.c_double(omv), ct.c_double(mnu), 
           ct.c_double(h), ct.c_double(ns), ct.c_double(sigma8), ct.c_double(w), ct.c_double(wa),
           ct.c_int(halo_model_mode), ct.c_double(Theat), ct.c_double(eta0), ct.c_double(As),
-          *_array_arg(fields),
+          *_array_arg(np.ascontiguousarray(fields, dtype=np.int32)),
           *_array_arg(np.ascontiguousarray(k, dtype=np.float64)),
           *_array_arg(np.ascontiguousarray(a[::-1], dtype=np.float64)),      # Reverse order for HMx
           *_array_arg(np.asfortranarray(pk_lin[::-1].T, dtype=np.float64)),  # Reverse order and transpose to (k, z) for HMx
