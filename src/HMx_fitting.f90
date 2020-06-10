@@ -24,10 +24,11 @@ PROGRAM HMx_fitting
       INTEGER :: n                               ! Total number of parameters
    END TYPE fitting
 
-   INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
+   INTEGER, PARAMETER :: n_reval = huge(n_reval) ! Re-evaluate range every 'm' points
+   !INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
    !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
    INTEGER, PARAMETER :: random_seed = 0        ! Random-number seed
-   LOGICAL, PARAMETER :: random_start = .FALSE.  ! Start from a random point within the prior range
+   LOGICAL, PARAMETER :: random_start = .TRUE.  ! Start from a random point within the prior range
    LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
    INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
    LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
@@ -64,10 +65,6 @@ PROGRAM HMx_fitting
    INTEGER, PARAMETER :: least_squares_lin = 2
    INTEGER, PARAMETER :: max_error = 3 ! TODO: Implement this maybe
    INTEGER, PARAMETER :: ifom = least_squares_log
-
-   IF (random_start .AND. default_parameters) THEN
-      STOP 'HMx_FITTING: Both random start and default_halomode_parameters are set to TRUE'
-   END IF
 
    CALL HMx_fitting_main()
 
@@ -176,6 +173,10 @@ CONTAINS
          STOP 'HMx_FITTING: It is strange to do more than one chain without doing a random start'
       END IF
 
+      IF (random_start .AND. default_parameters) THEN
+         STOP 'HMx_FITTING: Both random start and default_parameters are set to TRUE'
+      END IF
+
       ! Set the random-number generator
       !CALL RNG_set(random_seed)
       CALL random_generator_seed(random_seed)
@@ -245,7 +246,8 @@ CONTAINS
 
       ! Call the fitting
       CALL fitting_multiple(delta, tmax, lchain, &
-               k, nk, z, nz, fields, nfields, fom, weight, pow, fit, hmod, cosm, ncos, powbase, paramsfile, hydro, nchain)
+               k, nk, z, nz, fields, nfields, fom, weight, pow, fit, hmod, cosm, &
+               ncos, powbase, paramsfile, hydro, nchain)
 
    END SUBROUTINE HMx_fitting_main
 
@@ -447,7 +449,7 @@ CONTAINS
       ! Do the chain
       DO l = 1, nchain+1
 
-         IF (l == 1 .OR. mod(l, m) == 0) THEN
+         IF (l == 1 .OR. mod(l, n_reval) == 0) THEN
             IF (l == 1) THEN
                verbose = .TRUE.
             ELSE
@@ -632,7 +634,7 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN) :: powbase      ! Base for output files
       CHARACTER(len=*), INTENT(IN) :: paramsfile   ! Output parameter file
       LOGICAL, INTENT(IN) :: hydro                 ! Is this a hydrodynamic run or not?
-      INTEGER, INTENT(IN) :: m                     ! What the fuck is this?
+      INTEGER, INTENT(IN) :: m                     ! Number of chains
       INTEGER :: i, j, unit_number
       REAL :: fombest
       CHARACTER(len=256) :: reason, reasonbest
@@ -740,7 +742,7 @@ CONTAINS
       REAL :: t1, t2
 
       ! Parameters
-      INTEGER, PARAMETER :: isort_Nelder_Mead = isort_bubble
+      !INTEGER, PARAMETER :: isort_Nelder_Mead = isort_bubble
       REAL, PARAMETER :: alpha = 1.  ! Reflection coefficient (alpha > 0; standard alpha = 1)
       REAL, PARAMETER :: gamma = 2.  ! Expansion coefficient (gamma > 1; standard gamma = 2)
       REAL, PARAMETER :: rhoma = 0.5 ! Contraction coefficient (0 < rho < 0.5; standard rho = 0.5)
@@ -920,7 +922,7 @@ CONTAINS
       END IF
       fit%sigma(param_eps) = 0.05
       fit%minimum(param_eps) = -0.99
-      fit%maximum(param_eps) = 1.
+      fit%maximum(param_eps) = 2.
       fit%log(param_eps) = .FALSE.
 
       fit%name(param_eps2) = 'epsilon2'
@@ -931,7 +933,7 @@ CONTAINS
       END IF
       fit%sigma(param_eps2) = 0.05
       fit%minimum(param_eps2) = -0.99
-      fit%maximum(param_eps2) = 1.
+      fit%maximum(param_eps2) = 2.
       fit%log(param_eps2) = .FALSE.
 
       ! NOTE: This parameter is Gamma-1, not regular Gamma
@@ -1193,8 +1195,8 @@ CONTAINS
          fit%original(param_epsz) = 0.0
       END IF
       fit%sigma(param_epsz) = 0.01
-      fit%minimum(param_epsz) = -0.2
-      fit%maximum(param_epsz) = 0.2
+      fit%minimum(param_epsz) = -3.
+      fit%maximum(param_epsz) = 3.
       fit%log(param_epsz) = .FALSE.
 
       fit%name(param_eps2z) = 'eps2_z_pow'
@@ -1571,7 +1573,7 @@ CONTAINS
       IF (default_parameters) THEN
          fit%original(param_HMcode_nbar) = hmod%nbar
       ELSE
-         fit%original(param_HMcode_nbar) = 1.
+         fit%original(param_HMcode_nbar) = 2.
       END IF
       fit%sigma(param_HMcode_nbar) = 0.01
       fit%minimum(param_HMcode_nbar) = 0.1
@@ -2300,7 +2302,7 @@ CONTAINS
          ! HMcode (2020)
          ! 14 - Cosmic Emu M000
          ! 15 - Franken Emu nodes
-         ! 16 - Cosmice Emu nodes
+         ! 16 - Cosmic Emu nodes
          fit%set(param_HMcode_kstar) = .TRUE.  
          fit%set(param_HMcode_kp) = .TRUE. 
          fit%set(param_HMcode_f0) = .TRUE.
@@ -2314,15 +2316,15 @@ CONTAINS
          fit%set(param_HMcode_Ac) = .TRUE.
          fit%set(param_HMcode_eta0) = .TRUE.
          fit%set(param_HMcode_eta1) = .TRUE.
-         !fit%set(param_HMcode_STp) = .TRUE.
-         !fit%set(param_HMcode_STq) = .TRUE.
+         fit%set(param_HMcode_STp) = .TRUE.
+         fit%set(param_HMcode_STq) = .TRUE.
          fit%set(param_HMcode_Amf) = .TRUE.
          fit%set(param_HMcode_dcnu) = .TRUE.
          fit%set(param_HMcode_Dvnu) = .TRUE.
       ELSE IF (im == 5) THEN
          ! HMcode baryon model
          fit%set(param_HMcode_mbar) = .TRUE.
-         fit%set(param_HMcode_nbar) = .TRUE.
+         !fit%set(param_HMcode_nbar) = .TRUE.
          fit%set(param_HMcode_Amf) = .TRUE.
          fit%set(param_HMcode_sbar) = .TRUE.
       ELSE IF (im == 26) THEN
@@ -2819,7 +2821,7 @@ CONTAINS
       REAL, ALLOCATABLE :: multis(:), sigmas(:), dfom(:)
       REAL, ALLOCATABLE :: sigmas_unique(:), dfom_unique(:)
       INTEGER :: i, j, nv, nnm
-      REAL :: fom_base, fom_diff, fom, pow(np, nf, nf, nk, nz), dp
+      REAL :: fom_base, fom_diff, fom, pow(np, nf, nf, nk, nz), ddp
       REAL :: p_perturbed(np)
       REAL :: original, perturbed, sigma, ratio
       REAL, ALLOCATABLE :: perturbation(:, :)
@@ -2882,8 +2884,8 @@ CONTAINS
                sigmas = 0.
                dfom = 0.
                !sigmas=multis*fit%sigma(i)
-               dp = fit%maximum(i)-p_original(i)
-               sigmas = multis*dp
+               ddp = fit%maximum(i)-p_original(i)
+               sigmas = multis*ddp
 
                ! Loop over number of attempts to find the correct jump
                DO j = 1, nm
