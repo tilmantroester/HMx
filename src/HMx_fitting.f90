@@ -82,7 +82,6 @@ CONTAINS
       TYPE(fitting) :: fit
       TYPE(halomod), ALLOCATABLE :: hmod(:)
       TYPE(cosmology), ALLOCATABLE :: cosm(:)
-      !CHARACTER(len=256) :: name, mode, zin, powbase, length, maxtime, accuracy, response, paramsfile
       CHARACTER(len=256) ::  name, paramsfile, powbase, zin
       REAL :: delta
       REAL :: tmax
@@ -101,7 +100,7 @@ CONTAINS
          WRITE (*, *) ' 3 - HMcode (2016): Random Mira Titan cosmologies'
          WRITE (*, *) ' 4 - HMcode (2016): Random Franken Emu cosmologies'
          WRITE (*, *) ' 5 - HMcode (2016): Single z; BAHAMAS baryon models'
-         WRITE (*, *) ' 6 - '
+         WRITE (*, *) ' 6 - HMcode (2020): Single z; BAHAMAS baryon models'
          WRITE (*, *) ' 7 - '
          WRITE (*, *) ' 8 - '
          WRITE (*, *) ' 9 - '
@@ -185,7 +184,7 @@ CONTAINS
       WRITE (*, *)
 
       ! Is this fitting hydro or not
-      IF(is_in_array(imode, [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
+      IF(is_in_array(imode, [1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          ! HMcode
          hydro = .FALSE.
       ELSE
@@ -227,7 +226,7 @@ CONTAINS
 
       ! Horrible fudge to read BAHAMAS matter-matter above and then calculate DMONLY below
       ! TODO: Undo this fudge
-      IF(imode == 5) fields = field_dmonly
+      IF(imode == 5 .OR. imode == 6) fields = field_dmonly
 
       ! Set the weights
       CALL init_weights(imode, weight, pow, err, ncos, nfields, k, nk, nz)
@@ -1599,11 +1598,11 @@ CONTAINS
          fit%original(param_HMcode_sbar) = 1e-3
       END IF
       fit%sigma(param_HMcode_sbar) = 0.1
-      !fit%minimum(param_HMcode_sbar) = 1e-5
-      fit%minimum(param_HMcode_sbar) = 0.
+      fit%minimum(param_HMcode_sbar) = 1e-5
+      !fit%minimum(param_HMcode_sbar) = 0.
       fit%maximum(param_HMcode_sbar) = 1e-1
-      !fit%log(param_HMcode_sbar) = .TRUE.
-      fit%log(param_HMcode_sbar) = .FALSE.
+      fit%log(param_HMcode_sbar) = .TRUE.
+      !fit%log(param_HMcode_sbar) = .FALSE.
 
       !! !!
 
@@ -1718,7 +1717,7 @@ CONTAINS
       ELSE IF (im == 12) THEN
          ! Mira Titan and FrankenEmu nodes
          ncos = 36+37
-      ELSE IF (im == 5 .OR. &
+      ELSE IF (im == 5 .OR. im == 6 .OR. &
          im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
@@ -1754,7 +1753,7 @@ CONTAINS
             ELSE
                icosmo = 100+i-37
             END IF
-         ELSE IF (im == 5) THEN
+         ELSE IF (im == 5 .OR. im == 6) THEN
             IF(is_in_array(name, [&
                'BAHAMAS_Theat7.6_nu0_WMAP9', &
                'BAHAMAS_Theat8.0_nu0_WMAP9', &
@@ -1834,7 +1833,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, INTENT(OUT) :: fields(:)
       INTEGER, INTENT(OUT) :: nf
 
-      IF (is_in_array(im, [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
+      IF (is_in_array(im, [1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          nf = 1 ! DMONLY-DMONLY only
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          nf = 5
@@ -1857,8 +1856,8 @@ CONTAINS
       ! Set the fields
       IF (is_in_array(im, [1, 2, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          fields(1) = field_dmonly ! NOTE: DMONLY
-      ELSE IF (im == 5) THEN
-         fields(1) = field_matter
+      ELSE IF (im == 5 .OR. im == 6) THEN
+         fields(1) = field_matter ! NOTE: Needs to be set to matter to read in BAHAMAS matter
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          ! Matter, CDM, gas, stars, electron pressure
          fields(1) = field_matter
@@ -1920,7 +1919,7 @@ CONTAINS
          !nz = 1 ! For testing
       ELSE IF (im == 14 .OR. im == 16) THEN
          nz = 3
-      ELSE IF (im == 5) THEN
+      ELSE IF (im == 5 .OR. im == 6) THEN
          nz = 1
       ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
@@ -1947,7 +1946,7 @@ CONTAINS
             IF (i == 3) z(i) = 1.0
             IF (i == 4) z(i) = 2.0
          END DO
-      ELSE IF (im == 5) THEN
+      ELSE IF (im == 5 .OR. im == 6) THEN
          IF (zin == '') THEN
             z(1) = z_default
          ELSE
@@ -1995,14 +1994,16 @@ CONTAINS
 
       ! Choose halo model type
       IF (im == 1 .OR. im == 2 .OR. im == 3 .OR. im == 4 .OR. im == 11) THEN
-         ihm = 1  ! 1 - HMcode (2016)
-         !ihm = 7  ! 7 - HMcode (2015)
+         ihm = HMcode2016  ! 1 - HMcode (2016)
+         !ihm = HMcode2015  ! 7 - HMcode (2015)
       ELSE IF (im == 17 .OR. im == 18 .OR. im == 19) THEN
-         ihm = 15 ! 15 - HMcode (2019)
+         ihm = HMcode2019 ! 15 - HMcode (2019)
       ELSE IF (im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
-         ihm = 79 ! 77 - HMcode (2020)
+         ihm = HMcode2020 ! 77 - HMcode (2020)
       ELSE IF (im == 5) THEN
-         ihm = 64 ! 64 - ?
+         ihm = 64 ! 64 - HMcode (2016) with 2020 baryon recipe
+      ELSE IF (im == 6) THEN
+         ihm = HMcode2020_baryons
       ELSE IF (im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. &
                im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 41 .OR. &
                im == 42 .OR. im == 43 .OR. im == 49 .OR. im == 50 .OR. im == 51 .OR. im == 52) THEN
@@ -2105,7 +2106,7 @@ CONTAINS
                      ELSE
                         CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(iz), cosm(icos), rebin=rebin_emu)
                      END IF
-                  ELSE IF (im == 5) THEN
+                  ELSE IF (im == 5 .OR. im == 6) THEN
                      CALL VD20_get_more_power(k_sim, pow_sim, err_sim, nk, z(iz), name, cosm(icos), &
                         response=response, &
                         kmin=kmin_VD20, &
@@ -2321,7 +2322,7 @@ CONTAINS
          fit%set(param_HMcode_Amf) = .TRUE.
          fit%set(param_HMcode_dcnu) = .TRUE.
          fit%set(param_HMcode_Dvnu) = .TRUE.
-      ELSE IF (im == 5) THEN
+      ELSE IF (im == 5 .OR. im == 6) THEN
          ! HMcode baryon model
          fit%set(param_HMcode_mbar) = .TRUE.
          !fit%set(param_HMcode_nbar) = .TRUE.
