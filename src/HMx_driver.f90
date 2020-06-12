@@ -159,6 +159,7 @@ PROGRAM HMx_driver
       WRITE (*, *) '104 - PAPER: Emulator mean and variance with Mira Titan neutrino nodes'
       WRITE (*, *) '105 - PAPER: Comparison of HMcode 2020 and regular halo model'
       WRITE (*, *) '106 - Extended halo model tests'
+      WRITE (*, *) '107 - HMcode (2020) baryon model demo'
       READ (*, *) iimode
       WRITE (*, *) '============================'
       WRITE (*, *)
@@ -264,11 +265,58 @@ PROGRAM HMx_driver
       CALL compare_HMcode_with_halomodel(iicosmo)
    ELSE IF (iimode == 106) THEN
       CALL extended_halo_model_tests(ifail)
+   ELSE IF (iimode == 107) THEN
+      CALL HMcode_baryon_model_demo()
    ELSE
       STOP 'HMx_DRIVER: Error, you have specified the mode incorrectly'
    END IF
 
 CONTAINS
+
+   SUBROUTINE HMcode_baryon_model_demo()
+
+      IMPLICIT NONE
+      REAL, ALLOCATABLE :: k(:), pow_li(:), pow_2h(:), pow_1h(:), pow_hm(:, :)
+      REAL, ALLOCATABLE :: Pk(:, :)
+      INTEGER :: im, ik, unit
+      TYPE(cosmology) :: cosm
+      TYPE(halomod) :: hmod
+      INTEGER :: icosmo, ihm
+      REAL, PARAMETER :: kmin = 1e-3
+      REAL, PARAMETER :: kmax = 1e2
+      INTEGER, PARAMETER :: nk = 256
+      REAL, PARAMETER :: a = 1.
+      REAL, PARAMETER :: mbar_min = 1e12
+      REAL, PARAMETER :: mbar_max = 1e16
+      INTEGER, PARAMETER :: nm = 9
+      LOGICAL, PARAMETER :: verbose = .FALSE.
+      CHARACTER(len=256), PARAMETER :: outfile = 'data/HMcode_baryon_model_power.dat'
+
+      CALL fill_array_log(kmin, kmax, k, nk)
+      ALLOCATE(pow_li(nk), pow_2h(nk), pow_1h(nk), pow_hm(nm+1, nk))
+
+      icosmo = 1
+      CALL assign_init_cosmology(icosmo, cosm, verbose)
+
+      CALL calculate_HMcode(k, [a], Pk, nk, 1, cosm, version=HMcode2020)
+
+      ihm = HMcode2020_baryons
+      CALL assign_halomod(ihm, hmod, verbose)
+
+      DO im = 1, nm
+         hmod%mbar = progression_log(mbar_min, mbar_max, im, nm)
+         CALL init_halomod(a, hmod, cosm, verbose)
+         CALL calculate_HMx_a([field_dmonly], 1, k, nk, pow_li, pow_2h, pow_1h, pow_hm(im, :), hmod, cosm, verbose)
+         !CALL calculate_HMx_a([field_dmonly], 1, k, nk, pow_li, pow_2h, pow_hm(im, :), pow_1h, hmod, cosm, verbose)
+      END DO
+
+      OPEN(newunit=unit, file=outfile)
+      DO ik = 1, nk
+         WRITE(unit, *) k(ik), Pk(ik, 1), (pow_hm(im, ik), im = 1, nm)
+      END DO
+      CLOSE(unit)
+
+   END SUBROUTINE HMcode_baryon_model_demo
 
    SUBROUTINE compare_HMcode_with_halomodel(icosmo)
 
@@ -5464,7 +5512,7 @@ CONTAINS
       LOGICAL, PARAMETER :: bin_theory = .FALSE.     ! Should the theory be binned in the same way as measurements?
       LOGICAL, PARAMETER :: cut_nyquist = .TRUE.     ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
       LOGICAL, PARAMETER :: subtract_shot = .TRUE.   ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
-      LOGICAL, PARAMETER :: response_triad = .FALSE. ! Should I treat the BAHAMAS P(k) as HMcode response?
+      INTEGER, PARAMETER :: response_triad = 0       ! Should I treat the BAHAMAS P(k) as HMcode response?
       LOGICAL, PARAMETER :: add_highz = .FALSE.      ! Add in z=3 power
       INTEGER, PARAMETER :: mesh = 1024              ! Mesh size for BAHAMAS P(k) measurements
       INTEGER, PARAMETER :: nz_BAHAMAS = 15          ! Number of BAHAMAS redshift slices to use (4, 11 or 15)
@@ -5583,10 +5631,10 @@ CONTAINS
                ! Read in power
                DO i = 1, na
                   CALL BAHAMAS_read_power(k, pow_sim, err_sim, nk, redshift_a(a(i)), name, mesh, ip, cosm, &
+                                          response=response_triad, &
                                           kmax=kmax_BAHAMAS, &
                                           cut_nyquist=cut_nyquist, &
-                                          subtract_shot=subtract_shot, &
-                                          response=response_triad, &
+                                          subtract_shot=subtract_shot, &                                     
                                           verbose=verbose2)
                   verbose2 = .FALSE.
                   IF (i == 1) THEN
