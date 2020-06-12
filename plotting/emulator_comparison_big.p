@@ -89,7 +89,7 @@ if (imode == 4 || imode == 8 || imode == 9) {x2 = 0.91}
 y1 = 0.07
 y2 = 0.99
 cbsep = 0.01
-cbwid = 0.03
+cbwid = 0.015
 
 # Number of comparisons
 if(imode == 1 || imode == 2 || imode == 3 || imode == 4) {ncom = 9}
