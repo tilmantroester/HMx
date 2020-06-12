@@ -1,6 +1,7 @@
 PROGRAM HMx_fitting
 
    USE basic_operations
+   USE array_operations
    USE HMx
    USE cosmology_functions
    USE cosmic_emu_stuff
@@ -28,7 +29,7 @@ PROGRAM HMx_fitting
    !INTEGER, PARAMETER :: m = huge(m)            ! Re-evaluate range every 'm' points
    !INTEGER, PARAMETER :: m = 50                ! Re-evaluate range every 'm' points
    INTEGER, PARAMETER :: random_seed = 0        ! Random-number seed
-   LOGICAL, PARAMETER :: random_start = .TRUE.  ! Start from a random point within the prior range
+   LOGICAL, PARAMETER :: random_start = .FALSE.  ! Start from a random point within the prior range
    LOGICAL, PARAMETER :: mcmc = .TRUE.          ! Accept worse figure of merit with some probability
    INTEGER, PARAMETER :: computer = 1           ! Which computer are you on?
    LOGICAL, PARAMETER :: set_ranges = .TRUE.    ! Set the parameter ranges or not
@@ -39,7 +40,7 @@ PROGRAM HMx_fitting
    REAL, PARAMETER :: kmin_BAHAMAS = 1e-2 ! Minimum BAHAMAS wavenumber to use [h/Mpc]
    REAL, PARAMETER :: kmax_BAHAMAS = 10.  ! Maximum BAHAMAS wavenumber to use [h/Mpc]
    REAL, PARAMETER :: kmin_VD20 = 0.03    ! Minimum VD20 wavenumber to use [h/Mpc]
-   REAL, PARAMETER :: kmax_VD20 = 10.     ! Maximum VD20 wavenumber to use [h/Mpc]
+   REAL, PARAMETER :: kmax_VD20 = 20.     ! Maximum VD20 wavenumber to use [h/Mpc]
    !REAL, PARAMETER :: kmin_BAHAMAS=0.15     ! Minimum wavenumber to use [h/Mpc]
    !REAL, PARAMETER :: kmax_BAHAMAS_z0p0=10. ! Maximum wavenumber to use [h/Mpc] at z=0.0
    !REAL, PARAMETER :: kmax_BAHAMAS_z0p5=4.  ! Maximum wavenumber to use [h/Mpc] at z=0.5
@@ -49,10 +50,10 @@ PROGRAM HMx_fitting
    INTEGER, PARAMETER :: mesh = 1024                  ! BAHAMAS mesh size power to use
    LOGICAL, PARAMETER :: cut_nyquist = .FALSE.        ! Should the BAHAMAS measured P(k) be cut above the Nyquist frequency?
    LOGICAL, PARAMETER :: subtract_shot = .TRUE.       ! Should the BAHAMAS measured P(k) have shot-noise subtracted?
-   LOGICAL, PARAMETER :: response_default = .TRUE.    ! Should I treat the BAHAMAS P(k) as HMcode response?
+   INTEGER, PARAMETER :: response_default = 0         ! Should I treat the BAHAMAS P(k) as HMcode response?
    LOGICAL, PARAMETER :: realisation_errors= .TRUE.   ! Do we use the errors from the individual simulations or across realisations?
    LOGICAL, PARAMETER :: weight_by_errors = .FALSE.   ! Do we weight by the inverse of the errors?
-   LOGICAL, PARAMETER :: default_parameters = .FALSE. ! Set varied paramters to default values from hmod structure
+   LOGICAL, PARAMETER :: default_parameters = .TRUE. ! Set varied paramters to default values from hmod structure
    CHARACTER(len=256), PARAMETER :: powbase_default = 'fitting/test' ! Default output file base
 
    ! Fitting method
@@ -72,8 +73,6 @@ CONTAINS
 
    SUBROUTINE HMx_fitting_main()
 
-      USE array_operations
-
       IMPLICIT NONE
       INTEGER :: imode
       INTEGER :: ncos, nfields, nz, nk
@@ -86,8 +85,8 @@ CONTAINS
       REAL :: delta
       REAL :: tmax
       REAL :: fom
-      INTEGER :: nchain, lchain
-      LOGICAL :: response, hydro
+      INTEGER :: nchain, lchain, response, HMcode_version
+      LOGICAL :: hydro
 
       ! Decide what to do
       CALL read_command_argument(1, imode, '', -1)
@@ -101,8 +100,8 @@ CONTAINS
          WRITE (*, *) ' 4 - HMcode (2016): Random Franken Emu cosmologies'
          WRITE (*, *) ' 5 - HMcode (2016): Single z; BAHAMAS baryon models'
          WRITE (*, *) ' 6 - HMcode (2020): Single z; BAHAMAS baryon models'
-         WRITE (*, *) ' 7 - '
-         WRITE (*, *) ' 8 - '
+         WRITE (*, *) ' 7 - HMcode (2016): BAHAMAS baryon models'
+         WRITE (*, *) ' 8 - HMcode (2020): BAHAMAS baryon models'
          WRITE (*, *) ' 9 - '
          WRITE (*, *) '10 - '
          WRITE (*, *) '11 - HMcode (2016): Mira Titan nodes (no massive neutrinos)'
@@ -184,7 +183,7 @@ CONTAINS
       WRITE (*, *)
 
       ! Is this fitting hydro or not
-      IF(is_in_array(imode, [1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
+      IF(is_in_array(imode, [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          ! HMcode
          hydro = .FALSE.
       ELSE
@@ -226,7 +225,7 @@ CONTAINS
 
       ! Horrible fudge to read BAHAMAS matter-matter above and then calculate DMONLY below
       ! TODO: Undo this fudge
-      IF(imode == 5 .OR. imode == 6) fields = field_dmonly
+      IF(is_in_array(imode, [5, 6, 7, 8])) fields = field_dmonly
 
       ! Set the weights
       CALL init_weights(imode, weight, pow, err, ncos, nfields, k, nk, nz)
@@ -243,10 +242,17 @@ CONTAINS
       !CALL write_fitting_parameters(fit)
       !STOP
 
+      ! HMcode versions to write at beginning of fitting 
+      IF (imode == 6 .OR. imode == 8) THEN
+         HMcode_version = HMcode2020
+      ELSE
+         HMcode_version = HMcode2016
+      END IF
+
       ! Call the fitting
       CALL fitting_multiple(delta, tmax, lchain, &
                k, nk, z, nz, fields, nfields, fom, weight, pow, fit, hmod, cosm, &
-               ncos, powbase, paramsfile, hydro, nchain)
+               ncos, powbase, paramsfile, hydro, nchain, HMcode_version)
 
    END SUBROUTINE HMx_fitting_main
 
@@ -321,7 +327,7 @@ CONTAINS
 
    END SUBROUTINE write_all_power
 
-   SUBROUTINE write_HMcode_power(k, nk, z, nz, cosm, ncos, outbase, verbose)
+   SUBROUTINE write_HMcode_power(k, nk, z, nz, cosm, ncos, outbase, verbose, version)
 
       IMPLICIT NONE
       REAL, INTENT(IN) :: k(ncos, nk)
@@ -330,16 +336,15 @@ CONTAINS
       INTEGER, INTENT(IN) :: nz
       TYPE(cosmology), INTENT(INOUT) :: cosm(ncos)
       INTEGER, INTENT(IN) :: ncos
-      CHARACTER(len=*), INTENT(IN) :: outbase
+      CHARACTER(len=*), INTENT(IN) :: outbase 
       LOGICAL, INTENT(IN) :: verbose
+      INTEGER, OPTIONAL, INTENT(IN) :: version
       REAL :: a(nz)
+      INTEGER :: unit
       REAL, ALLOCATABLE :: Pk(:, :)
       CHARACTER(len=256) :: outfile, zstring
       CHARACTER(len=8) :: cosstring
       INTEGER :: icos, ik, iz, na
-      INTEGER, PARAMETER :: unit=31
-
-      !base = trim(outbase)//'_power_HMcode_'
 
       a = scale_factor_z(z)
       na = nz
@@ -348,7 +353,7 @@ CONTAINS
       DO icos = 1, ncos
 
          ! Calculate P(k, a)
-         CALL calculate_HMcode(k(icos, :), a, Pk, nk, na, cosm(icos))
+         CALL calculate_HMcode(k(icos, :), a, Pk, nk, na, cosm(icos), version)
 
          ! Loop over z
          DO iz = 1, nz
@@ -359,7 +364,7 @@ CONTAINS
             outfile = trim(outbase)//'_z'//trim(zstring)//'_cos'//trim(cosstring)//'_HMcode_power.dat'
             
             ! Write file
-            OPEN(unit, file=outfile)
+            OPEN(newunit=unit, file=outfile)
             DO ik = 1, nk
                WRITE(unit, *) k(icos, ik), Pk(ik, iz)
             END DO
@@ -611,7 +616,7 @@ CONTAINS
    END SUBROUTINE MCMC_fit
 
    SUBROUTINE fitting_multiple(tol, tmax, nmax, k, nk, z, nz, fields, nf, fom, weight, pow_sim, &
-      fit, hmod, cosm, ncos, powbase, paramsfile, hydro, m)
+      fit, hmod, cosm, ncos, powbase, paramsfile, hydro, m, HMcode_version)
 
       IMPLICIT NONE
       REAL, INTENT(IN) :: tol           ! Accuracy parameters
@@ -634,6 +639,7 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN) :: paramsfile   ! Output parameter file
       LOGICAL, INTENT(IN) :: hydro                 ! Is this a hydrodynamic run or not?
       INTEGER, INTENT(IN) :: m                     ! Number of chains
+      INTEGER, INTENT(IN) :: HMcode_version
       INTEGER :: i, j, unit_number
       REAL :: fombest
       CHARACTER(len=256) :: reason, reasonbest
@@ -650,7 +656,7 @@ CONTAINS
       CALL print_halomod(hmod(1), cosm(1), verbose)
 
       ! HMcode calculation
-      CALL write_HMcode_power(k, nk, z, nz, cosm, ncos, powbase, verbose)
+      CALL write_HMcode_power(k, nk, z, nz, cosm, ncos, powbase, verbose, HMcode_version)
 
       !CALL write_fitting_parameters(fit)
       !STOP
@@ -1564,9 +1570,20 @@ CONTAINS
          fit%original(param_HMcode_mbar) = log10(1e14)
       END IF
       fit%sigma(param_HMcode_mbar) = 0.1
-      fit%minimum(param_HMcode_mbar) = log10(1e10)
+      fit%minimum(param_HMcode_mbar) = log10(1e11)
       fit%maximum(param_HMcode_mbar) = log10(1e16)
       fit%log(param_HMcode_mbar) = .FALSE. ! CARE: Should be FALSE
+
+      fit%name(param_HMcode_mbarz) = 'mbarz'
+      IF (default_parameters) THEN
+         fit%original(param_HMcode_mbarz) = hmod%mbarz
+      ELSE
+         fit%original(param_HMcode_mbarz) = 0.
+      END IF
+      fit%sigma(param_HMcode_mbarz) = 0.1
+      fit%minimum(param_HMcode_mbarz) = -2.
+      fit%maximum(param_HMcode_mbarz) = 2.
+      fit%log(param_HMcode_mbarz) = .FALSE.
 
       fit%name(param_HMcode_nbar) = 'nbar'
       IF (default_parameters) THEN
@@ -1587,7 +1604,7 @@ CONTAINS
       END IF
       fit%sigma(param_HMcode_Amf) = 0.05
       fit%minimum(param_HMcode_Amf) = 0.5
-      fit%maximum(param_HMcode_Amf) = 1.5
+      fit%maximum(param_HMcode_Amf) = 2.0
       fit%log(param_HMcode_Amf) = .FALSE.
 
       ! TODO: Search should be in log here
@@ -1603,6 +1620,28 @@ CONTAINS
       fit%maximum(param_HMcode_sbar) = 1e-1
       fit%log(param_HMcode_sbar) = .TRUE.
       !fit%log(param_HMcode_sbar) = .FALSE.
+
+      fit%name(param_HMcode_sbarz) = 'sbarz'
+      IF (default_parameters) THEN
+         fit%original(param_HMcode_sbarz) = hmod%sbarz
+      ELSE
+         fit%original(param_HMcode_sbarz) = 0.
+      END IF
+      fit%sigma(param_HMcode_sbarz) = 0.1
+      fit%minimum(param_HMcode_sbarz) = 0.
+      fit%maximum(param_HMcode_sbarz) = 5.
+      fit%log(param_HMcode_sbarz) = .FALSE. 
+
+      fit%name(param_HMcode_Amfz) = 'Amfz'
+      IF (default_parameters) THEN
+         fit%original(param_HMcode_Amfz) = hmod%Amfz
+      ELSE
+         fit%original(param_HMcode_Amfz) = 0.
+      END IF
+      fit%sigma(param_HMcode_Amfz) = 0.01
+      fit%minimum(param_HMcode_Amfz) = -0.5
+      fit%maximum(param_HMcode_Amfz) = 0.5
+      fit%log(param_HMcode_Amfz) = .FALSE. 
 
       !! !!
 
@@ -1669,7 +1708,6 @@ CONTAINS
    SUBROUTINE allocate_arrays(fit, n)
 
       ! Allocate all arrays associated with the fitting
-      USE array_operations
       IMPLICIT NONE
       TYPE(fitting), INTENT(INOUT) :: fit
       INTEGER, INTENT(IN) :: n
@@ -1693,7 +1731,6 @@ CONTAINS
    SUBROUTINE init_cosmologies(im, name, cosm, ncos)
 
       ! Set the number of and types of cosmology depending on imode
-      USE array_operations
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
       CHARACTER(len=*), INTENT(IN) :: name
@@ -1717,7 +1754,7 @@ CONTAINS
       ELSE IF (im == 12) THEN
          ! Mira Titan and FrankenEmu nodes
          ncos = 36+37
-      ELSE IF (im == 5 .OR. im == 6 .OR. &
+      ELSE IF (im == 5 .OR. im == 6 .OR. im == 7 .OR. im == 8 .OR. &
          im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40 .OR. im == 41 .OR. &
@@ -1753,7 +1790,7 @@ CONTAINS
             ELSE
                icosmo = 100+i-37
             END IF
-         ELSE IF (im == 5 .OR. im == 6) THEN
+         ELSE IF (is_in_array(im, [5, 6, 7, 8])) THEN
             IF(is_in_array(name, [&
                'BAHAMAS_Theat7.6_nu0_WMAP9', &
                'BAHAMAS_Theat8.0_nu0_WMAP9', &
@@ -1827,13 +1864,12 @@ CONTAINS
    SUBROUTINE init_fields(im, fields, nf)
 
       ! Set the number and types of fields to fit to depending on imode
-      USE array_operations
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
       INTEGER, ALLOCATABLE, INTENT(OUT) :: fields(:)
       INTEGER, INTENT(OUT) :: nf
 
-      IF (is_in_array(im, [1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
+      IF (is_in_array(im, [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          nf = 1 ! DMONLY-DMONLY only
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          nf = 5
@@ -1856,8 +1892,8 @@ CONTAINS
       ! Set the fields
       IF (is_in_array(im, [1, 2, 3, 4, 11, 12, 13, 14, 15, 16, 17, 18, 19])) THEN
          fields(1) = field_dmonly ! NOTE: DMONLY
-      ELSE IF (im == 5 .OR. im == 6) THEN
-         fields(1) = field_matter ! NOTE: Needs to be set to matter to read in BAHAMAS matter
+      ELSE IF (is_in_array(im, [5, 6, 7, 8])) THEN
+         fields(1) = field_matter ! NOTE: Needs to be set to matter to read in BAHAMAS matter power
       ELSE IF (im == 28 .OR. im == 40 .OR. im == 48 .OR. im == 50 .OR. im == 52) THEN
          ! Matter, CDM, gas, stars, electron pressure
          fields(1) = field_matter
@@ -1904,7 +1940,6 @@ CONTAINS
    SUBROUTINE init_redshifts(im, zin, z, nz)
 
       ! Set the redshifts to fit over depending on imode
-      USE array_operations
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
       CHARACTER(len=*), INTENT(IN) :: zin
@@ -1921,6 +1956,9 @@ CONTAINS
          nz = 3
       ELSE IF (im == 5 .OR. im == 6) THEN
          nz = 1
+      ELSE IF (im == 7 .OR. im == 8) THEN
+         !nz = 11
+         nz = 7
       ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. &
          im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. &
          im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 40) THEN
@@ -1947,11 +1985,25 @@ CONTAINS
             IF (i == 4) z(i) = 2.0
          END DO
       ELSE IF (im == 5 .OR. im == 6) THEN
+         ! HMcode baryon models, single z
          IF (zin == '') THEN
             z(1) = z_default
          ELSE
             READ (zin, *) z(1)
          END IF
+      ELSE IF (im == 7 .OR. im == 8) THEN
+         ! HMcode baryon models, mulitple z
+         z(1) = 0.000
+         z(2) = 0.125
+         z(3) = 0.250
+         z(4) = 0.375
+         z(5) = 0.500
+         z(6) = 0.750
+         z(7) = 1.000
+         !z(8) = 1.250
+         !z(9) = 1.500
+         !z(10) = 1.750
+         !z(11) = 2.000
       ELSE IF (im == 20 .OR. im == 23 .OR. im == 26 .OR. im == 27 .OR. im == 28 .OR. &
          im == 29 .OR. im == 30 .OR. im == 31 .OR. im == 32 .OR. im == 33 .OR. im == 34 .OR. &
          im == 35 .OR. im == 36 .OR. im == 37 .OR. im == 38 .OR. im == 39 .OR. im == 23 .OR. &
@@ -2000,9 +2052,9 @@ CONTAINS
          ihm = HMcode2019 ! 15 - HMcode (2019)
       ELSE IF (im == 12 .OR. im == 13 .OR. im == 14 .OR. im == 15 .OR. im == 16) THEN
          ihm = HMcode2020 ! 77 - HMcode (2020)
-      ELSE IF (im == 5) THEN
+      ELSE IF (im == 5 .OR. im == 7) THEN
          ihm = 64 ! 64 - HMcode (2016) with 2020 baryon recipe
-      ELSE IF (im == 6) THEN
+      ELSE IF (im == 6 .OR. im == 8) THEN
          ihm = HMcode2020_baryons
       ELSE IF (im == 26 .OR. im == 27 .OR. im == 28 .OR. im == 29 .OR. im == 30 .OR. im == 31 .OR. &
                im == 32 .OR. im == 33 .OR. im == 34 .OR. im == 35 .OR. im == 36 .OR. im == 41 .OR. &
@@ -2076,7 +2128,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: nz
       INTEGER, INTENT(IN) :: fields(nf)
       INTEGER, INTENT(IN) :: nf
-      LOGICAL, INTENT(IN) :: response
+      INTEGER, INTENT(IN) :: response
       INTEGER :: icos, iz, if1, if2
       INTEGER :: ip(2)
       REAL, ALLOCATABLE :: k_sim(:), pow_sim(:), err_sim(:)
@@ -2106,7 +2158,7 @@ CONTAINS
                      ELSE
                         CALL get_MiraTitan_power_z(k_sim, pow_sim, nk, z(iz), cosm(icos), rebin=rebin_emu)
                      END IF
-                  ELSE IF (im == 5 .OR. im == 6) THEN
+                  ELSE IF (is_in_array(im, [5, 6, 7, 8])) THEN
                      CALL VD20_get_more_power(k_sim, pow_sim, err_sim, nk, z(iz), name, cosm(icos), &
                         response=response, &
                         kmin=kmin_VD20, &
@@ -2122,11 +2174,11 @@ CONTAINS
                      ip(1) = fields(if1)
                      ip(2) = fields(if2)
                      CALL BAHAMAS_read_power(k_sim, pow_sim, err_sim, nk, z(iz), name, mesh, ip, cosm(icos), &
+                                             response=response, &
                                              kmin=kmin_BAHAMAS, &
                                              kmax=kmax_BAHAMAS, &
                                              cut_nyquist=cut_nyquist, &
                                              subtract_shot=subtract_shot, &
-                                             response=response, &
                                              realisation_errors=realisation_errors, &
                                              verbose=verbose_BAHAMAS &
                                              )
@@ -2275,7 +2327,6 @@ CONTAINS
 
       ! Chooses which parameters are to be varied based on imode selected by the user
       ! The sole purpose of this routine is to change some of the fit%set(i) from FALSE to TRUE
-      USE array_operations
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: im
       TYPE(fitting), INTENT(INOUT) :: fit
@@ -2328,6 +2379,16 @@ CONTAINS
          !fit%set(param_HMcode_nbar) = .TRUE.
          fit%set(param_HMcode_Amf) = .TRUE.
          fit%set(param_HMcode_sbar) = .TRUE.
+      ELSE IF (im == 7 .OR. im == 8) THEN
+         ! HMcode baryon model
+         fit%set(param_HMcode_mbar) = .TRUE.
+         fit%set(param_HMcode_mbarz) = .TRUE.
+         !fit%set(param_HMcode_nbar) = .TRUE.
+         !fit%set(param_HMcode_Amf) = .TRUE.
+         !fit%set(param_HMcode_Amfz) = .TRUE.
+         fit%set(param_HMcode_sbar) = .TRUE.
+         fit%set(param_HMcode_sbarz) = .TRUE.
+         fit%set(param_HMcode_As) = .TRUE.
       ELSE IF (im == 26) THEN
          ! 26 - fixed z; basic parameterts; CDM
          fit%set(param_eps) = .TRUE.
@@ -2646,9 +2707,12 @@ CONTAINS
       IF (fit%set(param_HMcode_dcnu))   hmod%dcnu = p_out(param_HMcode_dcnu)
       IF (fit%set(param_HMcode_Dvnu))   hmod%Dvnu = p_out(param_HMcode_Dvnu)
       IF (fit%set(param_HMcode_mbar))   hmod%mbar = 10.**p_out(param_HMcode_mbar) ! NOTE: 10** here, internal is log10(mbar)
+      IF (fit%set(param_HMcode_mbarz))  hmod%mbarz = p_out(param_HMcode_mbarz) ! NOTE: 10** here, internal is log10(mbar)
       IF (fit%set(param_HMcode_nbar))   hmod%nbar = p_out(param_HMcode_nbar)
       IF (fit%set(param_HMcode_Amf))    hmod%Amf = p_out(param_HMcode_Amf)
+      IF (fit%set(param_HMcode_Amfz))   hmod%Amfz = p_out(param_HMcode_Amfz)
       IF (fit%set(param_HMcode_sbar))   hmod%sbar = p_out(param_HMcode_sbar)
+      IF (fit%set(param_HMcode_sbarz))  hmod%sbarz = p_out(param_HMcode_sbarz)
       IF (fit%set(param_HMcode_STp))    hmod%ST_p = p_out(param_HMcode_STp)
       IF (fit%set(param_HMcode_STq))    hmod%ST_q = p_out(param_HMcode_STq)
       IF (fit%set(param_HMcode_kd))     hmod%kd = p_out(param_HMcode_kd)
@@ -2799,7 +2863,6 @@ CONTAINS
    SUBROUTINE set_parameter_sigma(p_original, np, delta, fields, nf, k, nk, z, nz, pow_sim, weight, fit, hmod, cosm, ncos, verbose)
 
       USE interpolate
-      USE array_operations
 
       ! Calculates the sigma to jump parameters by
       IMPLICIT NONE
