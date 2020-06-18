@@ -105,5 +105,6 @@ clean:
 	rm -f $(BUILD_DIR)/*.o
 	rm -f $(INCLUDE_DIR)/*.mod
 	rm -f $(SRC_DIR)/*.mod
+	rm -f *.mod
 	rm -f $(DEBUG_BUILD_DIR)/*.o
 

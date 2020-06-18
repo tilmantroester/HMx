@@ -28,8 +28,8 @@ if __name__ == "__main__":
     ns = 0.97
     As = 2.1e-9
 
-    z_max = 3.0
-    n_z = 128
+    z_max = 2.0
+    n_z = 100
 
     k_max = 20.0
 
