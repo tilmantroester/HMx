@@ -49,7 +49,7 @@ class HMx:
                              k=k, z=z,
                              pk_lin=pk_lin,
                              verbose=verbose)
-        return pofk
+        return pofk[0,0]
 
     def run_HMx(self, cosmology=None, halo_model=None, fields=None, mode=constants.HMx2020_matter_with_temperature_scaling,
                 k=None, z=None, 
