@@ -65,12 +65,14 @@ print('')
 print('Title: '.tits.'')
 print('')
 
+m = 1
+
 #Actual plot
 set title tits
-plot for[i=1:n] file u 1:(column(i+1)):(real(i-1)/real(n)) w l lw 2 dt 1 lc palette noti,\
-      file_li u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 2 lc palette noti#,\
-      file_2h u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 3 lc palette noti,\
-      file_1h u 1:(column(n+1)):(real(n-1)/real(n)) w l lw 2 dt 4 lc palette noti
+plot for[i=1:n] file u 1:(column(i+1)):(-real(i-1)/real(n-1)) w l lw 2 dt 1 lc palette noti,\
+      file_li u 1:(column(m+1)):(-real(m-1)/real(n-1)) w l lw 2 dt 2 lc palette noti,\
+      file_2h u 1:(column(m+1)):(-real(m-1)/real(n-1)) w l lw 2 dt 3 lc palette noti,\
+      file_1h u 1:(column(m+1)):(-real(m-1)/real(n-1)) w l lw 2 dt 4 lc palette noti
 
 show output
 

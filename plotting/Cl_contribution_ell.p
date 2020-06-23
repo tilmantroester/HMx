@@ -86,7 +86,7 @@ set tmargin at screen top
 set bmargin at screen top-dy
 kmin=1e-3
 kmax=1e2
-set xlabel 'k / (h Mpc^{-1})' offset 0,1
+set xlabel 'k / h Mpc^{-1}' offset 0,1
 set log x
 set xrange [kmin:kmax]
 plot for [i=1:n] file(i) u 1:2:(ell(i)) w l lw 3 lc palette noti
@@ -113,7 +113,7 @@ set tmargin at screen bot+dy
 set bmargin at screen bot
 rmin=1e1
 rmax=1e4
-set xlabel 'r / (h^{-1} Mpc)'
+set xlabel 'r / h^{-1} Mpc'
 set log x
 set xrange [rmin:rmax]
 set colorbox user origin rig+0.02,bot size 0.03,(top-bot)

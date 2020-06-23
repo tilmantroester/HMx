@@ -10,7 +10,7 @@ pow_scat='data/power_scatter_hm.dat'
 set multiplot
 
 set log x
-set xlabel 'k / h^{-1} Mpc'
+set xlabel 'k / h Mpc^{-1}'
 
 set ylabel 'P_{scatter}(k) / P_{normal}(k)'
 

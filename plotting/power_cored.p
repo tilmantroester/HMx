@@ -46,7 +46,7 @@ plot for [i=1:ncore] power(i) u 1:5:(rcore_min+(rcore_max-rcore_min)*(i-1)/(ncor
 set tmargin at screen (top+bot-dy)/2.
 set bmargin at screen bot
 
-set xlabel 'k / h^{-1} Mpc'
+set xlabel 'k / h Mpc^{-1}'
 set format x
 
 rmin=0.

@@ -21,30 +21,32 @@ UPP(mass)=sprintf('/Users/Mead/Physics/HMx/diagnostics/UPP/halo_profile_m%i.dat'
 
 # Fix the parameter to plot
 if(!exists("param")){param=1}
-if(param==1)  {pname='{/Symbol a}';       min=0.4;    max=1.0;    ilog=0; ptype='mid'}
-if(param==2)  {pname='{/Symbol e}';       min=0.5;    max=1.5;    ilog=0; ptype='mid'}
-if(param==3)  {pname='{/Symbol G}';       min=1.12;   max=1.22;   ilog=0; ptype='mid'}
-if(param==4)  {pname='M_g / M_{'.sun.'}'; min=1e13;   max=1e15;   ilog=1; ptype='mid'}
-if(param==5)  {pname='A_*';               min=0.02;   max=0.04;   ilog=0; ptype='mid'}
-if(param==6)  {pname='T_{WHIM} / K';      min=3e5;    max=3e7;    ilog=1; ptype='mid'}
-if(param==7)  {pname='c_*';               min=5.;     max=20.;    ilog=1; ptype='mid'}
-if(param==8)  {pname='f_{c}';             min=0.;     max=0.25;   ilog=0; ptype='low'}
-if(param==9)  {pname='M_*';               min=5e11;   max=5e13;   ilog=1; ptype='mid'}
-if(param==10) {pname='{/Symbol s}_*';     min=0.7;    max=1.7;    ilog=0; ptype='mid'}
-if(param==11) {pname='{/Symbol a}^{P}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==12) {pname='{/Symbol G}^{P}';   min=-0.01;  max=0.01;   ilog=0; ptype='mid'}
-if(param==13) {pname='c_*^{P}';           min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==14) {pname='f_{h}';             min=0.;     max=0.25;   ilog=0; ptype='low'}
-if(param==15) {pname='{/Symbol a}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==16) {pname='{/Symbol G}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==17) {pname='M_g^{Z}';           min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==18) {pname='A_*^{Z}';           min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==19) {pname='T_{WHIM}^{Z}';      min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==20) {pname='{/Symbol h}';       min=-0.5;   max=0.0;    ilog=0; ptype='hig'}
-if(param==33) {pname='{/Symbol e}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==34) {pname='{/Symbol b}';       min=0.4;    max=1.0;    ilog=0; ptype='mid'}
-if(param==35) {pname='{/Symbol b}^{P}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
-if(param==36) {pname='{/Symbol b}^{Z}';   min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==1)  {pname='{/Symbol a}';              min=0.4;    max=1.0;    ilog=0; ptype='mid'}
+if(param==2)  {pname='{/Symbol e}';              min=0.5;    max=1.5;    ilog=0; ptype='mid'}
+if(param==3)  {pname='{/Symbol G}';              min=1.12;   max=1.22;   ilog=0; ptype='mid'}
+if(param==4)  {pname='M_0 / h^{-1} M_{'.sun.'}'; min=1e13;   max=1e15;   ilog=1; ptype='mid'}
+if(param==5)  {pname='A_*';                      min=0.02;   max=0.04;   ilog=0; ptype='mid'}
+if(param==6)  {pname='T_{WHIM} / K';             min=3e5;    max=3e7;    ilog=1; ptype='mid'}
+if(param==7)  {pname='c_*';                      min=5.;     max=20.;    ilog=1; ptype='mid'}
+if(param==8)  {pname='f_{c}';                    min=0.;     max=0.25;   ilog=0; ptype='low'}
+#if(param==9)  {pname='M_* / h^{-1} M_{'.sun.'}'; min=5e11;   max=5e13;   ilog=1; ptype='mid'}
+if(param==9)  {pname='M_* / h^{-1} M_{'.sun.'}'; min=1e12;   max=1e13;   ilog=1; ptype='mid'}
+if(param==10) {pname='{/Symbol s}_*';            min=0.7;    max=1.7;    ilog=0; ptype='mid'}
+if(param==11) {pname='{/Symbol a}^{P}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==12) {pname='{/Symbol G}^{P}';          min=-0.01;  max=0.01;   ilog=0; ptype='mid'}
+if(param==13) {pname='c_*^{P}';                  min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==14) {pname='f_{h}';                    min=0.;     max=0.25;   ilog=0; ptype='low'}
+if(param==15) {pname='{/Symbol a}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==16) {pname='{/Symbol G}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==17) {pname='M_g^{Z}';                  min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==18) {pname='A_*^{Z}';                  min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==19) {pname='T_{WHIM}^{Z}';             min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+#if(param==20) {pname='{/Symbol h}';              min=-0.5;   max=0.0;    ilog=0; ptype='hig'}
+if(param==20) {pname='{/Symbol h}';              min=-0.5;   max=-0.1;   ilog=0; ptype='mid'}
+if(param==33) {pname='{/Symbol e}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==34) {pname='{/Symbol b}';              min=0.4;    max=1.0;    ilog=0; ptype='mid'}
+if(param==35) {pname='{/Symbol b}^{P}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
+if(param==36) {pname='{/Symbol b}^{Z}';          min=-0.1;   max=0.1;    ilog=0; ptype='mid'}
 print 'Comparison for parameter (set with *param*): '.param.''
 
 # Output figure
@@ -69,7 +71,7 @@ if(!exists('sim')){sim=4}
 simulation_names="'DMONLY_2fluid' 'AGN_7p6' 'AGN_8p0' 'AGN_TUNED'"
 simulation_titles="'DMONLY' 'AGN-lo' 'AGN-hi' 'AGN'"
 simulation(sim,snap,type1,type2)=sprintf('/Users/Mead/Physics/BAHAMAS/power/M1024/%s_nu0_L400N1024_WMAP9_%s_%s_%s_power.dat',sim,snap,type1,type2)
-sim_name=word(simulation_names,sim)
+sim_name=word(simulation_names, sim)
 #sim_title(name,z)=''.word(simulation_titles,sim).'; z = '.z.''
 name=word(simulation_titles,sim)
 sim_title(name,z)=sprintf('%s; z = %1.1f',name,z)
@@ -85,8 +87,10 @@ psim='epressure'
 
 # Name of halo-model power spectrum types
 #types_density="'00' '01' '11' '02' '22' '03' '33''"
-types_density="'00' '01' '02' '03'"
-types_pressure="'00' '06' '66'"
+#types_density="'00' '01' '02' '03'"
+#types_pressure="'00' '06' '66'"
+types_density="'22' '23' '24' '25'"
+types_pressure="'22' '28' '88'"
 
 # Label information
 #ddlab = 'mm'
@@ -94,11 +98,12 @@ types_pressure="'00' '06' '66'"
 #dslab = 'ms'
 #dplab = 'mp'
 #pplab = 'pp'
-ddlab = 'i,j = m,m'
-dglab = 'i,j = m,g'
-dslab = 'i,j = m,s'
-dplab = 'i,j = m,p'
-pplab = 'i,j = p,p'
+ddlab = 'matter-matter'
+dclab = 'matter-CDM'
+dglab = 'matter-gas'
+dslab = 'matter-stars'
+dplab = 'matter-pressure'
+pplab = 'pressure-pressure'
 
 # power column for halo model power spectra files
 cp=5
@@ -165,28 +170,28 @@ rhomax=1e1
 rholab='4{/Symbol p} r^2 {/Symbol r}(r) / M [Mpc/h]^{-1}'
 
 # Pressure profile axis
-premin=1e-4
-premax=1e2
-prelab='4{/Symbol p} r^2 P_e(r) [eV (Mpc/h)^{-1}]'
+premin = 1e-4
+premax = 1e2
+prelab = '4{/Symbol p} r^2 P_e(r) [eV (Mpc/h)^{-1}]'
 
 # Axis range for halo profiles
-rmin=0.
-rmax=1.1
-rlab='r / r_v'
+rmin = 0.
+rmax = 1.1
+rlab = 'r / r_v'
 
 ### ###
 
 ### Mass fraction plots ###
 
 # Axis range for halo mass fractions
-massmin=1e10
-massmax=1e16
-masslab='M / h^{-1} M_{'.sun.'}'
+massmin = 1e10
+massmax = 1e16
+masslab = 'M / h^{-1} M_{'.sun.'}'
 
 # Mass fraction range
-fmin=1e-3
-fmax=2
-flab='Mass fraction'
+fmin = 1e-3
+fmax = 2.
+flab = 'Mass fraction'
 
 ### ###
 
@@ -288,7 +293,7 @@ set cblabel pname
 
 set multiplot
 
-### Density: Power spectrum plots - Top left ###
+### Density: Power spectrum plots: Top left ###
 
 set tmargin at screen power_density_top
 set bmargin at screen power_density_bottom
@@ -307,9 +312,12 @@ set yrange[d_pmin*dy:d_pmax/dy]
 
 set key top left
 
-set label ddlab at graph 0.02,0.35
-set label dglab at graph 0.02,0.25
-set label dslab at graph 0.02,0.15
+#set label ddlab at graph 0.03,0.55
+#set label dglab at graph 0.03,0.25
+#set label dslab at graph 0.15,0.08
+set label ddlab at graph 0.70,0.25
+set label dglab at graph 0.70,0.18
+set label dslab at graph 0.70,0.11
 
 plot for [j=1:words(types_density)] for [i=1:n] power(param,i,word(types_density,j)) u 1:(column(cp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [j=1:words(types_density)] power(param,m,word(types_density,j)) u 1:(column(cp)):(prog(min,max,m,n)) w l lw 2 lc palette noti,\
@@ -322,7 +330,7 @@ unset label
 
 ### ###
 
-### Density: Power spectrum residual ###
+### Density: Power spectrum residual: Second on left ###
 
 set tmargin at screen ratio_density_top
 set bmargin at screen ratio_density_bottom
@@ -340,9 +348,10 @@ set yrange [d_ratio_min*dy:d_ratio_max/dy]
 
 set key top left
 
-set label ddlab at graph 0.03,0.93
-set label dglab at graph 0.03,0.63
-set label dslab at graph 0.03,0.27
+set label ddlab at graph 0.03,0.94
+set label dclab at graph 0.03,0.82
+set label dglab at graph 0.03,0.62
+set label dslab at graph 0.03,0.20
 
 plot for [j=1:words(types_density)] for [i=1:n] '<paste '.power(param,i,word(types_density,j)).' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [j=1:words(types_density)] '<paste '.power(param,m,word(types_density,j)).' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,m,n)) w l lw 2 lc palette noti,\
@@ -354,7 +363,7 @@ unset label
 
 ### ###
 
-### Pressure: power spectrum - Bottom right ###
+### Pressure: power spectrum: Third on left ###
 
 set tmargin at screen power_pressure_top
 set bmargin at screen power_pressure_bottom
@@ -371,9 +380,12 @@ set ylabel plab
 set format y '10^{%T}'
 set yrange[p_pmin*dy:p_pmax/dy]
 
-set label ddlab at graph 0.03,0.45
-set label dplab at graph 0.03,0.25
-set label pplab at graph 0.03,0.10
+#set label ddlab at graph 0.03,0.80
+#set label dplab at graph 0.03,0.55
+#set label pplab at graph 0.03,0.10
+set label ddlab at graph 0.65,0.25
+set label dplab at graph 0.65,0.18
+set label pplab at graph 0.65,0.11
 
 set key top left
 
@@ -388,7 +400,7 @@ unset label
 
 ### ###
 
-### Pressure: power spectrum residual ###
+### Pressure: power spectrum residual: bottom left ###
 
 set tmargin at screen ratio_pressure_top
 set bmargin at screen ratio_pressure_bottom
@@ -402,9 +414,9 @@ set format x
 set ylabel slab
 set yrange [p_ratio_min*dy:p_ratio_max/dy]
 
-set label ddlab at graph 0.03,0.9
-set label dplab at graph 0.03,0.6
-set label pplab at graph 0.03,0.3
+set label ddlab at graph 0.03,0.93
+set label dplab at graph 0.03,0.65
+set label pplab at graph 0.03,0.29
 
 plot for [j=1:words(types_pressure)] for [i=1:n] '<paste '.power(param,i,word(types_pressure,j)).' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,i,n)) w l lw 2 lc palette noti,\
      for [j=1:words(types_pressure)] '<paste '.power(param,m,word(types_pressure,j)).' '.dmonly.'' u 1:(column(cp)/column(cp+Lp)):(prog(min,max,m,n)) w l lw 2 lc palette noti,\
@@ -434,8 +446,10 @@ set lmargin at screen rho1_left
 set rmargin at screen rho1_right
 mass=m1
 set ylabel rholab #offset 2
-set label 'CDM' at graph 0.07,0.9
-set label 'gas' at graph 0.07,0.5
+set label 'matter' at graph 0.09,0.83
+set label 'CDM' at graph 0.09,0.7
+set label 'gas' at graph 0.09,0.48
+set label 'stars' at graph 0.09,0.21
 }
 
 if(j==2){
@@ -541,12 +555,12 @@ set yrange [fmin:fmax]
 set ylabel flab
 set format y '10^{%T}'
 
-set label 'CDM'   at graph 0.03,0.93
-set label 'gas'   at graph 0.03,0.73
+set label 'CDM'   at graph 0.03,0.92
+set label 'gas'   at graph 0.03,0.72
 set label 'stars' at graph 0.03,0.35
 
-plot for [c=2:6] for [i=1:n] mass_fraction(param,i) u 1:(column(c)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
-     for [c=2:6] mass_fraction(param,m) u 1:(column(c)):(prog(min,max,m,n)) w l lw 2 dt 1 lc palette noti
+plot for [c=2:8] for [i=1:n] mass_fraction(param,i) u 1:(column(c)):(prog(min,max,i,n)) w l lw 2 dt 1 lc palette noti,\
+     for [c=2:8] mass_fraction(param,m) u 1:(column(c)):(prog(min,max,m,n)) w l lw 2 dt 1 lc palette noti
 
 unset label
 

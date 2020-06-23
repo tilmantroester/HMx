@@ -2,6 +2,7 @@
 
 # Standard HMx flags
 HMX_FFLAGS = \
+	-std=gnu \
 	-fcheck=all,no-array-temps \
 	-fmax-errors=4 \
 	-ffpe-trap=invalid,zero,overflow \
@@ -22,10 +23,14 @@ DEBUG_FLAGS = \
 	-fbacktrace \
 	-Og
 
+# Extra profiling flags
+#PROFILE_FLAGS = \
+#	-lprofiler
+
 ifeq ($(COSMOSIS_SRC_DIR),)
 # No cosmosis
 FC = gfortran
-FFLAGS = $(HMX_FFLAGS) -std=gnu -ffree-line-length-none 
+FFLAGS = $(HMX_FFLAGS) -ffree-line-length-none 
 all: bin lib
 else
 # With cosmosis
@@ -48,6 +53,9 @@ MOD_DIR = /Users/Mead/Physics/library/src
 # Debug build directory
 DEBUG_BUILD_DIR = debug_build
 
+# Profile build directory
+PROFILE_BUILD_DIR = profile_build
+
 # Library directory
 LIB_DIR = lib
 
@@ -59,53 +67,67 @@ TEST_DIR = tests
 
 # Objects
 _OBJ = \
+	precision.o \
 	constants.o \
 	physics.o \
 	sorting.o \
-	fix_polynomial.o \
+	special_functions.o \
 	basic_operations.o \
 	array_operations.o \
 	file_info.o \
+	io.o \
 	random_numbers.o \
 	table_integer.o \
-	special_functions.o \
 	interpolate.o \
 	solve_equations.o \
 	string_operations.o \
 	calculus_table.o \
 	statistics.o \
+	calculus.o \
+	minimization.o \
 	camb_stuff.o \
 	cosmology_functions.o \
 	hmx.o \
 	limber.o \
 	cosmic_emu_stuff.o \
-	owls.o \
+	owls_stuff.o \
 	owls_extras.o \
 	multidark_stuff.o
 
 # Add prefixes of build directory to objects
 OBJ = $(addprefix $(BUILD_DIR)/,$(_OBJ))
 DEBUG_OBJ = $(addprefix $(DEBUG_BUILD_DIR)/,$(_OBJ))
+PROFILE_OBJ = $(addprefix $(PROFILE_BUILD_DIR)/,$(_OBJ))
 
 # Make directories if they do not exist
 make_dirs = @mkdir -p $(@D)
 
-# Standard rules
-lib: $(LIB_DIR)/libhmx.a
-cosmosis: lib $(LIB_DIR)/HMx_cosmosis_interface.so
+# Standard HMx
 bin: $(BIN_DIR)/HMx
+
+# TILMAN: Library
+lib: $(LIB_DIR)/libhmx.a
+
+# TILMAN: Cosmosis interface
+cosmosis: lib $(LIB_DIR)/HMx_cosmosis_interface.so
+
+# TILMAN: Test
 test: $(TEST_DIR)/test_gas_gas
 
-# Debugging rules
+# HMx debugging rules
 debug: FFLAGS += $(DEBUG_FLAGS)
 debug: $(BIN_DIR)/HMx_debug
+
+# HMx profile rules
+#profile: FFLAGS += $(PROFILE_FLAGS)
+profile: $(BIN_DIR)/HMx_profile
 
 # Fitting
 fitting: $(BIN_DIR)/HMx_fitting
 
 # Fitting debugging
-fitting-debug: FFLAGS += $(DEBUG_FLAGS)
-fitting-debug: $(BIN_DIR)/HMx_fitting_debug
+fitting_debug: FFLAGS += $(DEBUG_FLAGS)
+fitting_debug: $(BIN_DIR)/HMx_fitting_debug
 
 # Rule to make object files
 $(BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
@@ -118,6 +140,11 @@ $(BIN_DIR)/HMx: $(OBJ) $(SRC_DIR)/HMx_driver.f90
 	$(make_dirs)
 	$(FC) -o $@ $^ -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
+# Rules to make test executables
+$(TEST_DIR)/test_gas_gas: $(OBJ) $(TEST_DIR)/test_gas_gas.f90
+	@echo "\nBuilding tests.\n"
+	$(FC) -o $@ $^ -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
+
 # Rule to make debugging objects
 $(DEBUG_BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
 	$(make_dirs)
@@ -128,10 +155,15 @@ $(BIN_DIR)/HMx_debug: $(DEBUG_OBJ) $(SRC_DIR)/HMx_driver.f90
 	@echo "\nBuilding debugging executable.\n"
 	$(FC) -o $@ $^ -J$(DEBUG_BUILD_DIR) $(LDFLAGS) $(FFLAGS)
 
-# Rules to make test executables
-$(TEST_DIR)/test_gas_gas: $(OBJ) $(TEST_DIR)/test_gas_gas.f90
-	@echo "\nBuilding tests.\n"
-	$(FC) -o $@ $^ -J$(BUILD_DIR) $(LDFLAGS) $(FFLAGS)
+# Rule to make profiling objects
+$(PROFILE_BUILD_DIR)/%.o: $(MOD_DIR)/%.f90
+	$(make_dirs)
+	$(FC) -c -o $@ $< -J$(PROFILE_BUILD_DIR) $(LDFLAGS) -lprofiler $(FFLAGS)
+
+# Rule to make profile executable
+$(BIN_DIR)/HMx_profile: $(PROFILE_OBJ) $(SRC_DIR)/HMx_driver.f90
+	@echo "\nBuilding profiling executable.\n"
+	$(FC) -o $@ $^ -J$(PROFILE_BUILD_DIR) $(LDFLAGS) -lprofiler $(FFLAGS)
 
 # Rules to make fitting executables
 $(BIN_DIR)/HMx_fitting: $(OBJ) $(SRC_DIR)/HMx_fitting.f90
@@ -160,15 +192,17 @@ $(LIB_DIR)/HMx_cosmosis_interface.so: $(SRC_DIR)/cosmosis_interface.f90
 clean:
 	rm -f $(BIN_DIR)/HMx
 	rm -f $(BIN_DIR)/HMx_debug
+	rm -f $(BIN_DIR)/HMx_profile
 	rm -f $(BIN_DIR)/HMx_fitting
 	rm -f $(BIN_DIR)/HMx_fitting_debug
 	rm -f $(LIB_DIR)/libhmx.a
 	rm -f $(LIB_DIR)/HMx_cosmosis_interface.so
 	rm -f $(BUILD_DIR)/*.o
 	rm -f $(BUILD_DIR)/*.mod
-	rm -f $(SRC_DIR)/*.mod
 	rm -f $(DEBUG_BUILD_DIR)/*.o
 	rm -f $(DEBUG_BUILD_DIR)/*.mod
+	rm -f $(PROFILE_BUILD_DIR)/*.o
+	rm -f $(PROFILE_BUILD_DIR)/*.mod
 	test -n "$(LIB_DIR)" && rm -rf $(LIB_DIR)/HMx_cosmosis_interface.so.dSYM/
 	test -n "$(BIN_DIR)" && rm -rf $(BIN_DIR)/HMx.dSYM/
 	test -n "$(BIN_DIR)" && rm -rf $(BIN_DIR)/HMx_debug.dSYM/

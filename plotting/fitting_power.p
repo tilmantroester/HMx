@@ -10,12 +10,13 @@ if(print==2) {set term qt}
 print ''
 
 # Data files
-data(base,type,icosmo,if1,if2,iz)=sprintf('%s_%s_cos%d_%d%d_z%d.dat',base,type,icosmo,if1,if2,iz)
+data(base,type,icosmo,if1,if2,iz)=sprintf('%s_z%1.3f_cos%d_%s_power_%d%d.dat',base,z,icosmo,type,if1,if2)
 #data(base,nchain,model,chain,type,icosmo,if1,if2,iz)=sprintf('%s_n%d_m%d_c%d_%s_cos%d_%d%d_z%d.dat',base,nchain,model,chain,type,icosmo,if1,if2,iz)
 
 # Field types
 field_names="'matter' 'CDM' 'gas' 'stars' 'pressure'"
 
+# Array for columns of files
 array cols[5]
 cols[1]=1
 cols[2]=2
@@ -27,7 +28,7 @@ if(!exist('c')){c=1}
 print 'Chain: ', c
 print ''
 
-klab='k / h^{-1} Mpc'
+klab='k / h Mpc^{-1}'
 
 plab='{/Symbol D}^2(k)'
 
@@ -143,6 +144,7 @@ if(nz != 1 && nz != 4 && nz !=11) {print 'nz must equal either 1, 4 or 11'; prin
 
 set style rect fc lt -1 fs solid 0.25 noborder
 
+#if(nz==1)  {set multiplot layout 1,1}
 if(nz==4)  {set multiplot layout 2,2}
 if(nz==11) {set multiplot layout 4,3}
 
@@ -152,10 +154,10 @@ unset key
 if(j==1){set key top left}
 
 if(nz==1 || nz==4) {
-if(j==1) {kmin=10.; zlab='z = 0.0'}
-if(j==2) {kmin=4. ; zlab='z = 0.5'}
-if(j==3) {kmin=2. ; zlab='z = 1.0'}
-if(j==4) {kmin=1. ; zlab='z = 2.0'}
+if(j==1) {kmin=10.; zlab='z = 0.000'}
+if(j==2) {kmin=4. ; zlab='z = 0.500'}
+if(j==3) {kmin=2. ; zlab='z = 1.000'}
+if(j==4) {kmin=1. ; zlab='z = 2.000'}
 }
 
 if(nz==11)  {
