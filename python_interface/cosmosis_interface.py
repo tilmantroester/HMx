@@ -58,7 +58,7 @@ def setup(options):
 def execute(block, config):
     cosmology = {"Omega_m"  : block[names.cosmological_parameters, "omega_m"],
                  "Omega_b"  : block[names.cosmological_parameters, "omega_b"],
-                 "Omega_v"  : 1 - block[names.cosmological_parameters, "omega_m"] - block[names.cosmological_parameters, "omega_k"], # Check sign!
+                 "Omega_v"  : block[names.cosmological_parameters, "omega_lambda"],
                  "h"        : block[names.cosmological_parameters, "h0"],
                  "n_s"      : block[names.cosmological_parameters, "n_s"],
                  "sigma_8"  : block[names.cosmological_parameters, "sigma_8"],
@@ -74,7 +74,7 @@ def execute(block, config):
     if config["mode"] == pyhmx.constants.HMCode2016:
         # Compute matter power spectrum with HMCode, parametrised by eta0 and A
         halo_model = {"eta0" : block[names.halo_model_parameters, "eta0"],
-                      "As"   : block[names.halo_model_parameters, "A"]}
+                      "A"    : block[names.halo_model_parameters, "A"]}
         
         Pk_HMx_dmonly = config["module"].run_HMCode(cosmology=cosmology,
                                                     halo_model=halo_model,
