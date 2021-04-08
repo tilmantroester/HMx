@@ -80,7 +80,8 @@ def execute(block, config):
                                                     halo_model=halo_model,
                                                     k=k_h,
                                                     z=z,
-                                                    pk_lin=pk_lin)
+                                                    pk_lin=pk_lin,
+                                                    verbose=config["verbose"])
 
         block.put_grid(config["nonlinear_matter_matter_power_output_section"], "z", z, "k_h", k_h, "p_k", Pk_HMx_dmonly)
     else:
@@ -95,7 +96,8 @@ def execute(block, config):
                                           mode=config["mode"],
                                           k=k_h,
                                           z=z,
-                                          pk_lin=pk_lin)
+                                          pk_lin=pk_lin,
+                                          verbose=config["verbose"])
 
         for i, field_name_i in enumerate(config["field_names"]):
             for j, field_name_j in enumerate(config["field_names"][i:]):

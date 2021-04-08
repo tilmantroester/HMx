@@ -51,9 +51,10 @@ class HMx:
                              verbose=verbose)
         return pofk[0,0]
 
-    def run_HMx(self, cosmology=None, halo_model=None, fields=None, mode=constants.HMx2020_matter_with_temperature_scaling,
-                k=None, z=None, 
-                pk_lin=None):
+    def run_HMx(self, cosmology=None, halo_model=None, fields=None,
+                mode=constants.HMx2020_matter_with_temperature_scaling,
+                k=None, z=None, pk_lin=None,
+                verbose=False):
         cosmology = cosmology or {}
         halo_model = halo_model or {}
         fields = fields or [constants.field_matter]
@@ -67,7 +68,7 @@ class HMx:
                              fields=fields,
                              k=k, z=z,
                              pk_lin=pk_lin,
-                             verbose=True)
+                             verbose=verbose)
         return pofk
 
     def get_function(self, name, c_bind=True):
