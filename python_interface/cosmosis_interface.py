@@ -17,7 +17,7 @@ field_mapping = {"matter"              : pyhmx.constants.field_matter,
                  "cdm"                 : pyhmx.constants.field_cdm,
                  "stars"               : pyhmx.constants.field_stars,
                  "gas"                 : pyhmx.constants.field_gas,
-                 "electron_pressure"   : pyhmx.constants.field_electron_pressure,}
+                 "pressure"            : pyhmx.constants.field_electron_pressure,}
 
 def setup(options):
     config = {}
@@ -99,7 +99,10 @@ def execute(block, config):
 
         for i, field_name_i in enumerate(config["field_names"]):
             for j, field_name_j in enumerate(config["field_names"][i:]):
-                block.put_grid(f"{field_name_i}_{field_name_j}_power_spectrum", "z", z, "k_h", k_h, "p_k", Pk_HMx[i,j])
+                block.put_grid(f"{field_name_i}_{field_name_j}_power_spectrum", "z", z, "k_h", k_h, "p_k", Pk_HMx[i,j+i])
+
+                if field_name_i == "matter" and field_name_j == "matter":
+                    block.put_grid(config["nonlinear_matter_matter_power_output_section"], "z", z, "k_h", k_h, "p_k", Pk_HMx[i,j+i])
 
     return 0
 
